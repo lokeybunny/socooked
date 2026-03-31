@@ -298,18 +298,26 @@ export default function SellerManager() {
     const { data } = await supabase.from('lw_sellers').select('*').order('created_at', { ascending: false }).limit(1000);
     const allSellers = data || [];
 
-    // Auto-promote: sellers with a valid phone still in 'new' → 'skip_traced'
+    // Auto-promote/demote based on phone presence
     const hasPhone = (s: any) => {
       const ph = s.owner_phone?.trim();
       if (ph && ph !== 'N/A' && ph.replace(/\D/g, '').length >= 7) return true;
       const metaPhones = s.meta?.all_phones;
       return Array.isArray(metaPhones) && metaPhones.length > 0;
     };
+    // Promote: new with phone → skip_traced
     const toPromote = allSellers.filter((s: any) => s.status === 'new' && hasPhone(s));
     if (toPromote.length > 0) {
       const ids = toPromote.map((s: any) => s.id);
       supabase.from('lw_sellers').update({ status: 'skip_traced' }).in('id', ids).then();
       allSellers.forEach((s: any) => { if (ids.includes(s.id)) s.status = 'skip_traced'; });
+    }
+    // Demote: skip_traced without phone → req_trace
+    const toDemote = allSellers.filter((s: any) => s.status === 'skip_traced' && !hasPhone(s));
+    if (toDemote.length > 0) {
+      const ids = toDemote.map((s: any) => s.id);
+      supabase.from('lw_sellers').update({ status: 'req_trace' }).in('id', ids).then();
+      allSellers.forEach((s: any) => { if (ids.includes(s.id)) s.status = 'req_trace'; });
     }
 
     setSellers(allSellers);
@@ -403,7 +411,12 @@ export default function SellerManager() {
         if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
 
         matched++;
-        const updates: Record<string, any> = { status: 'skip_traced', skip_traced_at: new Date().toISOString(), skip_trace_status: 'completed' };
+        const hasValidPhone = row.allPhones.length > 0;
+        const updates: Record<string, any> = {
+          status: hasValidPhone ? 'skip_traced' : 'req_trace',
+          skip_traced_at: new Date().toISOString(),
+          skip_trace_status: hasValidPhone ? 'completed' : 'no_phone',
+        };
         // Merge all phones from CSV into meta.all_phones and set primary phone
         const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
         const newPhones = row.allPhones.filter((p: string) => !existing.includes(p));
