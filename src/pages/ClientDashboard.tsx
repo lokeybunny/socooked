@@ -1033,8 +1033,18 @@ export default function ClientDashboard() {
                                 const mergedPhones = [...new Set([...existingPhones, ...parsed.phones])];
                                 const mergedNames = [...new Set([...existingNames, ...parsed.names])];
                                 const newMeta = { ...existingMeta, all_phones: mergedPhones, all_names: mergedNames };
-                                await supabase.from('lw_landing_leads').update({ meta: newMeta }).eq('id', lead.id);
-                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: newMeta } : l));
+                                // Auto-populate primary full_name and phone from first detected contact
+                                const updatePayload: any = { meta: newMeta };
+                                const needsName = !lead.full_name || lead.full_name === 'Property Owner' || lead.full_name === 'N/A' || lead.full_name.trim() === '';
+                                const needsPhone = !lead.phone || lead.phone === 'N/A' || lead.phone.trim() === '';
+                                if (needsName && mergedNames.length > 0) {
+                                  updatePayload.full_name = mergedNames[0];
+                                }
+                                if (needsPhone && mergedPhones.length > 0) {
+                                  updatePayload.phone = mergedPhones[0];
+                                }
+                                await supabase.from('lw_landing_leads').update(updatePayload).eq('id', lead.id);
+                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, ...updatePayload } : l));
                                 toast.success(`Added ${parsed.phones.length} phone(s), ${parsed.names.length} name(s)`);
                                 setContactPasteText('');
                               } catch (err: any) {
