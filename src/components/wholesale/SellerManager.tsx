@@ -1261,6 +1261,47 @@ export default function SellerManager() {
 
       {/* CSV Import */}
       <CsvImport open={csvOpen} onOpenChange={setCsvOpen} onImported={loadSellers} dealType={dealTypeFilter !== 'all' ? dealTypeFilter : 'land'} />
+
+      {/* Bulk Import Skip Trace Dialog */}
+      <Dialog open={importBulkOpen} onOpenChange={setImportBulkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Import Bulk Skip Trace</DialogTitle>
+            <DialogDescription>
+              Upload a CSV with an <strong>Address</strong> column. Matching leads will be updated to <strong>Skip Traced</strong> status. Optionally include Phone, Name, and Email columns to enrich records.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-dashed border-border p-6 text-center">
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleBulkImport(f);
+                }}
+              />
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">Select a .csv file with skip trace results</p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={importLoading}
+                onClick={() => importFileRef.current?.click()}
+              >
+                {importLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Processing…</> : 'Choose CSV File'}
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p><strong>Required:</strong> Address (or Property Address, Street Address)</p>
+              <p><strong>Optional:</strong> Phone, Name, Email — will enrich matched records</p>
+              <p>Only leads in New, Req. Trace, or Funnel Lead stages will be updated.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
