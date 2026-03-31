@@ -180,6 +180,9 @@ export default function SellerManager() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [importBulkOpen, setImportBulkOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoOpenedRef = useRef(false);
