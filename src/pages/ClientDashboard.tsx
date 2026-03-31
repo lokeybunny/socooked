@@ -1511,6 +1511,27 @@ export default function ClientDashboard() {
             );
           })}
         </div>
+        {totalLeadsPages > 1 && (
+          <div className="flex items-center justify-between pt-4">
+            <p className="text-xs text-white/40">Page {leadsPage} of {totalLeadsPages} · {filteredLeads.length} leads</p>
+            <div className="flex gap-1">
+              <button
+                disabled={leadsPage <= 1}
+                onClick={() => setLeadsPage(p => p - 1)}
+                className="h-7 w-7 rounded border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                disabled={leadsPage >= totalLeadsPages}
+                onClick={() => setLeadsPage(p => p + 1)}
+                className="h-7 w-7 rounded border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
         </>}
       </div>
 
