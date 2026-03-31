@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +30,7 @@ type GeoEntry = {
 };
 
 export default function BuyerGeoMap() {
+  const [, setSearchParams] = useSearchParams();
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedState, setExpandedState] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export default function BuyerGeoMap() {
       const { data } = await supabase
         .from('lw_buyers')
         .select('id, full_name, entity_name, buyer_type, target_states, target_counties, budget_min, budget_max, deal_type, status, pipeline_stage, meta')
-        .in('status', ['active', 'new_scraped'])
+        .in('pipeline_stage', ['active', 'warm'])
         .order('created_at', { ascending: false });
       setBuyers(data || []);
       setLoading(false);
@@ -109,6 +111,10 @@ export default function BuyerGeoMap() {
 
   const maxBuyers = geoData.length ? geoData[0].totalBuyers : 1;
 
+  const goToBuyer = (buyerId: string) => {
+    setSearchParams({ tab: 'buyers', open_id: buyerId });
+  };
+
   if (loading) {
     return (
       <Card>
@@ -124,7 +130,7 @@ export default function BuyerGeoMap() {
           <CardTitle className="text-lg flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
             Buyer Demand Geo Map
-            <Badge variant="outline" className="ml-auto">{buyers.length} active buyers</Badge>
+            <Badge variant="outline" className="ml-auto">{buyers.length} active / subscribed buyers</Badge>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             See where active buyers want to purchase — use this to target seller acquisition in high-demand zones.
@@ -187,16 +193,17 @@ export default function BuyerGeoMap() {
                           </div>
                           <div className="flex flex-wrap gap-1 max-w-[200px]">
                             {geo.buyers.slice(0, 3).map(b => (
-                              <span
+                              <button
                                 key={b.id}
-                                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                onClick={(e) => { e.stopPropagation(); goToBuyer(b.id); }}
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full cursor-pointer hover:ring-1 hover:ring-primary transition-all ${
                                   b.buyer_type === 'hedge_fund'
                                     ? 'bg-amber-500/15 text-amber-500 font-semibold'
-                                    : 'bg-muted text-muted-foreground'
+                                    : 'bg-muted text-muted-foreground hover:text-foreground'
                                 }`}
                               >
                                 {b.full_name.split(' ')[0]}
-                              </span>
+                              </button>
                             ))}
                             {geo.buyers.length > 3 && (
                               <span className="text-[10px] text-muted-foreground">+{geo.buyers.length - 3}</span>
