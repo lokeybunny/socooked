@@ -99,6 +99,15 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       .select("discord_user_id, discord_username, solana_wallet, status")
       .eq("status", "active");
 
+    // Fetch all payouts to calculate per-user paid amounts
+    const { data: payoutsRaw } = await supabase
+      .from("shill_payouts")
+      .select("discord_user_id, amount");
+    const paidByUser = new Map<string, number>();
+    for (const p of payoutsRaw || []) {
+      paidByUser.set(p.discord_user_id, (paidByUser.get(p.discord_user_id) || 0) + Number(p.amount || 0));
+    }
+
     const { data: configs } = await supabase
       .from("site_configs")
       .select("content")
