@@ -1060,6 +1060,10 @@ export default function ClientDashboard() {
                                 if (needsPhone && mergedPhones.length > 0) {
                                   updatePayload.phone = mergedPhones[0];
                                 }
+                                // Auto-promote to skip_traced if lead has a phone now and is still 'new'
+                                if (lead.status === 'new' && (mergedPhones.length > 0 || (updatePayload.phone))) {
+                                  updatePayload.status = 'skip_traced';
+                                }
                                 await supabase.from('lw_landing_leads').update(updatePayload).eq('id', lead.id);
                                 setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, ...updatePayload } : l));
                                 toast.success(`Added ${parsed.phones.length} phone(s), ${parsed.names.length} name(s)`);
