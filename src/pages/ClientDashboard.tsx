@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
   RefreshCw, Trash2, Archive, RotateCcw, Search, Building, Ruler, BedDouble, Bath,
   Calendar as CalendarIcon, User, MapPinned, TrendingUp, AlertTriangle, Check
 } from 'lucide-react';
@@ -502,6 +502,14 @@ export default function ClientDashboard() {
     return true;
   });
 
+  const LEADS_PAGE_SIZE = 20;
+  const [leadsPage, setLeadsPage] = useState(1);
+  const totalLeadsPages = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PAGE_SIZE));
+  const paginatedLeads = filteredLeads.slice((leadsPage - 1) * LEADS_PAGE_SIZE, leadsPage * LEADS_PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setLeadsPage(1); }, [filterPage, filterStage, activeSection]);
+
   const stageCounts = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage] = activeLeads.filter(l => l.status === stage).length;
     return acc;
@@ -869,7 +877,7 @@ export default function ClientDashboard() {
               </p>
             </div>
           )}
-          {filteredLeads.map(lead => {
+          {paginatedLeads.map(lead => {
             const isExpanded = expandedLead === lead.id;
             const isEditing = editingLead === lead.id;
             const pageName = landingPages.find(p => p.id === lead.landing_page_id)?.slug || '—';
@@ -1503,6 +1511,27 @@ export default function ClientDashboard() {
             );
           })}
         </div>
+        {totalLeadsPages > 1 && (
+          <div className="flex items-center justify-between pt-4">
+            <p className="text-xs text-white/40">Page {leadsPage} of {totalLeadsPages} · {filteredLeads.length} leads</p>
+            <div className="flex gap-1">
+              <button
+                disabled={leadsPage <= 1}
+                onClick={() => setLeadsPage(p => p - 1)}
+                className="h-7 w-7 rounded border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                disabled={leadsPage >= totalLeadsPages}
+                onClick={() => setLeadsPage(p => p + 1)}
+                className="h-7 w-7 rounded border border-white/10 flex items-center justify-center text-white/60 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
         </>}
       </div>
 
