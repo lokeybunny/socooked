@@ -1387,30 +1387,11 @@ export default function ClientDashboard() {
                       {/* Skip Trace — hot leads only */}
                       {isHotLead(lead) && (
                         <button
-                          onClick={() => skipTraceLead(lead)}
-                          disabled={skipTracingId === lead.id || !!(lead.meta as any)?.skip_traced || !!(lead.meta as any)?.skip_trace_pending}
-                          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 ${
-                            (lead.meta as any)?.skip_traced
-                              ? 'text-emerald-400/80'
-                              : (lead.meta as any)?.skip_trace_pending
-                                ? 'text-blue-400/80'
-                                : 'text-amber-400/80 hover:text-amber-300'
-                          }`}
+                          onClick={() => setSkipTracePopupLead(lead)}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-amber-400/80 hover:text-amber-300 transition-colors"
                         >
-                          {skipTracingId === lead.id || (lead.meta as any)?.skip_trace_pending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (lead.meta as any)?.skip_traced ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Search className="h-4 w-4" />
-                          )}
-                          {skipTracingId === lead.id
-                            ? 'Skip Tracing...'
-                            : (lead.meta as any)?.skip_trace_pending
-                              ? 'Tracing in progress...'
-                              : (lead.meta as any)?.skip_traced
-                                ? 'Skip Traced ✓'
-                                : 'Skip Trace Owner'}
+                          <Search className="h-4 w-4" />
+                          Skip Trace Owner
                         </button>
                       )}
                       {/* Enrich Property — hot leads with sparse data */}
