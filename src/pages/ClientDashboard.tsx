@@ -151,7 +151,6 @@ export default function ClientDashboard() {
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
   const [skipTracePopupLead, setSkipTracePopupLead] = useState<Lead | null>(null);
-  const [contactPasteOpen, setContactPasteOpen] = useState(false);
   const [contactPasteText, setContactPasteText] = useState('');
   const [contactSaving, setContactSaving] = useState(false);
 
@@ -994,11 +993,112 @@ export default function ClientDashboard() {
                             <Input type="number" value={editForm.asking_price ?? ''} onChange={e => setEditForm(f => ({ ...f, asking_price: e.target.value ? Number(e.target.value) : null }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
                           </div>
                         </div>
+
+                        {/* Paste Owner Contacts */}
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-2">
+                          <p className="text-[10px] text-amber-400 uppercase tracking-wider font-semibold flex items-center gap-1">
+                            <ClipboardPaste className="h-3 w-3" /> Paste Owner Contacts
+                          </p>
+                          <p className="text-[10px] text-white/30">Paste raw skip trace data — names and phone numbers will be auto-detected and added</p>
+                          <textarea
+                            className="w-full h-24 bg-zinc-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none"
+                            placeholder={"Dennis Galassi\n(626) 442-5048\n1\n0\n--\nDennis Galassi\n(626) 940-4007\n..."}
+                            value={contactPasteText}
+                            onChange={e => setContactPasteText(e.target.value)}
+                          />
+                          {contactPasteText.trim() && (() => {
+                            const preview = parseContactsPaste(contactPasteText);
+                            return (
+                              <div className="text-[10px] text-white/40">
+                                Preview: {preview.names.length} name(s), {preview.phones.length} phone(s) detected
+                                {preview.names.length > 0 && <span className="text-amber-400 ml-1">— {preview.names.join(', ')}</span>}
+                                {preview.phones.length > 0 && <span className="text-blue-400 ml-1">— {preview.phones.join(', ')}</span>}
+                              </div>
+                            );
+                          })()}
+                          <button
+                            onClick={async () => {
+                              if (!contactPasteText.trim()) return;
+                              setContactSaving(true);
+                              try {
+                                const parsed = parseContactsPaste(contactPasteText);
+                                if (parsed.phones.length === 0 && parsed.names.length === 0) {
+                                  toast.error('No names or phone numbers found');
+                                  setContactSaving(false);
+                                  return;
+                                }
+                                const existingMeta = lead.meta || {};
+                                const existingPhones: string[] = (existingMeta as any)?.all_phones || [];
+                                const existingNames: string[] = (existingMeta as any)?.all_names || [];
+                                const mergedPhones = [...new Set([...existingPhones, ...parsed.phones])];
+                                const mergedNames = [...new Set([...existingNames, ...parsed.names])];
+                                const newMeta = { ...existingMeta, all_phones: mergedPhones, all_names: mergedNames };
+                                await supabase.from('lw_landing_leads').update({ meta: newMeta }).eq('id', lead.id);
+                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: newMeta } : l));
+                                toast.success(`Added ${parsed.phones.length} phone(s), ${parsed.names.length} name(s)`);
+                                setContactPasteText('');
+                              } catch (err: any) {
+                                toast.error(err.message || 'Failed to save contacts');
+                              }
+                              setContactSaving(false);
+                            }}
+                            disabled={contactSaving || !contactPasteText.trim()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium transition-colors disabled:opacity-50"
+                          >
+                            {contactSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Save Contacts
+                          </button>
+                        </div>
+
+                        {/* Show existing parsed contacts */}
+                        {(() => {
+                          const allPhones: string[] = (lead.meta as any)?.all_phones || [];
+                          const allNames: string[] = (lead.meta as any)?.all_names || [];
+                          if (allPhones.length === 0 && allNames.length === 0) return null;
+                          return (
+                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+                              <p className="text-[10px] text-amber-400 uppercase tracking-wider font-semibold mb-1.5 flex items-center gap-1">
+                                <User className="h-3 w-3" /> Saved Contacts ({allNames.length} name{allNames.length !== 1 ? 's' : ''}, {allPhones.length} phone{allPhones.length !== 1 ? 's' : ''})
+                              </p>
+                              <div className="space-y-0.5">
+                                {allNames.map((name, i) => (
+                                  <div key={`n${i}`} className="flex items-center justify-between text-sm">
+                                    <span className="flex items-center gap-1 text-amber-300 font-medium">
+                                      <User className="h-3 w-3" /> {name} <CopyBtn text={name} />
+                                    </span>
+                                    <button onClick={async () => {
+                                      const newNames = allNames.filter(n => n !== name);
+                                      const newMeta = { ...lead.meta, all_names: newNames };
+                                      await supabase.from('lw_landing_leads').update({ meta: newMeta }).eq('id', lead.id);
+                                      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: newMeta } : l));
+                                      toast.success('Removed name');
+                                    }} className="text-white/20 hover:text-red-400"><X className="h-3 w-3" /></button>
+                                  </div>
+                                ))}
+                                {allPhones.map((phone, i) => (
+                                  <div key={`ph${i}`} className="flex items-center justify-between text-sm">
+                                    <span className="flex items-center gap-1 text-blue-400 font-medium">
+                                      <Phone className="h-3 w-3" /> <a href={`tel:${phone}`} className="hover:text-blue-300">{phone}</a> <CopyBtn text={phone} />
+                                    </span>
+                                    <button onClick={async () => {
+                                      const newPhones = allPhones.filter(p => p !== phone);
+                                      const newMeta = { ...lead.meta, all_phones: newPhones };
+                                      await supabase.from('lw_landing_leads').update({ meta: newMeta }).eq('id', lead.id);
+                                      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: newMeta } : l));
+                                      toast.success('Removed phone');
+                                    }} className="text-white/20 hover:text-red-400"><X className="h-3 w-3" /></button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => saveEdit(lead.id)} className="bg-white text-black hover:bg-white/90 h-7 text-xs">
                             <Save className="h-3 w-3 mr-1" />Save
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => setEditingLead(null)} className="text-white/40 hover:text-white h-7 text-xs">
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingLead(null); setContactPasteText(''); }} className="text-white/40 hover:text-white h-7 text-xs">
                             <X className="h-3 w-3 mr-1" />Cancel
                           </Button>
                         </div>
@@ -1592,57 +1692,6 @@ export default function ClientDashboard() {
             const allPhones: string[] = (m as any)?.all_phones || [];
             const allNames: string[] = (m as any)?.all_names || [];
 
-            const handleContactPasteSave = async () => {
-              if (!contactPasteText.trim()) { toast.error('Paste contact data first'); return; }
-              setContactSaving(true);
-              try {
-                const parsed = parseContactsPaste(contactPasteText);
-                if (parsed.phones.length === 0 && parsed.names.length === 0) {
-                  toast.error('No names or phone numbers found in pasted data');
-                  setContactSaving(false);
-                  return;
-                }
-                const existingPhones: string[] = (detailLead.meta as any)?.all_phones || [];
-                const existingNames: string[] = (detailLead.meta as any)?.all_names || [];
-                const mergedPhones = [...new Set([...existingPhones, ...parsed.phones])];
-                const mergedNames = [...new Set([...existingNames, ...parsed.names])];
-                const newMeta = { ...detailLead.meta, all_phones: mergedPhones, all_names: mergedNames };
-                const updateData: any = { meta: newMeta };
-                // If lead has no phone yet, set primary phone
-                if (!detailLead.phone && parsed.phones.length > 0) {
-                  updateData.phone = parsed.phones[0].replace(/\D/g, '');
-                }
-                // If lead has no name yet, set primary name
-                if ((!detailLead.full_name || detailLead.full_name === 'Unknown') && parsed.names.length > 0) {
-                  updateData.full_name = parsed.names[0];
-                }
-                await supabase.from('lw_landing_leads').update(updateData).eq('id', detailLead.id);
-                // Update local state
-                const updated = { ...detailLead, ...updateData, meta: newMeta };
-                setDetailLead(updated);
-                setLeads(prev => prev.map(l => l.id === detailLead.id ? { ...l, ...updateData, meta: newMeta } : l));
-                toast.success(`Added ${parsed.phones.length} phone(s), ${parsed.names.length} name(s)`);
-                setContactPasteOpen(false);
-                setContactPasteText('');
-              } catch (err: any) {
-                toast.error(err.message || 'Failed to save contacts');
-              }
-              setContactSaving(false);
-            };
-
-            const handleRemoveContact = async (type: 'phone' | 'name', value: string) => {
-              const currentPhones: string[] = (detailLead.meta as any)?.all_phones || [];
-              const currentNames: string[] = (detailLead.meta as any)?.all_names || [];
-              const newPhones = type === 'phone' ? currentPhones.filter(p => p !== value) : currentPhones;
-              const newNames = type === 'name' ? currentNames.filter(n => n !== value) : currentNames;
-              const newMeta = { ...detailLead.meta, all_phones: newPhones, all_names: newNames };
-              await supabase.from('lw_landing_leads').update({ meta: newMeta }).eq('id', detailLead.id);
-              const updated = { ...detailLead, meta: newMeta };
-              setDetailLead(updated);
-              setLeads(prev => prev.map(l => l.id === detailLead.id ? { ...l, meta: newMeta } : l));
-              toast.success(`Removed ${type}`);
-            };
-
             return (
               <div className="space-y-4">
                 {/* Contact Info */}
@@ -1730,7 +1779,7 @@ export default function ClientDashboard() {
                     </div>
                   )}
 
-                  {/* All Contacts (parsed from paste) */}
+                  {/* All Contacts (parsed from paste) — read-only view */}
                   {(allNames.length > 0 || allPhones.length > 0) && (
                     <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
                       <p className="text-[10px] text-amber-400 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1">
@@ -1738,72 +1787,20 @@ export default function ClientDashboard() {
                       </p>
                       <div className="space-y-1">
                         {allNames.map((name, i) => (
-                          <div key={`n${i}`} className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-1 text-amber-300 font-medium">
-                              <User className="h-3 w-3" />
-                              {name}
-                              <CopyBtn text={name} />
-                            </span>
-                            <button onClick={() => handleRemoveContact('name', name)} className="text-white/20 hover:text-red-400 transition-colors">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <span key={`n${i}`} className="flex items-center gap-1 text-sm text-amber-300 font-medium">
+                            <User className="h-3 w-3" /> {name} <CopyBtn text={name} />
+                          </span>
                         ))}
                         {allPhones.map((phone, i) => (
-                          <div key={`ph${i}`} className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-1 text-blue-400 font-medium">
-                              <Phone className="h-3 w-3" />
-                              <a href={`tel:${phone}`} className="hover:text-blue-300">{phone}</a>
-                              <CopyBtn text={phone} />
-                            </span>
-                            <button onClick={() => handleRemoveContact('phone', phone)} className="text-white/20 hover:text-red-400 transition-colors">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <span key={`ph${i}`} className="flex items-center gap-1 text-sm text-blue-400 font-medium">
+                            <Phone className="h-3 w-3" />
+                            <a href={`tel:${phone}`} className="hover:text-blue-300">{phone}</a>
+                            <CopyBtn text={phone} />
+                          </span>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {/* Paste Contacts Button + Panel */}
-                  <div className="mt-3">
-                    {!contactPasteOpen ? (
-                      <button
-                        onClick={() => { setContactPasteOpen(true); setContactPasteText(''); }}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
-                      >
-                        <ClipboardPaste className="h-3.5 w-3.5" />
-                        Paste Owner Contacts
-                      </button>
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-2">
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Paste raw skip trace data below</p>
-                        <p className="text-[10px] text-white/30">Names and phone numbers will be auto-detected</p>
-                        <textarea
-                          className="w-full h-28 bg-zinc-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none"
-                          placeholder={"Dennis Galassi\n(626) 442-5048\n1\n0\n--\nDennis Galassi\n(626) 940-4007\n..."}
-                          value={contactPasteText}
-                          onChange={e => setContactPasteText(e.target.value)}
-                        />
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleContactPasteSave}
-                            disabled={contactSaving}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium transition-colors disabled:opacity-50"
-                          >
-                            {contactSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save Contacts
-                          </button>
-                          <button
-                            onClick={() => { setContactPasteOpen(false); setContactPasteText(''); }}
-                            className="text-xs text-white/40 hover:text-white/70 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
                 <Separator className="bg-white/10" />
 
