@@ -398,10 +398,15 @@ export default function SellerManager() {
 
         matched++;
         const updates: Record<string, any> = { status: 'skip_traced', skip_traced_at: new Date().toISOString(), skip_trace_status: 'completed' };
+        // Merge all phones from CSV into meta.all_phones and set primary phone
+        const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
+        const newPhones = row.allPhones.filter((p: string) => !existing.includes(p));
         if (row.phone && row.phone.replace(/\D/g, '').length >= 7) {
           updates.owner_phone = row.phone;
-          const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
-          if (!existing.includes(row.phone)) updates.meta = { ...(seller.meta || {}), all_phones: [...existing, row.phone] };
+        }
+        if (newPhones.length > 0) {
+          updates.meta = { ...(seller.meta || {}), all_phones: [...existing, ...newPhones] };
+          updates.phones_found_count = existing.length + newPhones.length;
         }
         if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
         if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
