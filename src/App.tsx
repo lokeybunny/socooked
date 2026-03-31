@@ -53,6 +53,7 @@ import ShillCRM from "./pages/ShillCRM";
 import ShillTeam from "./pages/ShillTeam";
 import XShill from "./pages/XShill";
 import Wholesale from "./pages/Wholesale";
+import ApiManagement from "./pages/ApiManagement";
 import SellerLanding from "./pages/SellerLanding";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
