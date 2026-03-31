@@ -20,6 +20,7 @@ type Buyer = {
   email: string | null;
   phone: string | null;
   entity_name: string | null;
+  buyer_type: string | null;
   deal_type: string;
   target_states: string[];
   target_counties: string[];
@@ -35,6 +36,15 @@ type Buyer = {
   created_at: string;
   meta: any;
 };
+
+const BUYER_TYPES = [
+  { key: 'unknown', label: 'Unknown' },
+  { key: 'individual', label: 'Individual' },
+  { key: 'llc', label: 'LLC' },
+  { key: 'hedge_fund', label: '🏦 Hedge Fund' },
+  { key: 'reit', label: 'REIT' },
+  { key: 'developer', label: 'Developer' },
+];
 
 const DEAL_TYPES = [
   { key: 'land', label: '🏞️ Land' },
@@ -70,6 +80,7 @@ const emptyForm = {
   contact_preference: 'email',
   website: '',
   pipeline_stage: 'new_scraped',
+  buyer_type: 'unknown',
 };
 
 export default function BuyerManager() {
@@ -118,6 +129,7 @@ export default function BuyerManager() {
       contact_preference: b.meta?.contact_preference || 'email',
       website: b.meta?.website || '',
       pipeline_stage: b.meta?.pipeline_stage || (b as any).pipeline_stage || 'new_scraped',
+      buyer_type: b.buyer_type || 'unknown',
     });
     setInterests(b.meta?.interests || emptyInterests);
     setOpen(true);
@@ -146,6 +158,7 @@ export default function BuyerManager() {
       source: form.source,
       status: 'active',
       pipeline_stage: form.pipeline_stage,
+      buyer_type: form.buyer_type,
       meta: {
         interests,
         deal_types: form.deal_types,
@@ -299,7 +312,7 @@ export default function BuyerManager() {
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div className="space-y-1.5">
                     <Label>Source</Label>
                     <Select value={form.source} onValueChange={v => set('source', v)}>
@@ -319,6 +332,17 @@ export default function BuyerManager() {
                       <SelectContent>
                         {PIPELINE_STAGES.map(ps => (
                           <SelectItem key={ps.key} value={ps.key}>{ps.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Buyer Type</Label>
+                    <Select value={form.buyer_type} onValueChange={v => set('buyer_type', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {BUYER_TYPES.map(bt => (
+                          <SelectItem key={bt.key} value={bt.key}>{bt.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -435,14 +459,22 @@ export default function BuyerManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {buyers.map(b => {
+              {[...buyers].sort((a, b) => {
+                const aHedge = a.buyer_type === 'hedge_fund' ? 0 : 1;
+                const bHedge = b.buyer_type === 'hedge_fund' ? 0 : 1;
+                return aHedge - bHedge;
+              }).map(b => {
                 const tags = interestSummary(b);
+                const isHedgeFund = b.buyer_type === 'hedge_fund';
                 return (
-                  <TableRow key={b.id}>
+                  <TableRow key={b.id} className={isHedgeFund ? 'bg-amber-500/5 border-amber-500/20' : ''}>
                     <TableCell>
                       <div>
-                        <span className="font-medium">{b.full_name}</span>
-                        {b.entity_name && <span className="text-xs text-muted-foreground block">{b.entity_name}</span>}
+                        <span className={`font-medium ${isHedgeFund ? 'text-amber-400' : ''}`}>
+                          {isHedgeFund && '🏦 '}{b.full_name}
+                        </span>
+                        {b.entity_name && <span className={`text-xs block ${isHedgeFund ? 'text-amber-400/60' : 'text-muted-foreground'}`}>{b.entity_name}</span>}
+                        {isHedgeFund && <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Hedge Fund</span>}
                       </div>
                     </TableCell>
                     <TableCell>
