@@ -285,9 +285,16 @@ export default function CampaignHUD() {
               <Radio className={`h-4 w-4 ${activeCampaign ? "text-primary animate-pulse" : "text-destructive"}`} />
               {activeCampaign ? `Active Campaign: $${activeCampaign.ticker.replace(/^\$/, "")}` : "No Active Campaign"}
             </CardTitle>
-            <Button size="sm" variant="outline" onClick={openNewCampaign} className="gap-1.5 text-xs">
-              <Plus className="h-3 w-3" /> New Campaign
-            </Button>
+            <div className="flex items-center gap-2">
+              {activeCampaign && (
+                <Button size="sm" variant="outline" onClick={() => openEditCampaign(activeCampaign)} className="gap-1.5 text-xs">
+                  <Pencil className="h-3 w-3" /> Edit
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={openNewCampaign} className="gap-1.5 text-xs">
+                <Plus className="h-3 w-3" /> New Campaign
+              </Button>
+            </div>
           </div>
         </CardHeader>
         {activeCampaign && (
