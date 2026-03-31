@@ -44,6 +44,16 @@ const statusStyles: Record<string, string> = {
   confirmed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
 };
 
+const statusLabels: Record<string, string> = {
+  skip_traced: 'Skip Traced',
+  under_contract: 'Under Contract',
+  collecting_info: 'Collecting Info',
+  ready_for_docs: 'Ready for Docs',
+  docs_generated: 'Docs Generated',
+  sent_for_signature: 'Sent for Signature',
+  'in-progress': 'In Progress',
+};
+
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   return (
     <span className={cn(
@@ -51,7 +61,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
       statusStyles[status] || 'bg-muted text-muted-foreground',
       className
     )}>
-      {status}
+      {statusLabels[status] || status}
     </span>
   );
 }
