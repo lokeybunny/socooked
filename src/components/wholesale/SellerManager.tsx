@@ -179,6 +179,7 @@ export default function SellerManager() {
   const [distressFilters, setDistressFilters] = useState<DistressFilterState>(EMPTY_DISTRESS_FILTERS);
   const [csvOpen, setCsvOpen] = useState(false);
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoOpenedRef = useRef(false);
