@@ -1102,7 +1102,7 @@ export default function SellerManager() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <span className="font-medium text-sm">{s.owner_name || '—'}</span>
+                          <span className={`font-medium text-sm ${(s.meta as any)?.homeowner_price ? 'text-emerald-500 font-bold' : ''}`}>{s.owner_name || '—'}</span>
                           {s.owner_phone && (
                             <span
                               className="text-xs text-muted-foreground flex items-center gap-0.5 cursor-pointer hover:text-primary hover:underline transition-colors"
