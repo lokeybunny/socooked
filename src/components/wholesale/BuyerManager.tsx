@@ -470,8 +470,11 @@ export default function BuyerManager() {
                   <TableRow key={b.id} className={isHedgeFund ? 'bg-amber-500/5 border-amber-500/20' : ''}>
                     <TableCell>
                       <div>
-                        <span className="font-medium">{b.full_name}</span>
-                        {b.entity_name && <span className="text-xs text-muted-foreground block">{b.entity_name}</span>}
+                        <span className={`font-medium ${isHedgeFund ? 'text-amber-400' : ''}`}>
+                          {isHedgeFund && '🏦 '}{b.full_name}
+                        </span>
+                        {b.entity_name && <span className={`text-xs block ${isHedgeFund ? 'text-amber-400/60' : 'text-muted-foreground'}`}>{b.entity_name}</span>}
+                        {isHedgeFund && <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider">Hedge Fund</span>}
                       </div>
                     </TableCell>
                     <TableCell>
