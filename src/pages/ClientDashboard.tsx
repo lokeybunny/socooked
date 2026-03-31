@@ -117,6 +117,7 @@ export default function ClientDashboard() {
   const [batchEnriching, setBatchEnriching] = useState(false);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
+  const [skipTracePopupLead, setSkipTracePopupLead] = useState<Lead | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
