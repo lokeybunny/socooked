@@ -329,52 +329,20 @@ export default function ClientDashboard() {
     }
   };
 
-  // ─── Skip Trace via REAPI ───
+  // ─── Skip Trace via Apify one-api/skip-trace ───
   const skipTraceLead = async (lead: Lead) => {
+    if (!lead.property_address) {
+      toast.error('Lead has no property address for skip trace');
+      return;
+    }
     setSkipTracingId(lead.id);
     try {
-      // We need the seller_id — find it from lw_sellers by address
-      const { data: seller } = await supabase
-        .from('lw_sellers')
-        .select('id')
-        .eq('address_full', lead.property_address)
-        .maybeSingle();
-
-      if (!seller) {
-        // Insert into lw_sellers first if not found
-        const m = lead.meta || {};
-        const { data: newSeller, error: insertErr } = await supabase
-          .from('lw_sellers')
-          .insert({
-            owner_name: lead.full_name,
-            owner_phone: lead.phone,
-            address_full: lead.property_address,
-            city: (m as any).city || null,
-            state: (m as any).state || null,
-            zip: (m as any).zip || null,
-            county: (m as any).county || null,
-            source: 'hot_lead_skip_trace',
-            status: 'new',
-            deal_type: 'home',
-            motivation_score: 0,
-          })
-          .select('id')
-          .single();
-        if (insertErr || !newSeller) throw new Error('Failed to create seller record');
-        const { data, error } = await supabase.functions.invoke('land-reapi-skip-trace-single', {
-          body: { seller_id: newSeller.id },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        handleSkipTraceResult(lead, data);
-      } else {
-        const { data, error } = await supabase.functions.invoke('land-reapi-skip-trace-single', {
-          body: { seller_id: seller.id },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        handleSkipTraceResult(lead, data);
-      }
+      const { data, error } = await supabase.functions.invoke('apify-skip-trace', {
+        body: { lead_id: lead.id, address: lead.property_address },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      handleSkipTraceResult(lead, data);
     } catch (err: any) {
       toast.error(err.message || 'Skip trace failed');
     } finally {
