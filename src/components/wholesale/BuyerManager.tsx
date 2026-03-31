@@ -20,6 +20,7 @@ type Buyer = {
   email: string | null;
   phone: string | null;
   entity_name: string | null;
+  buyer_type: string | null;
   deal_type: string;
   target_states: string[];
   target_counties: string[];
@@ -35,6 +36,15 @@ type Buyer = {
   created_at: string;
   meta: any;
 };
+
+const BUYER_TYPES = [
+  { key: 'unknown', label: 'Unknown' },
+  { key: 'individual', label: 'Individual' },
+  { key: 'llc', label: 'LLC' },
+  { key: 'hedge_fund', label: '🏦 Hedge Fund' },
+  { key: 'reit', label: 'REIT' },
+  { key: 'developer', label: 'Developer' },
+];
 
 const DEAL_TYPES = [
   { key: 'land', label: '🏞️ Land' },
