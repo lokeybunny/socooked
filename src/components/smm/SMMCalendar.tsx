@@ -28,6 +28,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const [editTime, setEditTime] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'lanes'>('calendar');
+  const [clearing, setClearing] = useState(false);
   const dedupRan = useRef(false);
 
   useEffect(() => {
