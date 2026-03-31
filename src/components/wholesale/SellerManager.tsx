@@ -612,6 +612,10 @@ export default function SellerManager() {
     }
 
     list.sort((a, b) => {
+      // Sellers with homeowner_price always float to top
+      const aPrice = (a.meta as any)?.homeowner_price ? 1 : 0;
+      const bPrice = (b.meta as any)?.homeowner_price ? 1 : 0;
+      if (aPrice !== bPrice) return bPrice - aPrice;
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
