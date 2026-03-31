@@ -2009,39 +2009,45 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         <div className="space-y-1.5">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Free lookup shortcuts</p>
           <div className="grid grid-cols-1 gap-1.5">
-            <a
-              href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(s.owner_name || '')}&citystatezip=${encodeURIComponent([s.city, s.state].filter(Boolean).join(', '))}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.address_full || s.property_address || '');
+                toast.success('Address copied to clipboard');
+                setLookupIframeUrl(`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(s.owner_name || '')}&citystatezip=${encodeURIComponent([s.city, s.state].filter(Boolean).join(', '))}`);
+              }}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
             >
               <span>📞</span>
               <span className="flex-1">TruePeopleSearch</span>
               <span className="text-[10px] text-muted-foreground">Phone · Address · Relatives</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
-            </a>
-            <a
-              href="https://www.datatoleads.com/free-tools"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.address_full || s.property_address || '');
+                toast.success('Address copied to clipboard');
+                setLookupIframeUrl('https://www.cyberbackgroundchecks.com/');
+              }}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
             >
-              <span>📬</span>
-              <span className="flex-1">DataToLeads</span>
-              <span className="text-[10px] text-muted-foreground">Reverse phone · Email · Address</span>
+              <span>🔍</span>
+              <span className="flex-1">CyberBackgroundChecks</span>
+              <span className="text-[10px] text-muted-foreground">Background · Address · Phone</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
-            </a>
-            <a
-              href="https://www.propstream.com/"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.address_full || s.property_address || '');
+                toast.success('Address copied to clipboard');
+                setLookupIframeUrl('https://www.fastpeoplesearch.com/');
+              }}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
             >
-              <span>🏠</span>
-              <span className="flex-1">PropStream</span>
-              <span className="text-[10px] text-muted-foreground">Owner phone · Email · Free trial</span>
+              <span>⚡</span>
+              <span className="flex-1">FastPeopleSearch</span>
+              <span className="text-[10px] text-muted-foreground">Phone · Address · Relatives</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
-            </a>
+            </button>
           </div>
         </div>
       </div>
