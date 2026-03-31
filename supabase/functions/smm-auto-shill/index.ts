@@ -3043,7 +3043,8 @@ serve(async (req) => {
               source_tweet_url: sourceTweetUrl || null,
               receipt_tweet_url: _raidUrl,
               discord_msg_id: _discordMsgId !== "unknown" ? _discordMsgId : null,
-              status: "pending_verification",
+              status: "verified",
+              verified_at: new Date().toISOString(),
               click_type: "raid",
               rate: raider.rate_per_click || 0.02,
               raider_secret_code: raider.secret_code || null,
@@ -3052,9 +3053,9 @@ serve(async (req) => {
             // Audit log
             await supabase.from("activity_log").insert({
               entity_type: "raid-verification",
-              action: "submitted",
+              action: "verified",
               meta: {
-                name: `✅ ${discordUsername} submitted raid verification`,
+                name: `✅ ${discordUsername} raid auto-verified`,
                 discord_user_id: discordUserId,
                 discord_username: discordUsername,
                 raid_url: _raidUrl,
@@ -3064,7 +3065,7 @@ serve(async (req) => {
             });
 
             await followUpInteraction(applicationId, interactionToken,
-              `✅ **Raid verification submitted!**\n\n🔗 Your reply: ${_raidUrl}\n🔑 Code: \`#${raider.secret_code || "N/A"}\`\n\n⏳ An admin will review your raid before payout. Once verified, it will count toward your earnings.\n\n💡 Use \`/payout\` when you're ready to cash out verified work.`
+              `✅ **Raid verified!**\n\n🔗 Your reply: ${_raidUrl}\n💰 Earned: $${(raider.rate_per_click || 0.02).toFixed(2)}\n\n💡 Use \`/payout\` when you're ready to cash out verified work.`
             );
           } catch (err) {
             console.error("[auto-shill] Deferred raid verify error:", err);
