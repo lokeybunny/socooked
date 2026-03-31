@@ -57,6 +57,39 @@ function CopyableText({ text, children, className = '' }: { text: string; childr
   );
 }
 
+// --- Parse raw skip trace paste into names + phones ---
+function parseContactsPaste(raw: string): { names: string[]; phones: string[] } {
+  const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const phoneRegex = /\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g;
+  const phones: string[] = [];
+  const names: string[] = [];
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    // Extract phones
+    const foundPhones = line.match(phoneRegex);
+    if (foundPhones) {
+      for (const p of foundPhones) {
+        const digits = p.replace(/\D/g, '');
+        if (digits.length === 10 && !seen.has(digits)) {
+          seen.add(digits);
+          phones.push(`(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`);
+        }
+      }
+    }
+    // Check if line is a name (letters, spaces, hyphens only; 2+ words; not just numbers/symbols)
+    const cleaned = line.replace(phoneRegex, '').trim();
+    if (cleaned && /^[A-Za-z\s'-]{4,}$/.test(cleaned) && cleaned.split(/\s+/).length >= 2) {
+      const nameLower = cleaned.toLowerCase();
+      if (!seen.has(nameLower)) {
+        seen.add(nameLower);
+        names.push(cleaned.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '));
+      }
+    }
+  }
+  return { names, phones };
+}
+
 interface Lead {
   id: string;
   full_name: string;
