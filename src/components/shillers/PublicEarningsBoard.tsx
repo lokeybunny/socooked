@@ -228,12 +228,21 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const totalUnpaid = Math.max(0, totalVerified - totalPaidOut);
 
   const fetchAllPayouts = async () => {
-    const { data } = await supabase
-      .from("shill_payouts")
-      .select("id, discord_username, amount, payout_type, solana_tx_address, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    setAllPayouts(data || []);
+    let payouts: any[] = [];
+    let from = 0;
+    const PG = 1000;
+    while (true) {
+      const { data: batch } = await supabase
+        .from("shill_payouts")
+        .select("id, discord_username, discord_user_id, amount, payout_type, solana_tx_address, created_at")
+        .order("created_at", { ascending: false })
+        .range(from, from + PG - 1);
+      if (!batch || batch.length === 0) break;
+      payouts = payouts.concat(batch);
+      if (batch.length < PG) break;
+      from += PG;
+    }
+    setAllPayouts(payouts);
   };
 
   useEffect(() => { fetchAllPayouts(); }, []);
