@@ -2448,6 +2448,36 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         </div>
       </div>
 
+      {/* Email Offer Modal */}
+      <Dialog open={emailOfferOpen} onOpenChange={setEmailOfferOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">✉️ Email Offer to Seller</DialogTitle>
+            <DialogDescription className="text-xs">Review and edit the draft before sending. The recipient will be added to your CRM pipeline automatically.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">To</Label>
+              <Input value={emailOfferTo} onChange={e => setEmailOfferTo(e.target.value)} placeholder="owner@example.com" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Subject</Label>
+              <Input value={emailOfferSubject} onChange={e => setEmailOfferSubject(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Body</Label>
+              <Textarea value={emailOfferBody} onChange={e => setEmailOfferBody(e.target.value)} rows={14} className="text-sm" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setEmailOfferOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleSendEmailOffer} disabled={sendingEmailOffer || !emailOfferTo}>
+                {sendingEmailOffer ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Sending…</> : '📨 Send Email Offer'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Agreement Generator Modal */}
       <Dialog open={agreementOpen} onOpenChange={setAgreementOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
