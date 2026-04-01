@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Download, ExternalLink, Phone, FileSpreadsheet, Flag, AlertTriangle, Clock, TrendingDown, Search, Info } from 'lucide-react';
+import { Loader2, Clock, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const HOME_TYPE_OPTIONS = [
