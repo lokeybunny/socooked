@@ -329,7 +329,7 @@ export default function ZillowStaleSearch() {
                 </TableHeader>
                 <TableBody>
                   {results.map(lead => (
-                    <TableRow key={lead.id} className={lead.flagged ? 'bg-amber-500/5' : ''}>
+                    <TableRow key={lead.id} className={`bg-purple-400/10 ${lead.flagged ? 'bg-purple-400/20' : ''}`}>
                       <TableCell>
                         {lead.flagged && (
                           <Flag className="h-3.5 w-3.5 text-amber-500" />
