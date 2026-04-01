@@ -626,7 +626,7 @@ export default function SellerManager() {
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters, hideDuplicates]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, sourceFilter, search, sortField, sortAsc, distressFilters, hideDuplicates]);
 
   useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
