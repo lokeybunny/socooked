@@ -1022,7 +1022,7 @@ function ShillersTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shillers.map(s => (
+            {shillers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(s => (
               <TableRow key={s.discord_user_id}>
                 <TableCell className="font-medium">@{s.discord_username}</TableCell>
                 <TableCell>
