@@ -90,7 +90,7 @@ export default function CsvImport({ open, onOpenChange, onImported, dealType = '
   const [rows, setRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ inserted: number; updated: number; skipped: number } | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -127,45 +127,119 @@ export default function CsvImport({ open, onOpenChange, onImported, dealType = '
     reader.readAsText(file);
   };
 
+  // Normalize address for matching: lowercase, strip non-alphanumeric, remove common suffixes
+  const normalizeAddr = (addr: string) =>
+    addr.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\b(ave|avenue|st|street|rd|road|dr|drive|ln|lane|blvd|boulevard|ct|court|way|pl|place|cir|circle)\b/g, '').replace(/\s+/g, ' ').trim();
+
   const handleImport = async () => {
     setImporting(true);
     const batchId = `csv_${Date.now()}`;
     let inserted = 0;
+    let updated = 0;
     let skipped = 0;
 
-    const BATCH_SIZE = 50;
-    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE);
-      const records = batch.map(row => {
-        const rec: any = {
+    // Build records from CSV rows
+    const allRecords = rows.map(row => {
+      const rec: any = {};
+      mapping.forEach((field, idx) => {
+        if (field === 'skip' || !row[idx]) return;
+        const val = row[idx];
+        if (['acreage', 'lot_sqft', 'market_value', 'assessed_value', 'asking_price', 'bedrooms', 'bathrooms', 'living_sqft', 'years_owned', 'equity_percent'].includes(field)) {
+          const num = parseFloat(val.replace(/[$,]/g, ''));
+          if (!isNaN(num)) rec[field] = num;
+        } else {
+          rec[field] = val;
+        }
+      });
+      return rec;
+    }).filter(r => r.address_full || r.owner_name || r.apn);
+
+    if (allRecords.length === 0) {
+      toast.error('No valid records found in CSV');
+      setImporting(false);
+      return;
+    }
+
+    // Fetch all existing sellers for matching (paginate)
+    const existingSellers: any[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase.from('lw_sellers').select('id,address_full,apn,owner_phone,owner_email,owner_name,status').range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      existingSellers.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+
+    // Build lookup maps
+    const addrMap = new Map<string, any>();
+    const apnMap = new Map<string, any>();
+    for (const s of existingSellers) {
+      if (s.address_full) addrMap.set(normalizeAddr(s.address_full), s);
+      if (s.apn) apnMap.set(s.apn.toLowerCase().trim(), s);
+    }
+
+    const toInsert: any[] = [];
+    const toUpdate: { id: string; data: any }[] = [];
+
+    for (const rec of allRecords) {
+      // Try to match existing lead
+      let match: any = null;
+      if (rec.address_full) match = addrMap.get(normalizeAddr(rec.address_full));
+      if (!match && rec.apn) match = apnMap.get(rec.apn.toLowerCase().trim());
+
+      if (match) {
+        // Build update payload with only new/better contact info
+        const upd: any = {};
+        if (rec.owner_phone && rec.owner_phone !== match.owner_phone) upd.owner_phone = rec.owner_phone;
+        if (rec.owner_email && rec.owner_email !== match.owner_email) upd.owner_email = rec.owner_email;
+        if (rec.owner_name && rec.owner_name !== match.owner_name && (!match.owner_name || match.owner_name === 'Property Owner' || match.owner_name === 'N/A')) upd.owner_name = rec.owner_name;
+        if (rec.owner_mailing_address) upd.owner_mailing_address = rec.owner_mailing_address;
+        // Promote to skip_traced if we have a phone
+        const hasPhone = (rec.owner_phone && rec.owner_phone.replace(/\D/g, '').length >= 7);
+        if (hasPhone && ['new', 'req_trace'].includes(match.status)) {
+          upd.status = 'skip_traced';
+          upd.skip_traced_at = new Date().toISOString();
+        } else if (!hasPhone && match.status === 'new') {
+          upd.status = 'req_trace';
+        }
+        // Copy numeric fields if present and not already set
+        for (const f of ['acreage', 'lot_sqft', 'market_value', 'assessed_value', 'asking_price', 'bedrooms', 'bathrooms', 'living_sqft', 'years_owned', 'equity_percent']) {
+          if (rec[f] != null) upd[f] = rec[f];
+        }
+        if (Object.keys(upd).length > 0) {
+          upd.updated_at = new Date().toISOString();
+          toUpdate.push({ id: match.id, data: upd });
+        } else {
+          skipped++;
+        }
+      } else {
+        toInsert.push({
+          ...rec,
           source: 'csv_import',
           import_batch_id: batchId,
           deal_type: dealType === 'home' ? 'home' : 'land',
-          status: 'new',
+          status: (rec.owner_phone && rec.owner_phone.replace(/\D/g, '').length >= 7) ? 'skip_traced' : 'new',
           meta: {},
-        };
-        mapping.forEach((field, idx) => {
-          if (field === 'skip' || !row[idx]) return;
-          const val = row[idx];
-          if (['acreage', 'lot_sqft', 'market_value', 'assessed_value', 'asking_price', 'bedrooms', 'bathrooms', 'living_sqft', 'years_owned', 'equity_percent'].includes(field)) {
-            const num = parseFloat(val.replace(/[$,]/g, ''));
-            if (!isNaN(num)) rec[field] = num;
-          } else {
-            rec[field] = val;
-          }
         });
-        return rec;
-      }).filter(r => r.address_full || r.owner_name || r.apn); // need at least one identifying field
-
-      if (records.length === 0) { skipped += batch.length; continue; }
-
-      const { error } = await supabase.from('lw_sellers').insert(records);
-      if (error) {
-        console.error('CSV import batch error:', error);
-        skipped += records.length;
-      } else {
-        inserted += records.length;
       }
+    }
+
+    // Process updates in batches
+    for (const item of toUpdate) {
+      const { error } = await supabase.from('lw_sellers').update(item.data).eq('id', item.id);
+      if (error) { console.error('Update error:', error); skipped++; }
+      else updated++;
+    }
+
+    // Process inserts in batches
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+      const batch = toInsert.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase.from('lw_sellers').insert(batch);
+      if (error) { console.error('Insert error:', error); skipped += batch.length; }
+      else inserted += batch.length;
     }
 
     // Log ingestion run
@@ -175,17 +249,21 @@ export default function CsvImport({ open, onOpenChange, onImported, dealType = '
       records_fetched: rows.length,
       records_new: inserted,
       credits_used: 0,
-      params: { batch_id: batchId, headers, mapping },
+      params: { batch_id: batchId, headers, mapping, updated },
       status: 'completed',
     });
 
-    setResult({ inserted, skipped });
+    setResult({ inserted, updated, skipped });
     setImporting(false);
-    if (inserted > 0) {
-      toast.success(`Imported ${inserted} records${skipped > 0 ? `, ${skipped} skipped` : ''}`);
+    const parts: string[] = [];
+    if (updated > 0) parts.push(`${updated} leads updated`);
+    if (inserted > 0) parts.push(`${inserted} new leads imported`);
+    if (skipped > 0) parts.push(`${skipped} skipped`);
+    if (updated > 0 || inserted > 0) {
+      toast.success(parts.join(', '));
       onImported();
     } else {
-      toast.error('No records imported');
+      toast.error('No records imported or updated');
     }
   };
 
@@ -210,8 +288,10 @@ export default function CsvImport({ open, onOpenChange, onImported, dealType = '
         {result ? (
           <div className="text-center py-8 space-y-3">
             <Check className="h-10 w-10 mx-auto text-green-500" />
-            <p className="text-lg font-semibold">{result.inserted} records imported</p>
-            {result.skipped > 0 && <p className="text-sm text-muted-foreground">{result.skipped} rows skipped</p>}
+            {result.updated > 0 && <p className="text-lg font-semibold">{result.updated} existing leads updated with contact info</p>}
+            {result.inserted > 0 && <p className="text-lg font-semibold">{result.inserted} new records imported</p>}
+            {result.updated === 0 && result.inserted === 0 && <p className="text-lg font-semibold">No changes made</p>}
+            {result.skipped > 0 && <p className="text-sm text-muted-foreground">{result.skipped} rows skipped (no new data)</p>}
             <Button onClick={() => { reset(); onOpenChange(false); }}>Done</Button>
           </div>
         ) : headers.length === 0 ? (
