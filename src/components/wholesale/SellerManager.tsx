@@ -2123,7 +2123,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                    </button>
                 </div>
               )}
-              <div className="pt-2 flex justify-center">
+              <div className="pt-2 flex justify-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -2136,6 +2136,14 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                   }}
                 >
                   📝 Submit Agreement
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5 border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                  onClick={openEmailOffer}
+                >
+                  ✉️ Submit Email Offer
                 </Button>
               </div>
             </div>
