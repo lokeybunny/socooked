@@ -141,9 +141,9 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
       {/* Info sidebar */}
       <Card className="border-amber-500/30 bg-amber-500/5">
         <CardContent className="p-3 flex items-start gap-2">
-          <Info className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <Search className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Stale Zillow Leads</span> — These are warmer than fresh RealtorAPI data because sellers have been on market 30–180+ days and are far more motivated to accept cash wholesale offers.
+            <span className="font-semibold text-foreground">Stale Zillow Leads</span> — Scraped leads are automatically synced into the seller pipeline below with full feature parity.
           </p>
         </CardContent>
       </Card>
