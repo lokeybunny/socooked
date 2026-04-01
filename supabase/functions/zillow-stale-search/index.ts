@@ -10,29 +10,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate JWT
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
-
-    const { data: { user }, error: userErr } = await createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_ANON_KEY")!
-    ).auth.getUser(authHeader.replace("Bearer ", ""));
-    if (userErr || !user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const body = await req.json();
     const { action } = body;
