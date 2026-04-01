@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, RefreshCw, Shield, DollarSign, Users } from "lucide-react";
+import { ArrowLeft, RefreshCw, Shield, DollarSign, Users, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
