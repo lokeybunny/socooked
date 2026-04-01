@@ -190,7 +190,10 @@ export default function Raiders() {
                   <TableCell className="text-right font-mono">{raider.total_clicks}</TableCell>
                   <TableCell className="text-right font-mono">${raider.rate_per_click}</TableCell>
                   <TableCell className="text-right font-mono">
-                    ${(raider.total_clicks * raider.rate_per_click).toFixed(2)}
+                    ${raidClicks
+                      .filter(c => c.discord_user_id === raider.discord_user_id && (c.status === 'verified' || c.status === 'paid'))
+                      .reduce((s, c) => s + Number(c.rate || 0), 0)
+                      .toFixed(2)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(raider.created_at), { addSuffix: true })}
