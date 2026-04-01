@@ -233,6 +233,7 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
                 <><Search className="h-4 w-4" /> Run Scrape Now</>
               )}
             </Button>
+          </div>
 
           {running && (
             <div className="space-y-2">
