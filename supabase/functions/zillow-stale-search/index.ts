@@ -105,49 +105,56 @@ Deno.serve(async (req) => {
         for (let i = 0; i < items.length; i += batchSize) {
           const batch = items.slice(i, i + batchSize);
           const rows = batch.map((item: any) => {
-            // Calculate price drop info from priceHistory
             const priceHistory = item.priceHistory || [];
+            const currentPrice = item.price_listed ?? item.price ?? null;
+            const originalEvent = Array.isArray(priceHistory)
+              ? priceHistory.find((entry: any) => entry?.event === "Listed for sale") ?? priceHistory[0]
+              : null;
+            const originalPrice = originalEvent?.price ?? null;
+
             let priceDrop = 0;
             let dropCount = 0;
-            if (priceHistory.length >= 2) {
-              const originalPrice = priceHistory[0]?.price;
-              const currentPrice = priceHistory[priceHistory.length - 1]?.price;
-              if (originalPrice && currentPrice && originalPrice > currentPrice) {
-                priceDrop = Math.round(((originalPrice - currentPrice) / originalPrice) * 100 * 10) / 10;
+            if (priceHistory.length >= 1) {
+              if (originalPrice && currentPrice && Number(originalPrice) > Number(currentPrice)) {
+                priceDrop = Math.round((((Number(originalPrice) - Number(currentPrice)) / Number(originalPrice)) * 100) * 10) / 10;
               }
-              dropCount = priceHistory.filter((h: any) => h.event === "Price change" || h.priceChangeRate < 0).length;
+              dropCount = priceHistory.filter((h: any) => h?.event === "Price change" || Number(h?.priceChangeRate) < 0).length;
             }
 
             return {
               zpid: String(item.zpid || ""),
-              address: item.streetAddress || item.address || "",
+              address: item.street_address || item.streetAddress || item.address || "",
               city: item.city || "",
               state: item.state || "",
-              zip: item.zipcode || item.zip || "",
-              listed_price: item.price || null,
+              zip: item.zip || item.zipcode || "",
+              listed_price: currentPrice,
               zestimate: item.zestimate || null,
-              days_on_zillow: item.daysOnZillow || item.timeOnZillow || null,
+              days_on_zillow: item.days_on_zillow ?? item.days_on_market_calculated ?? item.daysOnZillow ?? item.timeOnZillow ?? null,
               bedrooms: item.bedrooms || null,
               bathrooms: item.bathrooms || null,
-              sqft: item.livingArea || item.sqft || null,
-              lot_sqft: item.lotAreaValue || null,
-              year_built: item.yearBuilt || null,
-              home_type: item.homeType || "",
-              home_status: item.homeStatus || "FOR_SALE",
-              zillow_url: item.url || (item.zpid ? `https://www.zillow.com/homedetails/${item.zpid}_zpid/` : ""),
-              agent_name: item.listingAgent?.name || item.agentName || "",
-              agent_phone: item.listingAgent?.phone || item.agentPhone || "",
-              brokerage: item.brokerageName || item.brokerage || "",
+              sqft: item.living_area_sqft ?? item.livingArea ?? item.sqft ?? null,
+              lot_sqft: item.lot_size_sqft ?? item.lotAreaValue ?? null,
+              year_built: item.year_built ?? item.yearBuilt ?? null,
+              home_type: item.home_type || item.homeType || "",
+              home_status: item.home_status || item.homeStatus || "FOR_SALE",
+              zillow_url: item.zillow_url || item.url || (item.zpid ? `https://www.zillow.com/homedetails/${item.zpid}_zpid/` : ""),
+              agent_name: item.agent_name || item.listingAgent?.name || item.agentName || "",
+              agent_phone: item.agent_phone || item.listingAgent?.phone || item.agentPhone || "",
+              brokerage: item.brokerage_name || item.brokerageName || item.brokerage || "",
               price_history: priceHistory,
               total_price_drop_percent: priceDrop || null,
               price_drop_count: dropCount,
-              date_posted: item.datePosted || item.dateSold || null,
+              date_posted: item.date_posted || item.datePosted || item.dateSold || null,
               flagged: priceDrop >= 15 || dropCount >= 2,
               apify_run_id: runId,
               meta: {
-                raw_home_status: item.homeStatus,
-                lot_area_unit: item.lotAreaUnit,
-                listing_sub_type: item.listingSubType,
+                raw_home_status: item.home_status || item.homeStatus,
+                county: item.county,
+                price_per_sqft: item.price_per_sqft,
+                rent_zestimate: item.rent_zestimate,
+                hoa_fee: item.hoa_fee,
+                latitude: item.latitude,
+                longitude: item.longitude,
               },
             };
           });
