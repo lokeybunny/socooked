@@ -3153,6 +3153,12 @@ serve(async (req) => {
               return;
             }
 
+            // Blocklist check
+            if (isBlockedVerifier(discordUsername)) {
+              await followUpInteraction(applicationId, interactionToken, "🚫 Your account has been blocked from verifications. Contact an admin.");
+              return;
+            }
+
             // Find this user's pending click
             const { data: pendingClick } = await supabase
               .from("shill_clicks")
