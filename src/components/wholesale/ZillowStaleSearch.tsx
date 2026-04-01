@@ -35,6 +35,9 @@ export default function ZillowStaleSearch() {
   const [totalFound, setTotalFound] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Auto-load previous results on mount
+  useEffect(() => { loadResults(); }, []);
+
   const toggleHomeType = (type: string) => {
     setHomeTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
