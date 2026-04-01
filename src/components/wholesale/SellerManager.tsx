@@ -592,7 +592,8 @@ export default function SellerManager() {
       });
     }
     if (df.skipTraceStatus) list = list.filter(s => (s.skip_trace_status || 'not_ready') === df.skipTraceStatus);
-    if (df.stage) list = list.filter(s => s.status === df.stage);
+    // Only apply distress stage filter when pipeline bar is set to 'all' to avoid double-filtering
+    if (df.stage && stageFilter === 'all') list = list.filter(s => s.status === df.stage);
     if (df.dealType) list = list.filter(s => (s.deal_type || 'land') === df.dealType);
     if (df.auctionStatus && df.auctionStatus !== 'none') list = list.filter(s => s.auction_status === df.auctionStatus);
     else if (df.auctionStatus === 'none') list = list.filter(s => !s.auction_status);
@@ -662,7 +663,7 @@ export default function SellerManager() {
             size="sm"
             variant={stageFilter === s.key ? 'default' : 'outline'}
             className={`text-xs whitespace-nowrap ${s.key === 'req_trace' && stageFilter !== s.key ? 'border-red-500/50 text-red-500' : ''}`}
-            onClick={() => setStageFilter(s.key)}
+            onClick={() => { setStageFilter(s.key); setDistressFilters(f => ({ ...f, stage: undefined })); }}
           >
             {s.label}
             <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
