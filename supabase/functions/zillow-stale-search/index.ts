@@ -168,9 +168,9 @@ Deno.serve(async (req) => {
             const fullAddr = [addr, r.city, r.state, r.zip].filter(Boolean).join(", ");
             return {
               address_full: fullAddr,
-              city: r.city || "",
-              state: r.state || "",
-              zip: r.zip || "",
+              city: r.city || null,
+              state: r.state || null,
+              zip: r.zip || null,
               deal_type: "home",
               market_value: r.listed_price || null,
               asking_price: r.listed_price || null,
@@ -208,7 +208,10 @@ Deno.serve(async (req) => {
               const { data: existing } = await sb.from("lw_sellers").select("id").eq("source_record_id", sr.source_record_id).limit(1);
               if (existing && existing.length > 0) continue;
             }
-            await sb.from("lw_sellers").insert(sr);
+            const { error: sellerErr } = await sb.from("lw_sellers").insert(sr);
+            if (sellerErr) {
+              console.error("lw_sellers sync error:", sellerErr.message, JSON.stringify(sr));
+            }
           }
         }
 
