@@ -221,18 +221,28 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [roleFilter]);
 
-  const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
-  const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
-  const totalPaidOut = allPayouts.reduce((s, p) => s + Number(p.amount), 0);
+  // Always compute unified totals from ALL users (not role-filtered) for consistency
+  const totalVerified = allRows.reduce((s, r) => s + r.verified_amount, 0);
+  const totalPending = allRows.reduce((s, r) => s + r.pending_amount, 0);
+  const totalPaidOut = allRows.reduce((s, r) => s + r.paid_out, 0);
   const totalUnpaid = Math.max(0, totalVerified - totalPaidOut);
 
   const fetchAllPayouts = async () => {
-    const { data } = await supabase
-      .from("shill_payouts")
-      .select("id, discord_username, amount, payout_type, solana_tx_address, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    setAllPayouts(data || []);
+    let payouts: any[] = [];
+    let from = 0;
+    const PG = 1000;
+    while (true) {
+      const { data: batch } = await supabase
+        .from("shill_payouts")
+        .select("id, discord_username, discord_user_id, amount, payout_type, solana_tx_address, created_at")
+        .order("created_at", { ascending: false })
+        .range(from, from + PG - 1);
+      if (!batch || batch.length === 0) break;
+      payouts = payouts.concat(batch);
+      if (batch.length < PG) break;
+      from += PG;
+    }
+    setAllPayouts(payouts);
   };
 
   useEffect(() => { fetchAllPayouts(); }, []);
@@ -342,17 +352,22 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
         </Button>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Unified summary stats — always shows ALL workers combined */}
+      <div className="grid grid-cols-5 gap-3">
         <div className="rounded-lg border border-border p-3 text-center">
           <Users className="h-4 w-4 mx-auto mb-1 text-primary" />
-          <p className="text-2xl font-bold text-foreground">{rows.length}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Workers</p>
+          <p className="text-2xl font-bold text-foreground">{allRows.length}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">All Workers</p>
         </div>
         <div className="rounded-lg border border-border p-3 text-center">
           <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
           <p className="text-2xl font-bold text-green-500">${totalVerified.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified</p>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <RefreshCw className="h-4 w-4 mx-auto mb-1 text-yellow-500" />
+          <p className="text-2xl font-bold text-yellow-500">${totalPending.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pending</p>
         </div>
         <div className="rounded-lg border border-border p-3 text-center">
           <Wallet className="h-4 w-4 mx-auto mb-1 text-amber-500" />
@@ -365,6 +380,9 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Paid Out</p>
         </div>
       </div>
+      <p className="text-[10px] text-muted-foreground text-center">
+        Totals are unified across all shillers &amp; raiders. Unpaid = Verified − Paid Out.
+      </p>
 
       {/* Wallet Lookup + Payout Section */}
       <div className="rounded-lg border border-border p-4 space-y-3 bg-card">
