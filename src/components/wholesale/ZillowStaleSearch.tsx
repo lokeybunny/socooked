@@ -112,11 +112,9 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
           if (pollData?.status === 'SUCCEEDED') {
             clearInterval(pollRef.current!);
             setProgress(100);
-            setTotalFound(pollData.totalFound || 0);
             setStatusText(`Found ${pollData.totalFound} leads, stored ${pollData.stored}`);
             toast.success(`Found ${pollData.totalFound} warm wholesale leads!`);
-            // Load results from DB
-            await loadResults();
+            onSyncComplete?.();
             setRunning(false);
           } else if (pollData?.status === 'FAILED' || pollData?.status === 'ABORTED' || pollData?.status === 'TIMED-OUT') {
             clearInterval(pollRef.current!);
