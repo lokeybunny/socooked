@@ -173,6 +173,7 @@ export default function SellerManager() {
   const [stateFilter, setStateFilter] = useState('all');
   const [stageFilter, setStageFilter] = useState('all');
   const [dealTypeFilter, setDealTypeFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [hideDuplicates, setHideDuplicates] = useState(true);
   const [fetchSource, setFetchSource] = useState<'reapi' | 'zillow'>('reapi');
   const [sortField, setSortField] = useState('motivation_score');
@@ -553,6 +554,7 @@ export default function SellerManager() {
     if (stateFilter !== 'all') list = list.filter(s => s.state === stateFilter);
     if (stageFilter !== 'all') list = list.filter(s => s.status === stageFilter);
     if (dealTypeFilter !== 'all') list = list.filter(s => (s.deal_type || 'land') === dealTypeFilter);
+    if (sourceFilter !== 'all') list = list.filter(s => (s.source || 'reapi') === sourceFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(s =>
@@ -624,9 +626,9 @@ export default function SellerManager() {
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters, hideDuplicates]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, sourceFilter, search, sortField, sortAsc, distressFilters, hideDuplicates]);
 
-  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
+  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, sourceFilter, search, sortField, sortAsc, distressFilters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -1022,6 +1024,16 @@ export default function SellerManager() {
                 <SelectItem value="land"><span className="flex items-center gap-1.5"><TreePine className="h-3.5 w-3.5" /> Land</span></SelectItem>
                 <SelectItem value="home"><span className="flex items-center gap-1.5"><Home className="h-3.5 w-3.5" /> Homes</span></SelectItem>
                 <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="reapi">RealtorAPI</SelectItem>
+                <SelectItem value="zillow_apify">Zillow Apify</SelectItem>
+                <SelectItem value="funnel_lead">Funnel Leads</SelectItem>
+                <SelectItem value="csv_import">CSV Import</SelectItem>
               </SelectContent>
             </Select>
             <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground whitespace-nowrap">
