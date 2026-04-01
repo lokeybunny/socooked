@@ -634,17 +634,20 @@ export default function SellerManager() {
 
   const filtered = useMemo(() => {
     let list = [...sellers];
-    if (stateFilter !== 'all') list = list.filter(s => s.state === stateFilter);
-    if (stageFilter !== 'all') list = list.filter(s => s.status === stageFilter);
-    if (dealTypeFilter !== 'all') list = list.filter(s => (s.deal_type || 'land') === dealTypeFilter);
-    if (sourceFilter !== 'all') list = list.filter(s => (s.source || 'reapi') === sourceFilter);
-    if (search.trim()) {
+    const hasSearchQuery = search.trim().length > 0;
+    if (stateFilter !== 'all' && !hasSearchQuery) list = list.filter(s => s.state === stateFilter);
+    if (stageFilter !== 'all' && !hasSearchQuery) list = list.filter(s => s.status === stageFilter);
+    if (dealTypeFilter !== 'all' && !hasSearchQuery) list = list.filter(s => (s.deal_type || 'land') === dealTypeFilter);
+    // Skip source filter when searching so results are global across all APIs
+    if (sourceFilter !== 'all' && !hasSearchQuery) list = list.filter(s => (s.source || 'reapi') === sourceFilter);
+    if (hasSearchQuery) {
       const q = search.toLowerCase();
       list = list.filter(s =>
         (s.owner_name || '').toLowerCase().includes(q) ||
         (s.address_full || '').toLowerCase().includes(q) ||
         (s.county || '').toLowerCase().includes(q) ||
         (s.city || '').toLowerCase().includes(q) ||
+        (s.zip || '').toLowerCase().includes(q) ||
         (s.apn || '').toLowerCase().includes(q)
       );
     }
