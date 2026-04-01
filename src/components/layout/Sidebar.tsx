@@ -40,7 +40,7 @@ const navEntries: NavEntry[] = [
   { to: '/research', icon: Target, label: 'Finder', green: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
   {
-    icon: Crosshair, label: 'X', divider: 'Services',
+    icon: Crosshair, label: 'X Promo', divider: 'Services',
     children: [
       { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
       { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
