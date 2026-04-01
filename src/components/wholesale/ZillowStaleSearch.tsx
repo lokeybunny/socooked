@@ -35,12 +35,7 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [totalFound, setTotalFound] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Auto-load previous results on mount
-  useEffect(() => { loadResults(); }, []);
 
   const toggleHomeType = (type: string) => {
     setHomeTypes(prev =>
