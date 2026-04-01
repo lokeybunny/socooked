@@ -1101,7 +1101,7 @@ export default function SellerManager() {
                   {paginated.map(s => {
                     const tempIcon = (s.lead_temperature || ((s.motivation_score || 0) >= 70 ? 'Hot' : (s.motivation_score || 0) >= 45 ? 'Warm' : 'Cold'));
                     return (
-                    <TableRow key={s.id} className={`${isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''} ${selectedIds.has(s.id) ? 'bg-primary/5' : ''}`}>
+                    <TableRow key={s.id} className={`${s.source === 'zillow_apify' ? 'bg-purple-400/10 border-l-2 border-l-purple-400' : ''} ${isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''} ${selectedIds.has(s.id) ? 'bg-primary/5' : ''}`}>
                       <TableCell className="text-center">
                         <Checkbox
                           checked={selectedIds.has(s.id)}

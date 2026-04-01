@@ -161,6 +161,55 @@ Deno.serve(async (req) => {
 
           const { error: insertErr } = await sb.from("stale_zillow_leads").insert(rows);
           if (!insertErr) stored += rows.length;
+
+          // Also sync into lw_sellers pipeline so they appear alongside RealtorAPI leads
+          const sellerRows = rows.map((r: any) => {
+            const addr = r.address;
+            const fullAddr = [addr, r.city, r.state, r.zip].filter(Boolean).join(", ");
+            return {
+              address_full: fullAddr,
+              city: r.city || "",
+              state: r.state || "",
+              zip: r.zip || "",
+              deal_type: "home",
+              market_value: r.listed_price || null,
+              asking_price: r.listed_price || null,
+              bedrooms: r.bedrooms || null,
+              bathrooms: r.bathrooms || null,
+              living_sqft: r.sqft || null,
+              lot_sqft: r.lot_sqft || null,
+              owner_name: r.agent_name || null,
+              owner_phone: r.agent_phone || null,
+              source: "zillow_apify",
+              status: "new",
+              motivation_score: r.flagged ? 70 : Math.min(60, (r.days_on_zillow || 30)),
+              meta: {
+                zpid: r.zpid,
+                zillow_url: r.zillow_url,
+                zestimate: r.zestimate,
+                days_on_zillow: r.days_on_zillow,
+                price_drop_count: r.price_drop_count,
+                total_price_drop_percent: r.total_price_drop_percent,
+                brokerage: r.brokerage,
+                home_type: r.home_type,
+                home_status: r.home_status,
+                apify_run_id: runId,
+                latitude: r.meta?.latitude,
+                longitude: r.meta?.longitude,
+              },
+              latitude: r.meta?.latitude || null,
+              longitude: r.meta?.longitude || null,
+              source_record_id: r.zpid ? `zillow_${r.zpid}` : null,
+            };
+          });
+          // Upsert by source_record_id to avoid duplicates
+          for (const sr of sellerRows) {
+            if (sr.source_record_id) {
+              const { data: existing } = await sb.from("lw_sellers").select("id").eq("source_record_id", sr.source_record_id).limit(1);
+              if (existing && existing.length > 0) continue;
+            }
+            await sb.from("lw_sellers").insert(sr);
+          }
         }
 
         return new Response(
