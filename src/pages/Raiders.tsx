@@ -36,20 +36,32 @@ export default function Raiders() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [{ data: raiderData }, { data: clickData }] = await Promise.all([
-      supabase
-        .from("raiders")
-        .select("*")
-        .order("total_clicks", { ascending: false }),
-      supabase
+
+    // Fetch ALL raid clicks via pagination (default limit is 1000)
+    let allClicks: any[] = [];
+    let from = 0;
+    const PAGE_BATCH = 1000;
+    while (true) {
+      const { data: batch } = await supabase
         .from("shill_clicks")
         .select("*")
         .eq("click_type", "raid")
         .order("created_at", { ascending: false })
-        .limit(200),
+        .range(from, from + PAGE_BATCH - 1);
+      if (!batch || batch.length === 0) break;
+      allClicks = allClicks.concat(batch);
+      if (batch.length < PAGE_BATCH) break;
+      from += PAGE_BATCH;
+    }
+
+    const [{ data: raiderData }] = await Promise.all([
+      supabase
+        .from("raiders")
+        .select("*")
+        .order("total_clicks", { ascending: false }),
     ]);
     setRaiders((raiderData as any[]) || []);
-    setRaidClicks(clickData || []);
+    setRaidClicks(allClicks);
     setLoading(false);
   }, []);
 
@@ -80,10 +92,10 @@ export default function Raiders() {
     }
   };
 
-  const totalPending = raidClicks.filter((c) => c.status === "clicked").length;
-  const totalVerified = raidClicks.filter((c) => c.status === "verified").length;
-  const totalOwed = totalPending * 0.02;
-  const totalVerifiedPaid = totalVerified * 0.02;
+  const totalPending = raidClicks.filter((c) => c.status === "clicked").reduce((s, c) => s + Number(c.rate || 0), 0);
+  const totalVerifiedAmt = raidClicks.filter((c) => c.status === "verified").reduce((s, c) => s + Number(c.rate || 0), 0);
+  const pendingCount = raidClicks.filter((c) => c.status === "clicked").length;
+  const verifiedCount = raidClicks.filter((c) => c.status === "verified").length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,22 +137,22 @@ export default function Raiders() {
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <Shield className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <p className="text-3xl font-bold text-foreground">{totalPending}</p>
+            <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <Shield className="h-5 w-5 mx-auto mb-1 text-green-500" />
-            <p className="text-3xl font-bold text-foreground">{totalVerified}</p>
+            <p className="text-3xl font-bold text-foreground">{verifiedCount}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Verified</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-            <p className="text-3xl font-bold text-foreground">${totalOwed.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-foreground">${totalPending.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending Owed</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto mb-1 text-green-500" />
-            <p className="text-3xl font-bold text-foreground text-green-500">${totalVerifiedPaid.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-foreground text-green-500">${totalVerifiedAmt.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Verified Paid</p>
           </div>
         </div>
@@ -178,7 +190,10 @@ export default function Raiders() {
                   <TableCell className="text-right font-mono">{raider.total_clicks}</TableCell>
                   <TableCell className="text-right font-mono">${raider.rate_per_click}</TableCell>
                   <TableCell className="text-right font-mono">
-                    ${(raider.total_clicks * raider.rate_per_click).toFixed(2)}
+                    ${raidClicks
+                      .filter(c => c.discord_user_id === raider.discord_user_id && (c.status === 'verified' || c.status === 'paid'))
+                      .reduce((s, c) => s + Number(c.rate || 0), 0)
+                      .toFixed(2)}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(raider.created_at), { addSuffix: true })}
@@ -265,7 +280,7 @@ export default function Raiders() {
                     )}
                   </div>
                   <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
-                    $0.02
+                    ${Number(click.rate || 0).toFixed(2)}
                   </span>
                   <span className="text-[10px] text-muted-foreground shrink-0">
                     {formatDistanceToNow(new Date(click.created_at), { addSuffix: true })}
