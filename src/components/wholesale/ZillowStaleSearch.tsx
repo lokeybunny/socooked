@@ -1,17 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Download, ExternalLink, Phone, FileSpreadsheet, Flag, AlertTriangle, Clock, TrendingDown, Search, Info } from 'lucide-react';
+import { Loader2, Clock, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const HOME_TYPE_OPTIONS = [
@@ -21,7 +19,11 @@ const HOME_TYPE_OPTIONS = [
   { value: 'MULTI_FAMILY', label: 'Multi-Family' },
 ];
 
-export default function ZillowStaleSearch() {
+interface ZillowStaleSearchProps {
+  onSyncComplete?: () => void;
+}
+
+export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchProps) {
   const [zipInput, setZipInput] = useState('');
   const [minDays, setMinDays] = useState(30);
   const [maxListings, setMaxListings] = useState(50);
@@ -31,12 +33,7 @@ export default function ZillowStaleSearch() {
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
-  const [results, setResults] = useState<any[]>([]);
-  const [totalFound, setTotalFound] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Auto-load previous results on mount
-  useEffect(() => { loadResults(); }, []);
 
   const toggleHomeType = (type: string) => {
     setHomeTypes(prev =>
@@ -65,7 +62,7 @@ export default function ZillowStaleSearch() {
     setRunning(true);
     setProgress(10);
     setStatusText('Starting Apify actor...');
-    setResults([]);
+    
 
     try {
       const { data, error } = await supabase.functions.invoke('zillow-stale-search', {
@@ -113,11 +110,9 @@ export default function ZillowStaleSearch() {
           if (pollData?.status === 'SUCCEEDED') {
             clearInterval(pollRef.current!);
             setProgress(100);
-            setTotalFound(pollData.totalFound || 0);
             setStatusText(`Found ${pollData.totalFound} leads, stored ${pollData.stored}`);
             toast.success(`Found ${pollData.totalFound} warm wholesale leads!`);
-            // Load results from DB
-            await loadResults();
+            onSyncComplete?.();
             setRunning(false);
           } else if (pollData?.status === 'FAILED' || pollData?.status === 'ABORTED' || pollData?.status === 'TIMED-OUT') {
             clearInterval(pollRef.current!);
@@ -138,54 +133,15 @@ export default function ZillowStaleSearch() {
     }
   };
 
-  const loadResults = async () => {
-    const { data, error } = await supabase.functions.invoke('zillow-stale-search', {
-      body: { action: 'list', page: 1, pageSize: 200, sortBy: 'days_on_zillow', sortAsc: false },
-    });
-    if (!error && data?.data) {
-      setResults(data.data);
-      setTotalFound(data.total || data.data.length);
-    }
-  };
-
-  const exportCsv = () => {
-    if (!results.length) return;
-    const headers = ['Address', 'City', 'State', 'ZIP', 'Price', 'Days on Zillow', 'Price Drops', 'Total Drop %', 'Agent', 'Agent Phone', 'Brokerage', 'Beds', 'Baths', 'SqFt', 'Zestimate', 'Zillow URL', 'Flagged'];
-    const rows = results.map(r => [
-      r.address, r.city, r.state, r.zip, r.listed_price || '', r.days_on_zillow || '',
-      r.price_drop_count || 0, r.total_price_drop_percent || '', r.agent_name || '',
-      r.agent_phone || '', r.brokerage || '', r.bedrooms || '', r.bathrooms || '',
-      r.sqft || '', r.zestimate || '', r.zillow_url || '', r.flagged ? 'YES' : '',
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `zillow_stale_leads_${results.length}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${results.length} leads to CSV`);
-  };
-
-  const priceDrpSummary = (lead: any) => {
-    const cnt = lead.price_drop_count || 0;
-    const pct = lead.total_price_drop_percent;
-    if (!cnt && !pct) return '—';
-    const parts = [];
-    if (cnt > 0) parts.push(`${cnt} cut${cnt > 1 ? 's' : ''}`);
-    if (pct) parts.push(`-${pct}%`);
-    return parts.join(' • ');
-  };
 
   return (
     <div className="space-y-4">
       {/* Info sidebar */}
       <Card className="border-amber-500/30 bg-amber-500/5">
         <CardContent className="p-3 flex items-start gap-2">
-          <Info className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <Search className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
           <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">Stale Zillow Leads</span> — These are warmer than fresh RealtorAPI data because sellers have been on market 30–180+ days and are far more motivated to accept cash wholesale offers.
+            <span className="font-semibold text-foreground">Stale Zillow Leads</span> — Scraped leads are automatically synced into the seller pipeline below with full feature parity.
           </p>
         </CardContent>
       </Card>
@@ -275,18 +231,6 @@ export default function ZillowStaleSearch() {
                 <><Search className="h-4 w-4" /> Run Scrape Now</>
               )}
             </Button>
-
-            {results.length > 0 && (
-              <Button variant="outline" onClick={exportCsv} className="gap-1.5">
-                <FileSpreadsheet className="h-4 w-4" /> Export CSV ({results.length})
-              </Button>
-            )}
-
-            {!running && (
-              <Button variant="ghost" size="sm" onClick={loadResults} className="text-xs gap-1.5">
-                <Download className="h-3 w-3" /> Refresh Results
-              </Button>
-            )}
           </div>
 
           {running && (
@@ -299,97 +243,6 @@ export default function ZillowStaleSearch() {
           )}
         </CardContent>
       </Card>
-
-      {/* Results */}
-      {results.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-amber-500" />
-              Stale Leads
-              <Badge variant="outline" className="ml-2">{totalFound} total</Badge>
-              <Badge variant="secondary" className="text-amber-600">
-                {results.filter(r => r.flagged).length} flagged
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8"></TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Days on Zillow</TableHead>
-                    <TableHead>Price Drops</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Brokerage</TableHead>
-                    <TableHead>Beds/Baths/SqFt</TableHead>
-                    <TableHead>Zestimate</TableHead>
-                    <TableHead>Link</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map(lead => (
-                    <TableRow key={lead.id} className={`bg-purple-400/10 ${lead.flagged ? 'bg-purple-400/20' : ''}`}>
-                      <TableCell>
-                        {lead.flagged && (
-                          <Flag className="h-3.5 w-3.5 text-amber-500" />
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium text-sm">
-                        <div>{lead.address}</div>
-                        <div className="text-[10px] text-muted-foreground">{lead.city}, {lead.state} {lead.zip}</div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {lead.listed_price ? `$${Number(lead.listed_price).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-mono text-sm font-semibold ${(lead.days_on_zillow || 0) > 45 ? 'text-destructive' : (lead.days_on_zillow || 0) > 30 ? 'text-amber-500' : 'text-foreground'}`}>
-                          {lead.days_on_zillow || '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {priceDrpSummary(lead) !== '—' ? (
-                          <span className="flex items-center gap-1 text-amber-600">
-                            <AlertTriangle className="h-3 w-3" />
-                            {priceDrpSummary(lead)}
-                          </span>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <div>{lead.agent_name || '—'}</div>
-                        {lead.agent_phone && (
-                          <a href={`tel:${lead.agent_phone}`} className="text-primary flex items-center gap-1 hover:underline">
-                            <Phone className="h-3 w-3" /> {lead.agent_phone}
-                          </a>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{lead.brokerage || '—'}</TableCell>
-                      <TableCell className="text-xs">
-                        {[lead.bedrooms && `${lead.bedrooms}bd`, lead.bathrooms && `${lead.bathrooms}ba`, lead.sqft && `${Number(lead.sqft).toLocaleString()}sf`].filter(Boolean).join(' / ') || '—'}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {lead.zestimate ? `$${Number(lead.zestimate).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {lead.zillow_url && (
-                          <a href={lead.zillow_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            <p className="text-[10px] text-muted-foreground mt-4">For personal/business use only — respect Zillow ToS.</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
