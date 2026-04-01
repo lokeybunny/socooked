@@ -280,7 +280,7 @@ export default function Raiders() {
                     )}
                   </div>
                   <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
-                    $0.02
+                    ${Number(click.rate || 0).toFixed(2)}
                   </span>
                   <span className="text-[10px] text-muted-foreground shrink-0">
                     {formatDistanceToNow(new Date(click.created_at), { addSuffix: true })}
