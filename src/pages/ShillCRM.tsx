@@ -788,6 +788,8 @@ function RaidersTab() {
         </Table>
       </div>
 
+      <PaginationControls page={page} setPage={setPage} total={raiders.length} />
+
       {/* Refresh */}
       <Button variant="outline" size="sm" onClick={fetchRaiders} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
