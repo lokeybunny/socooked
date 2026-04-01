@@ -1346,6 +1346,7 @@ export default function SellerManager() {
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('buyer_match_score')}>
                       Buyer Match {sortField === 'buyer_match_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
+                    {stageFilter === 'negotiate' && <TableHead>Price</TableHead>}
                     <TableHead>Source</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-10"></TableHead>
@@ -1435,6 +1436,13 @@ export default function SellerManager() {
                           }`}>{s.buyer_match_score}</span>
                         ) : <span className="text-muted-foreground text-xs">—</span>}
                       </TableCell>
+                      {stageFilter === 'negotiate' && (
+                        <TableCell>
+                          {(s.meta as any)?.homeowner_price ? (
+                            <span className="font-mono text-sm font-bold text-emerald-500">${Number((s.meta as any).homeowner_price).toLocaleString()}</span>
+                          ) : <span className="text-muted-foreground text-xs">—</span>}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Badge variant="secondary" className="text-[9px] px-1">{s.source || 'reapi'}</Badge>
                       </TableCell>
