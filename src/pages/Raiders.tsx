@@ -36,20 +36,32 @@ export default function Raiders() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [{ data: raiderData }, { data: clickData }] = await Promise.all([
-      supabase
-        .from("raiders")
-        .select("*")
-        .order("total_clicks", { ascending: false }),
-      supabase
+
+    // Fetch ALL raid clicks via pagination (default limit is 1000)
+    let allClicks: any[] = [];
+    let from = 0;
+    const PAGE_BATCH = 1000;
+    while (true) {
+      const { data: batch } = await supabase
         .from("shill_clicks")
         .select("*")
         .eq("click_type", "raid")
         .order("created_at", { ascending: false })
-        .limit(200),
+        .range(from, from + PAGE_BATCH - 1);
+      if (!batch || batch.length === 0) break;
+      allClicks = allClicks.concat(batch);
+      if (batch.length < PAGE_BATCH) break;
+      from += PAGE_BATCH;
+    }
+
+    const [{ data: raiderData }] = await Promise.all([
+      supabase
+        .from("raiders")
+        .select("*")
+        .order("total_clicks", { ascending: false }),
     ]);
     setRaiders((raiderData as any[]) || []);
-    setRaidClicks(clickData || []);
+    setRaidClicks(allClicks);
     setLoading(false);
   }, []);
 
