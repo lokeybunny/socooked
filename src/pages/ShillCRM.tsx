@@ -1521,7 +1521,7 @@ function ActivityTab() {
 
       <ScrollArea className="h-[500px] rounded-lg border border-border">
         <div className="p-3 space-y-1.5">
-          {clicks.map(click => (
+          {clicks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(click => (
             <div key={click.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
