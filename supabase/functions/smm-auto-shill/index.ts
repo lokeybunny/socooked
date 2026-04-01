@@ -2983,6 +2983,12 @@ serve(async (req) => {
               return;
             }
 
+            // Blocklist check
+            if (isBlockedVerifier(discordUsername)) {
+              await followUpInteraction(applicationId, interactionToken, "🚫 Your account has been blocked from verifications. Contact an admin.");
+              return;
+            }
+
             // Extract the original tweet URL from the embed
             let sourceTweetUrl = "";
             const embeds = interaction.message?.embeds || [];
