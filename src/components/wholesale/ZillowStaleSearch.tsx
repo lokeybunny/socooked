@@ -135,45 +135,6 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
     }
   };
 
-  const loadResults = async () => {
-    const { data, error } = await supabase.functions.invoke('zillow-stale-search', {
-      body: { action: 'list', page: 1, pageSize: 200, sortBy: 'days_on_zillow', sortAsc: false },
-    });
-    if (!error && data?.data) {
-      setResults(data.data);
-      setTotalFound(data.total || data.data.length);
-    }
-  };
-
-  const exportCsv = () => {
-    if (!results.length) return;
-    const headers = ['Address', 'City', 'State', 'ZIP', 'Price', 'Days on Zillow', 'Price Drops', 'Total Drop %', 'Agent', 'Agent Phone', 'Brokerage', 'Beds', 'Baths', 'SqFt', 'Zestimate', 'Zillow URL', 'Flagged'];
-    const rows = results.map(r => [
-      r.address, r.city, r.state, r.zip, r.listed_price || '', r.days_on_zillow || '',
-      r.price_drop_count || 0, r.total_price_drop_percent || '', r.agent_name || '',
-      r.agent_phone || '', r.brokerage || '', r.bedrooms || '', r.bathrooms || '',
-      r.sqft || '', r.zestimate || '', r.zillow_url || '', r.flagged ? 'YES' : '',
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
-    const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `zillow_stale_leads_${results.length}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${results.length} leads to CSV`);
-  };
-
-  const priceDrpSummary = (lead: any) => {
-    const cnt = lead.price_drop_count || 0;
-    const pct = lead.total_price_drop_percent;
-    if (!cnt && !pct) return '—';
-    const parts = [];
-    if (cnt > 0) parts.push(`${cnt} cut${cnt > 1 ? 's' : ''}`);
-    if (pct) parts.push(`-${pct}%`);
-    return parts.join(' • ');
-  };
 
   return (
     <div className="space-y-4">
