@@ -1288,6 +1288,7 @@ function PayoutRequestsTab() {
 function PayoutsTab() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   const fetchPayouts = useCallback(async () => {
     setLoading(true);
