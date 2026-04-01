@@ -726,7 +726,7 @@ function RaidersTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {raiders.map(r => {
+            {raiders.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(r => {
               const v = verifiedMap.get(r.discord_user_id) || { verified: 0, pending: 0 };
               const flags = badLinkMap.get(r.discord_user_id) || 0;
               return (
