@@ -298,8 +298,76 @@ export default function SellerManager() {
 
   const loadSellers = async () => {
     setLoading(true);
-    const { data } = await supabase.from('lw_sellers').select('*').order('created_at', { ascending: false }).limit(1000);
-    const allSellers = data || [];
+
+    const normalizeAddress = (value: string | null | undefined) =>
+      (value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const mapStaleZillowLeadToSeller = (lead: any) => {
+      const addressFull = [lead.address, lead.city, lead.state, lead.zip].filter(Boolean).join(', ');
+      const motivationScore = lead.flagged ? 70 : Math.min(60, Math.max(0, lead.days_on_zillow || 0));
+
+      return {
+        id: lead.id,
+        address_full: addressFull || lead.address || '—',
+        city: lead.city || '',
+        state: lead.state || '',
+        zip: lead.zip || '',
+        county: lead.meta?.county || '',
+        deal_type: 'home',
+        market_value: lead.listed_price ?? null,
+        asking_price: lead.listed_price ?? null,
+        bedrooms: lead.bedrooms ?? null,
+        bathrooms: lead.bathrooms ?? null,
+        living_sqft: lead.sqft ?? null,
+        lot_sqft: lead.lot_sqft ?? null,
+        year_built: lead.year_built ?? null,
+        owner_name: lead.agent_name || null,
+        owner_phone: lead.agent_phone || null,
+        source: 'zillow_apify',
+        status: 'new',
+        motivation_score: motivationScore,
+        lead_temperature: lead.flagged ? 'Hot' : motivationScore >= 45 ? 'Warm' : 'Cold',
+        meta: {
+          ...(lead.meta || {}),
+          zpid: lead.zpid,
+          zillow_url: lead.zillow_url,
+          zestimate: lead.zestimate,
+          days_on_zillow: lead.days_on_zillow,
+          price_drop_count: lead.price_drop_count,
+          total_price_drop_percent: lead.total_price_drop_percent,
+          brokerage: lead.brokerage,
+          home_type: lead.home_type,
+          home_status: lead.home_status,
+          staged_zillow_lead: true,
+        },
+        created_at: lead.created_at,
+        updated_at: lead.updated_at,
+        source_record_id: lead.zpid ? `zillow_${lead.zpid}` : null,
+      };
+    };
+
+    const [
+      { data: sellerData, error: sellerError },
+      { data: zillowData, error: zillowError },
+    ] = await Promise.all([
+      supabase.from('lw_sellers').select('*').order('created_at', { ascending: false }).limit(1000),
+      supabase.functions.invoke('zillow-stale-search', {
+        body: { action: 'list', page: 1, pageSize: 250, sortBy: 'created_at', sortAsc: false },
+      }),
+    ]);
+
+    if (sellerError) {
+      toast.error(sellerError.message || 'Failed to load sellers');
+      setSellers([]);
+      setLoading(false);
+      return;
+    }
+
+    if (zillowError) {
+      console.error('Failed to load Zillow staging leads', zillowError);
+    }
+
+    const allSellers = sellerData || [];
 
     // Auto-promote/demote based on phone presence
     const hasPhone = (s: any) => {
@@ -323,7 +391,22 @@ export default function SellerManager() {
       allSellers.forEach((s: any) => { if (ids.includes(s.id)) s.status = 'req_trace'; });
     }
 
-    setSellers(allSellers);
+    const existingLeadKeys = new Set<string>();
+    allSellers.forEach((seller: any) => {
+      if (seller.source_record_id) existingLeadKeys.add(String(seller.source_record_id));
+      const addressKey = normalizeAddress(seller.address_full);
+      if (addressKey) existingLeadKeys.add(addressKey);
+    });
+
+    const zillowFallbackLeads = ((((zillowData as any)?.data) || []) as any[])
+      .map(mapStaleZillowLeadToSeller)
+      .filter((lead) => {
+        const sourceKey = lead.source_record_id ? String(lead.source_record_id) : '';
+        const addressKey = normalizeAddress(lead.address_full);
+        return (!sourceKey || !existingLeadKeys.has(sourceKey)) && (!addressKey || !existingLeadKeys.has(addressKey));
+      });
+
+    setSellers([...zillowFallbackLeads, ...allSellers]);
     setLoading(false);
   };
 
