@@ -90,7 +90,7 @@ export default function CsvImport({ open, onOpenChange, onImported, dealType = '
   const [rows, setRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<{ inserted: number; updated: number; skipped: number } | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
