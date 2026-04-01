@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw, Zap, TrendingUp, LinkIcon,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw, Zap, TrendingUp, LinkIcon, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -520,10 +520,32 @@ function VerifiedLinksTab() {
 /* ═══════════════════════════════════════════════════════════
    RAIDERS TAB
    ═══════════════════════════════════════════════════════════ */
+const PAGE_SIZE = 20;
+
+function PaginationControls({ page, setPage, total }: { page: number; setPage: (fn: (p: number) => number) => void; total: number }) {
+  if (total <= PAGE_SIZE) return null;
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-muted-foreground">
+        Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+          <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+        </Button>
+        <Button variant="outline" size="sm" disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage(p => p + 1)}>
+          Next <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function RaidersTab() {
   const [raiders, setRaiders] = useState<Raider[]>([]);
   const [loading, setLoading] = useState(true);
   const [editRaider, setEditRaider] = useState<Raider | null>(null);
+  const [page, setPage] = useState(0);
   const [editFields, setEditFields] = useState({ secret_code: "", rate_per_click: "", status: "" });
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -704,7 +726,7 @@ function RaidersTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {raiders.map(r => {
+            {raiders.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(r => {
               const v = verifiedMap.get(r.discord_user_id) || { verified: 0, pending: 0 };
               const flags = badLinkMap.get(r.discord_user_id) || 0;
               return (
@@ -765,6 +787,8 @@ function RaidersTab() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls page={page} setPage={setPage} total={raiders.length} />
 
       {/* Refresh */}
       <Button variant="outline" size="sm" onClick={fetchRaiders} disabled={loading}>
@@ -832,6 +856,7 @@ function ShillersTab() {
   const [editShiller, setEditShiller] = useState<ShillerRow | null>(null);
   const [editFields, setEditFields] = useState({ x_handle: "", solana_wallet: "", status: "active" });
   const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
+  const [page, setPage] = useState(0);
 
   const fetchShillers = useCallback(async () => {
     setLoading(true);
@@ -997,7 +1022,7 @@ function ShillersTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shillers.map(s => (
+            {shillers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(s => (
               <TableRow key={s.discord_user_id}>
                 <TableCell className="font-medium">@{s.discord_username}</TableCell>
                 <TableCell>
@@ -1042,6 +1067,8 @@ function ShillersTab() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls page={page} setPage={setPage} total={shillers.length} />
 
       <Button variant="outline" size="sm" onClick={fetchShillers} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
@@ -1263,6 +1290,7 @@ function PayoutRequestsTab() {
 function PayoutsTab() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   const fetchPayouts = useCallback(async () => {
     setLoading(true);
@@ -1296,7 +1324,7 @@ function PayoutsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payouts.map(p => (
+            {payouts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(p => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">@{p.discord_username}</TableCell>
                 <TableCell><Badge variant="outline" className="text-xs">{p.payout_type}</Badge></TableCell>
@@ -1312,6 +1340,8 @@ function PayoutsTab() {
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls page={page} setPage={setPage} total={payouts.length} />
 
       <Button variant="outline" size="sm" onClick={fetchPayouts} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
@@ -1456,6 +1486,7 @@ function AccountsTab() {
 function ActivityTab() {
   const [clicks, setClicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -1494,7 +1525,7 @@ function ActivityTab() {
 
       <ScrollArea className="h-[500px] rounded-lg border border-border">
         <div className="p-3 space-y-1.5">
-          {clicks.map(click => (
+          {clicks.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(click => (
             <div key={click.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -1532,6 +1563,8 @@ function ActivityTab() {
           )}
         </div>
       </ScrollArea>
+
+      <PaginationControls page={page} setPage={setPage} total={clicks.length} />
 
       <Button variant="outline" size="sm" onClick={fetch} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
