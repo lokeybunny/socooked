@@ -333,6 +333,15 @@ async function checkEarningsCap(
   const unpaid = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
   return { capped: unpaid >= EARNINGS_CAP, unpaid };
 }
+
+/** Blocklist: discord usernames that are permanently blocked from verification. */
+const BLOCKED_DISCORD_USERNAMES = new Set([
+  "web3lord100",
+]);
+
+function isBlockedVerifier(discordUsername: string): boolean {
+  return BLOCKED_DISCORD_USERNAMES.has(discordUsername.toLowerCase());
+}
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -2974,6 +2983,12 @@ serve(async (req) => {
               return;
             }
 
+            // Blocklist check
+            if (isBlockedVerifier(discordUsername)) {
+              await followUpInteraction(applicationId, interactionToken, "🚫 Your account has been blocked from verifications. Contact an admin.");
+              return;
+            }
+
             // Extract the original tweet URL from the embed
             let sourceTweetUrl = "";
             const embeds = interaction.message?.embeds || [];
@@ -3135,6 +3150,12 @@ serve(async (req) => {
             const sourceTweetId = extractTweetId(sourceTweetUrl);
             if (submittedTweetId && sourceTweetId && submittedTweetId === sourceTweetId) {
               await followUpInteraction(applicationId, interactionToken, "❌ That is the original shill post link — submit the URL of your actual reply tweet instead.");
+              return;
+            }
+
+            // Blocklist check
+            if (isBlockedVerifier(discordUsername)) {
+              await followUpInteraction(applicationId, interactionToken, "🚫 Your account has been blocked from verifications. Contact an admin.");
               return;
             }
 
