@@ -21,7 +21,11 @@ const HOME_TYPE_OPTIONS = [
   { value: 'MULTI_FAMILY', label: 'Multi-Family' },
 ];
 
-export default function ZillowStaleSearch() {
+interface ZillowStaleSearchProps {
+  onSyncComplete?: () => void;
+}
+
+export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchProps) {
   const [zipInput, setZipInput] = useState('');
   const [minDays, setMinDays] = useState(30);
   const [maxListings, setMaxListings] = useState(50);
