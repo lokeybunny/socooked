@@ -2345,6 +2345,17 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 {editOwnerInterested && <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditOwnerInterested('')}>Clear</Button>}
               </div>
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Pipeline Stage</label>
+              <Select value={editPipeline} onValueChange={setEditPipeline}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SELLER_STAGES.filter(st => st.key !== 'all').map(st => (
+                    <SelectItem key={st.key} value={st.key}>{st.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         ) : (() => {
           const isTraced = !!s.skip_traced_at;
