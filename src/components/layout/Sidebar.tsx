@@ -178,12 +178,14 @@ export function Sidebar() {
 
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [manualClosed, setManualClosed] = useState<string | null>(null);
 
   const renderGroup = (group: NavGroup) => {
     const isChildActive = group.children.some(c => location.pathname === c.to);
     const isHovered = hoveredGroup === group.label;
     const isExpanded = expandedGroup === group.label;
-    const isOpen = isChildActive || isHovered || isExpanded;
+    const isManuallyClosed = manualClosed === group.label;
+    const isOpen = isManuallyClosed ? false : (isChildActive || isHovered || isExpanded);
 
     return (
       <div
