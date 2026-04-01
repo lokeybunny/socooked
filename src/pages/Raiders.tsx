@@ -31,6 +31,8 @@ export default function Raiders() {
   const [raiders, setRaiders] = useState<Raider[]>([]);
   const [raidClicks, setRaidClicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
