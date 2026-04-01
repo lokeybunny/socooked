@@ -92,10 +92,10 @@ export default function Raiders() {
     }
   };
 
-  const totalPending = raidClicks.filter((c) => c.status === "clicked").length;
-  const totalVerified = raidClicks.filter((c) => c.status === "verified").length;
-  const totalOwed = totalPending * 0.02;
-  const totalVerifiedPaid = totalVerified * 0.02;
+  const totalPending = raidClicks.filter((c) => c.status === "clicked").reduce((s, c) => s + Number(c.rate || 0), 0);
+  const totalVerifiedAmt = raidClicks.filter((c) => c.status === "verified").reduce((s, c) => s + Number(c.rate || 0), 0);
+  const pendingCount = raidClicks.filter((c) => c.status === "clicked").length;
+  const verifiedCount = raidClicks.filter((c) => c.status === "verified").length;
 
   return (
     <div className="min-h-screen bg-background">
