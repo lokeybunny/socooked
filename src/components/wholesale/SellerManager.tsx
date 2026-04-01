@@ -747,7 +747,7 @@ export default function SellerManager() {
         <CardContent className="space-y-4">
           {/* Zillow Source */}
           {fetchSource === 'zillow' ? (
-            <ZillowStaleSearch />
+            <ZillowStaleSearch onSyncComplete={loadSellers} />
           ) : (
           <>
           {/* Distress Presets */}
