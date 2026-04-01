@@ -1341,6 +1341,8 @@ function PayoutsTab() {
         </Table>
       </div>
 
+      <PaginationControls page={page} setPage={setPage} total={payouts.length} />
+
       <Button variant="outline" size="sm" onClick={fetchPayouts} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
       </Button>
