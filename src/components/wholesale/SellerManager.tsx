@@ -45,7 +45,7 @@ const SELLER_STAGE_COLORS: Record<string, string> = {
   req_trace: 'bg-red-500/10 text-red-500',
   skip_traced: 'bg-cyan-500/10 text-cyan-500',
   contacted: 'bg-purple-500/10 text-purple-500',
-  negotiate: 'bg-yellow-500/10 text-yellow-600',
+  negotiate: 'bg-emerald-500/10 text-emerald-500',
   offer_sent: 'bg-amber-500/10 text-amber-500',
   under_contract: 'bg-emerald-500/10 text-emerald-500',
   closed: 'bg-muted text-muted-foreground',
