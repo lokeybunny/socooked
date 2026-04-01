@@ -64,7 +64,7 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
     setRunning(true);
     setProgress(10);
     setStatusText('Starting Apify actor...');
-    setResults([]);
+    
 
     try {
       const { data, error } = await supabase.functions.invoke('zillow-stale-search', {
