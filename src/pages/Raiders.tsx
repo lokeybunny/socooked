@@ -137,22 +137,22 @@ export default function Raiders() {
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <Shield className="h-5 w-5 mx-auto mb-1 text-primary" />
-            <p className="text-3xl font-bold text-foreground">{totalPending}</p>
+            <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <Shield className="h-5 w-5 mx-auto mb-1 text-green-500" />
-            <p className="text-3xl font-bold text-foreground">{totalVerified}</p>
+            <p className="text-3xl font-bold text-foreground">{verifiedCount}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Verified</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-            <p className="text-3xl font-bold text-foreground">${totalOwed.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-foreground">${totalPending.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending Owed</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
             <DollarSign className="h-5 w-5 mx-auto mb-1 text-green-500" />
-            <p className="text-3xl font-bold text-foreground text-green-500">${totalVerifiedPaid.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-foreground text-green-500">${totalVerifiedAmt.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Verified Paid</p>
           </div>
         </div>
