@@ -642,14 +642,28 @@ export default function SellerManager() {
     if (sourceFilter !== 'all' && !hasSearchQuery) list = list.filter(s => (s.source || 'reapi') === sourceFilter);
     if (hasSearchQuery) {
       const q = search.toLowerCase();
-      list = list.filter(s =>
-        (s.owner_name || '').toLowerCase().includes(q) ||
-        (s.address_full || '').toLowerCase().includes(q) ||
-        (s.county || '').toLowerCase().includes(q) ||
-        (s.city || '').toLowerCase().includes(q) ||
-        (s.zip || '').toLowerCase().includes(q) ||
-        (s.apn || '').toLowerCase().includes(q)
-      );
+      const qDigits = q.replace(/\D/g, '');
+      const isPhoneSearch = qDigits.length >= 4;
+      list = list.filter(s => {
+        if (
+          (s.owner_name || '').toLowerCase().includes(q) ||
+          (s.address_full || '').toLowerCase().includes(q) ||
+          (s.county || '').toLowerCase().includes(q) ||
+          (s.city || '').toLowerCase().includes(q) ||
+          (s.zip || '').toLowerCase().includes(q) ||
+          (s.apn || '').toLowerCase().includes(q)
+        ) return true;
+        // Phone search: check primary phone + all_phones + clipboard_trace phones
+        if (isPhoneSearch) {
+          const primaryDigits = (s.owner_phone || '').replace(/\D/g, '');
+          if (primaryDigits.includes(qDigits)) return true;
+          const metaPhones = (s.meta as any)?.all_phones as string[] | undefined;
+          if (Array.isArray(metaPhones) && metaPhones.some((p: string) => p.replace(/\D/g, '').includes(qDigits))) return true;
+          const clipPhones = (s.meta as any)?.clipboard_trace?.phones as string[] | undefined;
+          if (Array.isArray(clipPhones) && clipPhones.some((p: string) => p.replace(/\D/g, '').includes(qDigits))) return true;
+        }
+        return false;
+      });
     }
     // Advanced distress filters
     const df = distressFilters;
