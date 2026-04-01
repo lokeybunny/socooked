@@ -1482,6 +1482,7 @@ function AccountsTab() {
 function ActivityTab() {
   const [clicks, setClicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
 
   const fetch = useCallback(async () => {
     setLoading(true);
