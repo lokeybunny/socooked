@@ -1488,6 +1488,97 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [draftingEmail, setDraftingEmail] = useState(false);
   const [sendingForSignature, setSendingForSignature] = useState(false);
 
+  // Email Offer state
+  const [emailOfferOpen, setEmailOfferOpen] = useState(false);
+  const [emailOfferTo, setEmailOfferTo] = useState('');
+  const [emailOfferSubject, setEmailOfferSubject] = useState('');
+  const [emailOfferBody, setEmailOfferBody] = useState('');
+  const [sendingEmailOffer, setSendingEmailOffer] = useState(false);
+
+  const openEmailOffer = () => {
+    const ownerName = s.owner_name || 'Homeowner';
+    const addr = s.address_full || 'your property';
+    const city = s.city || '';
+    const state = s.state || '';
+    const location = [city, state].filter(Boolean).join(', ');
+    setEmailOfferTo(s.owner_email || '');
+    setEmailOfferSubject(addr);
+    setEmailOfferBody(
+`Hello ${ownerName},
+
+My name is Warren and I'm a real estate investor with Warren.guru. I came across your property at ${addr}${location ? ` in ${location}` : ''} through public city records and wanted to reach out to see if you might be interested in receiving a cash offer.
+
+Before anything else — is this still your property? I want to make sure I have the right person.
+
+If you are open to discussing it, I'd love to learn more about the property and present a fair, no-obligation cash offer. We handle all closing costs and can close on your timeline.
+
+Could you let me know a good time and phone number to reach you at?
+
+Looking forward to hearing from you.
+
+Best regards,
+Warren
+Warren.guru | Real Estate Investor`
+    );
+    setEmailOfferOpen(true);
+  };
+
+  const handleSendEmailOffer = async () => {
+    if (!emailOfferTo || !emailOfferSubject) {
+      toast.error('Recipient email and subject are required');
+      return;
+    }
+    setSendingEmailOffer(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({
+          to: emailOfferTo,
+          subject: emailOfferSubject,
+          body: emailOfferBody.replace(/\n/g, '<br/>'),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email');
+
+      // Auto-create temp customer if not in CRM
+      const recipientEmail = emailOfferTo.trim().toLowerCase();
+      const { data: existing } = await supabase.from('customers').select('id').eq('email', recipientEmail).maybeSingle();
+      if (!existing) {
+        const namePart = s.owner_name || recipientEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+        await supabase.from('customers').insert({
+          full_name: namePart,
+          email: recipientEmail,
+          status: 'lead',
+          source: 'wholesale-email-offer',
+          tags: ['temp', 'wholesale-seller'],
+          notes: `Auto-created from wholesale email offer for property: ${s.address_full || 'N/A'}`,
+          address: s.address_full || null,
+        });
+        toast.info(`Created CRM contact: ${namePart}`);
+      }
+
+      // Log to activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'lw_seller',
+        entity_id: s.id,
+        action: 'email_offer_sent',
+        meta: { to: emailOfferTo, subject: emailOfferSubject, address: s.address_full },
+      });
+
+      toast.success('Email offer sent!');
+      setEmailOfferOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send email offer');
+    } finally {
+      setSendingEmailOffer(false);
+    }
+  };
+
   const handleSkipTrace = async () => {
     setTracing(true);
     try {
