@@ -993,6 +993,8 @@ export default function SellerManager() {
               </div>
             </div>
           )}
+          </>
+          )}
         </CardContent>
       </Card>
 
