@@ -288,8 +288,10 @@ export default function CsvImport({ open, onOpenChange, onImported, dealType = '
         {result ? (
           <div className="text-center py-8 space-y-3">
             <Check className="h-10 w-10 mx-auto text-green-500" />
-            <p className="text-lg font-semibold">{result.inserted} records imported</p>
-            {result.skipped > 0 && <p className="text-sm text-muted-foreground">{result.skipped} rows skipped</p>}
+            {result.updated > 0 && <p className="text-lg font-semibold">{result.updated} existing leads updated with contact info</p>}
+            {result.inserted > 0 && <p className="text-lg font-semibold">{result.inserted} new records imported</p>}
+            {result.updated === 0 && result.inserted === 0 && <p className="text-lg font-semibold">No changes made</p>}
+            {result.skipped > 0 && <p className="text-sm text-muted-foreground">{result.skipped} rows skipped (no new data)</p>}
             <Button onClick={() => { reset(); onOpenChange(false); }}>Done</Button>
           </div>
         ) : headers.length === 0 ? (
