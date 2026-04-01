@@ -1562,16 +1562,20 @@ Warren.guru | Real Estate Investor`
         toast.info(`Created CRM contact: ${namePart}`);
       }
 
-      // Log to activity
-      await supabase.from('activity_log').insert({
-        entity_type: 'lw_seller',
-        entity_id: s.id,
-        action: 'email_offer_sent',
-        meta: { to: emailOfferTo, subject: emailOfferSubject, address: s.address_full },
-      });
+      // Log to activity & move seller to 'contacted' pipeline
+      await Promise.all([
+        supabase.from('activity_log').insert({
+          entity_type: 'lw_seller',
+          entity_id: s.id,
+          action: 'email_offer_sent',
+          meta: { to: emailOfferTo, subject: emailOfferSubject, address: s.address_full },
+        }),
+        supabase.from('lw_sellers').update({ status: 'contacted', updated_at: new Date().toISOString() }).eq('id', s.id),
+      ]);
 
-      toast.success('Email offer sent!');
+      toast.success('Email offer sent! Seller moved to Contacted.');
       setEmailOfferOpen(false);
+      onSkipTraced?.();
     } catch (err: any) {
       toast.error(err.message || 'Failed to send email offer');
     } finally {
