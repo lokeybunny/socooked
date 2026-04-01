@@ -176,15 +176,33 @@ export function Sidebar() {
     );
   };
 
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const groupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleGroupEnter = (label: string) => {
+    if (groupTimeoutRef.current) clearTimeout(groupTimeoutRef.current);
+    setOpenGroup(label);
+  };
+  const handleGroupLeave = () => {
+    groupTimeoutRef.current = setTimeout(() => setOpenGroup(null), 150);
+  };
+
   const renderGroup = (group: NavGroup) => {
     const isChildActive = group.children.some(c => location.pathname === c.to);
+    const isOpen = openGroup === group.label;
 
     return (
-      <div key={group.label} className="relative group/submenu">
+      <div
+        key={group.label}
+        className="relative"
+        onMouseEnter={() => handleGroupEnter(group.label)}
+        onMouseLeave={handleGroupLeave}
+      >
         <button
+          onClick={() => setOpenGroup(prev => prev === group.label ? null : group.label)}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100 w-full",
-            isChildActive
+            isChildActive || isOpen
               ? "bg-accent text-foreground"
               : "text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
@@ -193,40 +211,43 @@ export function Sidebar() {
           {!collapsed && (
             <>
               <span className="flex-1 text-left">{group.label}</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isOpen && "rotate-90")} />
             </>
           )}
         </button>
 
-        {/* Hover submenu */}
-        <div className="absolute top-0 left-full ml-1 z-50 invisible opacity-0 group-hover/submenu:visible group-hover/submenu:opacity-100 transition-all duration-150">
-          <div className="bg-popover border border-border rounded-lg shadow-lg py-1.5 min-w-[180px]">
-            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
-              {group.label}
+        {/* Flyout submenu */}
+        {isOpen && (
+          <div className="absolute top-0 left-full z-50" style={{ paddingLeft: '4px' }}>
+            <div className="bg-popover border border-border rounded-lg shadow-lg py-1.5 min-w-[180px]">
+              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+                {group.label}
+              </div>
+              {group.children.map(child => {
+                const isActive = location.pathname === child.to;
+                return (
+                  <NavLink
+                    key={child.to}
+                    to={child.to}
+                    onClick={() => setOpenGroup(null)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-100 mx-1.5 rounded-md",
+                      isActive
+                        ? "bg-accent text-foreground"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    )}
+                  >
+                    <child.icon className="h-4 w-4 shrink-0" />
+                    <span className="flex items-center gap-1.5">
+                      {child.label}
+                      {child.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
+                    </span>
+                  </NavLink>
+                );
+              })}
             </div>
-            {group.children.map(child => {
-              const isActive = location.pathname === child.to;
-              return (
-                <NavLink
-                  key={child.to}
-                  to={child.to}
-                  className={cn(
-                    "flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-100 mx-1.5 rounded-md",
-                    isActive
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                  )}
-                >
-                  <child.icon className="h-4 w-4 shrink-0" />
-                  <span className="flex items-center gap-1.5">
-                    {child.label}
-                    {child.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
-                  </span>
-                </NavLink>
-              );
-            })}
           </div>
-        </div>
+        )}
       </div>
     );
   };
