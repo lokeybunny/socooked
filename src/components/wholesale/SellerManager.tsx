@@ -1733,7 +1733,7 @@ function PhoneRow({ seller }: { seller: any }) {
   );
 }
 
-const PIPELINE_ORDER = ['new', 'req_trace', 'skip_traced', 'contacted', 'offer_sent', 'under_contract', 'closed', 'dead'];
+const PIPELINE_ORDER = ['new', 'req_trace', 'skip_traced', 'contacted', 'negotiate', 'offer_sent', 'under_contract', 'closed', 'dead'];
 
 function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
   const [tracing, setTracing] = useState(false);
