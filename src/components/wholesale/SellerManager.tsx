@@ -410,17 +410,45 @@ export default function SellerManager() {
     setLoading(false);
   };
 
-  // ── IMPORT BULK: parse CSV, match addresses to existing sellers, update to skip_traced ──
+  // ── IMPORT BULK: parse CSV, match addresses to existing sellers, and merge skip-trace data ──
   const handleBulkImport = async (file: File) => {
     setImportLoading(true);
     try {
       const text = await file.text();
       const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) { toast.error('CSV must have a header row and at least one data row'); return; }
+      if (lines.length < 2) {
+        toast.error('CSV must have a header row and at least one data row');
+        return;
+      }
 
-      const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+      const parseCsvRow = (line: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
 
-      // Flexible header detection — supports skip-trace exports and simple CSVs
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              current += '"';
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (ch === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+
+        result.push(current.trim());
+        return result;
+      };
+
+      const headers = parseCsvRow(lines[0]).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+
       const findIdx = (patterns: RegExp[]) => {
         for (const pat of patterns) {
           const idx = headers.findIndex(h => pat.test(h));
@@ -434,7 +462,9 @@ export default function SellerManager() {
         /^full.?address$/, /^street.?address$/, /^street$/,
       ]);
       const phoneIdxes = headers.reduce<number[]>((acc, h, i) => {
-        if (/owner phone\d?$|^phone\d?$|^owner_phone|^phone_number|^mobile|^cell|^telephone/.test(h)) acc.push(i);
+        if (/^owner[\s_]*phone(?:\s*#?\d+)?$|^phone(?:\s*#?\d+)?$|^owner_phone|^phone_number|^mobile|^cell|^telephone|^best[\s_]*phone$|^primary[\s_]*phone$/.test(h)) {
+          acc.push(i);
+        }
         return acc;
       }, []);
       const nameIdx = findIdx([
@@ -445,83 +475,193 @@ export default function SellerManager() {
         /^owner email1$/, /^owner email$/, /^email1?$/, /^owner_email$/, /^email.?address$/,
       ]);
 
-      if (addrIdx === -1) { toast.error('CSV must have an address column (Address, Property Address, Submitted Property Address, etc.)'); return; }
+      if (addrIdx === -1) {
+        toast.error('CSV must have an address column (Address, Property Address, Submitted Property Address, etc.)');
+        return;
+      }
 
-      const parseCsvRow = (line: string): string[] => {
-        const result: string[] = []; let current = ''; let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const ch = line[i];
-          if (ch === '"') inQuotes = !inQuotes;
-          else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
-          else current += ch;
-        }
-        result.push(current.trim());
-        return result;
+      const normalizePhoneDigits = (value: string | null | undefined) => {
+        let digits = (value ?? '').replace(/\D/g, '');
+        if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+        return digits;
+      };
+
+      const formatPhoneDisplay = (value: string | null | undefined) => {
+        const digits = normalizePhoneDigits(value);
+        if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+        return (value ?? '').replace(/^"|"$/g, '').trim();
+      };
+
+      const dedupePhones = (phones: string[]) => {
+        const seen = new Set<string>();
+        return phones.filter((phone) => {
+          const digits = normalizePhoneDigits(phone);
+          if (digits.length < 7 || seen.has(digits)) return false;
+          seen.add(digits);
+          return true;
+        });
+      };
+
+      const normalizeAddressForMatch = (value: string | null | undefined) =>
+        (value ?? '')
+          .toLowerCase()
+          .replace(/\b(unit|apt|apartment|suite|ste|#)\s*[a-z0-9-]+\b/g, ' ')
+          .replace(/\b(avenue|ave|street|st|road|rd|drive|dr|lane|ln|boulevard|blvd|court|ct|place|pl|circle|cir|way|parkway|pkwy)\b/g, ' ')
+          .replace(/[^a-z0-9]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const streetOnly = (value: string) => normalizeAddressForMatch((value || '').split(',')[0]);
+      const isPlaceholderName = (value: string | null | undefined) => {
+        const normalized = (value || '').trim().toLowerCase();
+        return !normalized || ['property owner', 'owner', 'n/a', 'na', 'unknown'].includes(normalized);
       };
 
       const csvRows = lines.slice(1).map(parseCsvRow);
       const csvAddresses = csvRows
         .map(row => {
-          // Collect all phone numbers from matched phone columns
-          const phones = phoneIdxes
-            .map(i => (row[i] || '').replace(/^"|"$/g, '').trim())
-            .filter(p => p.replace(/\D/g, '').length >= 7);
+          const phones = dedupePhones(
+            phoneIdxes
+              .map(i => formatPhoneDisplay((row[i] || '').replace(/^"|"$/g, '').trim()))
+          );
+
           return {
             address: (row[addrIdx] || '').replace(/^"|"$/g, '').trim(),
             phone: phones[0] || '',
             allPhones: phones,
             name: nameIdx >= 0 ? (row[nameIdx] || '').replace(/^"|"$/g, '').trim() : '',
-            email: emailIdx >= 0 ? (row[emailIdx] || '').replace(/^"|"$/g, '').trim() : '',
+            email: emailIdx >= 0 ? (row[emailIdx] || '').replace(/^"|"$/g, '').trim().toLowerCase() : '',
           };
         })
         .filter(r => r.address.length > 3);
 
-      if (!csvAddresses.length) { toast.error('No valid addresses found in CSV'); return; }
-
-      const normalize = (a: string) => a.toLowerCase().replace(/[^a-z0-9]/g, '');
-      // Extract just the street portion (before first comma) for matching
-      const streetOnly = (a: string) => normalize(a.split(',')[0]);
-      const sellerMap = new Map<string, any>();
-      for (const s of sellers) {
-        if (s.address_full) {
-          sellerMap.set(normalize(s.address_full), s);
-          sellerMap.set(streetOnly(s.address_full), s);
-        }
+      if (!csvAddresses.length) {
+        toast.error('No valid addresses found in CSV');
+        return;
       }
 
-      let matched = 0; let skipped = 0;
+      const sellerMap = new Map<string, any>();
+      for (const seller of sellers) {
+        if (!seller.address_full) continue;
+        const fullKey = normalizeAddressForMatch(seller.address_full);
+        const streetKey = streetOnly(seller.address_full);
+        if (fullKey) sellerMap.set(fullKey, seller);
+        if (streetKey) sellerMap.set(streetKey, seller);
+      }
+
+      let matched = 0;
+      let updated = 0;
+      let unmatched = 0;
+      let unchanged = 0;
+      let phonesAdded = 0;
 
       for (const row of csvAddresses) {
-        // Try full address match first, then street-only match
-        const seller = sellerMap.get(normalize(row.address)) || sellerMap.get(streetOnly(row.address));
-        if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
+        const seller = sellerMap.get(normalizeAddressForMatch(row.address)) || sellerMap.get(streetOnly(row.address));
+        if (!seller) {
+          unmatched += 1;
+          continue;
+        }
 
-        matched++;
-        const hasValidPhone = row.allPhones.length > 0;
-        const updates: Record<string, any> = {
-          status: hasValidPhone ? 'skip_traced' : 'req_trace',
-          skip_traced_at: new Date().toISOString(),
-          skip_trace_status: hasValidPhone ? 'completed' : 'no_phone',
-        };
-        // Merge all phones from CSV into meta.all_phones and set primary phone
-        const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
-        const newPhones = row.allPhones.filter((p: string) => !existing.includes(p));
-        if (row.phone && row.phone.replace(/\D/g, '').length >= 7) {
-          updates.owner_phone = row.phone;
+        matched += 1;
+
+        const existingPhones = dedupePhones([
+          seller.owner_phone,
+          ...(Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : []),
+          ...(Array.isArray(seller.meta?.clipboard_trace?.phones) ? seller.meta.clipboard_trace.phones : []),
+        ].filter(Boolean).map((phone: string) => formatPhoneDisplay(phone)));
+
+        const existingDigits = new Set(existingPhones.map(phone => normalizePhoneDigits(phone)));
+        const importedPhones = dedupePhones(row.allPhones.map(phone => formatPhoneDisplay(phone)));
+        const newPhones = importedPhones.filter((phone) => !existingDigits.has(normalizePhoneDigits(phone)));
+        const mergedPhones = dedupePhones([...existingPhones, ...importedPhones]);
+
+        const updates: Record<string, any> = {};
+        let changed = false;
+
+        const importedPrimaryDigits = normalizePhoneDigits(row.phone);
+        const currentPrimaryDigits = normalizePhoneDigits(seller.owner_phone);
+        const shouldPromoteImportedPhone =
+          importedPrimaryDigits.length >= 7 && (
+            !currentPrimaryDigits ||
+            currentPrimaryDigits === importedPrimaryDigits ||
+            seller.source === 'zillow_apify' ||
+            seller.status === 'new' ||
+            seller.status === 'req_trace'
+          );
+
+        if (shouldPromoteImportedPhone) {
+          const formattedPrimary = formatPhoneDisplay(row.phone);
+          if (formattedPrimary && seller.owner_phone !== formattedPrimary) {
+            updates.owner_phone = formattedPrimary;
+            changed = true;
+          }
         }
-        if (newPhones.length > 0) {
-          updates.meta = { ...(seller.meta || {}), all_phones: [...existing, ...newPhones] };
-          updates.phones_found_count = existing.length + newPhones.length;
+
+        if (newPhones.length > 0 || mergedPhones.length !== existingPhones.length) {
+          updates.meta = { ...(seller.meta || {}), all_phones: mergedPhones };
+          updates.phones_found_count = mergedPhones.length;
+          phonesAdded += newPhones.length;
+          changed = true;
         }
-        if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
-        if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
-        await supabase.from('lw_sellers').update(updates).eq('id', seller.id);
+
+        if (row.name && row.name.length > 2 && (isPlaceholderName(seller.owner_name) || seller.source === 'zillow_apify')) {
+          if (seller.owner_name !== row.name) {
+            updates.owner_name = row.name;
+            changed = true;
+          }
+        }
+
+        if (row.email && row.email.includes('@') && !seller.owner_email) {
+          updates.owner_email = row.email;
+          changed = true;
+        }
+
+        if (row.allPhones.length > 0) {
+          if (['new', 'req_trace'].includes(seller.status)) {
+            updates.status = 'skip_traced';
+            updates.skip_traced_at = new Date().toISOString();
+            updates.skip_trace_status = 'completed';
+            changed = true;
+          } else if (seller.status === 'skip_traced' && !seller.skip_traced_at) {
+            updates.skip_traced_at = new Date().toISOString();
+            updates.skip_trace_status = 'completed';
+            changed = true;
+          }
+        } else if (seller.status === 'new') {
+          updates.status = 'req_trace';
+          updates.skip_trace_status = 'no_phone';
+          changed = true;
+        }
+
+        if (!changed) {
+          unchanged += 1;
+          continue;
+        }
+
+        const { error } = await supabase.from('lw_sellers').update(updates).eq('id', seller.id);
+        if (error) {
+          console.error('Bulk import update error:', error);
+          matched -= 1;
+          unmatched += 1;
+          continue;
+        }
+
+        updated += 1;
       }
-      toast.success(`Import complete: ${matched} matched & updated, ${skipped} skipped`);
+
+      const summary = [`${updated} updated`];
+      if (phonesAdded > 0) summary.push(`${phonesAdded} phone${phonesAdded === 1 ? '' : 's'} added`);
+      if (unchanged > 0) summary.push(`${unchanged} already current`);
+      if (unmatched > 0) summary.push(`${unmatched} unmatched`);
+      toast.success(`Import complete: ${summary.join(', ')}`);
       setImportBulkOpen(false);
       await loadSellers();
-    } catch (err: any) { toast.error(err.message || 'Import failed'); }
-    finally { setImportLoading(false); if (importFileRef.current) importFileRef.current.value = ''; }
+    } catch (err: any) {
+      toast.error(err.message || 'Import failed');
+    } finally {
+      setImportLoading(false);
+      if (importFileRef.current) importFileRef.current.value = '';
+    }
   };
 
   const fetchProperties = async () => {
