@@ -234,19 +234,6 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
               )}
             </Button>
 
-            {results.length > 0 && (
-              <Button variant="outline" onClick={exportCsv} className="gap-1.5">
-                <FileSpreadsheet className="h-4 w-4" /> Export CSV ({results.length})
-              </Button>
-            )}
-
-            {!running && (
-              <Button variant="ghost" size="sm" onClick={loadResults} className="text-xs gap-1.5">
-                <Download className="h-3 w-3" /> Refresh Results
-              </Button>
-            )}
-          </div>
-
           {running && (
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
@@ -257,97 +244,6 @@ export default function ZillowStaleSearch({ onSyncComplete }: ZillowStaleSearchP
           )}
         </CardContent>
       </Card>
-
-      {/* Results */}
-      {results.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-amber-500" />
-              Stale Leads
-              <Badge variant="outline" className="ml-2">{totalFound} total</Badge>
-              <Badge variant="secondary" className="text-amber-600">
-                {results.filter(r => r.flagged).length} flagged
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8"></TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Days on Zillow</TableHead>
-                    <TableHead>Price Drops</TableHead>
-                    <TableHead>Agent</TableHead>
-                    <TableHead>Brokerage</TableHead>
-                    <TableHead>Beds/Baths/SqFt</TableHead>
-                    <TableHead>Zestimate</TableHead>
-                    <TableHead>Link</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map(lead => (
-                    <TableRow key={lead.id} className={`bg-purple-400/10 ${lead.flagged ? 'bg-purple-400/20' : ''}`}>
-                      <TableCell>
-                        {lead.flagged && (
-                          <Flag className="h-3.5 w-3.5 text-amber-500" />
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium text-sm">
-                        <div>{lead.address}</div>
-                        <div className="text-[10px] text-muted-foreground">{lead.city}, {lead.state} {lead.zip}</div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {lead.listed_price ? `$${Number(lead.listed_price).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-mono text-sm font-semibold ${(lead.days_on_zillow || 0) > 45 ? 'text-destructive' : (lead.days_on_zillow || 0) > 30 ? 'text-amber-500' : 'text-foreground'}`}>
-                          {lead.days_on_zillow || '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {priceDrpSummary(lead) !== '—' ? (
-                          <span className="flex items-center gap-1 text-amber-600">
-                            <AlertTriangle className="h-3 w-3" />
-                            {priceDrpSummary(lead)}
-                          </span>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <div>{lead.agent_name || '—'}</div>
-                        {lead.agent_phone && (
-                          <a href={`tel:${lead.agent_phone}`} className="text-primary flex items-center gap-1 hover:underline">
-                            <Phone className="h-3 w-3" /> {lead.agent_phone}
-                          </a>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{lead.brokerage || '—'}</TableCell>
-                      <TableCell className="text-xs">
-                        {[lead.bedrooms && `${lead.bedrooms}bd`, lead.bathrooms && `${lead.bathrooms}ba`, lead.sqft && `${Number(lead.sqft).toLocaleString()}sf`].filter(Boolean).join(' / ') || '—'}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {lead.zestimate ? `$${Number(lead.zestimate).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {lead.zillow_url && (
-                          <a href={lead.zillow_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            <p className="text-[10px] text-muted-foreground mt-4">For personal/business use only — respect Zillow ToS.</p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
