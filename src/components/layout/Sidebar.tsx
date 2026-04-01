@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,18 @@ type NavItem = {
   to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean;
 };
 
-const navItems: NavItem[] = [
+type NavGroup = {
+  icon: any; label: string; divider?: string;
+  children: NavItem[];
+};
+
+type NavEntry = NavItem | NavGroup;
+
+function isGroup(entry: NavEntry): entry is NavGroup {
+  return 'children' in entry;
+}
+
+const navEntries: NavEntry[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
   { to: '/leads', icon: Handshake, label: 'Leads', botIcon: true },
@@ -28,23 +39,23 @@ const navItems: NavItem[] = [
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
   { to: '/research', icon: Target, label: 'Finder', green: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
-  { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
-  { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
-  { to: '/shillers/raiders', icon: Shield, label: 'Raiders', botIcon: true },
-  { to: '/shill-crm', icon: Crosshair, label: 'Shill CRM', botIcon: true },
-  { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
+  {
+    icon: Crosshair, label: 'X', divider: 'Services',
+    children: [
+      { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
+      { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
+      { to: '/shillers/raiders', icon: Shield, label: 'Raiders', botIcon: true },
+      { to: '/shill-crm', icon: Crosshair, label: 'Shill CRM', botIcon: true },
+      { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
+    ],
+  },
   { to: '/wholesale', icon: Warehouse, label: 'Wholesale', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
 ];
 
-const RESTRICTED_EMAIL = 'warren@guru.com';
-const PHONE_ONLY_EMAIL = 'brucemillis786@gmail.com';
-
 export function Sidebar() {
   const { signOut, user } = useAuth();
-  const isRestricted = false;
-  const isPhoneOnly = false; // brucemillis786 now has full admin access
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -54,7 +65,6 @@ export function Sidebar() {
     lastSeenMessagesRef.current = localStorage.getItem('messages_last_seen');
 
     const checkNew = async () => {
-      // Get the latest read-tracker timestamp (marks when user last "read" emails)
       const { data: readTracker } = await supabase
         .from('communications')
         .select('created_at')
@@ -64,7 +74,6 @@ export function Sidebar() {
 
       const lastRead = readTracker?.[0]?.created_at || lastSeenMessagesRef.current;
 
-      // Only check for inbound emails from known customers
       let query = supabase
         .from('communications')
         .select('id, from_address, created_at')
@@ -80,7 +89,6 @@ export function Sidebar() {
       const { data: recent } = await query;
       if (!recent?.length) return;
 
-      // Cross-check sender addresses against CRM customers
       const senders = recent.map(r => r.from_address).filter(Boolean);
       if (!senders.length) return;
 
@@ -99,14 +107,12 @@ export function Sidebar() {
       .channel('sidebar_messages_notif')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, (payload) => {
         const row = payload.new as Record<string, unknown>;
-        // Only fire for inbound emails, skip read-trackers and outbound
         if (
           row.type === 'email' &&
           row.direction === 'inbound' &&
           row.provider !== 'gmail-read-tracker' &&
           location.pathname !== '/messages'
         ) {
-          // Quick check if sender is a known customer
           const sender = row.from_address as string;
           if (sender) {
             supabase
@@ -134,6 +140,96 @@ export function Sidebar() {
       lastSeenMessagesRef.current = new Date().toISOString();
     }
   }, [location.pathname]);
+
+  const renderNavItem = (item: NavItem) => {
+    const isActive = location.pathname === item.to;
+    const showDot = item.to === '/messages' && hasNewMessages;
+
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
+          isActive
+            ? "bg-accent text-foreground"
+            : item.green
+              ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+              : item.highlight
+                ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        )}
+      >
+        <span className="relative shrink-0">
+          <item.icon className="h-4.5 w-4.5" />
+          {showDot && (
+            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
+          )}
+        </span>
+        {!collapsed && (
+          <span className="flex items-center gap-1.5 flex-1">
+            {item.label}
+            {item.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
+
+  const renderGroup = (group: NavGroup) => {
+    const isChildActive = group.children.some(c => location.pathname === c.to);
+
+    return (
+      <div key={group.label} className="relative group/submenu">
+        <button
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100 w-full",
+            isChildActive
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+        >
+          <group.icon className="h-4.5 w-4.5 shrink-0" />
+          {!collapsed && (
+            <>
+              <span className="flex-1 text-left">{group.label}</span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </>
+          )}
+        </button>
+
+        {/* Hover submenu */}
+        <div className="absolute top-0 left-full ml-1 z-50 invisible opacity-0 group-hover/submenu:visible group-hover/submenu:opacity-100 transition-all duration-150">
+          <div className="bg-popover border border-border rounded-lg shadow-lg py-1.5 min-w-[180px]">
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+              {group.label}
+            </div>
+            {group.children.map(child => {
+              const isActive = location.pathname === child.to;
+              return (
+                <NavLink
+                  key={child.to}
+                  to={child.to}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 text-sm transition-colors duration-100 mx-1.5 rounded-md",
+                    isActive
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )}
+                >
+                  <child.icon className="h-4 w-4 shrink-0" />
+                  <span className="flex items-center gap-1.5">
+                    {child.label}
+                    {child.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
+                  </span>
+                </NavLink>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -165,18 +261,35 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {(isRestricted ? navItems.filter(i => i.to === '/research') : isPhoneOnly ? navItems.filter(i => i.to === '/phone') : navItems).map(({ to, icon: Icon, label, botIcon, highlight, divider, green }, idx) => {
-            const isActive = location.pathname === to;
-            const showDot = to === '/messages' && hasNewMessages;
-            const nextItem = navItems[idx + 1];
-            const isGrouped = botIcon && nextItem?.botIcon;
+          {navEntries.map((entry) => {
+            if (isGroup(entry)) {
+              return (
+                <div key={entry.label}>
+                  {entry.divider && (
+                    <div className={cn("flex items-center gap-2 px-3 pt-4 pb-1.5", collapsed && "justify-center")}>
+                      {!collapsed && entry.divider.trim() ? (
+                        <>
+                          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 font-medium">{entry.divider}</span>
+                          <div className="flex-1 h-px bg-border/40" />
+                        </>
+                      ) : (
+                        <div className="flex-1 h-px bg-border/40" />
+                      )}
+                    </div>
+                  )}
+                  {renderGroup(entry)}
+                </div>
+              );
+            }
+
+            const item = entry as NavItem;
             return (
-              <div key={to}>
-                {divider && (
+              <div key={item.to}>
+                {item.divider && (
                   <div className={cn("flex items-center gap-2 px-3 pt-4 pb-1.5", collapsed && "justify-center")}>
-                    {!collapsed && divider.trim() ? (
+                    {!collapsed && item.divider.trim() ? (
                       <>
-                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 font-medium">{divider}</span>
+                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 font-medium">{item.divider}</span>
                         <div className="flex-1 h-px bg-border/40" />
                       </>
                     ) : (
@@ -184,33 +297,7 @@ export function Sidebar() {
                     )}
                   </div>
                 )}
-                <NavLink
-                  to={to}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
-                    isActive
-                      ? "bg-accent text-foreground"
-                      : green
-                        ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                        : highlight
-                          ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                    isGrouped && "mb-0"
-                  )}
-                >
-                  <span className="relative shrink-0">
-                    <Icon className="h-4.5 w-4.5" />
-                    {showDot && (
-                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
-                    )}
-                  </span>
-                  {!collapsed && (
-                    <span className="flex items-center gap-1.5 flex-1">
-                      {label}
-                      {botIcon && <Bot className="h-3 w-3 text-primary/60" />}
-                    </span>
-                  )}
-                </NavLink>
+                {renderNavItem(item)}
               </div>
             );
           })}
