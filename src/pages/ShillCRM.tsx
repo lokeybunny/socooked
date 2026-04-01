@@ -520,10 +520,32 @@ function VerifiedLinksTab() {
 /* ═══════════════════════════════════════════════════════════
    RAIDERS TAB
    ═══════════════════════════════════════════════════════════ */
+const PAGE_SIZE = 20;
+
+function PaginationControls({ page, setPage, total }: { page: number; setPage: (fn: (p: number) => number) => void; total: number }) {
+  if (total <= PAGE_SIZE) return null;
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-sm text-muted-foreground">
+        Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+          <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+        </Button>
+        <Button variant="outline" size="sm" disabled={(page + 1) * PAGE_SIZE >= total} onClick={() => setPage(p => p + 1)}>
+          Next <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function RaidersTab() {
   const [raiders, setRaiders] = useState<Raider[]>([]);
   const [loading, setLoading] = useState(true);
   const [editRaider, setEditRaider] = useState<Raider | null>(null);
+  const [page, setPage] = useState(0);
   const [editFields, setEditFields] = useState({ secret_code: "", rate_per_click: "", status: "" });
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
