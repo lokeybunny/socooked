@@ -32,6 +32,7 @@ const SELLER_STAGES = [
   { key: 'req_trace', label: 'Req. Trace' },
   { key: 'skip_traced', label: 'Skip Traced' },
   { key: 'contacted', label: 'Contacted' },
+  { key: 'negotiate', label: 'Negotiate' },
   { key: 'offer_sent', label: 'Offer Sent' },
   { key: 'under_contract', label: 'Under Contract' },
   { key: 'closed', label: 'Closed' },
