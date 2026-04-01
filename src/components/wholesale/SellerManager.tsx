@@ -592,7 +592,8 @@ export default function SellerManager() {
       });
     }
     if (df.skipTraceStatus) list = list.filter(s => (s.skip_trace_status || 'not_ready') === df.skipTraceStatus);
-    if (df.stage) list = list.filter(s => s.status === df.stage);
+    // Only apply distress stage filter when pipeline bar is set to 'all' to avoid double-filtering
+    if (df.stage && stageFilter === 'all') list = list.filter(s => s.status === df.stage);
     if (df.dealType) list = list.filter(s => (s.deal_type || 'land') === df.dealType);
     if (df.auctionStatus && df.auctionStatus !== 'none') list = list.filter(s => s.auction_status === df.auctionStatus);
     else if (df.auctionStatus === 'none') list = list.filter(s => !s.auction_status);
