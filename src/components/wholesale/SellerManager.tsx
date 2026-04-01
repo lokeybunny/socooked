@@ -681,6 +681,16 @@ export default function SellerManager() {
           <CardTitle className="text-lg flex items-center gap-2">
             <Download className="h-4 w-4" />
             Fetch Seller Leads
+            {/* Source Selector */}
+            <Select value={fetchSource} onValueChange={(v) => setFetchSource(v as 'reapi' | 'zillow')}>
+              <SelectTrigger className="w-[160px] h-8 text-xs ml-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="reapi">📊 RealtorAPI</SelectItem>
+                <SelectItem value="zillow">🏠 Zillow Apify</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="ml-auto flex items-center gap-2">
               {selectedIds.size > 0 && (
                 <Button
@@ -720,19 +730,26 @@ export default function SellerManager() {
                 <Upload className="h-3 w-3" />
                 IMPORT BULK
               </Button>
-              <Button
-                size="sm"
-                variant={distressMode ? 'default' : 'outline'}
-                className="text-xs gap-1.5 h-7"
-                onClick={() => setDistressMode(!distressMode)}
-              >
-                <Target className="h-3 w-3" />
-                {distressMode ? 'Distress Search ON' : 'Distress Search'}
-              </Button>
+              {fetchSource === 'reapi' && (
+                <Button
+                  size="sm"
+                  variant={distressMode ? 'default' : 'outline'}
+                  className="text-xs gap-1.5 h-7"
+                  onClick={() => setDistressMode(!distressMode)}
+                >
+                  <Target className="h-3 w-3" />
+                  {distressMode ? 'Distress Search ON' : 'Distress Search'}
+                </Button>
+              )}
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Zillow Source */}
+          {fetchSource === 'zillow' ? (
+            <ZillowStaleSearch />
+          ) : (
+          <>
           {/* Distress Presets */}
           {distressMode && (
             <div className="flex flex-wrap gap-1.5">
