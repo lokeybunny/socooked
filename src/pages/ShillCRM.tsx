@@ -1068,6 +1068,8 @@ function ShillersTab() {
         </Table>
       </div>
 
+      <PaginationControls page={page} setPage={setPage} total={shillers.length} />
+
       <Button variant="outline" size="sm" onClick={fetchShillers} disabled={loading}>
         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
       </Button>
