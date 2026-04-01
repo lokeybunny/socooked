@@ -32,6 +32,7 @@ const SELLER_STAGES = [
   { key: 'req_trace', label: 'Req. Trace' },
   { key: 'skip_traced', label: 'Skip Traced' },
   { key: 'contacted', label: 'Contacted' },
+  { key: 'negotiate', label: 'Negotiate' },
   { key: 'offer_sent', label: 'Offer Sent' },
   { key: 'under_contract', label: 'Under Contract' },
   { key: 'closed', label: 'Closed' },
@@ -44,6 +45,7 @@ const SELLER_STAGE_COLORS: Record<string, string> = {
   req_trace: 'bg-red-500/10 text-red-500',
   skip_traced: 'bg-cyan-500/10 text-cyan-500',
   contacted: 'bg-purple-500/10 text-purple-500',
+  negotiate: 'bg-yellow-500/10 text-yellow-600',
   offer_sent: 'bg-amber-500/10 text-amber-500',
   under_contract: 'bg-emerald-500/10 text-emerald-500',
   closed: 'bg-muted text-muted-foreground',
@@ -1731,7 +1733,7 @@ function PhoneRow({ seller }: { seller: any }) {
   );
 }
 
-const PIPELINE_ORDER = ['new', 'req_trace', 'skip_traced', 'contacted', 'offer_sent', 'under_contract', 'closed', 'dead'];
+const PIPELINE_ORDER = ['new', 'req_trace', 'skip_traced', 'contacted', 'negotiate', 'offer_sent', 'under_contract', 'closed', 'dead'];
 
 function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
   const [tracing, setTracing] = useState(false);
@@ -1746,6 +1748,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [editNotes, setEditNotes] = useState(s.notes || '');
   const [editHomeownerPrice, setEditHomeownerPrice] = useState((s.meta as any)?.homeowner_price?.toString() || '');
   const [editOwnerInterested, setEditOwnerInterested] = useState<string>((s.meta as any)?.owner_interested ?? '');
+  const [editPipeline, setEditPipeline] = useState(s.status || 'new');
   const [saving, setSaving] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
@@ -2153,7 +2156,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
     try {
       const priceVal = editHomeownerPrice ? parseFloat(editHomeownerPrice) : null;
       const newMeta = { ...(s.meta || {}), homeowner_price: priceVal, owner_interested: editOwnerInterested || null };
-      const newStatus = editOwnerInterested === 'no' ? 'dead' : undefined;
+      const newStatus = editOwnerInterested === 'no' ? 'dead' : (editPipeline !== s.status ? editPipeline : undefined);
       await supabase.from('lw_sellers').update({
         owner_name: editName || null,
         owner_phone: editPhone || null,
@@ -2163,7 +2166,8 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         meta: newMeta,
         ...(newStatus ? { status: newStatus } : {}),
       }).eq('id', s.id);
-      toast.success(newStatus === 'dead' ? 'Saved — lead moved to Dead pipeline' : 'Saved');
+      const stageLabel = SELLER_STAGES.find(st => st.key === newStatus)?.label;
+      toast.success(newStatus === 'dead' ? 'Saved — lead moved to Dead pipeline' : newStatus ? `Saved — moved to ${stageLabel}` : 'Saved');
       setEditing(false);
       onSkipTraced?.();
     } catch (err: any) {
@@ -2340,6 +2344,17 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 <Button size="sm" variant={editOwnerInterested === 'no' ? 'destructive' : 'outline'} onClick={() => setEditOwnerInterested('no')}>No</Button>
                 {editOwnerInterested && <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditOwnerInterested('')}>Clear</Button>}
               </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Pipeline Stage</label>
+              <Select value={editPipeline} onValueChange={setEditPipeline}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SELLER_STAGES.filter(st => st.key !== 'all').map(st => (
+                    <SelectItem key={st.key} value={st.key}>{st.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         ) : (() => {
