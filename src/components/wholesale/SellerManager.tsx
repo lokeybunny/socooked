@@ -1026,6 +1026,16 @@ export default function SellerManager() {
                 <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
               </SelectContent>
             </Select>
+            <Select value={sourceFilter} onValueChange={setSourceFilter}>
+              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="reapi">RealtorAPI</SelectItem>
+                <SelectItem value="zillow_apify">Zillow Apify</SelectItem>
+                <SelectItem value="funnel_lead">Funnel Leads</SelectItem>
+                <SelectItem value="csv_import">CSV Import</SelectItem>
+              </SelectContent>
+            </Select>
             <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground whitespace-nowrap">
               <Checkbox checked={hideDuplicates} onCheckedChange={(v) => setHideDuplicates(!!v)} />
               Hide Duplicates
