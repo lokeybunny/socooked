@@ -160,7 +160,7 @@ export default function Raiders() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {raiders.map((raider) => (
+              {raiders.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((raider) => (
                 <TableRow key={raider.id}>
                   <TableCell className="font-medium">
                     {user
