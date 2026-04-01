@@ -207,6 +207,23 @@ export default function Raiders() {
           </Table>
         </div>
 
+        {/* Pagination */}
+        {raiders.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, raiders.length)} of {raiders.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+              </Button>
+              <Button variant="outline" size="sm" disabled={(page + 1) * PAGE_SIZE >= raiders.length} onClick={() => setPage(p => p + 1)}>
+                Next <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Public Earnings Board for Raiders */}
         <PublicEarningsBoard roleFilter="raider" />
 
