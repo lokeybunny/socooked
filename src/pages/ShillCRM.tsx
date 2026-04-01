@@ -1322,7 +1322,7 @@ function PayoutsTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payouts.map(p => (
+            {payouts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(p => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">@{p.discord_username}</TableCell>
                 <TableCell><Badge variant="outline" className="text-xs">{p.payout_type}</Badge></TableCell>
