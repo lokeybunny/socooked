@@ -3779,6 +3779,105 @@ export type Database = {
         }
         Relationships: []
       }
+      stale_zillow_leads: {
+        Row: {
+          address: string | null
+          agent_name: string | null
+          agent_phone: string | null
+          apify_run_id: string | null
+          bathrooms: number | null
+          bedrooms: number | null
+          brokerage: string | null
+          city: string | null
+          created_at: string
+          date_posted: string | null
+          days_on_zillow: number | null
+          flagged: boolean
+          home_status: string | null
+          home_type: string | null
+          id: string
+          listed_price: number | null
+          lot_sqft: number | null
+          meta: Json
+          price_drop_count: number | null
+          price_history: Json
+          sqft: number | null
+          state: string | null
+          total_price_drop_percent: number | null
+          updated_at: string
+          user_notes: string | null
+          year_built: number | null
+          zestimate: number | null
+          zillow_url: string | null
+          zip: string | null
+          zpid: string | null
+        }
+        Insert: {
+          address?: string | null
+          agent_name?: string | null
+          agent_phone?: string | null
+          apify_run_id?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          brokerage?: string | null
+          city?: string | null
+          created_at?: string
+          date_posted?: string | null
+          days_on_zillow?: number | null
+          flagged?: boolean
+          home_status?: string | null
+          home_type?: string | null
+          id?: string
+          listed_price?: number | null
+          lot_sqft?: number | null
+          meta?: Json
+          price_drop_count?: number | null
+          price_history?: Json
+          sqft?: number | null
+          state?: string | null
+          total_price_drop_percent?: number | null
+          updated_at?: string
+          user_notes?: string | null
+          year_built?: number | null
+          zestimate?: number | null
+          zillow_url?: string | null
+          zip?: string | null
+          zpid?: string | null
+        }
+        Update: {
+          address?: string | null
+          agent_name?: string | null
+          agent_phone?: string | null
+          apify_run_id?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          brokerage?: string | null
+          city?: string | null
+          created_at?: string
+          date_posted?: string | null
+          days_on_zillow?: number | null
+          flagged?: boolean
+          home_status?: string | null
+          home_type?: string | null
+          id?: string
+          listed_price?: number | null
+          lot_sqft?: number | null
+          meta?: Json
+          price_drop_count?: number | null
+          price_history?: Json
+          sqft?: number | null
+          state?: string | null
+          total_price_drop_percent?: number | null
+          updated_at?: string
+          user_notes?: string | null
+          year_built?: number | null
+          zestimate?: number | null
+          zillow_url?: string | null
+          zip?: string | null
+          zpid?: string | null
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee_id: string | null
