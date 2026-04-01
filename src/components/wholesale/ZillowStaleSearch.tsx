@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,9 @@ export default function ZillowStaleSearch() {
   const [results, setResults] = useState<any[]>([]);
   const [totalFound, setTotalFound] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-load previous results on mount
+  useEffect(() => { loadResults(); }, []);
 
   const toggleHomeType = (type: string) => {
     setHomeTypes(prev =>
@@ -279,9 +282,9 @@ export default function ZillowStaleSearch() {
               </Button>
             )}
 
-            {!results.length && !running && (
+            {!running && (
               <Button variant="ghost" size="sm" onClick={loadResults} className="text-xs gap-1.5">
-                <Download className="h-3 w-3" /> Load Previous Results
+                <Download className="h-3 w-3" /> Refresh Results
               </Button>
             )}
           </div>
