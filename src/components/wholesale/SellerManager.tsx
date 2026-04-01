@@ -1346,6 +1346,7 @@ export default function SellerManager() {
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('buyer_match_score')}>
                       Buyer Match {sortField === 'buyer_match_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
+                    {stageFilter === 'negotiate' && <TableHead>Price</TableHead>}
                     <TableHead>Source</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-10"></TableHead>
