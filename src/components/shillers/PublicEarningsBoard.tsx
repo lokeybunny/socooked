@@ -221,9 +221,10 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
     return () => { supabase.removeChannel(channel); };
   }, [roleFilter]);
 
-  const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
-  const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
-  const totalPaidOut = allPayouts.reduce((s, p) => s + Number(p.amount), 0);
+  // Always compute unified totals from ALL users (not role-filtered) for consistency
+  const totalVerified = allRows.reduce((s, r) => s + r.verified_amount, 0);
+  const totalPending = allRows.reduce((s, r) => s + r.pending_amount, 0);
+  const totalPaidOut = allRows.reduce((s, r) => s + r.paid_out, 0);
   const totalUnpaid = Math.max(0, totalVerified - totalPaidOut);
 
   const fetchAllPayouts = async () => {
