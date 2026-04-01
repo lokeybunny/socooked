@@ -554,6 +554,7 @@ export default function SellerManager() {
     if (stateFilter !== 'all') list = list.filter(s => s.state === stateFilter);
     if (stageFilter !== 'all') list = list.filter(s => s.status === stageFilter);
     if (dealTypeFilter !== 'all') list = list.filter(s => (s.deal_type || 'land') === dealTypeFilter);
+    if (sourceFilter !== 'all') list = list.filter(s => (s.source || 'reapi') === sourceFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(s =>
