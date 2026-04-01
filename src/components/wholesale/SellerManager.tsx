@@ -2156,7 +2156,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
     try {
       const priceVal = editHomeownerPrice ? parseFloat(editHomeownerPrice) : null;
       const newMeta = { ...(s.meta || {}), homeowner_price: priceVal, owner_interested: editOwnerInterested || null };
-      const newStatus = editOwnerInterested === 'no' ? 'dead' : undefined;
+      const newStatus = editOwnerInterested === 'no' ? 'dead' : (editPipeline !== s.status ? editPipeline : undefined);
       await supabase.from('lw_sellers').update({
         owner_name: editName || null,
         owner_phone: editPhone || null,
@@ -2166,7 +2166,8 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         meta: newMeta,
         ...(newStatus ? { status: newStatus } : {}),
       }).eq('id', s.id);
-      toast.success(newStatus === 'dead' ? 'Saved — lead moved to Dead pipeline' : 'Saved');
+      const stageLabel = SELLER_STAGES.find(st => st.key === newStatus)?.label;
+      toast.success(newStatus === 'dead' ? 'Saved — lead moved to Dead pipeline' : newStatus ? `Saved — moved to ${stageLabel}` : 'Saved');
       setEditing(false);
       onSkipTraced?.();
     } catch (err: any) {
