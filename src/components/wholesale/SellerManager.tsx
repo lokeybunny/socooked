@@ -1488,6 +1488,97 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [draftingEmail, setDraftingEmail] = useState(false);
   const [sendingForSignature, setSendingForSignature] = useState(false);
 
+  // Email Offer state
+  const [emailOfferOpen, setEmailOfferOpen] = useState(false);
+  const [emailOfferTo, setEmailOfferTo] = useState('');
+  const [emailOfferSubject, setEmailOfferSubject] = useState('');
+  const [emailOfferBody, setEmailOfferBody] = useState('');
+  const [sendingEmailOffer, setSendingEmailOffer] = useState(false);
+
+  const openEmailOffer = () => {
+    const ownerName = s.owner_name || 'Homeowner';
+    const addr = s.address_full || 'your property';
+    const city = s.city || '';
+    const state = s.state || '';
+    const location = [city, state].filter(Boolean).join(', ');
+    setEmailOfferTo(s.owner_email || '');
+    setEmailOfferSubject(addr);
+    setEmailOfferBody(
+`Hello ${ownerName},
+
+My name is Warren and I'm a real estate investor with Warren.guru. I came across your property at ${addr}${location ? ` in ${location}` : ''} through public city records and wanted to reach out to see if you might be interested in receiving a cash offer.
+
+Before anything else — is this still your property? I want to make sure I have the right person.
+
+If you are open to discussing it, I'd love to learn more about the property and present a fair, no-obligation cash offer. We handle all closing costs and can close on your timeline.
+
+Could you let me know a good time and phone number to reach you at?
+
+Looking forward to hearing from you.
+
+Best regards,
+Warren
+Warren.guru | Real Estate Investor`
+    );
+    setEmailOfferOpen(true);
+  };
+
+  const handleSendEmailOffer = async () => {
+    if (!emailOfferTo || !emailOfferSubject) {
+      toast.error('Recipient email and subject are required');
+      return;
+    }
+    setSendingEmailOffer(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({
+          to: emailOfferTo,
+          subject: emailOfferSubject,
+          body: emailOfferBody.replace(/\n/g, '<br/>'),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email');
+
+      // Auto-create temp customer if not in CRM
+      const recipientEmail = emailOfferTo.trim().toLowerCase();
+      const { data: existing } = await supabase.from('customers').select('id').eq('email', recipientEmail).maybeSingle();
+      if (!existing) {
+        const namePart = s.owner_name || recipientEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+        await supabase.from('customers').insert({
+          full_name: namePart,
+          email: recipientEmail,
+          status: 'lead',
+          source: 'wholesale-email-offer',
+          tags: ['temp', 'wholesale-seller'],
+          notes: `Auto-created from wholesale email offer for property: ${s.address_full || 'N/A'}`,
+          address: s.address_full || null,
+        });
+        toast.info(`Created CRM contact: ${namePart}`);
+      }
+
+      // Log to activity
+      await supabase.from('activity_log').insert({
+        entity_type: 'lw_seller',
+        entity_id: s.id,
+        action: 'email_offer_sent',
+        meta: { to: emailOfferTo, subject: emailOfferSubject, address: s.address_full },
+      });
+
+      toast.success('Email offer sent!');
+      setEmailOfferOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send email offer');
+    } finally {
+      setSendingEmailOffer(false);
+    }
+  };
+
   const handleSkipTrace = async () => {
     setTracing(true);
     try {
@@ -2032,7 +2123,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                    </button>
                 </div>
               )}
-              <div className="pt-2 flex justify-center">
+              <div className="pt-2 flex justify-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -2045,6 +2136,14 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                   }}
                 >
                   📝 Submit Agreement
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5 border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                  onClick={openEmailOffer}
+                >
+                  ✉️ Submit Email Offer
                 </Button>
               </div>
             </div>
@@ -2348,6 +2447,36 @@ Format with numbered sections and clear headings. Make this ready to print, sign
           </div>
         </div>
       </div>
+
+      {/* Email Offer Modal */}
+      <Dialog open={emailOfferOpen} onOpenChange={setEmailOfferOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">✉️ Email Offer to Seller</DialogTitle>
+            <DialogDescription className="text-xs">Review and edit the draft before sending. The recipient will be added to your CRM pipeline automatically.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">To</Label>
+              <Input value={emailOfferTo} onChange={e => setEmailOfferTo(e.target.value)} placeholder="owner@example.com" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Subject</Label>
+              <Input value={emailOfferSubject} onChange={e => setEmailOfferSubject(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Body</Label>
+              <Textarea value={emailOfferBody} onChange={e => setEmailOfferBody(e.target.value)} rows={14} className="text-sm" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setEmailOfferOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleSendEmailOffer} disabled={sendingEmailOffer || !emailOfferTo}>
+                {sendingEmailOffer ? <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Sending…</> : '📨 Send Email Offer'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Agreement Generator Modal */}
       <Dialog open={agreementOpen} onOpenChange={setAgreementOpen}>
