@@ -174,6 +174,7 @@ export default function SellerManager() {
   const [stageFilter, setStageFilter] = useState('all');
   const [dealTypeFilter, setDealTypeFilter] = useState('all');
   const [hideDuplicates, setHideDuplicates] = useState(true);
+  const [fetchSource, setFetchSource] = useState<'reapi' | 'zillow'>('reapi');
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
