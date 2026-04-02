@@ -60,7 +60,7 @@ const suggestedPrompts = [
   { icon: GraduationCap, text: 'Teach me how to test 3 creatives correctly' },
 ];
 
-export default function MetaAdsChat({ trainerMode }: { trainerMode: boolean }) {
+export default function MetaAdsChat({ trainerMode, userProfile }: { trainerMode: boolean; userProfile?: Record<string, string> }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
