@@ -243,7 +243,7 @@ export default function WebDesignLanding() {
 
       {/* Lead Form */}
       <section id="get-started" className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: `url(${parallaxAppraisal})` }} />
+        <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: `url(${funnelImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/60" />
         <div className="relative max-w-lg mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-center mb-10">
