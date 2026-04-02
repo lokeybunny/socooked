@@ -133,13 +133,15 @@ export default function WarrenLanding() {
               <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
           </div>
-          <div className="flex items-center gap-5">
-            <Link to="/videography" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors hidden sm:block">
+          <div className="hidden sm:flex items-center gap-6">
+            <Link to="/videography" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
-            <Link to="/webdesign" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors hidden sm:block">
+            <Link to="/webdesign" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </Link>
+          </div>
+          <div className="flex items-center gap-5">
             <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white transition-colors" title="Login">
               <Users className="h-5 w-5" />
             </button>
