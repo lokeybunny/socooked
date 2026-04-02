@@ -26,11 +26,33 @@ export default function MetaAdsDashboard() {
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return !localStorage.getItem('meta-ads-onboarded');
   });
+  const [userProfile, setUserProfile] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('meta-ads-profile') || '{}');
+    } catch { return {}; }
+  });
+  const [metaConnected, setMetaConnected] = useState(() => {
+    return localStorage.getItem('meta-ads-connected') === 'true';
+  });
 
   const handleOnboardingComplete = (answers: Record<string, string>) => {
     localStorage.setItem('meta-ads-onboarded', 'true');
     localStorage.setItem('meta-ads-profile', JSON.stringify(answers));
+    setUserProfile(answers);
     setShowOnboarding(false);
+  };
+
+  const handleConnectMeta = () => {
+    // Placeholder: In production this would open OAuth flow
+    setMetaConnected(true);
+    localStorage.setItem('meta-ads-connected', 'true');
+    toast.success('Meta Ads account connected! Live data sync coming soon.');
+  };
+
+  const handleDisconnectMeta = () => {
+    setMetaConnected(false);
+    localStorage.removeItem('meta-ads-connected');
+    toast.info('Meta Ads account disconnected.');
   };
 
   if (showOnboarding) {
