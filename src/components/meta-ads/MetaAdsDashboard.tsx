@@ -118,6 +118,7 @@ export default function MetaAdsDashboard() {
             { value: 'performance', icon: TrendingUp, label: 'Performance' },
             { value: 'records', icon: FileText, label: 'Campaigns' },
             { value: 'crm', icon: Link2, label: 'CRM Links' },
+            { value: 'videos', icon: Video, label: 'Video Ads' },
           ].map(t => (
             <TabsTrigger
               key={t.value}
