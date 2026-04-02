@@ -257,7 +257,7 @@ export default function MetaAdsDashboard() {
         </TabsContent>
 
         <TabsContent value="ai-chat" className="mt-6">
-          <MetaAdsChat trainerMode={trainerMode} />
+          <MetaAdsChat trainerMode={trainerMode} userProfile={userProfile} />
         </TabsContent>
 
         <TabsContent value="campaign-builder" className="mt-6">
