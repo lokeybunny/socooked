@@ -159,13 +159,7 @@ export default function SellerLanding() {
       <nav className="bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/10 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {page.logo_url ? (
-              <img src={page.logo_url} alt={page.client_name} className="h-9 w-auto" />
-            ) : (
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-cyan-500 to-teal-500">
-                <Building2 className="h-5 w-5 text-black" />
-              </div>
-            )}
+            <img src={warrenLogo} alt="Warren Guru" className="h-9 w-auto" />
             <div className="flex flex-col leading-none">
               <span className="text-lg font-semibold text-white">{page.client_name}</span>
               <span className="text-[10px] tracking-[0.2em] uppercase text-cyan-400/60">Real Estate Investment Firm</span>
