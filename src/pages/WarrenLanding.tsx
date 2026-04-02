@@ -134,6 +134,9 @@ export default function WarrenLanding() {
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-6">
+            <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
+              Real Estate
+            </a>
             <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
