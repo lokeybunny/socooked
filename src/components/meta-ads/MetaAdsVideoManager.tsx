@@ -52,10 +52,17 @@ export default function MetaAdsVideoManager() {
   const [activeCampaign, setActiveCampaign] = useState<string>('all');
   const [addingCampaign, setAddingCampaign] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
+  const [customPipelines, setCustomPipelines] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('ad-video-pipelines') || '[]'); } catch { return []; }
+  });
   const fileRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
-  const campaigns = Array.from(new Set(videos.map(v => v.campaign))).sort();
+  // Merge DB-derived campaigns with locally-stored custom pipelines
+  const campaigns = Array.from(new Set([
+    ...videos.map(v => v.campaign),
+    ...customPipelines,
+  ])).sort();
 
   const fetchVideos = async () => {
     const { data } = await supabase
