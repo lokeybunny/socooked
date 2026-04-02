@@ -289,6 +289,15 @@ export default function MetaAdsDashboard() {
         <TabsContent value="crm" className="mt-6">
           <MetaAdsCRMLinks />
         </TabsContent>
+
+        <TabsContent value="videos" className="mt-6">
+          <MetaAdsVideoManager />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+        </TabsContent>
       </Tabs>
     </div>
   );
