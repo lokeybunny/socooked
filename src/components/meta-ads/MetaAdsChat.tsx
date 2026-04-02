@@ -89,6 +89,7 @@ export default function MetaAdsChat({ trainerMode, userProfile }: { trainerMode:
       // Inject user profile context from onboarding
       if (userProfile && Object.keys(userProfile).length > 0) {
         systemContent += `\n\nUSER PROFILE (from onboarding):\n- Business type: ${userProfile.business_type || 'Not specified'}\n- Goal: ${userProfile.goal || 'Not specified'}\n- Monthly budget: ${userProfile.budget || 'Not specified'}\n- Experience level: ${userProfile.experience || 'Not specified'}\n- AI preference: ${userProfile.ai_role || 'Not specified'}\n\nUse this context to personalize your recommendations. Reference their business type and budget when making suggestions.`;
+      }
       const apiMessages = [
         { role: 'system' as const, content: systemContent },
         ...updatedMessages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
