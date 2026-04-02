@@ -472,13 +472,7 @@ export default function SellerLanding() {
       <footer className="bg-slate-950 border-t border-cyan-500/10 text-white/30 py-8">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-2">
-            {page.logo_url ? (
-              <img src={page.logo_url} alt={page.client_name} className="h-6 w-auto opacity-60" />
-            ) : (
-              <div className="h-6 w-6 rounded flex items-center justify-center bg-gradient-to-br from-cyan-500/40 to-teal-500/40 text-white/60 text-[10px] font-bold">
-                {page.client_name.charAt(0)}
-              </div>
-            )}
+            <img src={warrenLogo} alt="Warren Guru" className="h-6 w-auto opacity-60" />
             <span>© {new Date().getFullYear()} {page.client_name}. All rights reserved.</span>
           </div>
           <p className="text-white/20">AI-Powered Real Estate Investment Firm</p>
