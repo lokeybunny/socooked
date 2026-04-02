@@ -426,7 +426,7 @@ export default function WarrenLanding() {
               ✕
             </button>
             <iframe
-              src="/sell/joedoe"
+              src="https://warren.guru/sell/home"
               className="w-full h-full bg-white"
               title="Funnel Landing Page Preview"
             />
