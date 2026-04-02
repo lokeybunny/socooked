@@ -14,6 +14,7 @@ import parallaxHero from '@/assets/landing/parallax-hero-ai-realestate.jpg';
 import parallaxNeighborhood from '@/assets/landing/parallax-ai-neighborhood.jpg';
 import parallaxAppraisal from '@/assets/landing/parallax-ai-appraisal.jpg';
 import parallaxCommand from '@/assets/landing/parallax-ai-command.jpg';
+import warrenLogo from '@/assets/landing/warren-logo.png';
 
 interface LandingPage {
   id: string;
@@ -158,13 +159,7 @@ export default function SellerLanding() {
       <nav className="bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/10 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {page.logo_url ? (
-              <img src={page.logo_url} alt={page.client_name} className="h-9 w-auto" />
-            ) : (
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-cyan-500 to-teal-500">
-                <Building2 className="h-5 w-5 text-black" />
-              </div>
-            )}
+            <img src={warrenLogo} alt="Warren Guru" className="h-9 w-auto" />
             <div className="flex flex-col leading-none">
               <span className="text-lg font-semibold text-white">{page.client_name}</span>
               <span className="text-[10px] tracking-[0.2em] uppercase text-cyan-400/60">Real Estate Investment Firm</span>
@@ -477,13 +472,7 @@ export default function SellerLanding() {
       <footer className="bg-slate-950 border-t border-cyan-500/10 text-white/30 py-8">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-2">
-            {page.logo_url ? (
-              <img src={page.logo_url} alt={page.client_name} className="h-6 w-auto opacity-60" />
-            ) : (
-              <div className="h-6 w-6 rounded flex items-center justify-center bg-gradient-to-br from-cyan-500/40 to-teal-500/40 text-white/60 text-[10px] font-bold">
-                {page.client_name.charAt(0)}
-              </div>
-            )}
+            <img src={warrenLogo} alt="Warren Guru" className="h-6 w-auto opacity-60" />
             <span>© {new Date().getFullYear()} {page.client_name}. All rights reserved.</span>
           </div>
           <p className="text-white/20">AI-Powered Real Estate Investment Firm</p>
