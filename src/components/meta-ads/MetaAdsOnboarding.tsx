@@ -97,9 +97,14 @@ export default function MetaAdsOnboarding({ onComplete }: Props) {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground">
-          Step {step + 1} of {steps.length}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Step {step + 1} of {steps.length}
+          </p>
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => onComplete({})}>
+            Skip setup →
+          </Button>
+        </div>
       </div>
     </div>
   );
