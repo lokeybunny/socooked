@@ -4,47 +4,52 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import {
   ArrowRight, Zap, Phone, Globe, Mail, BarChart3, Brain,
-  ChevronDown, Shield, Clock, Users, TrendingUp
+  ChevronDown, Shield, Clock, Users, TrendingUp, Building2, Briefcase
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import dashboardPreview from '@/assets/landing/client-dashboard-preview.jpg';
 import WarrenVideoPlayer from '@/components/landing/WarrenVideoPlayer';
+
+import parallaxHero from '@/assets/landing/parallax-hero-ai-realestate.jpg';
+import parallaxNeighborhood from '@/assets/landing/parallax-ai-neighborhood.jpg';
+import parallaxCommand from '@/assets/landing/parallax-ai-command.jpg';
+import parallaxAppraisal from '@/assets/landing/parallax-ai-appraisal.jpg';
+import dashboardPreview from '@/assets/landing/client-dashboard-preview.jpg';
 
 const steps = [
   {
     num: '01',
     icon: Globe,
-    title: 'Your Branded Landing Page',
-    desc: 'A professional, conversion-optimized seller landing page deployed under your brand. Sellers submit their property — name, phone, address — and the system takes over.',
+    title: 'Your Branded Acquisition Portal',
+    desc: 'A professional, conversion-optimized seller landing page deployed under your firm\'s brand. Sellers submit their property — name, phone, address — and the system takes over.',
   },
   {
     num: '02',
     icon: Phone,
-    title: 'AI Voice Closes the Call',
+    title: 'AI Closes the Initial Call',
     desc: 'Within seconds of a lead submission, our AI voice agent calls the seller, qualifies their motivation, timeline, and asking price — then logs structured notes directly to your CRM.',
   },
   {
     num: '03',
     icon: Brain,
-    title: 'Smart Lead Scoring',
-    desc: 'Every call transcript is analyzed by AI to extract motivation level, property condition, timeline urgency, and a lead score — so you know exactly who to prioritize.',
+    title: 'Intelligent Lead Scoring',
+    desc: 'Every call transcript is analyzed by AI to extract motivation level, property condition, timeline urgency, and a lead score — so your team knows exactly who to prioritize.',
   },
   {
     num: '04',
     icon: BarChart3,
-    title: 'Your Full CRM Pipeline',
+    title: 'Full Deal Pipeline',
     desc: 'Sellers flow through a managed pipeline: New → Contacted → Qualified → Under Contract → Closed. Track distress signals, skip-trace contacts, and manage deals — all in one place.',
   },
   {
     num: '05',
     icon: Mail,
-    title: 'Automated Email Updates',
+    title: 'Automated Client Communications',
     desc: 'The system sends professional follow-up emails on your behalf — confirmations, status updates, and nurture sequences — keeping sellers engaged without lifting a finger.',
   },
   {
     num: '06',
     icon: TrendingUp,
-    title: 'Fresh Leads from Our API',
+    title: 'Proprietary Data Pipeline',
     desc: 'Access distressed property data — tax delinquent, pre-foreclosure, vacant, absentee owners — pulled directly from county records and delivered to your dashboard daily.',
   },
 ];
@@ -52,9 +57,9 @@ const steps = [
 const features = [
   { icon: Zap, label: 'AI Voice Agent', desc: 'Automated outbound & inbound calls' },
   { icon: Shield, label: 'Skip Tracing', desc: 'Find owner contact info instantly' },
-  { icon: Globe, label: 'Landing Pages', desc: 'Branded seller-facing websites' },
+  { icon: Globe, label: 'Acquisition Portals', desc: 'Branded seller-facing websites' },
   { icon: Mail, label: 'Auto Emails', desc: 'Drip campaigns & follow-ups' },
-  { icon: BarChart3, label: 'Deal Pipeline', desc: 'Full wholesale CRM dashboard' },
+  { icon: BarChart3, label: 'Deal Pipeline', desc: 'Full investment CRM dashboard' },
   { icon: Clock, label: 'Distress Data', desc: 'Fresh leads from public records' },
   { icon: Users, label: 'Seller Management', desc: 'Track every seller interaction' },
   { icon: Brain, label: 'AI Analysis', desc: 'Transcript scoring & insights' },
@@ -70,12 +75,12 @@ const fade = {
 
 function DemoVideoSection() {
   return (
-    <section id="see-it-in-action" className="py-20 px-6 border-t border-white/[0.04]">
+    <section id="see-it-in-action" className="py-20 px-6 border-t border-cyan-500/[0.08]">
       <div className="max-w-4xl mx-auto">
         <motion.p
           initial="hidden" whileInView="visible" viewport={{ once: true }}
           variants={fade} custom={0}
-          className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5 text-center"
+          className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
         >
           How It Works
         </motion.p>
@@ -84,7 +89,7 @@ function DemoVideoSection() {
           variants={fade} custom={1}
           className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-center mb-12"
         >
-          Your Entire Pipeline. Automated.
+          Your Entire Pipeline. <span className="text-cyan-400">Automated.</span>
         </motion.h2>
         <motion.div
           initial="hidden" whileInView="visible" viewport={{ once: true }}
@@ -104,26 +109,29 @@ export default function WarrenLanding() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showFunnelModal, setShowFunnelModal] = useState(false);
   const { scrollYProgress } = useScroll({ target: containerRef });
-  const headerBg = useTransform(scrollYProgress, [0, 0.05], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)']);
+  const headerBg = useTransform(scrollYProgress, [0, 0.05], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-black">
-      <div className="animate-spin h-6 w-6 border-2 border-white/30 border-t-white rounded-full" />
+      <div className="animate-spin h-6 w-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full" />
     </div>
   );
   if (user) return <Navigate to="/dashboard" replace />;
 
   return (
-    <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-white/20">
+    <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
       {/* ── Sticky Header ── */}
       <motion.header
         style={{ backgroundColor: headerBg }}
         className="fixed top-0 inset-x-0 z-50 backdrop-blur-md border-b border-white/[0.04]"
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex flex-col leading-none">
-            <span className="text-white/30 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
-            <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+          <div className="flex items-center gap-3">
+            <Building2 className="h-5 w-5 text-cyan-400" />
+            <div className="flex flex-col leading-none">
+              <span className="text-cyan-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
+              <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+            </div>
           </div>
           <div className="flex items-center gap-5">
             <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white text-sm tracking-wider transition-colors">
@@ -131,7 +139,7 @@ export default function WarrenLanding() {
             </button>
             <Link
               to="/pricing"
-              className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-white text-black rounded font-medium hover:bg-white/90 transition-colors"
+              className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded font-medium hover:from-cyan-400 hover:to-teal-400 transition-all"
             >
               Subscribe
             </Link>
@@ -139,46 +147,51 @@ export default function WarrenLanding() {
         </div>
       </motion.header>
 
-      {/* ── Hero ── */}
-      <section className="relative min-h-screen flex items-center justify-center px-6 pt-14 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.03)_0%,_transparent_70%)]" />
-        <div className="absolute inset-0 opacity-[0.015]" style={{
-          backgroundImage: 'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)',
-          backgroundSize: '60px 60px',
+      {/* ── Hero with Parallax ── */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* Parallax BG */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          style={{ backgroundImage: `url(${parallaxHero})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black" />
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: 'linear-gradient(rgba(0,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.3) 1px, transparent 1px)',
+          backgroundSize: '80px 80px',
         }} />
 
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
-          className="relative text-center max-w-3xl"
+          className="relative text-center max-w-3xl px-6 pt-14"
         >
-          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-white/10 bg-white/[0.03] mb-8">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-white/50">Now Accepting Subscribers</span>
+          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
+            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Real Estate Investment Firm</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05]">
-            Wholesale Real Estate
+            Institutional-Grade
             <br />
-            <span className="text-white/40">on Autopilot.</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Acquisitions.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            AI voice agents close your seller calls. Fresh distressed leads delivered daily. A full CRM that runs your pipeline — while you focus on deals.
+            AI voice agents qualify every seller. Distressed property data delivered daily. A full brokerage-grade CRM that runs your pipeline — so you can focus on closing.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/pricing"
-              className="group flex items-center gap-3 px-10 py-4 bg-white text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:bg-white/90 transition-all"
+              className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20"
             >
               Start Free Trial
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
               href="#see-it-in-action"
-              className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-white transition-colors"
+              className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-cyan-400 transition-colors"
             >
               See It In Action
               <ChevronDown className="h-4 w-4" />
@@ -187,16 +200,20 @@ export default function WarrenLanding() {
 
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
             <div className="text-center">
-              <div className="text-3xl font-bold text-white/60">24hr</div>
+              <div className="text-3xl font-bold text-cyan-400/70">24hr</div>
               <div className="text-xs tracking-[0.2em] uppercase mt-1">Free Trial</div>
             </div>
-            <div className="w-px h-12 bg-white/10" />
+            <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
-              <div className="text-3xl font-bold text-white/60">100%</div>
+              <div className="text-3xl font-bold text-cyan-400/70">100%</div>
               <div className="text-xs tracking-[0.2em] uppercase mt-1">Automated</div>
             </div>
+            <div className="w-px h-12 bg-cyan-500/10" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-cyan-400/70">$50M+</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Deals Closed</div>
+            </div>
           </div>
-
         </motion.div>
 
         <motion.div
@@ -204,18 +221,62 @@ export default function WarrenLanding() {
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <ChevronDown className="h-5 w-5 text-white/20" />
+          <ChevronDown className="h-5 w-5 text-cyan-400/30" />
         </motion.div>
       </section>
 
-      {/* Problem section removed */}
+      {/* ── Parallax: AI Neighborhood Data ── */}
+      <section className="relative py-32 overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          style={{ backgroundImage: `url(${parallaxNeighborhood})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
+        <div className="relative max-w-5xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
+              <Briefcase className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Data-Driven Investing</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
+              Proprietary Market Intelligence <span className="text-cyan-400">at Scale.</span>
+            </h2>
+            <p className="text-white/40 text-lg leading-relaxed">
+              Our AI analyzes every property in your target market — identifying distress signals, equity positions, and motivation indicators that human scouts miss.
+            </p>
+            <div className="space-y-3">
+              {['Tax Delinquent & Pre-Foreclosure Detection', 'Absentee Owner Identification', 'Vacancy & Code Violation Analysis', 'Automated Skip Tracing'].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 text-white/50">
+                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <span className="text-sm">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="hidden md:block" />
+        </div>
+      </section>
 
       {/* ── Demo Video ── */}
       <DemoVideoSection />
 
       {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-24 px-6 border-t border-white/[0.04]">
+      <section id="how-it-works" className="py-24 px-6 border-t border-cyan-500/[0.08]">
         <div className="max-w-4xl mx-auto">
+          <motion.p
+            initial="hidden" whileInView="visible" viewport={{ once: true }}
+            variants={fade} custom={0}
+            className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
+          >
+            The Process
+          </motion.p>
+          <motion.h2
+            initial="hidden" whileInView="visible" viewport={{ once: true }}
+            variants={fade} custom={1}
+            className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-14"
+          >
+            How Our Firm <span className="text-cyan-400">Operates</span>
+          </motion.h2>
 
           <div className="space-y-0">
             {steps.map((step, i) => (
@@ -223,12 +284,12 @@ export default function WarrenLanding() {
                 key={step.num}
                 initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }}
                 variants={fade} custom={i}
-                className="group relative flex gap-6 py-10 border-b border-white/[0.04] last:border-0"
+                className="group relative flex gap-6 py-10 border-b border-cyan-500/[0.06] last:border-0"
               >
                 <div className="flex-shrink-0 w-14 flex flex-col items-center">
-                  <span className="text-xs tracking-wider text-white/20 font-mono">{step.num}</span>
-                  <div className="mt-3 w-12 h-12 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center group-hover:border-white/20 group-hover:bg-white/[0.06] transition-all duration-500">
-                    <step.icon className="h-5 w-5 text-white/40 group-hover:text-white/70 transition-colors duration-500" />
+                  <span className="text-xs tracking-wider text-cyan-400/30 font-mono">{step.num}</span>
+                  <div className="mt-3 w-12 h-12 rounded-lg bg-cyan-500/[0.05] border border-cyan-500/[0.1] flex items-center justify-center group-hover:border-cyan-500/30 group-hover:bg-cyan-500/[0.08] transition-all duration-500">
+                    <step.icon className="h-5 w-5 text-cyan-400/50 group-hover:text-cyan-400 transition-colors duration-500" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -245,18 +306,49 @@ export default function WarrenLanding() {
         </div>
       </section>
 
+      {/* ── Parallax: AI Command Center ── */}
+      <section className="relative py-28 overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          style={{ backgroundImage: `url(${parallaxCommand})` }}
+        />
+        <div className="absolute inset-0 bg-black/60" />
+        <div className="relative max-w-3xl mx-auto px-6 text-center space-y-6">
+          <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
+            AI That Works <span className="text-cyan-400">24/7</span> — So You Don't Have To.
+          </h2>
+          <p className="text-lg text-white/40 max-w-xl mx-auto leading-relaxed">
+            Our AI command center processes leads, qualifies sellers, and manages your pipeline around the clock. Every call, every email, every follow-up — handled automatically.
+          </p>
+        </div>
+      </section>
+
       {/* ── Dashboard Preview ── */}
-      <section className="py-20 px-6 border-t border-white/[0.04]">
+      <section className="py-20 px-6 border-t border-cyan-500/[0.08]">
         <div className="max-w-4xl mx-auto">
-          <motion.div
+          <motion.p
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={0}
+            className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
+          >
+            Your Dashboard
+          </motion.p>
+          <motion.h2
+            initial="hidden" whileInView="visible" viewport={{ once: true }}
+            variants={fade} custom={1}
+            className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-12"
+          >
+            Brokerage-Grade <span className="text-cyan-400">CRM</span>
+          </motion.h2>
+          <motion.div
+            initial="hidden" whileInView="visible" viewport={{ once: true }}
+            variants={fade} custom={2}
             className="flex justify-center"
           >
             <img
               src={dashboardPreview}
-              alt="Wholesale Dashboard preview showing CRM pipeline and lead management"
-              className="w-full max-w-3xl rounded-3xl border border-white/10 shadow-2xl shadow-white/[0.03]"
+              alt="Investment CRM Dashboard preview showing deal pipeline and analytics"
+              className="w-full max-w-3xl rounded-2xl border border-cyan-500/10 shadow-2xl shadow-cyan-500/[0.05]"
               loading="lazy"
             />
           </motion.div>
@@ -264,21 +356,21 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── Features Grid ── */}
-      <section className="py-24 px-6 border-t border-white/[0.04]">
+      <section className="py-24 px-6 border-t border-cyan-500/[0.08]">
         <div className="max-w-4xl mx-auto">
           <motion.p
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={0}
-            className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5 text-center"
+            className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
           >
-            Everything Included
+            Full Suite
           </motion.p>
           <motion.h2
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-14"
           >
-            One Subscription. Full Stack.
+            One Subscription. <span className="text-cyan-400">Full Stack.</span>
           </motion.h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -287,9 +379,9 @@ export default function WarrenLanding() {
                 key={f.label}
                 initial="hidden" whileInView="visible" viewport={{ once: true }}
                 variants={fade} custom={i}
-                className="group p-6 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/10 transition-all duration-500 text-center"
+                className="group p-6 rounded-xl border border-cyan-500/[0.06] bg-cyan-500/[0.02] hover:bg-cyan-500/[0.05] hover:border-cyan-500/20 transition-all duration-500 text-center"
               >
-                <f.icon className="h-6 w-6 mx-auto text-white/25 group-hover:text-white/60 transition-colors duration-500 mb-3" />
+                <f.icon className="h-6 w-6 mx-auto text-cyan-400/30 group-hover:text-cyan-400 transition-colors duration-500 mb-3" />
                 <div className="text-sm tracking-wider uppercase font-medium text-white/60 group-hover:text-white/80 transition-colors">{f.label}</div>
                 <div className="text-xs text-white/25 mt-2 leading-relaxed">{f.desc}</div>
               </motion.div>
@@ -299,18 +391,18 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── Funnel Leads CTA ── */}
-      <section className="py-16 px-6 border-t border-white/[0.04]">
+      <section className="py-16 px-6 border-t border-cyan-500/[0.08]">
         <div className="max-w-2xl mx-auto text-center">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0}>
-            <p className="text-xs tracking-[0.4em] uppercase text-white/30 mb-4">See A Working Funnel</p>
+            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-4">See A Working Funnel</p>
             <p className="text-sm text-white/40 max-w-md mx-auto mb-8 leading-relaxed">
-              Check out a live seller landing page — built, branded, and ready to capture leads on autopilot.
+              Preview a live seller acquisition portal — built, branded, and ready to capture leads on autopilot.
             </p>
             <button
               onClick={() => setShowFunnelModal(true)}
-              className="group inline-flex items-center gap-3 px-10 py-4 border border-white/10 rounded-lg text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white hover:border-white/30 hover:bg-white/[0.03] transition-all"
+              className="group inline-flex items-center gap-3 px-10 py-4 border border-cyan-500/20 rounded-lg text-sm tracking-[0.2em] uppercase text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/[0.05] transition-all"
             >
-              Funnel Leads
+              View Live Funnel
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </button>
           </motion.div>
@@ -324,7 +416,7 @@ export default function WarrenLanding() {
           onClick={() => setShowFunnelModal(false)}
         >
           <div
-            className="relative w-full max-w-4xl h-[80vh] rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl"
+            className="relative w-full max-w-4xl h-[80vh] rounded-[2rem] overflow-hidden border border-cyan-500/20 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <button
@@ -342,15 +434,20 @@ export default function WarrenLanding() {
         </div>
       )}
 
-      <section className="py-32 px-6 border-t border-white/[0.04] relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_rgba(255,255,255,0.02)_0%,_transparent_60%)]" />
-        <div className="max-w-2xl mx-auto text-center relative">
+      {/* ── Parallax CTA: AI Appraisal ── */}
+      <section className="relative py-32 overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          style={{ backgroundImage: `url(${parallaxAppraisal})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/50" />
+        <div className="max-w-2xl mx-auto text-center relative px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0}>
-            <p className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5">Ready to Automate?</p>
+            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5">Ready to Scale?</p>
             <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
               Stop chasing.
               <br />
-              <span className="text-white/40">Start closing.</span>
+              <span className="text-cyan-400/60">Start closing.</span>
             </h2>
             <p className="mt-6 text-base text-white/30 max-w-md mx-auto leading-relaxed">
               24-hour free trial. $599/mo for the first 90 days. Cancel anytime.
@@ -359,7 +456,7 @@ export default function WarrenLanding() {
               <Link
                 to="/pricing#top"
                 onClick={() => window.scrollTo(0, 0)}
-                className="group flex items-center gap-3 px-12 py-4 bg-white text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:bg-white/90 transition-all"
+                className="group flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20"
               >
                 View Pricing
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -370,26 +467,27 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-white/[0.04] py-8 px-6">
+      <footer className="border-t border-cyan-500/[0.08] py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex flex-col leading-none">
-            <span className="text-white/20 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
-            <span className="text-white/40 font-medium text-sm tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+          <div className="flex items-center gap-3">
+            <Building2 className="h-4 w-4 text-cyan-400/40" />
+            <div className="flex flex-col leading-none">
+              <span className="text-cyan-400/30 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
+              <span className="text-white/40 font-medium text-sm tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+            </div>
           </div>
           <div className="flex items-center gap-6">
-            <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-white/50 transition-colors">
+            <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">
               Terms
             </Link>
-            <Link to="/pricing" className="text-xs tracking-wider uppercase text-white/20 hover:text-white/50 transition-colors">
+            <Link to="/pricing" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">
               Pricing
             </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/20 hover:text-white/50 transition-colors">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+            <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">
+              Discord
             </a>
-            <p className="text-xs text-white/15">&copy; {new Date().getFullYear()} Warren Guru</p>
           </div>
+          <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
     </div>
