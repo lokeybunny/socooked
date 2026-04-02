@@ -46,7 +46,9 @@ export default function MetaAdsVideoManager() {
   const [selectedVideo, setSelectedVideo] = useState<AdVideo | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
   const fetchVideos = async () => {
     const { data } = await supabase
@@ -59,15 +61,13 @@ export default function MetaAdsVideoManager() {
 
   useEffect(() => { fetchVideos(); }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-
+  const uploadFiles = async (files: File[]) => {
+    if (!files.length) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error('Please sign in first'); return; }
 
     setUploading(true);
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       if (!file.type.startsWith('video/')) {
         toast.error(`${file.name} is not a video file`);
         continue;
@@ -100,6 +100,28 @@ export default function MetaAdsVideoManager() {
     fetchVideos();
   };
 
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) uploadFiles(Array.from(e.target.files));
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current++;
+    setDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setDragging(false);
+  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current = 0;
+    setDragging(false);
+    if (e.dataTransfer.files?.length) uploadFiles(Array.from(e.dataTransfer.files));
+  };
+
   const handleDelete = async (video: AdVideo) => {
     if (!confirm(`Delete "${video.title}"?`)) return;
     await supabase.storage.from('content-uploads').remove([video.storage_path]);
@@ -121,7 +143,20 @@ export default function MetaAdsVideoManager() {
   );
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay */}
+      {dragging && (
+        <div className="absolute inset-0 z-50 bg-primary/5 border-2 border-dashed border-primary rounded-xl flex flex-col items-center justify-center pointer-events-none">
+          <Upload className="h-10 w-10 text-primary mb-2 animate-bounce" />
+          <p className="text-sm font-medium text-primary">Drop video files here to upload</p>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
