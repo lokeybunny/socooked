@@ -85,10 +85,10 @@ export default function VideographyLanding() {
             </div>
           </Link>
           <div className="hidden sm:flex items-center gap-6">
-            <Link to="/videography" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
+            <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
-            </Link>
-            <Link to="/webdesign" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+            </a>
+            <Link to="/webdesign#get-started" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </Link>
           </div>

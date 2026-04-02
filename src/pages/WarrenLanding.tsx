@@ -134,10 +134,10 @@ export default function WarrenLanding() {
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-6">
-            <Link to="/videography" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+            <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
-            <Link to="/webdesign" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+            <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </Link>
           </div>
