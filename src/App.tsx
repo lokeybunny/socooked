@@ -56,6 +56,8 @@ import Wholesale from "./pages/Wholesale";
 import ApiManagement from "./pages/ApiManagement";
 import Ads from "./pages/Ads";
 import SellerLanding from "./pages/SellerLanding";
+import VideographyLanding from "./pages/VideographyLanding";
+import WebDesignLanding from "./pages/WebDesignLanding";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
 import ClientLogin from "./pages/ClientLogin";
@@ -153,6 +155,8 @@ const App = () => (
             <Route path="/api-management" element={<WarrenOnlyGate><AuthLayoutGate><ApiManagement /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/videography" element={<VideographyLanding />} />
+            <Route path="/webdesign" element={<WebDesignLanding />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/client-login" element={<Navigate to="/auth" replace />} />
             <Route path="/client-dashboard" element={<ClientDashboard />} />
