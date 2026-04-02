@@ -134,6 +134,12 @@ export default function WarrenLanding() {
             </div>
           </div>
           <div className="flex items-center gap-5">
+            <Link to="/videography" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors hidden sm:block">
+              Videography
+            </Link>
+            <Link to="/webdesign" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors hidden sm:block">
+              Web Design
+            </Link>
             <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white text-sm tracking-wider transition-colors">
               Login
             </button>
