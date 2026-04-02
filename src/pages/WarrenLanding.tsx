@@ -243,8 +243,7 @@ export default function WarrenLanding() {
           style={{ backgroundImage: `url(${parallaxNeighborhood})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
-        <div className="relative max-w-5xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+        <div className="relative max-w-3xl mx-auto px-6 text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
               <Briefcase className="h-3.5 w-3.5 text-cyan-400" />
               <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Data-Driven Investing</span>
@@ -252,10 +251,10 @@ export default function WarrenLanding() {
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
               Proprietary Market Intelligence <span className="text-cyan-400">at Scale.</span>
             </h2>
-            <p className="text-white/40 text-lg leading-relaxed">
+            <p className="text-white/40 text-lg leading-relaxed max-w-xl mx-auto">
               Our AI analyzes every property in your target market — identifying distress signals, equity positions, and motivation indicators that human scouts miss.
             </p>
-            <div className="space-y-3">
+            <div className="inline-grid gap-3 text-left">
               {['Tax Delinquent & Pre-Foreclosure Detection', 'Absentee Owner Identification', 'Vacancy & Code Violation Analysis', 'Automated Skip Tracing'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 text-white/50">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
@@ -263,8 +262,6 @@ export default function WarrenLanding() {
                 </div>
               ))}
             </div>
-          </div>
-          <div className="hidden md:block" />
         </div>
       </section>
 
