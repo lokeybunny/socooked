@@ -143,7 +143,20 @@ export default function MetaAdsVideoManager() {
   );
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay */}
+      {dragging && (
+        <div className="absolute inset-0 z-50 bg-primary/5 border-2 border-dashed border-primary rounded-xl flex flex-col items-center justify-center pointer-events-none">
+          <Upload className="h-10 w-10 text-primary mb-2 animate-bounce" />
+          <p className="text-sm font-medium text-primary">Drop video files here to upload</p>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
