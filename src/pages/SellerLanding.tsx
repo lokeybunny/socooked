@@ -14,6 +14,7 @@ import parallaxHero from '@/assets/landing/parallax-hero-ai-realestate.jpg';
 import parallaxNeighborhood from '@/assets/landing/parallax-ai-neighborhood.jpg';
 import parallaxAppraisal from '@/assets/landing/parallax-ai-appraisal.jpg';
 import parallaxCommand from '@/assets/landing/parallax-ai-command.jpg';
+import warrenLogo from '@/assets/landing/warren-logo.png';
 
 interface LandingPage {
   id: string;
