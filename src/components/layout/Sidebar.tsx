@@ -52,6 +52,7 @@ const navEntries: NavEntry[] = [
   { to: '/wholesale', icon: Warehouse, label: 'Wholesale', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
+  { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
 ];
 
 export function Sidebar() {
