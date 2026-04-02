@@ -52,10 +52,17 @@ export default function MetaAdsVideoManager() {
   const [activeCampaign, setActiveCampaign] = useState<string>('all');
   const [addingCampaign, setAddingCampaign] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
+  const [customPipelines, setCustomPipelines] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('ad-video-pipelines') || '[]'); } catch { return []; }
+  });
   const fileRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
-  const campaigns = Array.from(new Set(videos.map(v => v.campaign))).sort();
+  // Merge DB-derived campaigns with locally-stored custom pipelines
+  const campaigns = Array.from(new Set([
+    ...videos.map(v => v.campaign),
+    ...customPipelines,
+  ])).sort();
 
   const fetchVideos = async () => {
     const { data } = await supabase
@@ -147,6 +154,16 @@ export default function MetaAdsVideoManager() {
   const handleAddCampaign = () => {
     const name = newCampaignName.trim();
     if (!name) return;
+    if (campaigns.includes(name)) {
+      toast.error(`Pipeline "${name}" already exists`);
+      setActiveCampaign(name);
+      setNewCampaignName('');
+      setAddingCampaign(false);
+      return;
+    }
+    const updated = [...customPipelines, name];
+    setCustomPipelines(updated);
+    localStorage.setItem('ad-video-pipelines', JSON.stringify(updated));
     setActiveCampaign(name);
     setNewCampaignName('');
     setAddingCampaign(false);
