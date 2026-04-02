@@ -126,13 +126,13 @@ export default function WarrenLanding() {
         className="fixed top-0 inset-x-0 z-50 backdrop-blur-md border-b border-white/[0.04]"
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-3 cursor-pointer">
             <Building2 className="h-5 w-5 text-cyan-400" />
             <div className="flex flex-col leading-none">
               <span className="text-cyan-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
               <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
-          </div>
+          </a>
           <div className="hidden sm:flex items-center gap-6">
             <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Real Estate

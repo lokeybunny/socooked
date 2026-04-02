@@ -86,7 +86,7 @@ export default function VideographyLanding() {
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-black/80 border-b border-white/[0.04]">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" onClick={() => window.scrollTo(0, 0)} className="flex items-center gap-3">
             <Building2 className="h-5 w-5 text-cyan-400" />
             <div className="flex flex-col leading-none">
               <span className="text-cyan-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
