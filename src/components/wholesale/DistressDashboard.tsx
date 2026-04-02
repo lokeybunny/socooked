@@ -118,7 +118,7 @@ export default function DistressDashboard() {
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
         <MetricCard icon={MapPin} label="Total Leads" value={stats.total} />
-        <MetricCard icon={Flame} label="Hot Leads" value={stats.hot} accent="destructive" />
+        <MetricCard icon={Flame} label="Cold Leads" value={stats.hot} accent="cold" />
         <MetricCard icon={Flame} label="Hot This Week" value={stats.hotThisWeek} accent="warning" />
         <MetricCard icon={AlertTriangle} label="Pre-Foreclosure" value={stats.preForeclosure} accent="warning" />
         <MetricCard icon={TreePine} label="Vacant Land" value={stats.vacantLand} />
