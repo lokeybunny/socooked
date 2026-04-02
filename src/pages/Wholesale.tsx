@@ -244,9 +244,14 @@ export default function Wholesale() {
         <TabsContent value="twilio-spend" className="mt-4">
           <TwilioSpendDashboard />
         </TabsContent>
+        {/* Ads */}
+        <TabsContent value="ads" className="mt-4">
+          <MetaAdsDashboard />
+        </TabsContent>
         {/* Settings */}
         <TabsContent value="settings" className="mt-4">
           <BuyerSettings />
+        </TabsContent>
         </TabsContent>
       </Tabs>
     </div>
