@@ -8,7 +8,7 @@ import {
   BarChart3, MessageSquare, PenTool, Target, Palette, TrendingUp,
   Plus, Sparkles, GraduationCap, Zap, DollarSign, Eye, MousePointerClick,
   Users, Activity, ArrowUpRight, Clock, CheckCircle2, Pause, FileText,
-  Send, Lightbulb, Layout, Link2, Settings2, BookOpen
+  Send, Lightbulb, Layout, Link2, Settings2, BookOpen, Video
 } from 'lucide-react';
 import MetaAdsChat from './MetaAdsChat';
 import MetaAdsCampaignBuilder from './MetaAdsCampaignBuilder';
