@@ -21,6 +21,7 @@ import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
 import BuyerGeoMap from '@/components/wholesale/BuyerGeoMap';
 import TwilioSpendDashboard from '@/components/wholesale/TwilioSpendDashboard';
 import SubscriberAI from '@/components/wholesale/SubscriberAI';
+import MetaAdsDashboard from '@/components/meta-ads/MetaAdsDashboard';
 
 import { toast } from 'sonner';
 
