@@ -19,6 +19,7 @@ import MetaAdsPerformance from './MetaAdsPerformance';
 import MetaAdsCampaignRecords from './MetaAdsCampaignRecords';
 import MetaAdsCRMLinks from './MetaAdsCRMLinks';
 import MetaAdsOnboarding from './MetaAdsOnboarding';
+import MetaAdsVideoManager from './MetaAdsVideoManager';
 
 export default function MetaAdsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
