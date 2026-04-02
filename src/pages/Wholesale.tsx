@@ -252,7 +252,6 @@ export default function Wholesale() {
         <TabsContent value="settings" className="mt-4">
           <BuyerSettings />
         </TabsContent>
-        </TabsContent>
       </Tabs>
     </div>
   );
