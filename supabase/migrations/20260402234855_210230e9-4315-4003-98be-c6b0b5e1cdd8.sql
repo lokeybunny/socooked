@@ -1,0 +1,1 @@
+ALTER TABLE public.meta_ad_videos ADD COLUMN campaign text NOT NULL DEFAULT 'General';
