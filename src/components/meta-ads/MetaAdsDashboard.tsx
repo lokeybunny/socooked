@@ -8,7 +8,7 @@ import {
   BarChart3, MessageSquare, PenTool, Target, Palette, TrendingUp,
   Plus, Sparkles, GraduationCap, Zap, DollarSign, Eye, MousePointerClick,
   Users, Activity, ArrowUpRight, Clock, CheckCircle2, Pause, FileText,
-  Send, Lightbulb, Layout, Link2, Settings2, BookOpen
+  Send, Lightbulb, Layout, Link2, Settings2, BookOpen, Video
 } from 'lucide-react';
 import MetaAdsChat from './MetaAdsChat';
 import MetaAdsCampaignBuilder from './MetaAdsCampaignBuilder';
@@ -19,6 +19,7 @@ import MetaAdsPerformance from './MetaAdsPerformance';
 import MetaAdsCampaignRecords from './MetaAdsCampaignRecords';
 import MetaAdsCRMLinks from './MetaAdsCRMLinks';
 import MetaAdsOnboarding from './MetaAdsOnboarding';
+import MetaAdsVideoManager from './MetaAdsVideoManager';
 
 export default function MetaAdsDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -117,6 +118,7 @@ export default function MetaAdsDashboard() {
             { value: 'performance', icon: TrendingUp, label: 'Performance' },
             { value: 'records', icon: FileText, label: 'Campaigns' },
             { value: 'crm', icon: Link2, label: 'CRM Links' },
+            { value: 'videos', icon: Video, label: 'Video Ads' },
           ].map(t => (
             <TabsTrigger
               key={t.value}
@@ -286,6 +288,10 @@ export default function MetaAdsDashboard() {
 
         <TabsContent value="crm" className="mt-6">
           <MetaAdsCRMLinks />
+        </TabsContent>
+
+        <TabsContent value="videos" className="mt-6">
+          <MetaAdsVideoManager />
         </TabsContent>
       </Tabs>
     </div>

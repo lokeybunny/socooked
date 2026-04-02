@@ -2542,6 +2542,51 @@ export type Database = {
           },
         ]
       }
+      meta_ad_videos: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_seconds: number | null
+          file_size: number | null
+          file_url: string
+          id: string
+          owner_id: string | null
+          storage_path: string
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          owner_id?: string | null
+          storage_path: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          owner_id?: string | null
+          storage_path?: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meta_mentions: {
         Row: {
           category_normalized: string
