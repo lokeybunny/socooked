@@ -154,6 +154,16 @@ export default function MetaAdsVideoManager() {
   const handleAddCampaign = () => {
     const name = newCampaignName.trim();
     if (!name) return;
+    if (campaigns.includes(name)) {
+      toast.error(`Pipeline "${name}" already exists`);
+      setActiveCampaign(name);
+      setNewCampaignName('');
+      setAddingCampaign(false);
+      return;
+    }
+    const updated = [...customPipelines, name];
+    setCustomPipelines(updated);
+    localStorage.setItem('ad-video-pipelines', JSON.stringify(updated));
     setActiveCampaign(name);
     setNewCampaignName('');
     setAddingCampaign(false);
