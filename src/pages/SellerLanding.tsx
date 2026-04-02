@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,15 +7,13 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Home, Phone, Star, Shield, Clock, CheckCircle, ArrowRight, Loader2,
-  MapPin, Users, DollarSign, Handshake, Quote, ArrowDown, Heart, Play
+  MapPin, Users, DollarSign, Handshake, Quote, ArrowDown, Building2
 } from 'lucide-react';
 
-import aiTechThumb from '@/assets/landing/ai-tech-thumbnail.jpg';
-
-import heroHomeImg from '@/assets/landing/hero-home.jpg';
-import happyFamilyImg from '@/assets/landing/happy-family.jpg';
-import neighborhoodImg from '@/assets/landing/neighborhood-aerial.jpg';
-import happySellersImg from '@/assets/landing/happy-sellers.jpg';
+import parallaxHero from '@/assets/landing/parallax-hero-ai-realestate.jpg';
+import parallaxNeighborhood from '@/assets/landing/parallax-ai-neighborhood.jpg';
+import parallaxAppraisal from '@/assets/landing/parallax-ai-appraisal.jpg';
+import parallaxCommand from '@/assets/landing/parallax-ai-command.jpg';
 
 interface LandingPage {
   id: string;
@@ -91,8 +89,6 @@ export default function SellerLanding() {
       toast.error('Something went wrong. Please try again.');
     } else {
       setSubmitted(true);
-      // Trigger Vapi AI call after 3 seconds — use raw fetch with apikey header
-      // since the user is not authenticated (public landing page)
       setTimeout(async () => {
         try {
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -121,25 +117,25 @@ export default function SellerLanding() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
+        <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
       </div>
     );
   }
 
   if (notFound || !page) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center space-y-3">
-          <Home className="h-12 w-12 mx-auto text-slate-300" />
-          <h1 className="text-2xl font-bold text-slate-800">Page Not Found</h1>
-          <p className="text-slate-500">This landing page doesn't exist or is no longer active.</p>
+          <Building2 className="h-12 w-12 mx-auto text-cyan-400/30" />
+          <h1 className="text-2xl font-bold text-white">Page Not Found</h1>
+          <p className="text-white/40">This landing page doesn't exist or is no longer active.</p>
         </div>
       </div>
     );
   }
 
-  const accent = page.accent_color || '#2563eb';
+  const accent = page.accent_color || '#06b6d4';
 
   const DEFAULT_REVIEWS = [
     { name: 'Maria G.', text: 'They made the entire process so simple. Got a fair cash offer and closed in just 12 days. No repairs, no stress!', stars: 5, location: 'Houston, TX' },
@@ -157,110 +153,118 @@ export default function SellerLanding() {
   };
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-slate-950 overflow-x-hidden text-white">
       {/* Sticky Nav */}
-      <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
+      <nav className="bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/10 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg flex items-center justify-center text-white" style={{ background: accent }}>
-              <Home className="h-5 w-5" />
+            {page.logo_url ? (
+              <img src={page.logo_url} alt={page.client_name} className="h-9 w-auto" />
+            ) : (
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-gradient-to-br from-cyan-500 to-teal-500">
+                <Building2 className="h-5 w-5 text-black" />
+              </div>
+            )}
+            <div className="flex flex-col leading-none">
+              <span className="text-lg font-semibold text-white">{page.client_name}</span>
+              <span className="text-[10px] tracking-[0.2em] uppercase text-cyan-400/60">Real Estate Investment Firm</span>
             </div>
-            <span className="text-lg font-semibold text-slate-800">{page.client_name}</span>
           </div>
           <div className="flex items-center gap-3">
             {page.phone && (
-              <a href={`tel:${page.phone}`} className="hidden sm:flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition">
+              <a href={`tel:${page.phone}`} className="hidden sm:flex items-center gap-2 text-sm font-medium text-white/60 hover:text-cyan-400 transition">
                 <Phone className="h-4 w-4" />
                 {page.phone}
               </a>
             )}
-            <Button size="sm" onClick={scrollToForm} className="text-white rounded-full px-5" style={{ background: accent }}>
+            <Button size="sm" onClick={scrollToForm} className="rounded-full px-5 bg-gradient-to-r from-cyan-500 to-teal-500 text-black font-medium hover:from-cyan-400 hover:to-teal-400">
               Get Offer
             </Button>
           </div>
         </div>
       </nav>
 
-      {/* ═══════════ HERO with parallax background ═══════════ */}
+      {/* ═══════════ HERO with parallax ═══════════ */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
-        {/* Parallax BG */}
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${heroHomeImg})` }}
+          style={{ backgroundImage: `url(${parallaxHero})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/75 to-slate-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/50" />
+        <div className="absolute inset-0 opacity-[0.02]" style={{
+          backgroundImage: 'linear-gradient(rgba(0,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.3) 1px, transparent 1px)',
+          backgroundSize: '80px 80px',
+        }} />
 
         <div className="relative max-w-6xl mx-auto px-4 py-20 grid lg:grid-cols-2 gap-12 items-center w-full">
           {/* Left */}
           <div className="space-y-7 text-center lg:text-left animate-fade-in">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-xs font-medium text-white/90">
+            <div className="inline-flex items-center gap-2 bg-cyan-500/10 backdrop-blur-sm border border-cyan-500/20 rounded-full px-4 py-1.5 text-xs font-medium text-cyan-400">
               <Shield className="h-3.5 w-3.5" />
-              Trusted Local Home Buyer
+              Licensed Real Estate Investment Firm
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-[1.1] tracking-tight">
               {page.headline}
             </h1>
             {page.sub_headline && (
-              <p className="text-lg sm:text-xl text-slate-300 max-w-lg mx-auto lg:mx-0 leading-relaxed">{page.sub_headline}</p>
+              <p className="text-lg sm:text-xl text-white/40 max-w-lg mx-auto lg:mx-0 leading-relaxed">{page.sub_headline}</p>
             )}
-            <div className="flex flex-wrap gap-5 justify-center lg:justify-start text-sm text-slate-300">
-              <span className="flex items-center gap-2"><Clock className="h-5 w-5" style={{ color: accent }} /> Close in 7–14 Days</span>
-              <span className="flex items-center gap-2"><DollarSign className="h-5 w-5" style={{ color: accent }} /> All Cash Offer</span>
-              <span className="flex items-center gap-2"><Handshake className="h-5 w-5" style={{ color: accent }} /> Zero Fees</span>
+            <div className="flex flex-wrap gap-5 justify-center lg:justify-start text-sm text-white/50">
+              <span className="flex items-center gap-2"><Clock className="h-5 w-5 text-cyan-400" /> Close in 7–14 Days</span>
+              <span className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-cyan-400" /> All Cash Offer</span>
+              <span className="flex items-center gap-2"><Handshake className="h-5 w-5 text-cyan-400" /> Zero Fees</span>
             </div>
 
-            {/* Client avatar */}
             {page.photo_url && (
               <div className="flex items-center gap-4 justify-center lg:justify-start pt-2">
-                <img src={page.photo_url} alt={page.client_name} className="h-14 w-14 rounded-full object-cover border-[3px] border-white/30 shadow-lg" />
+                <img src={page.photo_url} alt={page.client_name} className="h-14 w-14 rounded-full object-cover border-2 border-cyan-500/30 shadow-lg" />
                 <div className="text-left">
                   <p className="text-base font-semibold text-white">{page.client_name}</p>
-                  <p className="text-sm text-slate-400">Real Estate Investor</p>
+                  <p className="text-sm text-cyan-400/60">Managing Partner</p>
                 </div>
               </div>
             )}
 
-            {/* Scroll CTA */}
-            <button onClick={scrollToForm} className="hidden lg:flex items-center gap-2 text-white/60 hover:text-white/90 transition text-sm mt-4">
+            <button onClick={scrollToForm} className="hidden lg:flex items-center gap-2 text-cyan-400/40 hover:text-cyan-400 transition text-sm mt-4">
               <ArrowDown className="h-4 w-4 animate-bounce" /> Scroll to get your free offer
             </button>
           </div>
 
           {/* Right — Form card */}
-          <div id="lead-form" className="bg-white rounded-2xl shadow-2xl p-7 sm:p-9 max-w-md mx-auto lg:mx-0 lg:ml-auto w-full animate-scale-in">
+          <div id="lead-form" className="bg-slate-900/90 backdrop-blur-xl rounded-2xl shadow-2xl shadow-cyan-500/5 border border-cyan-500/10 p-7 sm:p-9 max-w-md mx-auto lg:mx-0 lg:ml-auto w-full animate-scale-in">
             {submitted ? (
               <div className="text-center space-y-4 py-8">
-                <div className="h-18 w-18 rounded-full mx-auto flex items-center justify-center" style={{ background: accent + '15', width: 72, height: 72 }}>
-                  <CheckCircle className="h-9 w-9" style={{ color: accent }} />
+                <div className="h-[72px] w-[72px] rounded-full mx-auto flex items-center justify-center bg-cyan-500/10">
+                  <CheckCircle className="h-9 w-9 text-cyan-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-slate-800">We Got Your Info!</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">
-                  Our team will review your property details and give you a call shortly with a no-obligation cash offer.
+                <h3 className="text-2xl font-bold text-white">We Got Your Info!</h3>
+                <p className="text-white/40 text-sm leading-relaxed">
+                  Our acquisitions team will review your property details and give you a call shortly with a no-obligation cash offer.
                 </p>
               </div>
             ) : (
               <>
                 <div className="text-center space-y-1.5 mb-7">
-                  <h2 className="text-2xl font-bold text-slate-800">Get Your Cash Offer</h2>
-                  <p className="text-sm text-slate-500">Fill out the form — we'll call you within 24 hours</p>
+                  <h2 className="text-2xl font-bold text-white">Get Your Cash Offer</h2>
+                  <p className="text-sm text-white/40">Fill out the form — we'll call you within 24 hours</p>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <Label htmlFor="name" className="text-slate-700 text-sm font-medium">Full Name</Label>
-                    <Input id="name" placeholder="John Smith" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-12 border-slate-200 focus:border-blue-400 text-base" maxLength={100} required />
+                    <Label htmlFor="name" className="text-white/60 text-sm font-medium">Full Name</Label>
+                    <Input id="name" placeholder="John Smith" value={name} onChange={(e) => setName(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={100} required />
                   </div>
                   <div>
-                    <Label htmlFor="phone" className="text-slate-700 text-sm font-medium">Phone Number</Label>
-                    <Input id="phone" type="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5 h-12 border-slate-200 focus:border-blue-400 text-base" maxLength={20} required />
+                    <Label htmlFor="phone" className="text-white/60 text-sm font-medium">Phone Number</Label>
+                    <Input id="phone" type="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={20} required />
                   </div>
                   <div>
-                    <Label htmlFor="address" className="text-slate-700 text-sm font-medium">Property Address</Label>
-                    <Input id="address" placeholder="123 Main St, City, TX 75001" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-12 border-slate-200 focus:border-blue-400 text-base" maxLength={255} required />
+                    <Label htmlFor="address" className="text-white/60 text-sm font-medium">Property Address</Label>
+                    <Input id="address" placeholder="123 Main St, City, TX 75001" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={255} required />
                   </div>
-                  <Button type="submit" disabled={submitting} className="w-full h-13 text-base font-semibold rounded-xl text-white shadow-lg hover:shadow-xl transition-all" style={{ background: accent, height: 52 }}>
+                  <Button type="submit" disabled={submitting} className="w-full h-[52px] text-base font-semibold rounded-xl text-black shadow-lg shadow-cyan-500/20 hover:shadow-xl transition-all bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400">
                     {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <><span>Get My Cash Offer</span><ArrowRight className="h-4 w-4 ml-2" /></>}
                   </Button>
-                  <p className="text-[11px] text-slate-400 text-center">
+                  <p className="text-[11px] text-white/20 text-center">
                     100% free and confidential. No obligation whatsoever.
                   </p>
                 </form>
@@ -271,41 +275,41 @@ export default function SellerLanding() {
       </section>
 
       {/* ═══════════ Trust stats ═══════════ */}
-      <section className="bg-white border-b border-slate-100">
+      <section className="border-b border-cyan-500/10">
         <div className="max-w-5xl mx-auto px-4 py-10 grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
           {[
-            { icon: Home, label: '500+', desc: 'Homes Purchased' },
-            { icon: DollarSign, label: '$50M+', desc: 'Cash Paid to Sellers' },
+            { icon: Home, label: '500+', desc: 'Properties Acquired' },
+            { icon: DollarSign, label: '$50M+', desc: 'Cash Deployed' },
             { icon: Clock, label: '14 Days', desc: 'Average Close Time' },
             { icon: Star, label: '4.9 ★', desc: 'Average Rating' },
           ].map((s, i) => (
             <div key={i} className="space-y-2">
-              <s.icon className="h-7 w-7 mx-auto" style={{ color: accent }} />
-              <p className="text-3xl font-extrabold text-slate-800">{s.label}</p>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{s.desc}</p>
+              <s.icon className="h-7 w-7 mx-auto text-cyan-400" />
+              <p className="text-3xl font-extrabold text-white">{s.label}</p>
+              <p className="text-xs font-medium text-white/30 uppercase tracking-wide">{s.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ═══════════ Parallax Happy Family Section ═══════════ */}
+      {/* ═══════════ Parallax: AI Neighborhood ═══════════ */}
       <section className="relative py-24 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${happyFamilyImg})` }}
+          style={{ backgroundImage: `url(${parallaxNeighborhood})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/85 to-white/60" />
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/85 to-slate-950/60" />
         <div className="relative max-w-5xl mx-auto px-4 grid md:grid-cols-2 gap-10 items-center">
           <div className="space-y-5">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 leading-tight">We Help Families Move Forward</h2>
-            <p className="text-slate-600 leading-relaxed text-lg">
-              Whether you're facing foreclosure, divorce, relocation, or simply need to sell fast — we provide a simple, dignified way to sell your home for cash. No judgment, just solutions.
+            <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight">We Help Families <span className="text-cyan-400">Move Forward</span></h2>
+            <p className="text-white/40 leading-relaxed text-lg">
+              Whether you're facing foreclosure, divorce, relocation, or simply need to sell fast — our firm provides a simple, dignified way to sell your home for cash.
             </p>
             <div className="space-y-3">
               {['Facing Foreclosure or Behind on Payments', 'Inherited Property You Can\'t Maintain', 'Going Through Divorce', 'Relocating for Work', 'Tired of Being a Landlord'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <CheckCircle className="h-5 w-5 flex-shrink-0" style={{ color: accent }} />
-                  <span className="text-slate-700">{item}</span>
+                  <CheckCircle className="h-5 w-5 flex-shrink-0 text-cyan-400" />
+                  <span className="text-white/60">{item}</span>
                 </div>
               ))}
             </div>
@@ -315,12 +319,12 @@ export default function SellerLanding() {
       </section>
 
       {/* ═══════════ How It Works ═══════════ */}
-      <section className="bg-slate-50 py-20">
+      <section className="py-20 border-t border-cyan-500/10">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center space-y-3 mb-14">
-            <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: accent }}>Simple Process</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">How It Works</h2>
-            <p className="text-slate-500 max-w-lg mx-auto">Selling your home doesn't have to be complicated. Three steps, that's it.</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-cyan-400/60">Simple Process</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">How It Works</h2>
+            <p className="text-white/30 max-w-lg mx-auto">Selling your home doesn't have to be complicated. Three steps, that's it.</p>
           </div>
           <div className="grid sm:grid-cols-3 gap-8">
             {[
@@ -328,64 +332,64 @@ export default function SellerLanding() {
               { step: '02', icon: DollarSign, title: 'Receive Your Cash Offer', desc: 'We\'ll review your property and present a fair, all-cash offer within 24 hours. No hidden fees ever.' },
               { step: '03', icon: Handshake, title: 'Close on Your Timeline', desc: 'Pick your closing date. We handle all paperwork, pay closing costs, and you walk away with cash.' },
             ].map((s, i) => (
-              <div key={i} className="relative bg-white rounded-2xl border border-slate-100 p-8 shadow-sm hover:shadow-lg transition-all duration-300 group">
-                <div className="text-6xl font-black text-slate-50 group-hover:text-slate-100 transition-colors absolute top-4 right-5">{s.step}</div>
-                <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-5 shadow-sm" style={{ background: accent + '12' }}>
-                  <s.icon className="h-6 w-6" style={{ color: accent }} />
+              <div key={i} className="relative bg-slate-900/50 rounded-2xl border border-cyan-500/10 p-8 hover:border-cyan-500/30 transition-all duration-300 group">
+                <div className="text-6xl font-black text-cyan-500/5 group-hover:text-cyan-500/10 transition-colors absolute top-4 right-5">{s.step}</div>
+                <div className="h-12 w-12 rounded-xl flex items-center justify-center mb-5 bg-cyan-500/10">
+                  <s.icon className="h-6 w-6 text-cyan-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-2">{s.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+                <h3 className="text-lg font-semibold text-white mb-2">{s.title}</h3>
+                <p className="text-sm text-white/30 leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════════ Parallax Neighborhood — CTA ═══════════ */}
+      {/* ═══════════ Parallax: AI Command — CTA ═══════════ */}
       <section className="relative py-28 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${neighborhoodImg})` }}
+          style={{ backgroundImage: `url(${parallaxCommand})` }}
         />
-        <div className="absolute inset-0 bg-slate-900/70" />
+        <div className="absolute inset-0 bg-slate-950/70" />
         <div className="relative max-w-3xl mx-auto px-4 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
-            Your Neighbors Trusted Us.<br />You Can Too.
+            Your Neighbors Trusted Us. <span className="text-cyan-400">You Can Too.</span>
           </h2>
-          <p className="text-lg text-white/80 max-w-xl mx-auto">
+          <p className="text-lg text-white/40 max-w-xl mx-auto">
             We've helped hundreds of homeowners in your area sell quickly and move on with their lives. Let us do the same for you.
           </p>
-          <Button size="lg" onClick={scrollToForm} className="text-white rounded-full px-10 h-14 text-base font-semibold shadow-xl hover:shadow-2xl transition-all" style={{ background: accent }}>
-            <Heart className="h-5 w-5 mr-2" /> Get My Free Cash Offer
+          <Button size="lg" onClick={scrollToForm} className="rounded-full px-10 h-14 text-base font-semibold shadow-xl shadow-cyan-500/20 bg-gradient-to-r from-cyan-500 to-teal-500 text-black hover:from-cyan-400 hover:to-teal-400">
+            Get My Free Cash Offer
           </Button>
         </div>
       </section>
 
       {/* ═══════════ Reviews ═══════════ */}
-      <section className="bg-white py-20">
+      <section className="py-20 border-t border-cyan-500/10">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center space-y-3 mb-12">
-            <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: accent }}>Testimonials</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">What Homeowners Are Saying</h2>
-            <p className="text-slate-500">Real experiences from real sellers just like you</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-cyan-400/60">Testimonials</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">What Homeowners Are Saying</h2>
+            <p className="text-white/30">Real experiences from real sellers just like you</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {reviews.map((r, i) => (
-              <div key={i} className="bg-slate-50 rounded-2xl p-7 border border-slate-100 hover:shadow-md transition-shadow relative">
-                <Quote className="h-8 w-8 text-slate-200 absolute top-5 right-5" />
+              <div key={i} className="bg-slate-900/50 rounded-2xl p-7 border border-cyan-500/10 hover:border-cyan-500/20 transition-all relative">
+                <Quote className="h-8 w-8 text-cyan-500/10 absolute top-5 right-5" />
                 <div className="flex gap-0.5 mb-4">
                   {Array.from({ length: r.stars || 5 }).map((_, j) => (
                     <Star key={j} className="h-4 w-4 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
-                <p className="text-sm text-slate-600 leading-relaxed mb-5">"{r.text}"</p>
+                <p className="text-sm text-white/50 leading-relaxed mb-5">"{r.text}"</p>
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white shadow" style={{ background: accent }}>
+                  <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-black bg-gradient-to-br from-cyan-500 to-teal-500 shadow">
                     {r.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{r.name}</p>
-                    {r.location && <p className="text-xs text-slate-400">{r.location}</p>}
+                    <p className="text-sm font-semibold text-white">{r.name}</p>
+                    {r.location && <p className="text-xs text-white/30">{r.location}</p>}
                   </div>
                 </div>
               </div>
@@ -394,22 +398,22 @@ export default function SellerLanding() {
         </div>
       </section>
 
-      {/* ═══════════ Happy Sellers Parallax ═══════════ */}
+      {/* ═══════════ Parallax: AI Appraisal ═══════════ */}
       <section className="relative py-24 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${happySellersImg})` }}
+          style={{ backgroundImage: `url(${parallaxAppraisal})` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-l from-white/95 via-white/85 to-white/50" />
+        <div className="absolute inset-0 bg-gradient-to-l from-slate-950/95 via-slate-950/85 to-slate-950/50" />
         <div className="relative max-w-5xl mx-auto px-4 flex justify-end">
           <div className="max-w-lg space-y-5 text-right">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800 leading-tight">
-              Join Hundreds of Happy Sellers
+            <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight">
+              AI-Powered <span className="text-cyan-400">Property Analysis</span>
             </h2>
-            <p className="text-slate-600 text-lg leading-relaxed">
-              Our sellers walk away with cash in hand and peace of mind. No lengthy listings, no open houses, no uncertainty — just a fair deal and a fresh start.
+            <p className="text-white/40 text-lg leading-relaxed">
+              Our advanced AI evaluates every property using market comps, condition analysis, and distress indicators — ensuring you get a fair, data-driven offer.
             </p>
-            <Button size="lg" onClick={scrollToForm} className="text-white rounded-full px-8 h-13 shadow-lg ml-auto" style={{ background: accent, height: 52 }}>
+            <Button size="lg" onClick={scrollToForm} className="rounded-full px-8 h-[52px] shadow-lg shadow-cyan-500/20 ml-auto bg-gradient-to-r from-cyan-500 to-teal-500 text-black font-semibold hover:from-cyan-400 hover:to-teal-400">
               Start Now <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </div>
@@ -417,11 +421,11 @@ export default function SellerLanding() {
       </section>
 
       {/* ═══════════ Why Us ═══════════ */}
-      <section className="bg-slate-50 py-20">
+      <section className="py-20 border-t border-cyan-500/10">
         <div className="max-w-5xl mx-auto px-4">
           <div className="text-center space-y-3 mb-12">
-            <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: accent }}>The Difference</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">Why Sell to Us?</h2>
+            <p className="text-sm font-semibold uppercase tracking-widest text-cyan-400/60">The Difference</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white">Why Sell to Us?</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
@@ -429,16 +433,16 @@ export default function SellerLanding() {
               { icon: Clock, title: 'Fast Closings', desc: 'Close in as little as 7 days. We work on your schedule, always.' },
               { icon: Shield, title: 'No Repairs Needed', desc: 'Sell your home as-is. We buy houses in any condition.' },
               { icon: CheckCircle, title: 'No Fees or Commissions', desc: 'No realtor fees, no closing costs, no hidden charges.' },
-              { icon: Users, title: 'Experienced Team', desc: 'Years of experience buying homes locally. We know your market.' },
+              { icon: Users, title: 'Experienced Team', desc: 'Years of experience acquiring properties locally. We know your market.' },
               { icon: MapPin, title: 'Local Investors', desc: 'We live and invest in your community. Not a faceless corporation.' },
             ].map((item, i) => (
-              <div key={i} className="bg-white flex gap-4 p-5 rounded-xl border border-slate-100 hover:shadow-md transition-all duration-300">
-                <div className="h-11 w-11 rounded-lg flex-shrink-0 flex items-center justify-center shadow-sm" style={{ background: accent + '12' }}>
-                  <item.icon className="h-5 w-5" style={{ color: accent }} />
+              <div key={i} className="bg-slate-900/50 flex gap-4 p-5 rounded-xl border border-cyan-500/10 hover:border-cyan-500/20 transition-all duration-300">
+                <div className="h-11 w-11 rounded-lg flex-shrink-0 flex items-center justify-center bg-cyan-500/10">
+                  <item.icon className="h-5 w-5 text-cyan-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800 mb-0.5">{item.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                  <h3 className="text-sm font-semibold text-white mb-0.5">{item.title}</h3>
+                  <p className="text-sm text-white/30 leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -448,15 +452,15 @@ export default function SellerLanding() {
 
       {/* ═══════════ Bottom CTA ═══════════ */}
       <section className="relative py-20 overflow-hidden">
-        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }} />
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `url(${heroHomeImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-600 to-teal-600" />
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: `url(${parallaxHero})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
         <div className="relative max-w-3xl mx-auto px-4 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold text-white">Ready to Get Your Cash Offer?</h2>
-          <p className="text-white/80 text-lg max-w-lg mx-auto">
+          <p className="text-white/70 text-lg max-w-lg mx-auto">
             No obligation. No pressure. Just a fair cash offer for your home.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" onClick={scrollToForm} className="bg-white text-slate-800 font-semibold px-8 h-14 rounded-full shadow-xl hover:shadow-2xl transition-all text-base">
+            <Button size="lg" onClick={scrollToForm} className="bg-white text-slate-900 font-semibold px-8 h-14 rounded-full shadow-xl hover:shadow-2xl transition-all text-base hover:bg-white/90">
               Get My Offer Now <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             {page.phone && (
@@ -470,19 +474,19 @@ export default function SellerLanding() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-slate-500 py-8">
+      <footer className="bg-slate-950 border-t border-cyan-500/10 text-white/30 py-8">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-2">
             {page.logo_url ? (
               <img src={page.logo_url} alt={page.client_name} className="h-6 w-auto opacity-60" />
             ) : (
-              <div className="h-6 w-6 rounded flex items-center justify-center text-white/60 text-[10px] font-bold" style={{ background: accent + '40' }}>
+              <div className="h-6 w-6 rounded flex items-center justify-center bg-gradient-to-br from-cyan-500/40 to-teal-500/40 text-white/60 text-[10px] font-bold">
                 {page.client_name.charAt(0)}
               </div>
             )}
             <span>© {new Date().getFullYear()} {page.client_name}. All rights reserved.</span>
           </div>
-          <p className="text-slate-600">Fair. Fast. Professional.</p>
+          <p className="text-white/20">AI-Powered Real Estate Investment Firm</p>
         </div>
       </footer>
     </div>
