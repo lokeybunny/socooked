@@ -297,8 +297,3 @@ export default function MetaAdsDashboard() {
     </div>
   );
 }
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
