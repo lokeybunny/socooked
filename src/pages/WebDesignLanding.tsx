@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 
 import heroImg from '@/assets/landing/parallax-webdesign-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
-import parallaxAppraisal from '@/assets/landing/parallax-ai-appraisal.jpg';
+import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
 
 const fade = {
   hidden: { opacity: 0, y: 30 },
