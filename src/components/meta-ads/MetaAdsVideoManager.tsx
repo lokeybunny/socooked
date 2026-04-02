@@ -46,7 +46,9 @@ export default function MetaAdsVideoManager() {
   const [selectedVideo, setSelectedVideo] = useState<AdVideo | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
   const fetchVideos = async () => {
     const { data } = await supabase
@@ -59,15 +61,13 @@ export default function MetaAdsVideoManager() {
 
   useEffect(() => { fetchVideos(); }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-
+  const uploadFiles = async (files: File[]) => {
+    if (!files.length) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error('Please sign in first'); return; }
 
     setUploading(true);
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       if (!file.type.startsWith('video/')) {
         toast.error(`${file.name} is not a video file`);
         continue;
@@ -98,6 +98,28 @@ export default function MetaAdsVideoManager() {
     setUploading(false);
     if (fileRef.current) fileRef.current.value = '';
     fetchVideos();
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) uploadFiles(Array.from(e.target.files));
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current++;
+    setDragging(true);
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setDragging(false);
+  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    dragCounter.current = 0;
+    setDragging(false);
+    if (e.dataTransfer.files?.length) uploadFiles(Array.from(e.dataTransfer.files));
   };
 
   const handleDelete = async (video: AdVideo) => {
