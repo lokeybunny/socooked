@@ -2544,6 +2544,7 @@ export type Database = {
       }
       meta_ad_videos: {
         Row: {
+          campaign: string
           created_at: string
           description: string | null
           duration_seconds: number | null
@@ -2558,6 +2559,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          campaign?: string
           created_at?: string
           description?: string | null
           duration_seconds?: number | null
@@ -2572,6 +2574,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          campaign?: string
           created_at?: string
           description?: string | null
           duration_seconds?: number | null
