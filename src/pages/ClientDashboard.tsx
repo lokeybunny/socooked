@@ -652,12 +652,12 @@ export default function ClientDashboard() {
             onClick={() => { setActiveSection('hot'); setFilterStage('all'); }}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
               activeSection === 'hot'
-                ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-                : 'bg-white/5 border-white/10 text-white/50 hover:text-orange-300 hover:border-orange-500/20'
+                ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-sky-300 hover:border-sky-500/20'
             }`}
           >
             <Flame className="h-4 w-4" />
-            Hot Leads
+            Cold Leads
             <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{hotLeads.length}</span>
           </button>
           <button
