@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -45,6 +45,15 @@ export default function VideographyLanding() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      setTimeout(() => {
+        document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location.hash]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,10 +94,10 @@ export default function VideographyLanding() {
             </div>
           </Link>
           <div className="hidden sm:flex items-center gap-6">
-            <Link to="/videography" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
+            <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
-            </Link>
-            <Link to="/webdesign" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+            </a>
+            <Link to="/webdesign#get-started" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </Link>
           </div>

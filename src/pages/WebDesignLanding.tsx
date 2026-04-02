@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -45,6 +45,15 @@ export default function WebDesignLanding() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      setTimeout(() => {
+        document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location.hash]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,12 +95,12 @@ export default function WebDesignLanding() {
             </div>
           </Link>
           <div className="hidden sm:flex items-center gap-6">
-            <Link to="/videography" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+            <Link to="/videography#get-started" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
-            <Link to="/webdesign" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
+            <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
-            </Link>
+            </a>
           </div>
           <a href="#get-started" className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded font-medium hover:from-cyan-400 hover:to-teal-400 transition-all">
             Get Started
