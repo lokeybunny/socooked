@@ -139,6 +139,7 @@ function MetricCard({ icon: Icon, label, value, accent }: {
 }) {
   const accentClass = accent === 'destructive' ? 'text-destructive' :
     accent === 'warning' ? 'text-yellow-500' :
+    accent === 'cold' ? 'text-sky-400' :
     accent === 'primary' ? 'text-primary' : 'text-foreground';
 
   return (
