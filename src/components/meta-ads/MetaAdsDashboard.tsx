@@ -240,9 +240,17 @@ export default function MetaAdsDashboard() {
             <CardContent className="p-8 flex flex-col items-center justify-center text-center">
               <TrendingUp className="h-10 w-10 text-muted-foreground/30 mb-3" />
               <p className="text-sm font-medium text-muted-foreground">ROAS & Revenue Tracking</p>
-              <p className="text-xs text-muted-foreground/60 mt-1">Connect your Meta Ads account to see live ROAS data</p>
-              <Button variant="outline" size="sm" className="mt-3 gap-1.5">
-                <Link2 className="h-3.5 w-3.5" /> Connect Meta Ads
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                {metaConnected ? 'Meta Ads account connected — live data sync coming soon' : 'Connect your Meta Ads account to see live ROAS data'}
+              </p>
+              <Button
+                variant={metaConnected ? 'secondary' : 'outline'}
+                size="sm"
+                className="mt-3 gap-1.5"
+                onClick={metaConnected ? handleDisconnectMeta : handleConnectMeta}
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                {metaConnected ? 'Connected ✓ (Disconnect)' : 'Connect Meta Ads'}
               </Button>
             </CardContent>
           </Card>
