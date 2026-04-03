@@ -41,6 +41,7 @@ export default function SellerLanding() {
   const [notFound, setNotFound] = useState(false);
 
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -82,6 +83,7 @@ export default function SellerLanding() {
     const insertPayload = {
       landing_page_id: page.id,
       full_name: name.trim(),
+      email: email.trim() || null,
       phone: phone.trim(),
       property_address: address.trim(),
     };
@@ -91,6 +93,12 @@ export default function SellerLanding() {
       console.error('Landing lead insert error:', error.message, error.details, error.code);
       toast.error('Something went wrong. Please try again.');
     } else {
+      // Send thank-you autoresponder via Gmail if email provided
+      if (email.trim()) {
+        supabase.functions.invoke('funnel-autoresponder', {
+          body: { funnel: 'seller', recipientEmail: email.trim(), recipientName: name.trim() },
+        }).catch((err) => console.error('Autoresponder failed:', err));
+      }
       setSubmitted(true);
       setTimeout(async () => {
         try {
@@ -253,6 +261,10 @@ export default function SellerLanding() {
                   <div>
                     <Label htmlFor="phone" className="text-white/60 text-sm font-medium">Phone Number</Label>
                     <Input id="phone" type="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={20} required />
+                  </div>
+                  <div>
+                    <Label htmlFor="email" className="text-white/60 text-sm font-medium">Email Address</Label>
+                    <Input id="email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={255} />
                   </div>
                   <div>
                     <Label htmlFor="address" className="text-white/60 text-sm font-medium">Property Address</Label>

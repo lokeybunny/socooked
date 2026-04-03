@@ -75,6 +75,10 @@ export default function VideographyLanding() {
         notes: `Event: ${eventType || 'Not specified'}\n${message}`,
         tags: ['videography', eventType?.toLowerCase() || 'general'],
       });
+      // Send thank-you autoresponder via Gmail
+      supabase.functions.invoke('funnel-autoresponder', {
+        body: { funnel: 'videography', recipientEmail: email.trim(), recipientName: name.trim() },
+      }).catch((err) => console.error('Autoresponder failed:', err));
       setSubmitted(true);
       toast.success('Request submitted! We\'ll be in touch shortly.');
     } catch {

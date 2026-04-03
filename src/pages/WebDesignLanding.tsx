@@ -76,6 +76,10 @@ export default function WebDesignLanding() {
         notes: `Business: ${businessName || 'Not specified'}\n${message}`,
         tags: ['webdesign', 'ai-website'],
       });
+      // Send thank-you autoresponder via Gmail
+      supabase.functions.invoke('funnel-autoresponder', {
+        body: { funnel: 'webdesign', recipientEmail: email.trim(), recipientName: name.trim() },
+      }).catch((err) => console.error('Autoresponder failed:', err));
       setSubmitted(true);
       toast.success('Request submitted! We\'ll be in touch shortly.');
     } catch {
