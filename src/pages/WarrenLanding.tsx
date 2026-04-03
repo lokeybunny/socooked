@@ -1,69 +1,70 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 import {
-  ArrowRight, Zap, Phone, Globe, Mail, BarChart3, Brain,
-  ChevronDown, Shield, Clock, Users, TrendingUp, Building2, Briefcase
+  ArrowRight, Zap, Globe, BarChart3, Brain,
+  ChevronDown, Shield, Clock, Users, TrendingUp, Cpu, Rocket,
+  Code, Layers, Newspaper, Bot, Coins, Radio
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import WarrenVideoPlayer from '@/components/landing/WarrenVideoPlayer';
 
-import parallaxHero from '@/assets/landing/parallax-hero-ai-realestate.jpg';
-import parallaxNeighborhood from '@/assets/landing/parallax-ai-neighborhood.jpg';
-import parallaxCommand from '@/assets/landing/parallax-ai-command.jpg';
-import parallaxAppraisal from '@/assets/landing/parallax-ai-appraisal.jpg';
-import dashboardPreview from '@/assets/landing/client-dashboard-preview.jpg';
+import parallaxHero from '@/assets/landing/parallax-hero-solana.jpg';
+import parallaxMemecoins from '@/assets/landing/parallax-solana-memecoins.jpg';
+import parallaxCommand from '@/assets/landing/parallax-solana-command.jpg';
+import parallaxDeploy from '@/assets/landing/parallax-solana-deploy.jpg';
+import dashboardPreview from '@/assets/landing/solana-dashboard-preview.jpg';
 
 const steps = [
   {
     num: '01',
-    icon: Globe,
-    title: 'Your Branded Acquisition Portal',
-    desc: 'A professional, conversion-optimized seller landing page deployed under your firm\'s brand. Sellers submit their property — name, phone, address — and the system takes over.',
+    icon: Layers,
+    title: 'Learn Solana Fundamentals',
+    desc: 'Understand the Solana blockchain from the ground up — wallets, SPL tokens, program architecture, and how meme coins actually work under the hood.',
   },
   {
     num: '02',
-    icon: Phone,
-    title: 'AI Closes the Initial Call',
-    desc: 'Within seconds of a lead submission, our AI voice agent calls the seller, qualifies their motivation, timeline, and asking price — then logs structured notes directly to your CRM.',
+    icon: Code,
+    title: 'Build Your Token & Smart Contract',
+    desc: 'We walk you through creating your own SPL token, setting up metadata, configuring supply, and writing the smart contract logic — no CS degree required.',
   },
   {
     num: '03',
-    icon: Brain,
-    title: 'Intelligent Lead Scoring',
-    desc: 'Every call transcript is analyzed by AI to extract motivation level, property condition, timeline urgency, and a lead score — so your team knows exactly who to prioritize.',
+    icon: Rocket,
+    title: 'Bundle & Deploy on Solana',
+    desc: 'Master the art of bundling — multi-wallet launches, liquidity pooling, and sniping protection. Deploy your project with confidence on mainnet.',
   },
   {
     num: '04',
-    icon: BarChart3,
-    title: 'Full Deal Pipeline',
-    desc: 'Sellers flow through a managed pipeline: New → Contacted → Qualified → Under Contract → Closed. Track distress signals, skip-trace contacts, and manage deals — all in one place.',
+    icon: Bot,
+    title: 'AI-Powered Project Management',
+    desc: 'Use our AI tools to generate branding, build community narratives, automate social media, and track your token\'s performance in real time.',
   },
   {
     num: '05',
-    icon: Mail,
-    title: 'Automated Client Communications',
-    desc: 'The system sends professional follow-up emails on your behalf — confirmations, status updates, and nurture sequences — keeping sellers engaged without lifting a finger.',
+    icon: Newspaper,
+    title: 'CT News & Alpha Intel',
+    desc: 'Stay ahead of Crypto Twitter with curated alpha, trending narratives, and real-time sentiment analysis — so you know what\'s moving before the crowd.',
   },
   {
     num: '06',
     icon: TrendingUp,
-    title: 'Proprietary Data Pipeline',
-    desc: 'Access distressed property data — tax delinquent, pre-foreclosure, vacant, absentee owners — pulled directly from county records and delivered to your dashboard daily.',
+    title: 'Scale & Sustain Your Project',
+    desc: 'Learn holder retention strategies, community building frameworks, and revenue models that keep your project alive long after launch day.',
   },
 ];
 
 const features = [
-  { icon: Zap, label: 'AI Voice Agent', desc: 'Automated outbound & inbound calls' },
-  { icon: Shield, label: 'Skip Tracing', desc: 'Find owner contact info instantly' },
-  { icon: Globe, label: 'Acquisition Portals', desc: 'Branded seller-facing websites' },
-  { icon: Mail, label: 'Auto Emails', desc: 'Drip campaigns & follow-ups' },
-  { icon: BarChart3, label: 'Deal Pipeline', desc: 'Full investment CRM dashboard' },
-  { icon: Clock, label: 'Distress Data', desc: 'Fresh leads from public records' },
-  { icon: Users, label: 'Seller Management', desc: 'Track every seller interaction' },
-  { icon: Brain, label: 'AI Analysis', desc: 'Transcript scoring & insights' },
+  { icon: Coins, label: 'Token Bundler', desc: 'Multi-wallet Solana launches' },
+  { icon: Shield, label: 'Anti-Snipe', desc: 'Protected deployment strategies' },
+  { icon: Bot, label: 'AI Branding', desc: 'Auto-generate project identity' },
+  { icon: Newspaper, label: 'CT Intel', desc: 'Real-time crypto twitter alpha' },
+  { icon: BarChart3, label: 'Token Analytics', desc: 'Live charts & holder tracking' },
+  { icon: Radio, label: 'Community Tools', desc: 'Discord & Telegram automation' },
+  { icon: Brain, label: 'AI Research', desc: 'Narrative & sentiment analysis' },
+  { icon: Code, label: 'Smart Contracts', desc: 'Solana program templates' },
 ];
 
 const fade = {
@@ -83,14 +84,14 @@ function DemoVideoSection() {
           variants={fade} custom={0}
           className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
         >
-          How It Works
+          Watch & Learn
         </motion.p>
         <motion.h2
           initial="hidden" whileInView="visible" viewport={{ once: true }}
           variants={fade} custom={1}
           className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-center mb-12"
         >
-          Your Entire Pipeline. <span className="text-cyan-400">Automated.</span>
+          From Zero to <span className="text-cyan-400">Deployed.</span>
         </motion.h2>
         <motion.div
           initial="hidden" whileInView="visible" viewport={{ once: true }}
@@ -117,7 +118,6 @@ export default function WarrenLanding() {
       <div className="animate-spin h-6 w-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full" />
     </div>
   );
-  
 
   return (
     <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
@@ -128,7 +128,7 @@ export default function WarrenLanding() {
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-3 cursor-pointer">
-            <Building2 className="h-5 w-5 text-cyan-400" />
+            <Cpu className="h-5 w-5 text-cyan-400" />
             <div className="flex flex-col leading-none">
               <span className="text-cyan-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
               <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
@@ -136,7 +136,7 @@ export default function WarrenLanding() {
           </a>
           <div className="hidden sm:flex items-center gap-6">
             <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
-              Real Estate
+              Crypto
             </a>
             <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
@@ -161,7 +161,6 @@ export default function WarrenLanding() {
 
       {/* ── Hero with Parallax ── */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Parallax BG */}
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
           style={{ backgroundImage: `url(${parallaxHero})` }}
@@ -180,17 +179,17 @@ export default function WarrenLanding() {
         >
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Real Estate Investment Firm</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Solana Project Studio</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05]">
-            Institutional-Grade
+            Build on
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Acquisitions.</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Solana.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            AI voice agents qualify every seller. Distressed property data delivered daily. A full brokerage-grade CRM that runs your pipeline — so you can focus on closing.
+            Learn to bundle, deploy meme tokens, and build full crypto projects from the ground up. AI tools, CT alpha, and step-by-step guides — presented by YouTuber Warren Guru.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -198,7 +197,7 @@ export default function WarrenLanding() {
               to="/pricing"
               className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20"
             >
-              Start Free Trial
+              Start Learning
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
@@ -212,18 +211,18 @@ export default function WarrenLanding() {
 
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
             <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400/70">24hr</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Free Trial</div>
+              <div className="text-3xl font-bold text-cyan-400/70">50+</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Projects Launched</div>
             </div>
             <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400/70">100%</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Automated</div>
+              <div className="text-3xl font-bold text-cyan-400/70">AI</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Powered Tools</div>
             </div>
             <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400/70">$50M+</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Deals Closed</div>
+              <div className="text-3xl font-bold text-cyan-400/70">SOL</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Native Chain</div>
             </div>
           </div>
         </motion.div>
@@ -237,26 +236,26 @@ export default function WarrenLanding() {
         </motion.div>
       </section>
 
-      {/* ── Parallax: AI Neighborhood Data ── */}
+      {/* ── Parallax: Meme Coin Ecosystem ── */}
       <section className="relative py-32 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${parallaxNeighborhood})` }}
+          style={{ backgroundImage: `url(${parallaxMemecoins})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
         <div className="relative max-w-3xl mx-auto px-6 text-center space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
-              <Briefcase className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Data-Driven Investing</span>
+              <Coins className="h-3.5 w-3.5 text-cyan-400" />
+              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Meme Project Mastery</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Proprietary Market Intelligence <span className="text-cyan-400">at Scale.</span>
+              From Concept to <span className="text-cyan-400">Moonshot.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed max-w-xl mx-auto">
-              Our AI analyzes every property in your target market — identifying distress signals, equity positions, and motivation indicators that human scouts miss.
+              Learn to identify trending narratives, build meme projects with real utility, and deploy tokens that stand out in a sea of rugs. Warren Guru breaks it all down.
             </p>
             <div className="inline-grid gap-3 text-left">
-              {['Tax Delinquent & Pre-Foreclosure Detection', 'Absentee Owner Identification', 'Vacancy & Code Violation Analysis', 'Automated Skip Tracing'].map((item, i) => (
+              {['Token Bundling & Multi-Wallet Strategies', 'AI-Generated Branding & Narratives', 'Liquidity Pool Setup & Management', 'Community Building & CT Marketing'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 text-white/50">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                   <span className="text-sm">{item}</span>
@@ -277,14 +276,14 @@ export default function WarrenLanding() {
             variants={fade} custom={0}
             className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
           >
-            The Process
+            The Playbook
           </motion.p>
           <motion.h2
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-14"
           >
-            How Our Firm <span className="text-cyan-400">Operates</span>
+            How You'll <span className="text-cyan-400">Build</span>
           </motion.h2>
 
           <div className="space-y-0">
@@ -324,10 +323,10 @@ export default function WarrenLanding() {
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto px-6 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-            AI That Works <span className="text-cyan-400">24/7</span> — So You Don't Have To.
+            AI That Builds <span className="text-cyan-400">24/7</span> — So You Ship Faster.
           </h2>
           <p className="text-lg text-white/40 max-w-xl mx-auto leading-relaxed">
-            Our AI command center processes leads, qualifies sellers, and manages your pipeline around the clock. Every call, every email, every follow-up — handled automatically.
+            Our AI command center generates token branding, writes smart contracts, monitors CT sentiment, and manages your community — all on autopilot.
           </p>
         </div>
       </section>
@@ -347,7 +346,7 @@ export default function WarrenLanding() {
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-12"
           >
-            Brokerage-Grade <span className="text-cyan-400">CRM</span>
+            Full-Stack <span className="text-cyan-400">Crypto Suite</span>
           </motion.h2>
           <motion.div
             initial="hidden" whileInView="visible" viewport={{ once: true }}
@@ -356,7 +355,7 @@ export default function WarrenLanding() {
           >
             <img
               src={dashboardPreview}
-              alt="Investment CRM Dashboard preview showing deal pipeline and analytics"
+              alt="Solana project dashboard showing token analytics, meme coin portfolio, and CT intelligence"
               className="w-full max-w-3xl rounded-2xl border border-cyan-500/10 shadow-2xl shadow-cyan-500/[0.05]"
               loading="lazy"
             />
@@ -379,7 +378,7 @@ export default function WarrenLanding() {
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-14"
           >
-            One Subscription. <span className="text-cyan-400">Full Stack.</span>
+            One Platform. <span className="text-cyan-400">Full Stack Crypto.</span>
           </motion.h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -399,67 +398,44 @@ export default function WarrenLanding() {
         </div>
       </section>
 
-      {/* ── Funnel Leads CTA ── */}
+      {/* ── YouTube CTA ── */}
       <section className="py-16 px-6 border-t border-cyan-500/[0.08]">
         <div className="max-w-2xl mx-auto text-center">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0}>
-            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-4">See A Working Funnel</p>
+            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-4">Follow the Journey</p>
             <p className="text-sm text-white/40 max-w-md mx-auto mb-8 leading-relaxed">
-              Preview a live seller acquisition portal — built, branded, and ready to capture leads on autopilot.
+              Warren Guru documents every project build, every bundling strategy, and every CT alpha call — live on YouTube.
             </p>
-            <button
-              onClick={() => setShowFunnelModal(true)}
+            <a
+              href="https://youtube.com/@warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
               className="group inline-flex items-center gap-3 px-10 py-4 border border-cyan-500/20 rounded-lg text-sm tracking-[0.2em] uppercase text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/[0.05] transition-all"
             >
-              View Live Funnel
+              Watch on YouTube
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </button>
+            </a>
           </motion.div>
         </div>
       </section>
 
-      {/* Funnel iframe modal */}
-      {showFunnelModal && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
-          onClick={() => setShowFunnelModal(false)}
-        >
-          <div
-            className="relative w-full max-w-4xl h-[80vh] rounded-[2rem] overflow-hidden border border-cyan-500/20 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setShowFunnelModal(false)}
-              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-colors"
-            >
-              ✕
-            </button>
-            <iframe
-              src="https://warren.guru/sell/home"
-              className="w-full h-full bg-white"
-              title="Funnel Landing Page Preview"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ── Parallax CTA: AI Appraisal ── */}
+      {/* ── Parallax CTA: Deploy ── */}
       <section className="relative py-32 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${parallaxAppraisal})` }}
+          style={{ backgroundImage: `url(${parallaxDeploy})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/50" />
         <div className="max-w-2xl mx-auto text-center relative px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0}>
-            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5">Ready to Scale?</p>
+            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5">Ready to Launch?</p>
             <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-              Stop chasing.
+              Stop watching.
               <br />
-              <span className="text-cyan-400/60">Start closing.</span>
+              <span className="text-cyan-400/60">Start building.</span>
             </h2>
             <p className="mt-6 text-base text-white/30 max-w-md mx-auto leading-relaxed">
-              24-hour free trial. $599/mo for the first 90 days. Cancel anytime.
+              Everything you need to go from zero to deployed on Solana. AI tools, bundling guides, CT intel, and a community that ships.
             </p>
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -479,7 +455,7 @@ export default function WarrenLanding() {
       <footer className="border-t border-cyan-500/[0.08] py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Building2 className="h-4 w-4 text-cyan-400/40" />
+            <Cpu className="h-4 w-4 text-cyan-400/40" />
             <div className="flex flex-col leading-none">
               <span className="text-cyan-400/30 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
               <span className="text-white/40 font-medium text-sm tracking-[0.15em] uppercase -mt-0.5">GURU</span>
