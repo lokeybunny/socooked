@@ -277,11 +277,13 @@ export default function VideographyLanding() {
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-4 py-3 rounded-lg bg-white/5 border border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/30 focus:outline-none transition-colors text-sm" placeholder="(555) 000-0000" />
               </div>
               <div>
-                <label className="block text-xs tracking-wider uppercase text-white/40 mb-2">Event Type</label>
+                <label className="block text-xs tracking-wider uppercase text-white/40 mb-2">Service Type</label>
                 <select value={eventType} onChange={e => setEventType(e.target.value)} className="w-full px-4 py-3 rounded-lg bg-white/5 border border-cyan-500/10 text-white focus:border-cyan-500/30 focus:outline-none transition-colors text-sm">
-                  <option value="" className="bg-black">Select event type</option>
-                  <option value="Wedding" className="bg-black">Wedding</option>
-                  <option value="Funeral" className="bg-black">Funeral / Memorial</option>
+                  <option value="" className="bg-black">Select service type</option>
+                  <option value="Funeral" className="bg-black">Funeral Service</option>
+                  <option value="Memorial" className="bg-black">Memorial Service</option>
+                  <option value="Celebration of Life" className="bg-black">Celebration of Life</option>
+                  <option value="Graveside" className="bg-black">Graveside Service</option>
                   <option value="Other" className="bg-black">Other</option>
                 </select>
               </div>
