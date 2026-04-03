@@ -116,7 +116,7 @@ export default function WarrenLanding() {
       <div className="animate-spin h-6 w-6 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full" />
     </div>
   );
-  if (user) return <Navigate to="/dashboard" replace />;
+  
 
   return (
     <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
