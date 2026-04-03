@@ -39,6 +39,8 @@ const navEntries: NavEntry[] = [
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
   { to: '/research', icon: Target, label: 'Finder', green: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
+  { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
+  { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {
     icon: Crosshair, label: 'X Promo', divider: 'Services',
     children: [
@@ -51,8 +53,6 @@ const navEntries: NavEntry[] = [
   },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
-  { to: '/api-management', icon: Key, label: 'API', botIcon: true },
-  { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
 ];
 
 export function Sidebar() {
