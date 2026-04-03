@@ -23,7 +23,7 @@ async function getAccessToken(sa: any): Promise<string> {
   const payload = base64url(new TextEncoder().encode(JSON.stringify({
     iss: sa.client_email,
     sub: IMPERSONATE_EMAIL,
-    scope: "https://www.googleapis.com/auth/gmail.send",
+    scope: "https://www.googleapis.com/auth/gmail.modify",
     aud: GOOGLE_TOKEN_URL,
     iat: now,
     exp: now + 3600,
