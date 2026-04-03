@@ -15,7 +15,7 @@ type NavItem = {
 };
 
 type NavGroup = {
-  icon: any; label: string; divider?: string;
+  icon: any; label: string; divider?: string; grey?: boolean;
   children: NavItem[];
 };
 
@@ -35,14 +35,14 @@ const navEntries: NavEntry[] = [
   { to: '/custom-u', icon: Link2, label: 'Custom-U', botIcon: true },
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
-  { to: '/content', icon: FileText, label: 'Content', highlight: true },
-  { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
-  { to: '/research', icon: Target, label: 'Finder', green: true },
-  { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
+  { to: '/content', icon: FileText, label: 'Content', botIcon: true },
+  { to: '/ai-staff', icon: Bot, label: 'AI Staff', botIcon: true },
+  { to: '/research', icon: Target, label: 'Finder', botIcon: true },
+  { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {
-    icon: Crosshair, label: 'X Promo', divider: 'Services',
+    icon: Crosshair, label: 'X Promo', divider: 'Services', grey: true,
     children: [
       { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
       { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
@@ -51,8 +51,8 @@ const navEntries: NavEntry[] = [
       { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
     ],
   },
-  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', botIcon: true },
-  { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
+  { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '#', icon: Video, label: 'Videography', red: true, disabled: true },
   { to: '#', icon: Target, label: 'Crypto', red: true, disabled: true },
 ];
@@ -229,9 +229,11 @@ export function Sidebar() {
           }}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100 w-full",
-            isOpen
-              ? "bg-accent text-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            group.grey
+              ? "text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground"
+              : isOpen
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
         >
           <group.icon className="h-4.5 w-4.5 shrink-0" />
