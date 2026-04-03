@@ -124,6 +124,7 @@ const App = () => (
             
             <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
             <Route path="/phone" element={<PhonePage />} />
+            <Route path="/funnels" element={<WarrenOnlyGate><Funnels /></WarrenOnlyGate>} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
             <Route path="/sign/agreement/:documentId" element={<AgreementSign />} />
             <Route path="/notifications" element={<RestrictedGate><Notifications /></RestrictedGate>} />
