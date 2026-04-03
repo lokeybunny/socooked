@@ -450,11 +450,11 @@ export default function WarrenLanding() {
             <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Terms
             </Link>
-            <Link to="/pricing" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
-              Pricing
-            </Link>
             <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Discord
+            </a>
+            <a href="https://youtube.com/@warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
+              YouTube
             </a>
           </div>
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
