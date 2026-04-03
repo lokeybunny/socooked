@@ -173,16 +173,16 @@ export default function VideographyLanding() {
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
               <Camera className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Weddings & Memorials</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Memorial Videography</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Every Moment Deserves <span className="text-cyan-400">Cinematic Treatment.</span>
+              A Lasting Tribute <span className="text-cyan-400">They Deserve.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed">
-              From the first dance to the final farewell — our vetted videographers capture life's most important moments with artistry, while AI post-production delivers polished films in record time.
+              When words aren't enough, a cinematic tribute preserves the memory forever. Our compassionate videographers capture every eulogy, prayer, and moment of remembrance with dignity.
             </p>
             <div className="space-y-3">
-              {['Wedding Ceremonies & Receptions', 'Memorial & Celebration of Life Videos', 'AI-Enhanced Color Grading', 'Drone Aerial Cinematography', 'Same-Day Highlight Edits'].map((item, i) => (
+              {['Funeral & Memorial Service Coverage', 'Celebration of Life Films', 'AI-Enhanced Photo Montages', 'Family Interview Tributes', 'Shareable Keepsake Videos'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 text-white/50">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                   <span className="text-sm">{item}</span>
