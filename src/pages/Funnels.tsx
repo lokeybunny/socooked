@@ -269,11 +269,13 @@ export default function Funnels() {
         .order('created_at', { ascending: false })
         .limit(500);
 
-      // Real Estate from lw_landing_leads (only those submitted via funnel)
+      // Real Estate from lw_landing_leads (only manually submitted via funnel form)
       const { data: reLeads } = await supabase
         .from('lw_landing_leads')
         .select('*')
         .not('landing_page_id', 'is', null)
+        .neq('full_name', 'Property Owner')
+        .neq('phone', 'N/A')
         .order('created_at', { ascending: false })
         .limit(500);
 
