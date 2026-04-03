@@ -77,12 +77,12 @@ const fade = {
 
 function DemoVideoSection() {
   return (
-    <section id="see-it-in-action" className="py-20 px-6 border-t border-cyan-500/[0.08]">
+    <section id="see-it-in-action" className="py-20 px-6 border-t border-amber-500/[0.08]">
       <div className="max-w-4xl mx-auto">
         <motion.p
           initial="hidden" whileInView="visible" viewport={{ once: true }}
           variants={fade} custom={0}
-          className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
+          className="text-xs tracking-[0.4em] uppercase text-amber-400/50 mb-5 text-center"
         >
           Watch & Learn
         </motion.p>
@@ -91,7 +91,7 @@ function DemoVideoSection() {
           variants={fade} custom={1}
           className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-center mb-12"
         >
-          From Zero to <span className="text-cyan-400">Deployed.</span>
+          From Zero to <span className="text-amber-400">Deployed.</span>
         </motion.h2>
         <motion.div
           initial="hidden" whileInView="visible" viewport={{ once: true }}
@@ -120,7 +120,7 @@ export default function WarrenLanding() {
   );
 
   return (
-    <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
+    <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-amber-500/20">
       {/* ── Sticky Header ── */}
       <motion.header
         style={{ backgroundColor: headerBg }}
@@ -128,14 +128,14 @@ export default function WarrenLanding() {
       >
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-3 cursor-pointer">
-            <Cpu className="h-5 w-5 text-cyan-400" />
+            <Cpu className="h-5 w-5 text-amber-400" />
             <div className="flex flex-col leading-none">
-              <span className="text-cyan-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
+              <span className="text-amber-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
               <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
           </a>
           <div className="hidden sm:flex items-center gap-6">
-            <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
+            <a href="#" onClick={e => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-white hover:text-amber-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Crypto
             </a>
             <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
@@ -151,7 +151,7 @@ export default function WarrenLanding() {
             </button>
             <Link
               to="/pricing"
-              className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded font-medium hover:from-cyan-400 hover:to-teal-400 transition-all"
+              className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all"
             >
               Subscribe
             </Link>
@@ -167,7 +167,7 @@ export default function WarrenLanding() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: 'linear-gradient(rgba(0,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.3) 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(rgba(245,158,11,0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.2) 1px, transparent 1px)',
           backgroundSize: '80px 80px',
         }} />
 
@@ -177,9 +177,9 @@ export default function WarrenLanding() {
           transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
           className="relative w-full max-w-3xl mx-auto px-6 pb-20"
         >
-          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-6">
-            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Solana Project Studio</span>
+          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-amber-500/20 bg-amber-500/[0.05] mb-6">
+            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-xs tracking-[0.3em] uppercase text-amber-400/70">AI-Powered Solana Project Studio</span>
           </div>
 
           <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-8">
@@ -189,14 +189,14 @@ export default function WarrenLanding() {
           <div className="flex flex-col sm:flex-row items-start gap-4">
             <Link
               to="/pricing"
-              className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20"
+              className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
             >
               Start Learning
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
             <a
               href="#see-it-in-action"
-              className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-cyan-400 transition-colors"
+              className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-amber-400 transition-colors"
             >
               See It In Action
               <ChevronDown className="h-4 w-4" />
@@ -209,7 +209,7 @@ export default function WarrenLanding() {
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         >
-          <ChevronDown className="h-5 w-5 text-cyan-400/30" />
+          <ChevronDown className="h-5 w-5 text-amber-400/30" />
         </motion.div>
       </section>
 
@@ -221,12 +221,12 @@ export default function WarrenLanding() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
         <div className="relative max-w-3xl mx-auto px-6 text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
-              <Coins className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Meme Project Mastery</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/[0.05]">
+              <Coins className="h-3.5 w-3.5 text-amber-400" />
+              <span className="text-xs tracking-[0.2em] uppercase text-amber-400/70">Meme Project Mastery</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              From Concept to <span className="text-cyan-400">Moonshot.</span>
+              From Concept to <span className="text-amber-400">Moonshot.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed max-w-xl mx-auto">
               Learn to identify trending narratives, build meme projects with real utility, and deploy tokens that stand out in a sea of rugs. Warren Guru breaks it all down.
@@ -234,7 +234,7 @@ export default function WarrenLanding() {
             <div className="inline-grid gap-3 text-left">
               {['Token Bundling & Multi-Wallet Strategies', 'AI-Generated Branding & Narratives', 'Liquidity Pool Setup & Management', 'Community Building & CT Marketing'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 text-white/50">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                   <span className="text-sm">{item}</span>
                 </div>
               ))}
@@ -246,12 +246,12 @@ export default function WarrenLanding() {
       <DemoVideoSection />
 
       {/* ── How It Works ── */}
-      <section id="how-it-works" className="py-24 px-6 border-t border-cyan-500/[0.08]">
+      <section id="how-it-works" className="py-24 px-6 border-t border-amber-500/[0.08]">
         <div className="max-w-4xl mx-auto">
           <motion.p
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={0}
-            className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
+            className="text-xs tracking-[0.4em] uppercase text-amber-400/50 mb-5 text-center"
           >
             The Playbook
           </motion.p>
@@ -260,7 +260,7 @@ export default function WarrenLanding() {
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-14"
           >
-            How You'll <span className="text-cyan-400">Build</span>
+            How You'll <span className="text-amber-400">Build</span>
           </motion.h2>
 
           <div className="space-y-0">
@@ -269,12 +269,12 @@ export default function WarrenLanding() {
                 key={step.num}
                 initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }}
                 variants={fade} custom={i}
-                className="group relative flex gap-6 py-10 border-b border-cyan-500/[0.06] last:border-0"
+                className="group relative flex gap-6 py-10 border-b border-amber-500/[0.06] last:border-0"
               >
                 <div className="flex-shrink-0 w-14 flex flex-col items-center">
-                  <span className="text-xs tracking-wider text-cyan-400/30 font-mono">{step.num}</span>
-                  <div className="mt-3 w-12 h-12 rounded-lg bg-cyan-500/[0.05] border border-cyan-500/[0.1] flex items-center justify-center group-hover:border-cyan-500/30 group-hover:bg-cyan-500/[0.08] transition-all duration-500">
-                    <step.icon className="h-5 w-5 text-cyan-400/50 group-hover:text-cyan-400 transition-colors duration-500" />
+                  <span className="text-xs tracking-wider text-amber-400/30 font-mono">{step.num}</span>
+                  <div className="mt-3 w-12 h-12 rounded-lg bg-amber-500/[0.05] border border-amber-500/[0.1] flex items-center justify-center group-hover:border-amber-500/30 group-hover:bg-amber-500/[0.08] transition-all duration-500">
+                    <step.icon className="h-5 w-5 text-amber-400/50 group-hover:text-amber-400 transition-colors duration-500" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -300,7 +300,7 @@ export default function WarrenLanding() {
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto px-6 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-            AI That Builds <span className="text-cyan-400">24/7</span> — So You Ship Faster.
+            AI That Builds <span className="text-amber-400">24/7</span> — So You Ship Faster.
           </h2>
           <p className="text-lg text-white/40 max-w-xl mx-auto leading-relaxed">
             Our AI command center generates token branding, writes smart contracts, monitors CT sentiment, and manages your community — all on autopilot.
@@ -309,12 +309,12 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── Dashboard Preview ── */}
-      <section className="py-20 px-6 border-t border-cyan-500/[0.08]">
+      <section className="py-20 px-6 border-t border-amber-500/[0.08]">
         <div className="max-w-4xl mx-auto">
           <motion.p
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={0}
-            className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
+            className="text-xs tracking-[0.4em] uppercase text-amber-400/50 mb-5 text-center"
           >
             Your Dashboard
           </motion.p>
@@ -323,7 +323,7 @@ export default function WarrenLanding() {
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-12"
           >
-            Full-Stack <span className="text-cyan-400">Crypto Suite</span>
+            Full-Stack <span className="text-amber-400">Crypto Suite</span>
           </motion.h2>
           <motion.div
             initial="hidden" whileInView="visible" viewport={{ once: true }}
@@ -333,7 +333,7 @@ export default function WarrenLanding() {
             <img
               src={dashboardPreview}
               alt="Solana project dashboard showing token analytics, meme coin portfolio, and CT intelligence"
-              className="w-full max-w-3xl rounded-2xl border border-cyan-500/10 shadow-2xl shadow-cyan-500/[0.05]"
+              className="w-full max-w-3xl rounded-2xl border border-amber-500/10 shadow-2xl shadow-amber-500/[0.05]"
               loading="lazy"
             />
           </motion.div>
@@ -341,12 +341,12 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── Features Grid ── */}
-      <section className="py-24 px-6 border-t border-cyan-500/[0.08]">
+      <section className="py-24 px-6 border-t border-amber-500/[0.08]">
         <div className="max-w-4xl mx-auto">
           <motion.p
             initial="hidden" whileInView="visible" viewport={{ once: true }}
             variants={fade} custom={0}
-            className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center"
+            className="text-xs tracking-[0.4em] uppercase text-amber-400/50 mb-5 text-center"
           >
             Full Suite
           </motion.p>
@@ -355,7 +355,7 @@ export default function WarrenLanding() {
             variants={fade} custom={1}
             className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-14"
           >
-            One Platform. <span className="text-cyan-400">Full Stack Crypto.</span>
+            One Platform. <span className="text-amber-400">Full Stack Crypto.</span>
           </motion.h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -364,9 +364,9 @@ export default function WarrenLanding() {
                 key={f.label}
                 initial="hidden" whileInView="visible" viewport={{ once: true }}
                 variants={fade} custom={i}
-                className="group p-6 rounded-xl border border-cyan-500/[0.06] bg-cyan-500/[0.02] hover:bg-cyan-500/[0.05] hover:border-cyan-500/20 transition-all duration-500 text-center"
+                className="group p-6 rounded-xl border border-amber-500/[0.06] bg-amber-500/[0.02] hover:bg-amber-500/[0.05] hover:border-amber-500/20 transition-all duration-500 text-center"
               >
-                <f.icon className="h-6 w-6 mx-auto text-cyan-400/30 group-hover:text-cyan-400 transition-colors duration-500 mb-3" />
+                <f.icon className="h-6 w-6 mx-auto text-amber-400/30 group-hover:text-amber-400 transition-colors duration-500 mb-3" />
                 <div className="text-sm tracking-wider uppercase font-medium text-white/60 group-hover:text-white/80 transition-colors">{f.label}</div>
                 <div className="text-xs text-white/25 mt-2 leading-relaxed">{f.desc}</div>
               </motion.div>
@@ -376,10 +376,10 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── YouTube CTA ── */}
-      <section className="py-16 px-6 border-t border-cyan-500/[0.08]">
+      <section className="py-16 px-6 border-t border-amber-500/[0.08]">
         <div className="max-w-2xl mx-auto text-center">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0}>
-            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-4">Follow the Journey</p>
+            <p className="text-xs tracking-[0.4em] uppercase text-amber-400/50 mb-4">Follow the Journey</p>
             <p className="text-sm text-white/40 max-w-md mx-auto mb-8 leading-relaxed">
               Warren Guru documents every project build, every bundling strategy, and every CT alpha call — live on YouTube.
             </p>
@@ -387,7 +387,7 @@ export default function WarrenLanding() {
               href="https://youtube.com/@warrenguru"
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-3 px-10 py-4 border border-cyan-500/20 rounded-lg text-sm tracking-[0.2em] uppercase text-cyan-400/70 hover:text-cyan-400 hover:border-cyan-500/40 hover:bg-cyan-500/[0.05] transition-all"
+              className="group inline-flex items-center gap-3 px-10 py-4 border border-amber-500/20 rounded-lg text-sm tracking-[0.2em] uppercase text-amber-400/70 hover:text-amber-400 hover:border-amber-500/40 hover:bg-amber-500/[0.05] transition-all"
             >
               Watch on YouTube
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -405,11 +405,11 @@ export default function WarrenLanding() {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/50" />
         <div className="max-w-2xl mx-auto text-center relative px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0}>
-            <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5">Ready to Launch?</p>
+            <p className="text-xs tracking-[0.4em] uppercase text-amber-400/50 mb-5">Ready to Launch?</p>
             <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
               Stop watching.
               <br />
-              <span className="text-cyan-400/60">Start building.</span>
+              <span className="text-amber-400/60">Start building.</span>
             </h2>
             <p className="mt-6 text-base text-white/30 max-w-md mx-auto leading-relaxed">
               Everything you need to go from zero to deployed on Solana. AI tools, bundling guides, CT intel, and a community that ships.
@@ -418,7 +418,7 @@ export default function WarrenLanding() {
               <Link
                 to="/pricing#top"
                 onClick={() => window.scrollTo(0, 0)}
-                className="group flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20"
+                className="group flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
               >
                 View Pricing
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
@@ -429,23 +429,23 @@ export default function WarrenLanding() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-cyan-500/[0.08] py-8 px-6">
+      <footer className="border-t border-amber-500/[0.08] py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Cpu className="h-4 w-4 text-cyan-400/40" />
+            <Cpu className="h-4 w-4 text-amber-400/40" />
             <div className="flex flex-col leading-none">
-              <span className="text-cyan-400/30 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
+              <span className="text-amber-400/30 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
               <span className="text-white/40 font-medium text-sm tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">
+            <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Terms
             </Link>
-            <Link to="/pricing" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">
+            <Link to="/pricing" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Pricing
             </Link>
-            <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">
+            <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Discord
             </a>
           </div>
