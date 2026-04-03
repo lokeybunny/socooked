@@ -226,6 +226,11 @@ export function Sidebar() {
           <span className="flex items-center gap-1.5 flex-1">
             {item.label}
             {item.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
+            {showFunnelBadge && (
+              <span className="ml-auto bg-yellow-500 text-black text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+                {funnelCount}
+              </span>
+            )}
           </span>
         )}
       </NavLink>
