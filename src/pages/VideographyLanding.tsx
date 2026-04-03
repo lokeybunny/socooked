@@ -77,8 +77,8 @@ export default function VideographyLanding() {
         tags: ['videography', eventType?.toLowerCase() || 'general'],
       });
       if (insertErr) {
-        if (insertErr.message?.includes('customers_phone_unique')) {
-          toast.error('This phone number has already been submitted. We\'ll be in touch!');
+        if (insertErr.message?.includes('customers_phone_unique') || insertErr.message?.includes('customers_phone_source_unique') || insertErr.code === '23505') {
+          toast.error('This phone number has already been submitted for videography. We\'ll be in touch!');
         } else {
           toast.error('Submission failed — please try again.');
           console.error('Insert error:', insertErr);
