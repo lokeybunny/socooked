@@ -58,6 +58,7 @@ import XShill from "./pages/XShill";
 import Wholesale from "./pages/Wholesale";
 import ApiManagement from "./pages/ApiManagement";
 import Ads from "./pages/Ads";
+import Funnels from "./pages/Funnels";
 import SellerLanding from "./pages/SellerLanding";
 import VideographyLanding from "./pages/VideographyLanding";
 import WebDesignLanding from "./pages/WebDesignLanding";
