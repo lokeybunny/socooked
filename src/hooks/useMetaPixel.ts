@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export function useMetaPixel(pixelId: string) {
+export function useMetaPixel(pixelId: string, trackLead = false) {
   useEffect(() => {
     // Avoid duplicate loads
     if ((window as any).fbq) {
