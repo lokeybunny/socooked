@@ -97,7 +97,7 @@ export default function WebDesignLanding() {
           </Link>
           <div className="hidden sm:flex items-center gap-6">
             <Link to="/" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Real Estate
+              Crypto
             </Link>
             <Link to="/videography#get-started" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
