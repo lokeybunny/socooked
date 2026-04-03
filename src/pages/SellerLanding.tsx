@@ -263,6 +263,10 @@ export default function SellerLanding() {
                     <Input id="phone" type="tel" placeholder="(555) 123-4567" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={20} required />
                   </div>
                   <div>
+                    <Label htmlFor="email" className="text-white/60 text-sm font-medium">Email Address</Label>
+                    <Input id="email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={255} />
+                  </div>
+                  <div>
                     <Label htmlFor="address" className="text-white/60 text-sm font-medium">Property Address</Label>
                     <Input id="address" placeholder="123 Main St, City, TX 75001" value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={255} required />
                   </div>
