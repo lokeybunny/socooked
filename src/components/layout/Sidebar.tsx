@@ -229,9 +229,11 @@ export function Sidebar() {
           }}
           className={cn(
             "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100 w-full",
-            isOpen
-              ? "bg-accent text-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            group.grey
+              ? "text-muted-foreground/60 hover:bg-accent hover:text-muted-foreground"
+              : isOpen
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
         >
           <group.icon className="h-4.5 w-4.5 shrink-0" />
