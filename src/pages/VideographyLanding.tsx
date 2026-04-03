@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
@@ -48,6 +48,7 @@ export default function VideographyLanding() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function VideographyLanding() {
         body: { funnel: 'videography', recipientEmail: email.trim(), recipientName: name.trim() },
       }).catch((err) => console.error('Autoresponder failed:', err));
       setSubmitted(true);
+      navigate('/thankyou-videography');
       toast.success('Request submitted! We\'ll be in touch shortly.');
       // Trigger Vapi AI call after 3 seconds
       setTimeout(async () => {

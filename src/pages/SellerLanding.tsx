@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ interface LandingPage {
 
 export default function SellerLanding() {
   useMetaPixel('1655620408789704');
+  const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const [page, setPage] = useState<LandingPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,6 +101,7 @@ export default function SellerLanding() {
         }).catch((err) => console.error('Autoresponder failed:', err));
       }
       setSubmitted(true);
+      navigate('/thankyou-seller');
       setTimeout(async () => {
         try {
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
