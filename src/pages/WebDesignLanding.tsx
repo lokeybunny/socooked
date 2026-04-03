@@ -48,6 +48,7 @@ export default function WebDesignLanding() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
