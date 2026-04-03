@@ -83,6 +83,7 @@ export default function SellerLanding() {
     const insertPayload = {
       landing_page_id: page.id,
       full_name: name.trim(),
+      email: email.trim() || null,
       phone: phone.trim(),
       property_address: address.trim(),
     };
@@ -92,6 +93,12 @@ export default function SellerLanding() {
       console.error('Landing lead insert error:', error.message, error.details, error.code);
       toast.error('Something went wrong. Please try again.');
     } else {
+      // Send thank-you autoresponder via Gmail if email provided
+      if (email.trim()) {
+        supabase.functions.invoke('funnel-autoresponder', {
+          body: { funnel: 'seller', recipientEmail: email.trim(), recipientName: name.trim() },
+        }).catch((err) => console.error('Autoresponder failed:', err));
+      }
       setSubmitted(true);
       setTimeout(async () => {
         try {
