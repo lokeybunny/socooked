@@ -81,6 +81,7 @@ export default function VideographyLanding() {
         body: { funnel: 'videography', recipientEmail: email.trim(), recipientName: name.trim() },
       }).catch((err) => console.error('Autoresponder failed:', err));
       setSubmitted(true);
+      navigate('/thankyou-videography');
       toast.success('Request submitted! We\'ll be in touch shortly.');
       // Trigger Vapi AI call after 3 seconds
       setTimeout(async () => {
