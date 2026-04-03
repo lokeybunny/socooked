@@ -167,6 +167,7 @@ export function Sidebar() {
       const { count: reCount } = await supabase
         .from('lw_landing_leads')
         .select('id', { count: 'exact', head: true })
+        .not('landing_page_id', 'is', null)
         .gt('created_at', lastSeen);
       setFunnelCount((custCount || 0) + (reCount || 0));
     };
