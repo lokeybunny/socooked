@@ -30,8 +30,8 @@ export default function ThankYouVideography() {
         <div className="max-w-md w-full flex flex-col gap-4 sm:gap-5">
           {[
             { icon: Mail, n: 1, title: 'Check Your Inbox', desc: "We've sent a confirmation email with details about your inquiry." },
-            { icon: Phone, n: 2, title: 'We'll Be in Touch', desc: 'Our team will reach out within 24 hours to discuss your project.' },
-            { icon: CheckCircle, n: 3, title: "You're All Set", desc: 'Sit back and relax — we'll handle the rest.' },
+            { icon: Phone, n: 2, title: "We'll Be in Touch", desc: 'Our team will reach out within 24 hours to discuss your project.' },
+            { icon: CheckCircle, n: 3, title: "You're All Set", desc: "Sit back and relax — we'll handle the rest." },
           ].map(({ icon: Icon, n, title, desc }, i) => (
             <motion.div key={n} className="glass-card p-5 sm:p-6 flex items-start gap-4 sm:gap-5" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 + i * 0.1, duration: 0.5 }}>
               <div className="flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-muted/50 flex items-center justify-center">
