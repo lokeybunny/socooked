@@ -21,20 +21,20 @@ const fade = {
 };
 
 const services = [
-  { icon: Heart, label: 'Weddings', desc: 'Cinematic ceremony & reception films' },
-  { icon: Film, label: 'Funerals', desc: 'Dignified memorial tribute videos' },
-  { icon: Sparkles, label: 'AI Editing', desc: 'AI-enhanced color grading & cuts' },
-  { icon: Camera, label: 'Drone Shots', desc: 'Aerial cinematography included' },
-  { icon: Video, label: 'Highlight Reels', desc: '60-second social-ready edits' },
-  { icon: Clock, label: 'Fast Turnaround', desc: 'AI-accelerated post-production' },
-  { icon: Users, label: 'Vetted Crew', desc: 'Pre-screened professional videographers' },
+  { icon: Heart, label: 'Memorial Films', desc: 'Dignified tribute videos honoring your loved one' },
+  { icon: Film, label: 'Celebration of Life', desc: 'Capturing the joy and legacy they left behind' },
+  { icon: Sparkles, label: 'AI Editing', desc: 'AI-enhanced color grading & cinematic cuts' },
+  { icon: Camera, label: 'Photo Montage', desc: 'Beautiful slideshows from family photos' },
+  { icon: Video, label: 'Highlight Reels', desc: 'Shareable tribute videos for family' },
+  { icon: Clock, label: 'Fast Turnaround', desc: 'AI-accelerated delivery when time matters' },
+  { icon: Users, label: 'Compassionate Crew', desc: 'Respectful, experienced professionals' },
   { icon: Star, label: 'Premium Quality', desc: '4K cinematic-grade delivery' },
 ];
 
 const steps = [
-  { num: '01', title: 'Tell Us About Your Event', desc: 'Fill out the form below with your event type, date, and location. We match you with the perfect videographer.' },
-  { num: '02', title: 'AI-Matched Videographer', desc: 'Our AI analyzes your needs and matches you with a vetted professional who specializes in your event type.' },
-  { num: '03', title: 'Cinematic Delivery', desc: 'Your videographer captures every moment. AI-enhanced editing delivers a polished final product in days, not weeks.' },
+  { num: '01', title: 'Share Your Loved One\'s Story', desc: 'Tell us about the person being honored — their life, their legacy, and what matters most to your family. We handle everything from there.' },
+  { num: '02', title: 'We Capture Every Moment', desc: 'Our compassionate videographers film the service with care and discretion, ensuring every tribute, speech, and memory is preserved.' },
+  { num: '03', title: 'A Lasting Tribute Delivered', desc: 'AI-enhanced editing produces a beautiful, cinematic memorial film — delivered to your family within days, not weeks.' },
 ];
 
 export default function VideographyLanding() {
@@ -122,22 +122,22 @@ export default function VideographyLanding() {
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl px-6 pt-14">
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Videography</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">Funeral & Memorial Videography</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-            Cinematic Films.
+            Honor Their Legacy.
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">AI Precision.</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Preserve Every Moment.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            We connect you with elite videographers specializing in weddings & funerals — enhanced by AI editing for breathtaking results delivered fast.
+            Compassionate, professional funeral videography — capturing memorial services, celebrations of life, and tribute films with dignity and care.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="#get-started" className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20">
-              Book a Videographer
+              Book Memorial Videography
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </a>
           </div>
@@ -145,7 +145,7 @@ export default function VideographyLanding() {
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
             <div className="text-center">
               <div className="text-3xl font-bold text-cyan-400/70">500+</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Events Filmed</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Families Served</div>
             </div>
             <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
@@ -155,7 +155,7 @@ export default function VideographyLanding() {
             <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
               <div className="text-3xl font-bold text-cyan-400/70">48hr</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">AI Turnaround</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Delivery Time</div>
             </div>
           </div>
         </motion.div>
@@ -173,16 +173,16 @@ export default function VideographyLanding() {
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
               <Camera className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Weddings & Memorials</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Memorial Videography</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Every Moment Deserves <span className="text-cyan-400">Cinematic Treatment.</span>
+              A Lasting Tribute <span className="text-cyan-400">They Deserve.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed">
-              From the first dance to the final farewell — our vetted videographers capture life's most important moments with artistry, while AI post-production delivers polished films in record time.
+              When words aren't enough, a cinematic tribute preserves the memory forever. Our compassionate videographers capture every eulogy, prayer, and moment of remembrance with dignity.
             </p>
             <div className="space-y-3">
-              {['Wedding Ceremonies & Receptions', 'Memorial & Celebration of Life Videos', 'AI-Enhanced Color Grading', 'Drone Aerial Cinematography', 'Same-Day Highlight Edits'].map((item, i) => (
+              {['Funeral & Memorial Service Coverage', 'Celebration of Life Films', 'AI-Enhanced Photo Montages', 'Family Interview Tributes', 'Shareable Keepsake Videos'].map((item, i) => (
                 <div key={i} className="flex items-center gap-3 text-white/50">
                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                   <span className="text-sm">{item}</span>
@@ -251,9 +251,9 @@ export default function VideographyLanding() {
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-center mb-10">
             <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-4">Get Started</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Request Your <span className="text-cyan-400">Videographer</span>
+              Book Memorial <span className="text-cyan-400">Videography</span>
             </h2>
-            <p className="mt-4 text-sm text-white/30">Fill out the form and we'll match you with the perfect professional.</p>
+            <p className="mt-4 text-sm text-white/30">Tell us about your loved one's service and we'll handle everything with care.</p>
           </motion.div>
 
           {submitted ? (
@@ -277,11 +277,13 @@ export default function VideographyLanding() {
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-4 py-3 rounded-lg bg-white/5 border border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/30 focus:outline-none transition-colors text-sm" placeholder="(555) 000-0000" />
               </div>
               <div>
-                <label className="block text-xs tracking-wider uppercase text-white/40 mb-2">Event Type</label>
+                <label className="block text-xs tracking-wider uppercase text-white/40 mb-2">Service Type</label>
                 <select value={eventType} onChange={e => setEventType(e.target.value)} className="w-full px-4 py-3 rounded-lg bg-white/5 border border-cyan-500/10 text-white focus:border-cyan-500/30 focus:outline-none transition-colors text-sm">
-                  <option value="" className="bg-black">Select event type</option>
-                  <option value="Wedding" className="bg-black">Wedding</option>
-                  <option value="Funeral" className="bg-black">Funeral / Memorial</option>
+                  <option value="" className="bg-black">Select service type</option>
+                  <option value="Funeral" className="bg-black">Funeral Service</option>
+                  <option value="Memorial" className="bg-black">Memorial Service</option>
+                  <option value="Celebration of Life" className="bg-black">Celebration of Life</option>
+                  <option value="Graveside" className="bg-black">Graveside Service</option>
                   <option value="Other" className="bg-black">Other</option>
                 </select>
               </div>
