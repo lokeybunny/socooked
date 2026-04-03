@@ -499,6 +499,7 @@ export default function WarrenLanding() {
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
+      <ScrollToTopButton />
     </div>
   );
 }
