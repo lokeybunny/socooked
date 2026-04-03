@@ -81,6 +81,30 @@ export default function VideographyLanding() {
       }).catch((err) => console.error('Autoresponder failed:', err));
       setSubmitted(true);
       toast.success('Request submitted! We\'ll be in touch shortly.');
+      // Trigger Vapi AI call after 3 seconds
+      setTimeout(async () => {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          await fetch(`${supabaseUrl}/functions/v1/vapi-videography-outbound`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              action: 'trigger_call',
+              phone: phone.trim(),
+              full_name: name.trim(),
+              event_type: eventType || 'memorial service',
+              message: message.trim(),
+            }),
+          });
+        } catch (err) {
+          console.error('Vapi videography call trigger failed:', err);
+        }
+      }, 3000);
     } catch {
       toast.error('Something went wrong. Please try again.');
     } finally {
