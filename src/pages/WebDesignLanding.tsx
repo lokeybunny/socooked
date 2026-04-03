@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Building2, Globe, Zap, Code, Palette,
   Smartphone, Search, Clock, Rocket, CheckCircle, Loader2
@@ -39,6 +40,7 @@ const steps = [
 ];
 
 export default function WebDesignLanding() {
+  useMetaPixel('3210977432422611');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
