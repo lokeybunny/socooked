@@ -63,7 +63,9 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [funnelCount, setFunnelCount] = useState(0);
   const lastSeenMessagesRef = useRef<string | null>(null);
+  const funnelLastSeenRef = useRef<string | null>(null);
 
   useEffect(() => {
     lastSeenMessagesRef.current = localStorage.getItem('messages_last_seen');
