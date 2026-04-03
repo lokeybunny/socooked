@@ -426,10 +426,30 @@ serve(async (req) => {
       const callId = message.call?.id;
       const status = message.status;
       if (callId && status) {
-        await sb
+        // Try lw_landing_leads first
+        const { data: llLead } = await sb
           .from("lw_landing_leads")
           .update({ vapi_call_status: status === "ended" ? "completed" : status })
-          .eq("vapi_call_id", callId);
+          .eq("vapi_call_id", callId)
+          .select("id")
+          .maybeSingle();
+
+        // Fallback to customers table
+        if (!llLead) {
+          const { data: custRow } = await sb
+            .from("customers")
+            .select("id, meta")
+            .filter("meta->>vapi_call_id", "eq", callId)
+            .maybeSingle();
+          if (custRow) {
+            await sb.from("customers").update({
+              meta: {
+                ...((custRow.meta as any) || {}),
+                vapi_call_status: status === "ended" ? "completed" : status,
+              },
+            }).eq("id", custRow.id);
+          }
+        }
       }
     }
 
