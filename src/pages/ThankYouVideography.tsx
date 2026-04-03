@@ -1,11 +1,27 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, CheckCircle, ArrowLeft, Phone } from 'lucide-react';
+import { Mail, CheckCircle, ArrowLeft, Phone, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 export default function ThankYouVideography() {
   const navigate = useNavigate();
   useMetaPixel('945218684863625', true);
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          navigate('/videography');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [navigate]);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
@@ -49,8 +65,14 @@ export default function ThankYouVideography() {
         </div>
       </main>
 
-      <footer className="relative z-10 px-4 sm:px-6 md:px-12 py-3 sm:py-4 flex items-center justify-between">
+      <footer className="fixed bottom-0 inset-x-0 z-30 px-4 sm:px-6 md:px-12 py-3 sm:py-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-t border-border/30">
         <p className="text-[8px] sm:text-[9px] tracking-[0.2em] uppercase text-muted-foreground/30">GURU</p>
+        <div className="flex items-center gap-2 text-muted-foreground/50">
+          <Timer className="h-3 w-3" />
+          <span className="text-[10px] sm:text-xs tracking-[0.15em] uppercase font-mono">
+            Redirecting in {countdown}s
+          </span>
+        </div>
         <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">&copy; {new Date().getFullYear()}</p>
       </footer>
     </div>
