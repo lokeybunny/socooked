@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 
-export function useMetaPixel(pixelId: string) {
+export function useMetaPixel(pixelId: string, trackLead = false) {
   useEffect(() => {
     // Avoid duplicate loads
     if ((window as any).fbq) {
       (window as any).fbq('init', pixelId);
       (window as any).fbq('track', 'PageView');
+      if (trackLead) (window as any).fbq('track', 'Lead');
       return;
     }
 
@@ -25,6 +26,7 @@ export function useMetaPixel(pixelId: string) {
 
     n('init', pixelId);
     n('track', 'PageView');
+    if (trackLead) n('track', 'Lead');
 
     // noscript fallback
     const noscript = document.createElement('noscript');
