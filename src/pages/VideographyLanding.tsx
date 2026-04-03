@@ -40,6 +40,7 @@ const steps = [
 ];
 
 export default function VideographyLanding() {
+  useMetaPixel('945218684863625');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');

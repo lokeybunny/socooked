@@ -40,6 +40,7 @@ const steps = [
 ];
 
 export default function WebDesignLanding() {
+  useMetaPixel('3210977432422611');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
