@@ -419,17 +419,18 @@ export default function WarrenLanding() {
               <span className="text-amber-400/60">Start building.</span>
             </h2>
             <p className="mt-6 text-base text-white/30 max-w-md mx-auto leading-relaxed">
-              Everything you need to go from zero to deployed on Solana. AI tools, bundling guides, CT intel, and a community that ships.
+              The Warren Guru Bundler for Solana is available for free download in the Discord — plus hours of free training to get you from zero to deployed.
             </p>
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                to="/pricing#top"
-                onClick={() => window.scrollTo(0, 0)}
+              <a
+                href="https://discord.gg/warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
               >
-                View Pricing
+                Join Discord
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </a>
             </div>
           </motion.div>
         </div>
