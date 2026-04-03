@@ -21,20 +21,20 @@ const fade = {
 };
 
 const services = [
-  { icon: Heart, label: 'Weddings', desc: 'Cinematic ceremony & reception films' },
-  { icon: Film, label: 'Funerals', desc: 'Dignified memorial tribute videos' },
-  { icon: Sparkles, label: 'AI Editing', desc: 'AI-enhanced color grading & cuts' },
-  { icon: Camera, label: 'Drone Shots', desc: 'Aerial cinematography included' },
-  { icon: Video, label: 'Highlight Reels', desc: '60-second social-ready edits' },
-  { icon: Clock, label: 'Fast Turnaround', desc: 'AI-accelerated post-production' },
-  { icon: Users, label: 'Vetted Crew', desc: 'Pre-screened professional videographers' },
+  { icon: Heart, label: 'Memorial Films', desc: 'Dignified tribute videos honoring your loved one' },
+  { icon: Film, label: 'Celebration of Life', desc: 'Capturing the joy and legacy they left behind' },
+  { icon: Sparkles, label: 'AI Editing', desc: 'AI-enhanced color grading & cinematic cuts' },
+  { icon: Camera, label: 'Photo Montage', desc: 'Beautiful slideshows from family photos' },
+  { icon: Video, label: 'Highlight Reels', desc: 'Shareable tribute videos for family' },
+  { icon: Clock, label: 'Fast Turnaround', desc: 'AI-accelerated delivery when time matters' },
+  { icon: Users, label: 'Compassionate Crew', desc: 'Respectful, experienced professionals' },
   { icon: Star, label: 'Premium Quality', desc: '4K cinematic-grade delivery' },
 ];
 
 const steps = [
-  { num: '01', title: 'Tell Us About Your Event', desc: 'Fill out the form below with your event type, date, and location. We match you with the perfect videographer.' },
-  { num: '02', title: 'AI-Matched Videographer', desc: 'Our AI analyzes your needs and matches you with a vetted professional who specializes in your event type.' },
-  { num: '03', title: 'Cinematic Delivery', desc: 'Your videographer captures every moment. AI-enhanced editing delivers a polished final product in days, not weeks.' },
+  { num: '01', title: 'Share Your Loved One\'s Story', desc: 'Tell us about the person being honored — their life, their legacy, and what matters most to your family. We handle everything from there.' },
+  { num: '02', title: 'We Capture Every Moment', desc: 'Our compassionate videographers film the service with care and discretion, ensuring every tribute, speech, and memory is preserved.' },
+  { num: '03', title: 'A Lasting Tribute Delivered', desc: 'AI-enhanced editing produces a beautiful, cinematic memorial film — delivered to your family within days, not weeks.' },
 ];
 
 export default function VideographyLanding() {
