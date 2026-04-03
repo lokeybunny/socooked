@@ -6,6 +6,7 @@ import {
   ArrowRight, ChevronDown, Building2, Video, Camera, Film, Sparkles,
   Heart, Clock, Users, Star, CheckCircle, Loader2
 } from 'lucide-react';
+import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion } from 'framer-motion';
 
 import heroImg from '@/assets/landing/parallax-videography-hero.jpg';
