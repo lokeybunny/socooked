@@ -6,6 +6,7 @@ import {
   ArrowRight, Zap, Phone, Globe, Mail, BarChart3, Brain,
   ChevronDown, Shield, Clock, Users, TrendingUp, Building2, Briefcase
 } from 'lucide-react';
+import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import WarrenVideoPlayer from '@/components/landing/WarrenVideoPlayer';
 
