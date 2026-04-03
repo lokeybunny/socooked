@@ -15,7 +15,7 @@ type NavItem = {
 };
 
 type NavGroup = {
-  icon: any; label: string; divider?: string;
+  icon: any; label: string; divider?: string; grey?: boolean;
   children: NavItem[];
 };
 
