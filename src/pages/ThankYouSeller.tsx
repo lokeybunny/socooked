@@ -1,27 +1,31 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, CheckCircle, ArrowLeft, Phone, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 export default function ThankYouSeller() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromSlug = searchParams.get('from');
   useMetaPixel('1655620408789704', true);
   const [countdown, setCountdown] = useState(5);
+
+  const redirectPath = fromSlug ? `/sell/${fromSlug}` : '/';
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          navigate('/sell-your-land');
+          navigate(redirectPath);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [navigate, redirectPath]);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
