@@ -26,6 +26,7 @@ export function useMetaPixel(pixelId: string, trackLead = false) {
 
     n('init', pixelId);
     n('track', 'PageView');
+    if (trackLead) n('track', 'Lead');
 
     // noscript fallback
     const noscript = document.createElement('noscript');
