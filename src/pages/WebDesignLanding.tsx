@@ -6,6 +6,7 @@ import {
   ArrowRight, ChevronDown, Building2, Globe, Zap, Code, Palette,
   Smartphone, Search, Clock, Rocket, CheckCircle, Loader2
 } from 'lucide-react';
+import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion } from 'framer-motion';
 
 import heroImg from '@/assets/landing/parallax-webdesign-hero.jpg';
