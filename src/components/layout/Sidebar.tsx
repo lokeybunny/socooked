@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 type NavItem = {
-  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean;
+  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; disabled?: boolean;
 };
 
 type NavGroup = {
