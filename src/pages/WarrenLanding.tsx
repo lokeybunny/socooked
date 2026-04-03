@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -6,6 +6,7 @@ import {
   ArrowRight, Zap, Phone, Globe, Mail, BarChart3, Brain,
   ChevronDown, Shield, Clock, Users, TrendingUp, Building2, Briefcase
 } from 'lucide-react';
+import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import WarrenVideoPlayer from '@/components/landing/WarrenVideoPlayer';
 
@@ -498,6 +499,7 @@ export default function WarrenLanding() {
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
+      <ScrollToTopButton />
     </div>
   );
 }
