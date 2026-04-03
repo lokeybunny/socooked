@@ -67,16 +67,26 @@ export default function WebDesignLanding() {
     }
     setSubmitting(true);
     try {
-      await supabase.from('customers').insert({
+      const { error: insertErr } = await supabase.from('customers').insert({
         full_name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
         company: businessName.trim() || null,
         source: 'webdesign-landing',
-        status: 'new',
+        status: 'lead',
         notes: `Business: ${businessName || 'Not specified'}\n${message}`,
         tags: ['webdesign', 'ai-website'],
       });
+      if (insertErr) {
+        if (insertErr.message?.includes('customers_phone_unique') || insertErr.message?.includes('customers_phone_source_unique') || insertErr.code === '23505') {
+          toast.error('This phone number has already been submitted for web design. We\'ll be in touch!');
+        } else {
+          toast.error('Submission failed — please try again.');
+          console.error('Insert error:', insertErr);
+        }
+        setSubmitting(false);
+        return;
+      }
       // Send thank-you autoresponder via Gmail
       supabase.functions.invoke('funnel-autoresponder', {
         body: { funnel: 'webdesign', recipientEmail: email.trim(), recipientName: name.trim() },
@@ -84,6 +94,30 @@ export default function WebDesignLanding() {
       setSubmitted(true);
       navigate('/thankyou-webdesign');
       toast.success('Request submitted! We\'ll be in touch shortly.');
+      // Trigger Vapi AI call after 3 seconds
+      setTimeout(async () => {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          await fetch(`${supabaseUrl}/functions/v1/vapi-webdesign-outbound`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              action: 'trigger_call',
+              phone: phone.trim(),
+              full_name: name.trim(),
+              business_name: businessName.trim() || '',
+              message: message.trim(),
+            }),
+          });
+        } catch (err) {
+          console.error('Vapi web design call trigger failed:', err);
+        }
+      }, 3000);
     } catch {
       toast.error('Something went wrong. Please try again.');
     } finally {
