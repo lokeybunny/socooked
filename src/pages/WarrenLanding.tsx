@@ -111,7 +111,7 @@ export default function WarrenLanding() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showFunnelModal, setShowFunnelModal] = useState(false);
   const { scrollYProgress } = useScroll({ target: containerRef });
-  const headerBg = useTransform(scrollYProgress, [0, 0.05], ['rgba(0,0,0,0)', 'rgba(15,10,5,0.9)']);
+  const headerBg = useTransform(scrollYProgress, [0, 0.05], ['rgba(0,0,0,0.6)', 'rgba(15,10,5,0.95)']);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-black">
