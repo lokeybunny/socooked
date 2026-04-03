@@ -14,7 +14,7 @@ export default function ThankYouSeller() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          navigate('/');
+          navigate('/sell-your-land');
           return 0;
         }
         return prev - 1;
