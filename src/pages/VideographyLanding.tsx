@@ -122,17 +122,17 @@ export default function VideographyLanding() {
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl px-6 pt-14">
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Videography</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">Funeral & Memorial Videography</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-            Cinematic Films.
+            Honor Their Legacy.
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">AI Precision.</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Preserve Every Moment.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            We connect you with elite videographers specializing in weddings & funerals — enhanced by AI editing for breathtaking results delivered fast.
+            Compassionate, professional funeral videography — capturing memorial services, celebrations of life, and tribute films with dignity and care.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
