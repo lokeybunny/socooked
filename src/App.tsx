@@ -44,6 +44,9 @@ import ManageBooking from "./pages/ManageBooking";
 import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
 import ThankYou from "./pages/ThankYou";
+import ThankYouVideography from "./pages/ThankYouVideography";
+import ThankYouSeller from "./pages/ThankYouSeller";
+import ThankYouWebDesign from "./pages/ThankYouWebDesign";
 import WarrenLanding from "./pages/WarrenLanding";
 import BundlerDocs from "./pages/BundlerDocs";
 import Vanities from "./pages/Vanities";
@@ -139,6 +142,9 @@ const App = () => (
             <Route path="/shared/:token" element={<SharedContent />} />
             <Route path="/research" element={<Research />} />
             <Route path="/thankyou" element={<ThankYou />} />
+            <Route path="/thankyou-videography" element={<ThankYouVideography />} />
+            <Route path="/thankyou-seller" element={<ThankYouSeller />} />
+            <Route path="/thankyou-webdesign" element={<ThankYouWebDesign />} />
             <Route path="/warren-landing" element={<WarrenLanding />} />
             <Route path="/warren-guru" element={<WarrenLanding />} />
             <Route path="/bundler-docs" element={<BundlerDocs />} />
