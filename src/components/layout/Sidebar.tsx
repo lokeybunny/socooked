@@ -178,9 +178,11 @@ export function Sidebar() {
               ? "text-destructive hover:bg-accent"
               : item.green
                 ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                : item.highlight
-                  ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                : item.yellow
+                  ? "text-yellow-500 hover:bg-accent hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+                  : item.highlight
+                    ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
         )}
       >
         <span className="relative shrink-0">
