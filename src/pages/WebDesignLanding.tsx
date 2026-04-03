@@ -82,6 +82,7 @@ export default function WebDesignLanding() {
         body: { funnel: 'webdesign', recipientEmail: email.trim(), recipientName: name.trim() },
       }).catch((err) => console.error('Autoresponder failed:', err));
       setSubmitted(true);
+      navigate('/thankyou-webdesign');
       toast.success('Request submitted! We\'ll be in touch shortly.');
     } catch {
       toast.error('Something went wrong. Please try again.');
