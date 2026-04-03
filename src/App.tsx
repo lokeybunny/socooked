@@ -58,6 +58,7 @@ import XShill from "./pages/XShill";
 import Wholesale from "./pages/Wholesale";
 import ApiManagement from "./pages/ApiManagement";
 import Ads from "./pages/Ads";
+import Funnels from "./pages/Funnels";
 import SellerLanding from "./pages/SellerLanding";
 import VideographyLanding from "./pages/VideographyLanding";
 import WebDesignLanding from "./pages/WebDesignLanding";
@@ -123,6 +124,7 @@ const App = () => (
             
             <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
             <Route path="/phone" element={<PhonePage />} />
+            <Route path="/funnels" element={<WarrenOnlyGate><Funnels /></WarrenOnlyGate>} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
             <Route path="/sign/agreement/:documentId" element={<AgreementSign />} />
             <Route path="/notifications" element={<RestrictedGate><Notifications /></RestrictedGate>} />

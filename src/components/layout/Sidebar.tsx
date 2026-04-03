@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 type NavItem = {
-  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; disabled?: boolean;
+  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; yellow?: boolean; disabled?: boolean; badge?: number;
 };
 
 type NavGroup = {
@@ -39,6 +39,7 @@ const navEntries: NavEntry[] = [
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', botIcon: true },
   { to: '/research', icon: Target, label: 'Finder', botIcon: true },
   { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
+  { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {
@@ -62,7 +63,9 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [funnelCount, setFunnelCount] = useState(0);
   const lastSeenMessagesRef = useRef<string | null>(null);
+  const funnelLastSeenRef = useRef<string | null>(null);
 
   useEffect(() => {
     lastSeenMessagesRef.current = localStorage.getItem('messages_last_seen');
@@ -142,11 +145,40 @@ export function Sidebar() {
       localStorage.setItem('messages_last_seen', new Date().toISOString());
       lastSeenMessagesRef.current = new Date().toISOString();
     }
+    if (location.pathname === '/funnels') {
+      setFunnelCount(0);
+      localStorage.setItem('funnels_last_seen', new Date().toISOString());
+      funnelLastSeenRef.current = new Date().toISOString();
+    }
   }, [location.pathname]);
+
+  // Fetch unseen funnel lead count
+  useEffect(() => {
+    funnelLastSeenRef.current = localStorage.getItem('funnels_last_seen');
+    const fetchFunnelCount = async () => {
+      const lastSeen = funnelLastSeenRef.current || '2020-01-01T00:00:00Z';
+      // Count customers from funnels
+      const { count: custCount } = await supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .in('source', ['videography-landing', 'webdesign-landing'])
+        .gt('created_at', lastSeen);
+      // Count RE leads
+      const { count: reCount } = await supabase
+        .from('lw_landing_leads')
+        .select('id', { count: 'exact', head: true })
+        .gt('created_at', lastSeen);
+      setFunnelCount((custCount || 0) + (reCount || 0));
+    };
+    fetchFunnelCount();
+    const interval = setInterval(fetchFunnelCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.to;
     const showDot = item.to === '/messages' && hasNewMessages;
+    const showFunnelBadge = item.to === '/funnels' && funnelCount > 0;
 
     if (item.disabled) {
       return (
@@ -177,9 +209,11 @@ export function Sidebar() {
               ? "text-destructive hover:bg-accent"
               : item.green
                 ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                : item.highlight
-                  ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                : item.yellow
+                  ? "text-yellow-500 hover:bg-accent hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+                  : item.highlight
+                    ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
         )}
       >
         <span className="relative shrink-0">
@@ -192,6 +226,11 @@ export function Sidebar() {
           <span className="flex items-center gap-1.5 flex-1">
             {item.label}
             {item.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
+            {showFunnelBadge && (
+              <span className="ml-auto bg-yellow-500 text-black text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+                {funnelCount}
+              </span>
+            )}
           </span>
         )}
       </NavLink>
