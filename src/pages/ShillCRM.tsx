@@ -333,6 +333,112 @@ function CampaignTab() {
 }
 
 /* ---- MAIN PAGE ---- */
+/* ─── Friday Payout Banner ─── */
+interface PayableUser {
+  discord_username: string;
+  solana_wallet: string | null;
+  verified_total: number;
+  paid_out: number;
+  unpaid: number;
+}
+
+function FridayPayoutBanner() {
+  const [users, setUsers] = useState<PayableUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      // Fetch all raiders
+      const { data: raiders } = await supabase.from('raiders').select('discord_user_id, discord_username, solana_wallet');
+      if (!raiders?.length) { setLoading(false); return; }
+
+      // Fetch all verified clicks grouped by user
+      const { data: clicks } = await supabase.from('shill_clicks').select('discord_user_id, rate, status');
+      // Fetch all paid payouts
+      const { data: payouts } = await supabase.from('shill_payouts').select('discord_user_id, amount');
+
+      const verifiedMap = new Map<string, number>();
+      const paidMap = new Map<string, number>();
+
+      (clicks || []).forEach((c: any) => {
+        if (c.status === 'verified') {
+          verifiedMap.set(c.discord_user_id, (verifiedMap.get(c.discord_user_id) || 0) + Number(c.rate || 0));
+        }
+      });
+      (payouts || []).forEach((p: any) => {
+        paidMap.set(p.discord_user_id, (paidMap.get(p.discord_user_id) || 0) + Number(p.amount || 0));
+      });
+
+      const payable: PayableUser[] = [];
+      for (const r of raiders) {
+        const verified = verifiedMap.get(r.discord_user_id) || 0;
+        const paid = paidMap.get(r.discord_user_id) || 0;
+        const unpaid = verified - paid;
+        if (unpaid > 5) {
+          payable.push({
+            discord_username: r.discord_username,
+            solana_wallet: r.solana_wallet,
+            verified_total: verified,
+            paid_out: paid,
+            unpaid,
+          });
+        }
+      }
+      payable.sort((a, b) => b.unpaid - a.unpaid);
+      setUsers(payable);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading || users.length === 0) return null;
+
+  const totalOwed = users.reduce((s, u) => s + u.unpaid, 0);
+
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Banknote className="h-5 w-5 text-primary" />
+          <span className="text-sm font-semibold text-foreground">Friday Payout Summary</span>
+          <Badge variant="default" className="text-xs">{users.length} payable</Badge>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold font-mono text-primary">${totalOwed.toFixed(2)}</span>
+          <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="rounded-md border border-border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">User</TableHead>
+                <TableHead className="text-xs text-right">Verified</TableHead>
+                <TableHead className="text-xs text-right">Paid Out</TableHead>
+                <TableHead className="text-xs text-right font-bold">Unpaid</TableHead>
+                <TableHead className="text-xs">Wallet</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map(u => (
+                <TableRow key={u.discord_username}>
+                  <TableCell className="text-sm font-medium">@{u.discord_username}</TableCell>
+                  <TableCell className="text-sm font-mono text-right text-emerald-500">${u.verified_total.toFixed(2)}</TableCell>
+                  <TableCell className="text-sm font-mono text-right text-muted-foreground">${u.paid_out.toFixed(2)}</TableCell>
+                  <TableCell className="text-sm font-mono text-right font-bold text-primary">${u.unpaid.toFixed(2)}</TableCell>
+                  <TableCell className="text-xs font-mono text-muted-foreground max-w-[120px] truncate">{u.solana_wallet || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ShillCRM() {
   const { user, loading: authLoading } = useAuth();
   const [tab, setTab] = useState("raiders");
@@ -366,6 +472,9 @@ export default function ShillCRM() {
             </Link>
           </div>
         </div>
+
+        {/* Friday Payout Summary */}
+        <FridayPayoutBanner />
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList className="bg-muted/40 flex-wrap">
