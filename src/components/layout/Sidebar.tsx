@@ -145,7 +145,35 @@ export function Sidebar() {
       localStorage.setItem('messages_last_seen', new Date().toISOString());
       lastSeenMessagesRef.current = new Date().toISOString();
     }
+    if (location.pathname === '/funnels') {
+      setFunnelCount(0);
+      localStorage.setItem('funnels_last_seen', new Date().toISOString());
+      funnelLastSeenRef.current = new Date().toISOString();
+    }
   }, [location.pathname]);
+
+  // Fetch unseen funnel lead count
+  useEffect(() => {
+    funnelLastSeenRef.current = localStorage.getItem('funnels_last_seen');
+    const fetchFunnelCount = async () => {
+      const lastSeen = funnelLastSeenRef.current || '2020-01-01T00:00:00Z';
+      // Count customers from funnels
+      const { count: custCount } = await supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .in('source', ['videography-landing', 'webdesign-landing'])
+        .gt('created_at', lastSeen);
+      // Count RE leads
+      const { count: reCount } = await supabase
+        .from('lw_landing_leads')
+        .select('id', { count: 'exact', head: true })
+        .gt('created_at', lastSeen);
+      setFunnelCount((custCount || 0) + (reCount || 0));
+    };
+    fetchFunnelCount();
+    const interval = setInterval(fetchFunnelCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.to;
