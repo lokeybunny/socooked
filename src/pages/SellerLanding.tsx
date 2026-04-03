@@ -41,6 +41,7 @@ export default function SellerLanding() {
   const [notFound, setNotFound] = useState(false);
 
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
