@@ -49,7 +49,7 @@ const navEntries: NavEntry[] = [
       { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
     ],
   },
-  { to: '/wholesale', icon: Warehouse, label: 'Wholesale', botIcon: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
