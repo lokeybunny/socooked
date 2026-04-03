@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+
 import {
   ArrowRight, Zap, Phone, Globe, Mail, BarChart3, Brain,
   ChevronDown, Shield, Clock, Users, TrendingUp, Building2, Briefcase
