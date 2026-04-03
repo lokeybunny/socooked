@@ -145,7 +145,7 @@ export default function VideographyLanding() {
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
             <div className="text-center">
               <div className="text-3xl font-bold text-cyan-400/70">500+</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Events Filmed</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Families Served</div>
             </div>
             <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
@@ -155,7 +155,7 @@ export default function VideographyLanding() {
             <div className="w-px h-12 bg-cyan-500/10" />
             <div className="text-center">
               <div className="text-3xl font-bold text-cyan-400/70">48hr</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">AI Turnaround</div>
+              <div className="text-xs tracking-[0.2em] uppercase mt-1">Delivery Time</div>
             </div>
           </div>
         </motion.div>
