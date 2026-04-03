@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Building2, Video, Camera, Film, Sparkles,
   Heart, Clock, Users, Star, CheckCircle, Loader2
