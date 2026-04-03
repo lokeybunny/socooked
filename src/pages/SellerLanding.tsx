@@ -101,6 +101,7 @@ export default function SellerLanding() {
         }).catch((err) => console.error('Autoresponder failed:', err));
       }
       setSubmitted(true);
+      navigate('/thankyou-seller');
       setTimeout(async () => {
         try {
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
