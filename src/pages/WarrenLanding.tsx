@@ -160,12 +160,12 @@ export default function WarrenLanding() {
       </motion.header>
 
       {/* ── Hero with Parallax ── */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-screen flex items-end overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${parallaxHero})` }}
+          style={{ backgroundImage: `url(${parallaxHero})`, backgroundPosition: 'center 20%' }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: 'linear-gradient(rgba(0,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.3) 1px, transparent 1px)',
           backgroundSize: '80px 80px',
@@ -175,24 +175,18 @@ export default function WarrenLanding() {
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
-          className="relative text-center max-w-3xl px-6 pt-14"
+          className="relative w-full max-w-3xl mx-auto px-6 pb-20"
         >
-          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
+          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-6">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
             <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Solana Project Studio</span>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05]">
-            Build on
-            <br />
-            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Solana.</span>
-          </h1>
-
-          <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            Learn to bundle, deploy meme tokens, and build full crypto projects from the ground up. AI tools, CT alpha, and step-by-step guides — presented by YouTuber Warren Guru.
+          <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-8">
+            Learn to bundle, deploy meme tokens, and build full crypto projects from the ground up. AI tools, CT alpha, and step-by-step guides — presented by Warren Guru.
           </p>
 
-          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start gap-4">
             <Link
               to="/pricing"
               className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20"
@@ -208,27 +202,10 @@ export default function WarrenLanding() {
               <ChevronDown className="h-4 w-4" />
             </a>
           </div>
-
-          <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400/70">50+</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Projects Launched</div>
-            </div>
-            <div className="w-px h-12 bg-cyan-500/10" />
-            <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400/70">AI</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Powered Tools</div>
-            </div>
-            <div className="w-px h-12 bg-cyan-500/10" />
-            <div className="text-center">
-              <div className="text-3xl font-bold text-cyan-400/70">SOL</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">Native Chain</div>
-            </div>
-          </div>
         </motion.div>
 
         <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2"
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
         >
