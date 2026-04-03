@@ -176,15 +176,75 @@ serve(async (req) => {
         });
       }
 
-      // Find the lead by vapi_call_id
+      // Find the lead by vapi_call_id — try lw_landing_leads first, then customers
       const { data: lead } = await sb
         .from("lw_landing_leads")
         .select("*")
         .eq("vapi_call_id", callId)
         .single();
 
+      // Fallback: check customers table (videography/webdesign funnel leads)
+      let customerLead: any = null;
       if (!lead) {
+        const { data: custRow } = await sb
+          .from("customers")
+          .select("*")
+          .filter("meta->>vapi_call_id", "eq", callId)
+          .single();
+        customerLead = custRow;
+      }
+
+      if (!lead && !customerLead) {
         console.log("No lead found for call:", callId);
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // If it's a customer-table lead, handle separately
+      if (customerLead) {
+        const transcript = message.transcript || "";
+        const summary = message.summary || "";
+        const recordingUrl = message.recordingUrl || null;
+        const endedReason = message.endedReason || "unknown";
+        let duration = message.call?.duration || message.duration || 0;
+        if (!duration && message.startedAt && message.endedAt) {
+          duration = (new Date(message.endedAt).getTime() - new Date(message.startedAt).getTime()) / 1000;
+        }
+        if (!duration && message.call?.startedAt && message.call?.endedAt) {
+          duration = (new Date(message.call.endedAt).getTime() - new Date(message.call.startedAt).getTime()) / 1000;
+        }
+
+        const hasContent = !!(transcript?.trim() || summary?.trim());
+        const callFailed = !hasContent && ([
+          "assistant-error", "no-answer", "busy", "voicemail",
+          "machine-detected", "customer-did-not-answer", "customer-busy",
+          "silence-timed-out",
+        ].includes(endedReason) || duration < 15);
+
+        const aiNotes = callFailed
+          ? `AI Agent could not connect.\n• Reason: ${endedReason.replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`
+          : buildAINotes(transcript, summary, endedReason, duration, recordingUrl);
+
+        const existingMeta = (customerLead.meta as any) || {};
+        await sb
+          .from("customers")
+          .update({
+            meta: {
+              ...existingMeta,
+              vapi_call_status: callFailed ? "no_answer" : "completed",
+              vapi_transcript: transcript,
+              vapi_summary: summary,
+              vapi_recording_url: recordingUrl,
+              vapi_ended_reason: endedReason,
+              vapi_duration_seconds: duration,
+              vapi_ai_notes: aiNotes,
+            },
+            notes: (customerLead.notes || "") + "\n\n" + aiNotes,
+          })
+          .eq("id", customerLead.id);
+
+        console.log(`[vapi-webhook] Updated customer ${customerLead.id} with call results`);
         return new Response(JSON.stringify({ ok: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
