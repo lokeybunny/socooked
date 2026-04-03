@@ -42,7 +42,7 @@ const navEntries: NavEntry[] = [
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {
-    icon: Crosshair, label: 'X Promo', divider: 'Services',
+    icon: Crosshair, label: 'X Promo', divider: 'Services', grey: true,
     children: [
       { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
       { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
