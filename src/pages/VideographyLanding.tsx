@@ -137,7 +137,7 @@ export default function VideographyLanding() {
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="#get-started" className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-cyan-400 hover:to-teal-400 transition-all shadow-lg shadow-cyan-500/20">
-              Book a Videographer
+              Book Memorial Videography
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </a>
           </div>
