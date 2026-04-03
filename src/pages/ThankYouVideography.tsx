@@ -5,7 +5,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 
 export default function ThankYouVideography() {
   const navigate = useNavigate();
-  useMetaPixel('945218684863625');
+  useMetaPixel('945218684863625', true);
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
