@@ -184,18 +184,23 @@ export default function WarrenLanding() {
             <span className="text-xs tracking-[0.3em] uppercase text-amber-400/70">AI-Powered Solana Project Studio</span>
           </div>
 
-          <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-8">
+          <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-4">
             Learn to bundle, deploy meme tokens, and build full crypto projects from the ground up. AI tools, CT alpha, and step-by-step guides — presented by Warren Guru.
+          </p>
+          <p className="text-sm text-amber-400/60 max-w-xl leading-relaxed font-medium mb-8">
+            🚀 Download the Warren Guru Bundler for Solana — free in the Discord, along with hours of free training.
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-4">
-            <Link
-              to="/pricing"
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
               className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
             >
-              Start Learning
+              Join Discord
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </a>
             <a
               href="#see-it-in-action"
               className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-amber-400 transition-colors"
