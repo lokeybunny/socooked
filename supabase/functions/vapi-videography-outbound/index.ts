@@ -87,8 +87,28 @@ serve(async (req) => {
         });
       }
 
-      // Update customer record with vapi call info if customer_id provided
-      if (customer_id) {
+      // Always save vapi call info to customers table by phone lookup
+      const normalizedPhone = customerNumber.replace('+1', '');
+      const { data: custRow } = await sb
+        .from("customers")
+        .select("id, meta")
+        .or(`phone.eq.${normalizedPhone},phone.eq.${customerNumber},phone.eq.${phone}`)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (custRow) {
+        await sb.from("customers").update({
+          meta: {
+            ...(custRow.meta as any || {}),
+            vapi_call_id: vapiData.id,
+            vapi_call_status: "calling",
+            vapi_assistant: "videography",
+            vapi_triggered_at: new Date().toISOString(),
+          },
+        }).eq("id", custRow.id);
+        console.log(`[vapi-videography] Saved call_id to customer ${custRow.id}`);
+      } else if (customer_id) {
         await sb.from("customers").update({
           meta: {
             vapi_call_id: vapiData.id,

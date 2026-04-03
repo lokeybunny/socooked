@@ -294,6 +294,8 @@ export default function Funnels() {
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
           vapi_call_status: (meta.vapi_call_status as string) || null,
           vapi_call_id: (meta.vapi_call_id as string) || null,
+          ai_notes: (meta.vapi_ai_notes as string) || null,
+          vapi_recording_url: (meta.vapi_recording_url as string) || null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
