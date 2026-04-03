@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 type NavItem = {
-  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean;
+  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; disabled?: boolean;
 };
 
 type NavGroup = {
@@ -53,6 +53,7 @@ const navEntries: NavEntry[] = [
   },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
+  { to: '#', icon: Video, label: 'Videography', red: true, disabled: true },
 ];
 
 export function Sidebar() {
@@ -146,6 +147,23 @@ export function Sidebar() {
     const isActive = location.pathname === item.to;
     const showDot = item.to === '/messages' && hasNewMessages;
 
+    if (item.disabled) {
+      return (
+        <span
+          key={item.label}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal cursor-default",
+            item.red ? "text-destructive/70" : "text-muted-foreground/50",
+          )}
+        >
+          <span className="relative shrink-0">
+            <item.icon className="h-4.5 w-4.5" />
+          </span>
+          {!collapsed && <span className="flex-1">{item.label}</span>}
+        </span>
+      );
+    }
+
     return (
       <NavLink
         key={item.to}
@@ -154,11 +172,13 @@ export function Sidebar() {
           "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
           isActive
             ? "bg-accent text-foreground"
-            : item.green
-              ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-              : item.highlight
-                ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            : item.red
+              ? "text-destructive hover:bg-accent"
+              : item.green
+                ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                : item.highlight
+                  ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
         )}
       >
         <span className="relative shrink-0">
