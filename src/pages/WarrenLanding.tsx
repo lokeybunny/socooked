@@ -149,12 +149,14 @@ export default function WarrenLanding() {
             <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white transition-colors" title="Login">
               <Users className="h-5 w-5" />
             </button>
-            <Link
-              to="/pricing"
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all"
             >
-              Subscribe
-            </Link>
+              Join Discord
+            </a>
           </div>
         </div>
       </motion.header>
@@ -182,18 +184,23 @@ export default function WarrenLanding() {
             <span className="text-xs tracking-[0.3em] uppercase text-amber-400/70">AI-Powered Solana Project Studio</span>
           </div>
 
-          <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-8">
+          <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-4">
             Learn to bundle, deploy meme tokens, and build full crypto projects from the ground up. AI tools, CT alpha, and step-by-step guides — presented by Warren Guru.
+          </p>
+          <p className="text-sm text-amber-400/60 max-w-xl leading-relaxed font-medium mb-8">
+            🚀 Download the Warren Guru Bundler for Solana — free in the Discord, along with hours of free training.
           </p>
 
           <div className="flex flex-col sm:flex-row items-start gap-4">
-            <Link
-              to="/pricing"
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
               className="group flex items-center gap-3 px-10 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
             >
-              Start Learning
+              Join Discord
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </a>
             <a
               href="#see-it-in-action"
               className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-amber-400 transition-colors"
@@ -412,17 +419,18 @@ export default function WarrenLanding() {
               <span className="text-amber-400/60">Start building.</span>
             </h2>
             <p className="mt-6 text-base text-white/30 max-w-md mx-auto leading-relaxed">
-              Everything you need to go from zero to deployed on Solana. AI tools, bundling guides, CT intel, and a community that ships.
+              The Warren Guru Bundler for Solana is available for free download in the Discord — plus hours of free training to get you from zero to deployed.
             </p>
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                to="/pricing#top"
-                onClick={() => window.scrollTo(0, 0)}
+              <a
+                href="https://discord.gg/warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
               >
-                View Pricing
+                Join Discord
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              </a>
             </div>
           </motion.div>
         </div>
@@ -442,11 +450,11 @@ export default function WarrenLanding() {
             <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Terms
             </Link>
-            <Link to="/pricing" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
-              Pricing
-            </Link>
             <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
               Discord
+            </a>
+            <a href="https://youtube.com/@warrenguru" target="_blank" rel="noopener noreferrer" className="text-xs tracking-wider uppercase text-white/20 hover:text-amber-400/50 transition-colors">
+              YouTube
             </a>
           </div>
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
