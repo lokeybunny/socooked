@@ -54,6 +54,7 @@ const navEntries: NavEntry[] = [
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '#', icon: Video, label: 'Videography', red: true, disabled: true },
+  { to: '#', icon: Target, label: 'Crypto', red: true, disabled: true },
 ];
 
 export function Sidebar() {
