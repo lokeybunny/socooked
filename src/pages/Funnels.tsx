@@ -164,11 +164,12 @@ function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; ope
               </div>
             )}
             {lead.vapi_recording_url && (
-              <div className="mt-3">
-                <a href={lead.vapi_recording_url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
-                  <Play className="h-3 w-3" /> Listen to Recording <ExternalLink className="h-3 w-3" />
-                </a>
+              <div className="mt-3 space-y-2">
+                <p className="text-muted-foreground text-xs flex items-center gap-1"><Play className="h-3 w-3" /> Recording</p>
+                <audio controls className="w-full h-9" preload="metadata">
+                  <source src={lead.vapi_recording_url} />
+                  Your browser does not support audio playback.
+                </audio>
               </div>
             )}
           </div>
