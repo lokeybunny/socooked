@@ -107,6 +107,7 @@ const App = () => (
             <Route path="/" element={<Suspense fallback={null}><DomainLanding /></Suspense>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
+            <Route path="/dash" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
             <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
             <Route path="/leads" element={<RestrictedGate><Leads /></RestrictedGate>} />
             
