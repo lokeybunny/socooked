@@ -6,6 +6,7 @@ export function useMetaPixel(pixelId: string, trackLead = false) {
     if ((window as any).fbq) {
       (window as any).fbq('init', pixelId);
       (window as any).fbq('track', 'PageView');
+      if (trackLead) (window as any).fbq('track', 'Lead');
       return;
     }
 
