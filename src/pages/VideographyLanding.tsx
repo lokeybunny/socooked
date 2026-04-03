@@ -72,7 +72,7 @@ export default function VideographyLanding() {
         email: email.trim(),
         phone: phone.trim(),
         source: 'videography-landing',
-        status: 'new',
+        status: 'lead',
         notes: `Event: ${eventType || 'Not specified'}\n${message}`,
         tags: ['videography', eventType?.toLowerCase() || 'general'],
       });
