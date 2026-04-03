@@ -35,6 +35,7 @@ interface LandingPage {
 
 export default function SellerLanding() {
   useMetaPixel('1655620408789704');
+  const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
   const [page, setPage] = useState<LandingPage | null>(null);
   const [loading, setLoading] = useState(true);
