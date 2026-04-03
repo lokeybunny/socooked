@@ -67,7 +67,7 @@ export default function VideographyLanding() {
     }
     setSubmitting(true);
     try {
-      await supabase.from('customers').insert({
+      const { error: insertErr } = await supabase.from('customers').insert({
         full_name: name.trim(),
         email: email.trim(),
         phone: phone.trim(),
@@ -76,6 +76,16 @@ export default function VideographyLanding() {
         notes: `Event: ${eventType || 'Not specified'}\n${message}`,
         tags: ['videography', eventType?.toLowerCase() || 'general'],
       });
+      if (insertErr) {
+        if (insertErr.message?.includes('customers_phone_unique')) {
+          toast.error('This phone number has already been submitted. We\'ll be in touch!');
+        } else {
+          toast.error('Submission failed — please try again.');
+          console.error('Insert error:', insertErr);
+        }
+        setSubmitting(false);
+        return;
+      }
       // Send thank-you autoresponder via Gmail
       supabase.functions.invoke('funnel-autoresponder', {
         body: { funnel: 'videography', recipientEmail: email.trim(), recipientName: name.trim() },
