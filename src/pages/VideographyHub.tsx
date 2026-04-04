@@ -383,6 +383,76 @@ export default function VideographyHub() {
         </div>
       </div>
 
+      {viewTab === 'calendar' ? (
+        /* ─── Calendar View ─── */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{format(calMonth, 'MMMM yyyy')}</h3>
+            <div className="flex gap-1">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCalMonth(subMonths(calMonth, 1))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => setCalMonth(new Date())}>Today</Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCalMonth(addMonths(calMonth, 1))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <div key={d} className="bg-muted p-2 text-center text-xs font-bold text-foreground">{d}</div>
+            ))}
+            {calDays.map(day => {
+              const dayEvents = getEventsForDay(day);
+              const isToday = isSameDay(day, new Date());
+              return (
+                <div key={day.toISOString()} className={`bg-card min-h-[90px] p-1.5 ${!isSameMonth(day, calMonth) ? 'opacity-30' : ''}`}>
+                  <p className={`text-xs mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-bold'}`}>{format(day, 'd')}</p>
+                  <div className="space-y-0.5">
+                    {dayEvents.map(ev => (
+                      <button
+                        key={ev.id}
+                        onClick={() => openEventEdit(ev)}
+                        className="w-full text-left text-[10px] font-semibold px-1.5 py-0.5 rounded truncate bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                      >
+                        {format(new Date(ev.start_time), 'h:mm a')} {ev.title?.replace(/\[.*?\]\s*/g, '')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Upcoming list */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">Upcoming Bookings</h4>
+            {calEvents.filter(e => new Date(e.start_time) >= new Date()).length === 0 && (
+              <p className="text-xs text-muted-foreground">No upcoming videography bookings this month.</p>
+            )}
+            {calEvents
+              .filter(e => new Date(e.start_time) >= new Date())
+              .map(ev => (
+                <Card key={ev.id} className="cursor-pointer hover:border-primary/50" onClick={() => openEventEdit(ev)}>
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{ev.title?.replace(/\[.*?\]\s*/g, '')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(ev.start_time), 'MMM d, yyyy · h:mm a')}
+                        {ev.end_time && ` – ${format(new Date(ev.end_time), 'h:mm a')}`}
+                      </p>
+                      {ev.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{ev.description}</p>}
+                    </div>
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
+      ) : (
+      /* ─── Pipeline View ─── */
+      <>
       {/* Pipeline Summary */}
       <div className="flex flex-wrap gap-2">
         <Button
