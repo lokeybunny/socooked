@@ -461,7 +461,7 @@ serve(async (req) => {
     }
 
     if (action === "send") {
-      const { to, subject, body, attachments } = await req.json();
+      const { to, subject, body, attachments, threadId } = await req.json();
       if (!to || !subject) throw new Error("to and subject required");
 
       const invoiceEmail = isInvoiceEmail(subject || "", body || "");
@@ -513,13 +513,15 @@ serve(async (req) => {
         : (body || "");
 
       const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, normalizedBody, attachments);
+      const sendPayload: any = { raw };
+      if (threadId) sendPayload.threadId = threadId;
       const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ raw }),
+        body: JSON.stringify(sendPayload),
       });
       const sendData = await sendRes.json();
       if (!sendRes.ok) throw new Error(`Send error: ${JSON.stringify(sendData)}`);

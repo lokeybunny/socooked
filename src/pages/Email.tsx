@@ -395,6 +395,7 @@ export default function EmailPage() {
       const subject = viewEmail.subject.startsWith('Re:') ? viewEmail.subject : `Re: ${viewEmail.subject}`;
       await callGmailPost('send', {
         to: toAddr, subject, body: replyBody,
+        threadId: viewEmail.threadId || undefined,
         attachments: replyAttachments.length > 0 ? replyAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
 

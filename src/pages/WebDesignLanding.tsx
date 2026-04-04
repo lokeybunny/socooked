@@ -160,6 +160,9 @@ export default function WebDesignLanding() {
             <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </a>
+            <Link to="/sell/home" className="text-emerald-400/80 hover:text-emerald-300 text-xs tracking-[0.15em] uppercase transition-colors">
+              Real Estate
+            </Link>
           </div>
           <a href="#get-started" className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded font-medium hover:from-cyan-400 hover:to-teal-400 transition-all">
             Get Started

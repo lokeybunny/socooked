@@ -159,6 +159,9 @@ export default function VideographyLanding() {
             <Link to="/webdesign#get-started" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </Link>
+            <Link to="/sell/home" className="text-emerald-400/80 hover:text-emerald-300 text-xs tracking-[0.15em] uppercase transition-colors">
+              Real Estate
+            </Link>
           </div>
           <a href="#get-started" className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded font-medium hover:from-cyan-400 hover:to-teal-400 transition-all">
             Get Started
