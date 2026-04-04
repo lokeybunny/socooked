@@ -170,7 +170,16 @@ export default function Landing() {
               <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-3 sm:gap-5">
+            <Link to="/videography" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
+              Videography
+            </Link>
+            <Link to="/webdesign" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
+              Web Design
+            </Link>
+            <Link to="/sell/home" className="hidden sm:block text-emerald-500/70 hover:text-emerald-400 text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
+              Real Estate
+            </Link>
             <button
               onClick={() => navigate('/auth')}
               className="text-muted-foreground/50 hover:text-foreground transition-colors duration-300"
