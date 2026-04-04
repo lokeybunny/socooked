@@ -6,7 +6,7 @@ import {
   Video, Globe, Home, Filter, Clock, Mail, Phone, Search,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
-  FileText, Mic
+  FileText, Mic, Copy, Sparkles
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,27 +145,25 @@ function EmailModal({ lead, open, onClose }: { lead: FunnelLead | null; open: bo
 /* ─── Detail Modal ─── */
 function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLead | null; open: boolean; onClose: () => void; onLeadUpdate?: (updated: FunnelLead) => void }) {
   const [transcribing, setTranscribing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [transcriptResult, setTranscriptResult] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
 
-  // Reset on lead change
-  useEffect(() => { setTranscriptResult(null); }, [lead?.id]);
+  useEffect(() => { setTranscriptResult(null); setAnalysisResult(null); }, [lead?.id]);
 
   const handleTranscribe = async () => {
     if (!lead?.vapi_recording_url) return;
     setTranscribing(true);
     try {
-      // Fetch audio file
       const audioRes = await fetch(lead.vapi_recording_url);
       if (!audioRes.ok) throw new Error('Failed to fetch recording');
       const audioBlob = await audioRes.blob();
       const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
-
       const formData = new FormData();
       formData.append('audio', audioFile);
       formData.append('customer_name', lead.full_name);
       if (lead._table === 'customers') formData.append('customer_id', lead.id);
       formData.append('source_type', 'vapi_recording');
-
       const { data, error } = await supabase.functions.invoke('transcribe-audio', { body: formData });
       if (error) throw error;
       setTranscriptResult(data.transcript || 'No transcript generated');
@@ -175,9 +173,40 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
     } finally { setTranscribing(false); }
   };
 
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success('Copied to clipboard')).catch(() => toast.error('Failed to copy'));
+  };
+
+  const handleAnalyze = async () => {
+    const transcript = transcriptResult || lead?.vapi_transcript;
+    if (!transcript) { toast.error('No transcript available to analyze'); return; }
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('script-ai', { body: { transcript } });
+      if (error) throw error;
+      setAnalysisResult(data);
+      toast.success('Conversation analyzed');
+    } catch (err: any) {
+      toast.error(err.message || 'Analysis failed');
+    } finally { setAnalyzing(false); }
+  };
+
   if (!lead) return null;
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes || lead.vapi_transcript);
+  const hasAnyTranscript = !!(transcriptResult || lead.vapi_transcript);
+
+  const CopyAnalyzeBar = ({ text }: { text: string }) => (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => handleCopy(text)}>
+        <Copy className="h-3 w-3 mr-1" /> Copy
+      </Button>
+      <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={handleAnalyze} disabled={analyzing}>
+        {analyzing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+        {analyzing ? 'Analyzing…' : 'Analyze Conversation'}
+      </Button>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -187,9 +216,7 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
             <cfg.icon className={cn("h-5 w-5", cfg.color)} />
             {lead.full_name}
             <Badge variant="outline" className={cn("text-xs ml-2", cfg.color)}>{cfg.label}</Badge>
-            {lead.drafted_at && (
-              <Badge variant="secondary" className="text-[10px] ml-1 text-yellow-600">Drafted</Badge>
-            )}
+            {lead.drafted_at && <Badge variant="secondary" className="text-[10px] ml-1 text-yellow-600">Drafted</Badge>}
           </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -197,22 +224,15 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
           <div><p className="text-muted-foreground text-xs">Phone</p><p>{lead.phone || '—'}</p></div>
           <div><p className="text-muted-foreground text-xs">Submitted</p><p>{format(new Date(lead.created_at), 'MMM d, yyyy h:mm a')}</p></div>
           <div><p className="text-muted-foreground text-xs">Status</p><Badge variant="secondary">{lead.status}</Badge></div>
-          {lead.property_address && (
-            <div className="col-span-2"><p className="text-muted-foreground text-xs">Property Address</p><p>{lead.property_address}</p></div>
-          )}
-          {lead.company && (
-            <div className="col-span-2"><p className="text-muted-foreground text-xs">Business Name</p><p>{lead.company}</p></div>
-          )}
-          {lead.notes && (
-            <div className="col-span-2"><p className="text-muted-foreground text-xs">Notes</p><p className="whitespace-pre-wrap">{lead.notes}</p></div>
-          )}
+          {lead.property_address && <div className="col-span-2"><p className="text-muted-foreground text-xs">Property Address</p><p>{lead.property_address}</p></div>}
+          {lead.company && <div className="col-span-2"><p className="text-muted-foreground text-xs">Business Name</p><p>{lead.company}</p></div>}
+          {lead.notes && <div className="col-span-2"><p className="text-muted-foreground text-xs">Notes</p><p className="whitespace-pre-wrap">{lead.notes}</p></div>}
         </div>
+
         {/* Vapi AI Section */}
         {hasAI && (
           <div className="mt-4 border-t pt-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-              <Bot className="h-4 w-4 text-primary" /> AI Call Data
-            </h3>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><Bot className="h-4 w-4 text-primary" /> AI Call Data</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div><p className="text-muted-foreground text-xs">Call Status</p>
                 <Badge variant={lead.vapi_call_status === 'completed' ? 'default' : 'secondary'}>{lead.vapi_call_status || 'pending'}</Badge>
@@ -223,53 +243,57 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
               {lead.asking_price && <div><p className="text-muted-foreground text-xs">Asking Price</p><p>${lead.asking_price.toLocaleString()}</p></div>}
               {lead.lead_score != null && lead.lead_score > 0 && <div><p className="text-muted-foreground text-xs">Lead Score</p><p className="font-bold">{lead.lead_score}/100</p></div>}
             </div>
-            {/* AI Notes */}
             {lead.ai_notes && (
               <div className="mt-3"><p className="text-muted-foreground text-xs mb-1">AI Notes</p>
                 <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-48 overflow-y-auto">{lead.ai_notes}</div>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => handleCopy(lead.ai_notes!)}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
+                </div>
               </div>
             )}
-            {/* Vapi Summary */}
             {lead.vapi_summary && (
               <div className="mt-3"><p className="text-muted-foreground text-xs mb-1">Call Summary</p>
                 <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">{lead.vapi_summary}</div>
               </div>
             )}
-            {/* Vapi Transcript */}
             {lead.vapi_transcript && (
               <div className="mt-3"><p className="text-muted-foreground text-xs mb-1 flex items-center gap-1"><FileText className="h-3 w-3" /> Call Transcript</p>
                 <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">{lead.vapi_transcript}</div>
+                <CopyAnalyzeBar text={lead.vapi_transcript} />
               </div>
             )}
-            {/* Recording + Transcribe */}
             {lead.vapi_recording_url && (
               <div className="mt-3 space-y-2">
                 <p className="text-muted-foreground text-xs flex items-center gap-1"><Play className="h-3 w-3" /> Recording</p>
-                <audio controls className="w-full h-9" preload="metadata">
-                  <source src={lead.vapi_recording_url} />
-                  Your browser does not support audio playback.
-                </audio>
-                <Button variant="outline" size="sm" className="text-xs" onClick={handleTranscribe} disabled={transcribing}>
-                  {transcribing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Mic className="h-3 w-3 mr-1" />}
-                  {transcribing ? 'Transcribing…' : 'Transcribe Recording'}
-                </Button>
+                <audio controls className="w-full h-9" preload="metadata"><source src={lead.vapi_recording_url} /></audio>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="outline" size="sm" className="text-xs" onClick={handleTranscribe} disabled={transcribing}>
+                    {transcribing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Mic className="h-3 w-3 mr-1" />}
+                    {transcribing ? 'Transcribing…' : 'Transcribe Recording'}
+                  </Button>
+                  {hasAnyTranscript && !analysisResult && (
+                    <Button variant="outline" size="sm" className="text-xs" onClick={handleAnalyze} disabled={analyzing}>
+                      {analyzing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                      {analyzing ? 'Analyzing…' : 'Analyze Conversation'}
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
-            {/* Deepgram Transcription Result */}
             {transcriptResult && (
               <div className="mt-3"><p className="text-muted-foreground text-xs mb-1 flex items-center gap-1"><Mic className="h-3 w-3" /> Deepgram Transcription</p>
                 <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">{transcriptResult}</div>
+                <CopyAnalyzeBar text={transcriptResult} />
               </div>
             )}
           </div>
         )}
-        {/* Recording without AI section — still show if recording exists but no AI data */}
+
+        {/* Recording without AI */}
         {!hasAI && lead.vapi_recording_url && (
           <div className="mt-4 border-t pt-4 space-y-2">
             <p className="text-muted-foreground text-xs flex items-center gap-1"><Play className="h-3 w-3" /> Recording</p>
-            <audio controls className="w-full h-9" preload="metadata">
-              <source src={lead.vapi_recording_url} />
-            </audio>
+            <audio controls className="w-full h-9" preload="metadata"><source src={lead.vapi_recording_url} /></audio>
             <Button variant="outline" size="sm" className="text-xs" onClick={handleTranscribe} disabled={transcribing}>
               {transcribing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Mic className="h-3 w-3 mr-1" />}
               {transcribing ? 'Transcribing…' : 'Transcribe Recording'}
@@ -277,8 +301,70 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
             {transcriptResult && (
               <div className="mt-2"><p className="text-muted-foreground text-xs mb-1 flex items-center gap-1"><Mic className="h-3 w-3" /> Transcription</p>
                 <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">{transcriptResult}</div>
+                <CopyAnalyzeBar text={transcriptResult} />
               </div>
             )}
+          </div>
+        )}
+
+        {/* AI Analysis Result */}
+        {analysisResult && (
+          <div className="mt-4 border-t pt-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3"><Sparkles className="h-4 w-4 text-primary" /> Conversation Analysis</h3>
+            {analysisResult.summary && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">Summary</p>
+                <div className="bg-muted/50 rounded-md p-3 text-xs">{analysisResult.summary}</div>
+              </div>
+            )}
+            {analysisResult.people?.length > 0 && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">People</p>
+                <div className="space-y-1">{analysisResult.people.map((p: any, i: number) => (
+                  <div key={i} className="bg-muted/50 rounded-md p-2 text-xs flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{p.name}</span>
+                    {p.role && <span className="text-muted-foreground">— {p.role}</span>}
+                    {p.email && <span className="text-muted-foreground">· {p.email}</span>}
+                    {p.phone && <span className="text-muted-foreground">· {p.phone}</span>}
+                    {p.is_new_customer && <Badge variant="default" className="text-[9px] h-4">New Customer</Badge>}
+                  </div>
+                ))}</div>
+              </div>
+            )}
+            {analysisResult.project_ideas?.length > 0 && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">Project Ideas</p>
+                <div className="space-y-1">{analysisResult.project_ideas.map((p: any, i: number) => (
+                  <div key={i} className="bg-muted/50 rounded-md p-2 text-xs">
+                    <span className="font-medium">{p.title}</span>
+                    {p.description && <span className="text-muted-foreground"> — {p.description}</span>}
+                    {p.estimated_value && <Badge variant="outline" className="ml-2 text-[9px]">{p.estimated_value}</Badge>}
+                  </div>
+                ))}</div>
+              </div>
+            )}
+            {analysisResult.action_items?.length > 0 && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">Action Items</p>
+                <ul className="list-disc list-inside space-y-0.5">{analysisResult.action_items.map((a: string, i: number) => (
+                  <li key={i} className="text-xs">{a}</li>
+                ))}</ul>
+              </div>
+            )}
+            {analysisResult.suggested_category && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">Suggested Category</p>
+                <Badge variant="secondary" className="text-xs">{analysisResult.suggested_category}</Badge>
+              </div>
+            )}
+            {analysisResult.suggested_services?.length > 0 && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">Services Discussed</p>
+                <div className="flex gap-1 flex-wrap">{analysisResult.suggested_services.map((s: string, i: number) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">{s}</Badge>
+                ))}</div>
+              </div>
+            )}
+            {analysisResult.budget_mentioned && (
+              <div className="mb-3"><p className="text-muted-foreground text-xs mb-1">Budget</p><p className="text-xs">{analysisResult.budget_mentioned}</p></div>
+            )}
+            <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => handleCopy(JSON.stringify(analysisResult, null, 2))}>
+              <Copy className="h-3 w-3 mr-1" /> Copy Analysis
+            </Button>
           </div>
         )}
       </DialogContent>
