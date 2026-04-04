@@ -236,7 +236,7 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
         return;
       }
 
-      const { error } = await supabase.from('customers').insert({
+      const { error } = await supabase.from('customers').insert([{
         full_name: lead.full_name,
         email: lead.email,
         phone: lead.phone,
@@ -245,8 +245,8 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
         status: 'lead',
         notes: noteParts.join('\n\n---\n\n'),
         tags: [funnelLabel, 'funnel-import'],
-        meta,
-      });
+        meta: meta as any,
+      }]);
 
       if (error) throw error;
       toast.success(`${lead.full_name} added to CRM as a new customer`);
