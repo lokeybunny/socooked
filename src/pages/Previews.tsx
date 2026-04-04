@@ -683,6 +683,16 @@ export default function Previews() {
                               {preview.customer_id && (
                                 <AssignClientPopover previewId={preview.id} onAssigned={fetchPreviews} />
                               )}
+                              {!preview.archived_at && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); archivePreview(preview.id); }}
+                                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                                  title="Archive (72h to deletion)"
+                                >
+                                  <Archive className="h-3.5 w-3.5" />
+                                  Archive
+                                </button>
+                              )}
                               {!preview.preview_url && !preview.edit_url && !preview.customer_id && (
                                 <span className="text-xs text-muted-foreground italic">No links available</span>
                               )}
