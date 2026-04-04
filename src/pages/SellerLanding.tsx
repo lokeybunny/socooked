@@ -72,7 +72,7 @@ export default function SellerLanding() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim() || !address.trim()) {
+    if (!name.trim() || !phone.trim() || !email.trim() || !address.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
