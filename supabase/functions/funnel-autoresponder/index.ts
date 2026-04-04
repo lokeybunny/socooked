@@ -65,7 +65,7 @@ interface FunnelEmailConfig {
 
 const FUNNEL_TEMPLATES: Record<string, FunnelEmailConfig> = {
   videography: {
-    subject: "Thank You for Your Videography Inquiry — Warren Guru",
+    subject: "Thank You for Your Videography Inquiry - Warren Guru",
     body: (name: string) => `
 <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;max-width:600px;">
   <p>Hi ${name},</p>
@@ -83,7 +83,7 @@ const FUNNEL_TEMPLATES: Record<string, FunnelEmailConfig> = {
 </div>`,
   },
   seller: {
-    subject: "Thank You for Your Property Inquiry — Warren Guru",
+    subject: "Thank You for Your Property Inquiry - Warren Guru",
     body: (name: string) => `
 <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;max-width:600px;">
   <p>Hi ${name},</p>
@@ -101,7 +101,7 @@ const FUNNEL_TEMPLATES: Record<string, FunnelEmailConfig> = {
 </div>`,
   },
   webdesign: {
-    subject: "Thank You for Your Web Design Inquiry — Warren Guru",
+    subject: "Thank You for Your Web Design Inquiry - Warren Guru",
     body: (name: string) => `
 <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;max-width:600px;">
   <p>Hi ${name},</p>
