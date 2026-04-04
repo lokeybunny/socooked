@@ -658,3 +658,96 @@ function buildAINotes(
 
   return lines.join("\n");
 }
+
+/**
+ * Extract a scheduled date/time from transcript and summary text.
+ * Looks for common date patterns mentioned during the call.
+ * Returns an ISO date string or null if no schedule found.
+ */
+function extractScheduleFromTranscript(transcript: string, summary: string): string | null {
+  const text = `${summary}\n${transcript}`.toLowerCase();
+
+  // Pattern: explicit date like "January 15th", "March 3", "12/25", "2026-04-10"
+  const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  const monthAbbr = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+
+  // Try "Month Day" pattern
+  const monthDayMatch = text.match(
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\b/
+  );
+
+  let dateStr: string | null = null;
+
+  if (monthDayMatch) {
+    const mName = monthDayMatch[1];
+    const day = parseInt(monthDayMatch[2]);
+    const mIdx = months.indexOf(mName) !== -1 ? months.indexOf(mName) : monthAbbr.indexOf(mName);
+    if (mIdx !== -1 && day >= 1 && day <= 31) {
+      const now = new Date();
+      let year = now.getFullYear();
+      const candidate = new Date(year, mIdx, day);
+      if (candidate < now) candidate.setFullYear(year + 1);
+      dateStr = candidate.toISOString().split("T")[0];
+    }
+  }
+
+  // Try MM/DD or MM-DD pattern
+  if (!dateStr) {
+    const slashMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+    if (slashMatch) {
+      const m = parseInt(slashMatch[1]);
+      const d = parseInt(slashMatch[2]);
+      let y = slashMatch[3] ? parseInt(slashMatch[3]) : new Date().getFullYear();
+      if (y < 100) y += 2000;
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        const candidate = new Date(y, m - 1, d);
+        if (candidate < new Date()) candidate.setFullYear(candidate.getFullYear() + 1);
+        dateStr = candidate.toISOString().split("T")[0];
+      }
+    }
+  }
+
+  // Try relative dates: "this saturday", "next monday", "tomorrow", etc.
+  if (!dateStr) {
+    const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+    const relMatch = text.match(/\b(?:this|next)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+    if (relMatch) {
+      const targetDay = days.indexOf(relMatch[1]);
+      const now = new Date();
+      const currentDay = now.getDay();
+      let daysAhead = targetDay - currentDay;
+      if (daysAhead <= 0) daysAhead += 7;
+      if (text.includes("next") && daysAhead <= 7) daysAhead += 7;
+      const target = new Date(now);
+      target.setDate(target.getDate() + daysAhead);
+      dateStr = target.toISOString().split("T")[0];
+    }
+  }
+
+  if (!dateStr) {
+    if (text.includes("tomorrow")) {
+      const t = new Date();
+      t.setDate(t.getDate() + 1);
+      dateStr = t.toISOString().split("T")[0];
+    }
+  }
+
+  if (!dateStr) return null;
+
+  // Try to extract time
+  const timeMatch = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b/);
+  let hours = 10; // default 10am
+  let minutes = 0;
+  if (timeMatch) {
+    hours = parseInt(timeMatch[1]);
+    minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+    const period = timeMatch[3].replace(/\./g, "");
+    if (period === "pm" && hours < 12) hours += 12;
+    if (period === "am" && hours === 12) hours = 0;
+  }
+
+  // Build date in Pacific time (approximate — set to UTC-7)
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const utcDate = new Date(Date.UTC(y, m - 1, d, hours + 7, minutes));
+  return utcDate.toISOString();
+}
