@@ -431,6 +431,15 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
             </Button>
           </div>
         )}
+
+        {/* Create Customer Button */}
+        <div className="mt-4 border-t pt-4">
+          <Button onClick={handleCreateCustomer} disabled={creatingCustomer} className="w-full">
+            {creatingCustomer ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+            {creatingCustomer ? 'Creating Customer…' : 'Create Customer'}
+          </Button>
+          <p className="text-[10px] text-muted-foreground mt-1.5 text-center">Adds to CRM with all funnel data, AI notes, transcripts & analysis</p>
+        </div>
       </DialogContent>
     </Dialog>
   );
