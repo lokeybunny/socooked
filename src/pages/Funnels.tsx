@@ -143,9 +143,42 @@ function EmailModal({ lead, open, onClose }: { lead: FunnelLead | null; open: bo
 }
 
 /* ─── Detail Modal ─── */
-function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; open: boolean; onClose: () => void }) {
+function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLead | null; open: boolean; onClose: () => void; onLeadUpdate?: (updated: FunnelLead) => void }) {
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcriptResult, setTranscriptResult] = useState<string | null>(null);
+
+  // Reset on lead change
+  useEffect(() => { setTranscriptResult(null); }, [lead?.id]);
+
+  const handleTranscribe = async () => {
+    if (!lead?.vapi_recording_url) return;
+    setTranscribing(true);
+    try {
+      // Fetch audio file
+      const audioRes = await fetch(lead.vapi_recording_url);
+      if (!audioRes.ok) throw new Error('Failed to fetch recording');
+      const audioBlob = await audioRes.blob();
+      const audioFile = new File([audioBlob], 'recording.wav', { type: 'audio/wav' });
+
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+      formData.append('customer_name', lead.full_name);
+      if (lead._table === 'customers') formData.append('customer_id', lead.id);
+      formData.append('source_type', 'vapi_recording');
+
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', { body: formData });
+      if (error) throw error;
+      setTranscriptResult(data.transcript || 'No transcript generated');
+      toast.success('Recording transcribed');
+    } catch (err: any) {
+      toast.error(err.message || 'Transcription failed');
+    } finally { setTranscribing(false); }
+  };
+
   if (!lead) return null;
   const cfg = FUNNEL_CONFIG[lead.funnel];
+  const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes || lead.vapi_transcript);
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -175,7 +208,7 @@ function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; ope
           )}
         </div>
         {/* Vapi AI Section */}
-        {(lead.vapi_call_status || lead.ai_notes) && (
+        {hasAI && (
           <div className="mt-4 border-t pt-4">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
               <Bot className="h-4 w-4 text-primary" /> AI Call Data
@@ -190,11 +223,25 @@ function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; ope
               {lead.asking_price && <div><p className="text-muted-foreground text-xs">Asking Price</p><p>${lead.asking_price.toLocaleString()}</p></div>}
               {lead.lead_score != null && lead.lead_score > 0 && <div><p className="text-muted-foreground text-xs">Lead Score</p><p className="font-bold">{lead.lead_score}/100</p></div>}
             </div>
+            {/* AI Notes */}
             {lead.ai_notes && (
               <div className="mt-3"><p className="text-muted-foreground text-xs mb-1">AI Notes</p>
                 <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-48 overflow-y-auto">{lead.ai_notes}</div>
               </div>
             )}
+            {/* Vapi Summary */}
+            {lead.vapi_summary && (
+              <div className="mt-3"><p className="text-muted-foreground text-xs mb-1">Call Summary</p>
+                <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">{lead.vapi_summary}</div>
+              </div>
+            )}
+            {/* Vapi Transcript */}
+            {lead.vapi_transcript && (
+              <div className="mt-3"><p className="text-muted-foreground text-xs mb-1 flex items-center gap-1"><FileText className="h-3 w-3" /> Call Transcript</p>
+                <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">{lead.vapi_transcript}</div>
+              </div>
+            )}
+            {/* Recording + Transcribe */}
             {lead.vapi_recording_url && (
               <div className="mt-3 space-y-2">
                 <p className="text-muted-foreground text-xs flex items-center gap-1"><Play className="h-3 w-3" /> Recording</p>
@@ -202,6 +249,34 @@ function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; ope
                   <source src={lead.vapi_recording_url} />
                   Your browser does not support audio playback.
                 </audio>
+                <Button variant="outline" size="sm" className="text-xs" onClick={handleTranscribe} disabled={transcribing}>
+                  {transcribing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Mic className="h-3 w-3 mr-1" />}
+                  {transcribing ? 'Transcribing…' : 'Transcribe Recording'}
+                </Button>
+              </div>
+            )}
+            {/* Deepgram Transcription Result */}
+            {transcriptResult && (
+              <div className="mt-3"><p className="text-muted-foreground text-xs mb-1 flex items-center gap-1"><Mic className="h-3 w-3" /> Deepgram Transcription</p>
+                <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">{transcriptResult}</div>
+              </div>
+            )}
+          </div>
+        )}
+        {/* Recording without AI section — still show if recording exists but no AI data */}
+        {!hasAI && lead.vapi_recording_url && (
+          <div className="mt-4 border-t pt-4 space-y-2">
+            <p className="text-muted-foreground text-xs flex items-center gap-1"><Play className="h-3 w-3" /> Recording</p>
+            <audio controls className="w-full h-9" preload="metadata">
+              <source src={lead.vapi_recording_url} />
+            </audio>
+            <Button variant="outline" size="sm" className="text-xs" onClick={handleTranscribe} disabled={transcribing}>
+              {transcribing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Mic className="h-3 w-3 mr-1" />}
+              {transcribing ? 'Transcribing…' : 'Transcribe Recording'}
+            </Button>
+            {transcriptResult && (
+              <div className="mt-2"><p className="text-muted-foreground text-xs mb-1 flex items-center gap-1"><Mic className="h-3 w-3" /> Transcription</p>
+                <div className="bg-muted/50 rounded-md p-3 text-xs whitespace-pre-wrap max-h-64 overflow-y-auto">{transcriptResult}</div>
               </div>
             )}
           </div>
