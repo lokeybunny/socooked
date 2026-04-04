@@ -54,6 +54,7 @@ export type Database = {
       }
       api_previews: {
         Row: {
+          archived_at: string | null
           bot_task_id: string | null
           created_at: string
           customer_id: string | null
@@ -70,6 +71,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           bot_task_id?: string | null
           created_at?: string
           customer_id?: string | null
@@ -86,6 +88,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           bot_task_id?: string | null
           created_at?: string
           customer_id?: string | null

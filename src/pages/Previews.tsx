@@ -13,7 +13,11 @@ import {
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown, Coins, Phone } from 'lucide-react';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown, Coins, Phone, Archive, RotateCcw, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -34,6 +38,7 @@ interface ApiPreview {
   created_at: string;
   updated_at: string;
   customers?: { full_name: string; email: string | null } | null;
+  archived_at?: string | null;
 }
 
 interface Customer {
@@ -386,6 +391,7 @@ export default function Previews() {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [showGenerate, setShowGenerate] = useState(false);
   const [page, setPage] = useState(0);
+  const [showArchived, setShowArchived] = useState(false);
   const PAGE_SIZE = 25;
 
   useEffect(() => {
@@ -410,17 +416,48 @@ export default function Previews() {
     if (!error && data) {
       const items = data as unknown as ApiPreview[];
       setPreviews(items);
-      // All groups start minimized by default
       setExpandedClients(new Set());
     }
     setLoading(false);
   }
 
+  const archivePreview = async (id: string) => {
+    const { error } = await supabase.from('api_previews').update({ archived_at: new Date().toISOString() } as any).eq('id', id);
+    if (error) { toast.error('Failed to archive'); return; }
+    toast.success('Moved to archive — will be deleted in 72 hours');
+    fetchPreviews();
+  };
+
+  const restorePreview = async (id: string) => {
+    const { error } = await supabase.from('api_previews').update({ archived_at: null } as any).eq('id', id);
+    if (error) { toast.error('Failed to restore'); return; }
+    toast.success('Restored from archive');
+    fetchPreviews();
+  };
+
+  const permanentlyDelete = async (id: string) => {
+    const { error } = await supabase.from('api_previews').delete().eq('id', id);
+    if (error) { toast.error('Failed to delete'); return; }
+    toast.success('Permanently deleted');
+    fetchPreviews();
+  };
+
+  const getHoursRemaining = (archivedAt: string) => {
+    const archiveTime = new Date(archivedAt).getTime();
+    const deleteTime = archiveTime + 72 * 60 * 60 * 1000;
+    const remaining = deleteTime - Date.now();
+    return Math.max(0, Math.ceil(remaining / (60 * 60 * 1000)));
+  };
+
   // Group by customer
   // Reset page on filter change
   useEffect(() => { setPage(0); }, [search, sourceFilter]);
 
-  const filtered = previews.filter(p => {
+  // Separate active and archived
+  const activePreviews = previews.filter(p => !(p as any).archived_at);
+  const archivedPreviews = previews.filter(p => !!(p as any).archived_at);
+
+  const filtered = activePreviews.filter(p => {
     const matchSearch = !search || 
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.prompt?.toLowerCase().includes(search.toLowerCase()) ||
@@ -479,7 +516,13 @@ export default function Previews() {
             </Button>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>{previews.length} total asset{previews.length !== 1 ? 's' : ''}</span>
+              <span>{activePreviews.length} active</span>
+              {archivedPreviews.length > 0 && (
+                <Button variant={showArchived ? 'default' : 'outline'} size="sm" className="text-xs gap-1 h-7" onClick={() => setShowArchived(!showArchived)}>
+                  <Archive className="h-3 w-3" />
+                  {archivedPreviews.length} archived
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -646,6 +689,16 @@ export default function Previews() {
                               {preview.customer_id && (
                                 <AssignClientPopover previewId={preview.id} onAssigned={fetchPreviews} />
                               )}
+                              {!preview.archived_at && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); archivePreview(preview.id); }}
+                                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                                  title="Archive (72h to deletion)"
+                                >
+                                  <Archive className="h-3.5 w-3.5" />
+                                  Archive
+                                </button>
+                              )}
                               {!preview.preview_url && !preview.edit_url && !preview.customer_id && (
                                 <span className="text-xs text-muted-foreground italic">No links available</span>
                               )}
@@ -692,6 +745,64 @@ export default function Previews() {
             </div>
           )}
           </>
+        )}
+
+        {/* Archived Section */}
+        {showArchived && archivedPreviews.length > 0 && (
+          <div className="space-y-3 mt-6">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-muted-foreground">Archived ({archivedPreviews.length})</h2>
+              <span className="text-[11px] text-muted-foreground">Items are permanently deleted 72 hours after archiving</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {archivedPreviews.map(preview => {
+                const hoursLeft = getHoursRemaining((preview as any).archived_at);
+                return (
+                  <div key={preview.id} className="border border-border rounded-lg p-4 bg-muted/30 opacity-70 hover:opacity-100 transition-opacity">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="text-sm font-medium text-foreground line-clamp-2">{preview.title}</h4>
+                      <Badge variant="outline" className="text-[10px] shrink-0 text-destructive border-destructive/30">
+                        {hoursLeft > 0 ? `${hoursLeft}h left` : 'Expired'}
+                      </Badge>
+                    </div>
+                    {preview.customers && (
+                      <p className="text-xs text-muted-foreground mb-2">{(preview.customers as any)?.full_name}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mb-3">
+                      Archived {format(new Date((preview as any).archived_at), 'MMM d, h:mm a')}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="text-xs h-7 gap-1" onClick={() => restorePreview(preview.id)}>
+                        <RotateCcw className="h-3 w-3" /> Restore
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-xs h-7 gap-1 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" /> Delete Now
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete "{preview.title}". This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => permanentlyDelete(preview.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete Forever
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
