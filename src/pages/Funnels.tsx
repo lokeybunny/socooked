@@ -554,10 +554,9 @@ export default function Funnels() {
 
       (custLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
-        const funnel = c.source === 'videography-landing' ? 'videography' : 'webdesign';
         const tags = c.tags as string[] || [];
         combined.push({
-          id: c.id, funnel: funnel as 'videography' | 'webdesign', _table: 'customers',
+          id: c.id, funnel: 'webdesign' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'new', notes: c.notes,
           company: c.company,
