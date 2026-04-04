@@ -80,6 +80,67 @@ export default function VideographyHub() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Calendar data
+  const loadCalEvents = useCallback(async () => {
+    setCalLoading(true);
+    const monthStart = startOfMonth(calMonth);
+    const monthEnd = endOfMonth(calMonth);
+    const { data } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .gte('start_time', monthStart.toISOString())
+      .lte('start_time', monthEnd.toISOString())
+      .or('category.eq.videography,title.ilike.%videography%,title.ilike.%funeral%,title.ilike.%livestream%')
+      .order('start_time', { ascending: true });
+    setCalEvents(data || []);
+    setCalLoading(false);
+  }, [calMonth]);
+
+  useEffect(() => { if (viewTab === 'calendar') loadCalEvents(); }, [viewTab, loadCalEvents]);
+
+  const calDays = useMemo(() => {
+    const ms = startOfMonth(calMonth);
+    const me = endOfMonth(calMonth);
+    return eachDayOfInterval({ start: startOfWeek(ms), end: endOfWeek(me) });
+  }, [calMonth]);
+
+  const getEventsForDay = (day: Date) => calEvents.filter(e => isSameDay(new Date(e.start_time), day));
+
+  const openEventEdit = (ev: any) => {
+    setEditingEvent(ev);
+    const st = new Date(ev.start_time);
+    const et = ev.end_time ? new Date(ev.end_time) : new Date(st.getTime() + 3600000);
+    setEventForm({
+      title: ev.title || '',
+      date: format(st, 'yyyy-MM-dd'),
+      start: format(st, 'HH:mm'),
+      end: format(et, 'HH:mm'),
+    });
+  };
+
+  const saveEvent = async () => {
+    if (!editingEvent) return;
+    const startIso = new Date(`${eventForm.date}T${eventForm.start}:00`).toISOString();
+    const endIso = new Date(`${eventForm.date}T${eventForm.end}:00`).toISOString();
+    const { error } = await supabase.from('calendar_events').update({
+      title: eventForm.title,
+      start_time: startIso,
+      end_time: endIso,
+    }).eq('id', editingEvent.id);
+    if (error) { toast.error('Update failed'); return; }
+    toast.success('Booking updated');
+    setEditingEvent(null);
+    loadCalEvents();
+  };
+
+  const deleteEvent = async (id: string) => {
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id);
+    if (error) { toast.error('Delete failed'); return; }
+    toast.success('Booking removed');
+    setEditingEvent(null);
+    loadCalEvents();
+  };
+
   const updateProspect = async (id: string, updates: Partial<Prospect>) => {
     const { error } = await supabase.from('videography_prospects').update(updates).eq('id', id);
     if (error) { toast.error('Update failed'); return; }
