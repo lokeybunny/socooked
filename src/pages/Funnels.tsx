@@ -340,6 +340,8 @@ export default function Funnels() {
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
+          vapi_transcript: (meta.vapi_transcript as string) || null,
+          vapi_summary: (meta.vapi_summary as string) || null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
