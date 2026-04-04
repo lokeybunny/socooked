@@ -144,6 +144,9 @@ export default function WarrenLanding() {
             <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </Link>
+            <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+              Real Estate
+            </a>
           </div>
           <div className="flex items-center gap-5">
             <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white transition-colors" title="Login">
