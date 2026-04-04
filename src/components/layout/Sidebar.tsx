@@ -54,6 +54,7 @@ const navEntries: NavEntry[] = [
   },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
+  { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
   
   { to: '#', icon: Target, label: 'Crypto', red: true, disabled: true },
 ];

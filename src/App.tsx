@@ -58,6 +58,7 @@ import ApiManagement from "./pages/ApiManagement";
 import Ads from "./pages/Ads";
 import Funnels from "./pages/Funnels";
 import SellerLanding from "./pages/SellerLanding";
+import VideographyHub from "./pages/VideographyHub";
 import VideographyLanding from "./pages/VideographyLanding";
 import WebDesignLanding from "./pages/WebDesignLanding";
 import Pricing from "./pages/Pricing";
