@@ -209,14 +209,17 @@ function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; ope
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
+  onStageChange: (newStatus: string) => void;
 }) {
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
   const isDrafted = !!lead.drafted_at;
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
+  const stages = PIPELINE_STAGES[lead.funnel] || [];
+  const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
 
   return (
     <div className={cn("border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card", isDrafted && "opacity-60 border-dashed")}>
@@ -244,9 +247,18 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft }: {
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}</span>
-        <Badge variant="secondary" className="text-[10px]">{lead.status}</Badge>
+        <Select value={lead.status} onValueChange={onStageChange}>
+          <SelectTrigger className="h-6 text-[10px] w-auto gap-1 border-dashed px-2 py-0">
+            <SelectValue>{currentStageLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {stages.map(s => (
+              <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {lead.notes && <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>}
       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
@@ -276,7 +288,6 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft }: {
     </div>
   );
 }
-
 /* ─── Main Page ─── */
 export default function Funnels() {
   const [leads, setLeads] = useState<FunnelLead[]>([]);
