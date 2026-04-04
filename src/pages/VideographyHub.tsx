@@ -22,7 +22,7 @@ const STAGES = [
   { key: 'meeting_set', label: 'Meeting Set', color: 'bg-purple-500/20 text-purple-400' },
   { key: 'agreement_sent', label: 'Agreement Sent', color: 'bg-yellow-500/20 text-yellow-400' },
   { key: 'contracted', label: 'Contracted', color: 'bg-green-500/20 text-green-400' },
-  { key: 'active', label: 'Active', color: 'bg-emerald-500/20 text-emerald-300' },
+  { key: 'active', label: 'Active', color: 'bg-green-600/30 text-green-400 font-semibold' },
   { key: 'dead', label: 'Dead', color: 'bg-red-500/20 text-red-400' },
 ];
 

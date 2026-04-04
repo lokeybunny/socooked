@@ -245,6 +245,123 @@ serve(async (req) => {
           .eq("id", customerLead.id);
 
         console.log(`[vapi-webhook] Updated customer ${customerLead.id} with call results`);
+
+        // ─── Videography: Auto-create tentative calendar booking ───
+        const isVideography = customerLead.source === "videography-landing" ||
+          ((customerLead.tags as string[]) || []).includes("videography");
+        const assistantId = message.call?.assistantId || message.call?.assistant?.id || "";
+        const VIDEOGRAPHY_ASSISTANT_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
+
+        if (isVideography && !callFailed && (assistantId === VIDEOGRAPHY_ASSISTANT_ID || isVideography)) {
+          try {
+            const scheduledDate = extractScheduleFromTranscript(transcript, summary);
+            if (scheduledDate) {
+              // Check for conflicts
+              const eventStart = new Date(scheduledDate);
+              const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000); // 2-hour block
+              const { data: conflicts } = await sb
+                .from("calendar_events")
+                .select("id, title, start_time, end_time")
+                .lt("start_time", eventEnd.toISOString())
+                .gt("end_time", eventStart.toISOString());
+
+              const hasConflict = conflicts && conflicts.length > 0;
+
+              // Create tentative calendar event
+              const eventTitle = `📹 ${hasConflict ? "⚠️ CONFLICT — " : ""}Videography: ${customerLead.full_name}`;
+              await sb.from("calendar_events").insert({
+                title: eventTitle,
+                description: `Tentative videography booking from AI call.\n\nClient: ${customerLead.full_name}\nPhone: ${customerLead.phone || "N/A"}\nEmail: ${customerLead.email || "N/A"}\n\n${hasConflict ? "⚠️ CONFLICT: Another event exists at this time. Review needed." : "No conflicts detected."}\n\nAI Notes:\n${aiNotes}`,
+                start_time: eventStart.toISOString(),
+                end_time: eventEnd.toISOString(),
+                category: "videography",
+                source: "vapi-ai",
+                source_id: callId,
+                customer_id: customerLead.id,
+                color: hasConflict ? "#ef4444" : "#8b5cf6",
+                location: "TBD — confirm with client",
+              });
+              console.log(`[vapi-webhook] Created tentative videography booking for ${customerLead.full_name} at ${eventStart.toISOString()}, conflict: ${hasConflict}`);
+
+              // If conflict, send notifications
+              if (hasConflict) {
+                const conflictDetails = (conflicts || []).map(c =>
+                  `• ${c.title} (${new Date(c.start_time).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })})`
+                ).join("\n");
+
+                // 1. Email notification
+                const conflictEmailHtml = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+  <h2 style="color:#ef4444;">⚠️ Videography Booking Conflict</h2>
+  <p>A new tentative videography booking has been created from an AI call, but it <strong>conflicts</strong> with existing events.</p>
+  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0;font-weight:600;">New Booking:</p>
+    <p style="margin:4px 0;">Client: ${escapeHtml(customerLead.full_name)}</p>
+    <p style="margin:4px 0;">Phone: ${escapeHtml(customerLead.phone || "N/A")}</p>
+    <p style="margin:4px 0;">Time: ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT</p>
+  </div>
+  <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0;font-weight:600;">Conflicting Events:</p>
+    <pre style="margin:8px 0 0;white-space:pre-wrap;font-family:inherit;">${escapeHtml(conflictDetails)}</pre>
+  </div>
+  <p>Please review and resolve in the <a href="https://socooked.lovable.app/calendar" style="color:#2563eb;">Calendar</a>.</p>
+</div>`;
+                try {
+                  await sendGmailNotification("warren@stu25.com", "⚠️ Videography Booking Conflict — " + customerLead.full_name, conflictEmailHtml);
+                } catch (e) { console.error("[vapi-webhook] Conflict email failed:", e); }
+
+                // 2. Telegram notification
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+                      "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
+                    },
+                    body: JSON.stringify({
+                      entity_type: "videography_booking",
+                      action: "conflict",
+                      meta: {
+                        message: `⚠️ *VIDEOGRAPHY BOOKING CONFLICT*\n\n📹 Client: *${customerLead.full_name}*\n📞 ${customerLead.phone || "N/A"}\n🕐 ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT\n\n❌ Conflicts with:\n${conflictDetails}\n\nReview in Calendar.`,
+                      },
+                    }),
+                  });
+                } catch (e) { console.error("[vapi-webhook] Conflict telegram failed:", e); }
+
+                // 3. CRM notification (activity_log)
+                await sb.from("activity_log").insert({
+                  entity_type: "videography_booking",
+                  entity_id: customerLead.id,
+                  action: "conflict",
+                  meta: {
+                    name: `Booking conflict: ${customerLead.full_name}`,
+                    message: `Tentative booking at ${eventStart.toISOString()} conflicts with ${conflicts?.length} existing event(s).`,
+                  },
+                });
+              }
+
+              // Update customer meta with booking info
+              await sb.from("customers").update({
+                meta: {
+                  ...existingMeta,
+                  vapi_call_status: "completed",
+                  vapi_transcript: transcript,
+                  vapi_summary: summary,
+                  vapi_recording_url: recordingUrl,
+                  vapi_ended_reason: endedReason,
+                  vapi_duration_seconds: duration,
+                  vapi_ai_notes: aiNotes,
+                  videography_tentative_date: eventStart.toISOString(),
+                  videography_booking_conflict: hasConflict,
+                },
+              }).eq("id", customerLead.id);
+            }
+          } catch (bookingErr) {
+            console.error("[vapi-webhook] Videography booking creation failed:", bookingErr);
+          }
+        }
+
         return new Response(JSON.stringify({ ok: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -540,4 +657,97 @@ function buildAINotes(
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Extract a scheduled date/time from transcript and summary text.
+ * Looks for common date patterns mentioned during the call.
+ * Returns an ISO date string or null if no schedule found.
+ */
+function extractScheduleFromTranscript(transcript: string, summary: string): string | null {
+  const text = `${summary}\n${transcript}`.toLowerCase();
+
+  // Pattern: explicit date like "January 15th", "March 3", "12/25", "2026-04-10"
+  const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  const monthAbbr = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+
+  // Try "Month Day" pattern
+  const monthDayMatch = text.match(
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\b/
+  );
+
+  let dateStr: string | null = null;
+
+  if (monthDayMatch) {
+    const mName = monthDayMatch[1];
+    const day = parseInt(monthDayMatch[2]);
+    const mIdx = months.indexOf(mName) !== -1 ? months.indexOf(mName) : monthAbbr.indexOf(mName);
+    if (mIdx !== -1 && day >= 1 && day <= 31) {
+      const now = new Date();
+      let year = now.getFullYear();
+      const candidate = new Date(year, mIdx, day);
+      if (candidate < now) candidate.setFullYear(year + 1);
+      dateStr = candidate.toISOString().split("T")[0];
+    }
+  }
+
+  // Try MM/DD or MM-DD pattern
+  if (!dateStr) {
+    const slashMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+    if (slashMatch) {
+      const m = parseInt(slashMatch[1]);
+      const d = parseInt(slashMatch[2]);
+      let y = slashMatch[3] ? parseInt(slashMatch[3]) : new Date().getFullYear();
+      if (y < 100) y += 2000;
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        const candidate = new Date(y, m - 1, d);
+        if (candidate < new Date()) candidate.setFullYear(candidate.getFullYear() + 1);
+        dateStr = candidate.toISOString().split("T")[0];
+      }
+    }
+  }
+
+  // Try relative dates: "this saturday", "next monday", "tomorrow", etc.
+  if (!dateStr) {
+    const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+    const relMatch = text.match(/\b(?:this|next)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+    if (relMatch) {
+      const targetDay = days.indexOf(relMatch[1]);
+      const now = new Date();
+      const currentDay = now.getDay();
+      let daysAhead = targetDay - currentDay;
+      if (daysAhead <= 0) daysAhead += 7;
+      if (text.includes("next") && daysAhead <= 7) daysAhead += 7;
+      const target = new Date(now);
+      target.setDate(target.getDate() + daysAhead);
+      dateStr = target.toISOString().split("T")[0];
+    }
+  }
+
+  if (!dateStr) {
+    if (text.includes("tomorrow")) {
+      const t = new Date();
+      t.setDate(t.getDate() + 1);
+      dateStr = t.toISOString().split("T")[0];
+    }
+  }
+
+  if (!dateStr) return null;
+
+  // Try to extract time
+  const timeMatch = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b/);
+  let hours = 10; // default 10am
+  let minutes = 0;
+  if (timeMatch) {
+    hours = parseInt(timeMatch[1]);
+    minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+    const period = timeMatch[3].replace(/\./g, "");
+    if (period === "pm" && hours < 12) hours += 12;
+    if (period === "am" && hours === 12) hours = 0;
+  }
+
+  // Build date in Pacific time (approximate — set to UTC-7)
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const utcDate = new Date(Date.UTC(y, m - 1, d, hours + 7, minutes));
+  return utcDate.toISOString();
 }

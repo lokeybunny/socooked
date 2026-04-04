@@ -158,11 +158,11 @@ export function Sidebar() {
     funnelLastSeenRef.current = localStorage.getItem('funnels_last_seen');
     const fetchFunnelCount = async () => {
       const lastSeen = funnelLastSeenRef.current || '2020-01-01T00:00:00Z';
-      // Count customers from funnels
+      // Count customers from funnels (webdesign + videography)
       const { count: custCount } = await supabase
         .from('customers')
         .select('id', { count: 'exact', head: true })
-        .eq('source', 'webdesign-landing')
+        .in('source', ['webdesign-landing', 'videography-landing'])
         .gt('created_at', lastSeen);
       // Count RE leads
       const { count: reCount } = await supabase

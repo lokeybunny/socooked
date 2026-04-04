@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
-  Globe, Home, Filter, Clock, Mail, Phone, Search,
+  Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
   FileText, Mic, Copy, Sparkles, UserPlus
@@ -18,11 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type FunnelType = 'all' | 'webdesign' | 'realestate';
+type FunnelType = 'all' | 'webdesign' | 'realestate' | 'videography';
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'realestate';
+  funnel: 'webdesign' | 'realestate' | 'videography';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -55,6 +55,7 @@ const PAGE_SIZE = 30;
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   realestate: { label: 'Real Estate', icon: Home, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
+  videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
@@ -72,6 +73,13 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
   webdesign: [
     { value: 'lead', label: 'Prospect' },
     { value: 'ai_complete', label: 'AI Complete' },
+    { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  videography: [
+    { value: 'lead', label: 'Prospect' },
+    { value: 'scheduled', label: 'Scheduled' },
     { value: 'agreement_sent', label: 'Agreement Sent' },
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
@@ -540,6 +548,14 @@ export default function Funnels() {
         .order('created_at', { ascending: false })
         .limit(500);
 
+      // Videography from customers
+      const { data: vidLeads } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('source', 'videography-landing')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
       // Real Estate from lw_landing_leads (only manually submitted via funnel form)
       const { data: reLeads } = await supabase
         .from('lw_landing_leads')
@@ -567,6 +583,25 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
+          drafted_at: (meta.funnel_drafted_at as string) || null,
+        });
+      });
+
+      (vidLeads || []).forEach((c) => {
+        const meta = (c.meta as Record<string, unknown>) || {};
+        const tags = c.tags as string[] || [];
+        combined.push({
+          id: c.id, funnel: 'videography' as const, _table: 'customers',
+          full_name: c.full_name, email: c.email, phone: c.phone,
+          created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
+          company: c.company,
+          event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
+          vapi_call_status: null,
+          vapi_call_id: null,
+          ai_notes: null,
+          vapi_recording_url: null,
+          vapi_transcript: null,
+          vapi_summary: null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
@@ -673,6 +708,7 @@ export default function Funnels() {
     all: leads.filter(l => !l.drafted_at).length,
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
+    videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
   }), [leads]);
 
   // Pipeline stage counts for current funnel
@@ -711,8 +747,8 @@ export default function Funnels() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          {(['all', 'webdesign', 'realestate'] as const).map((key) => {
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(['all', 'webdesign', 'realestate', 'videography'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];
