@@ -266,7 +266,7 @@ export default function SellerLanding() {
                   </div>
                   <div>
                     <Label htmlFor="email" className="text-white/60 text-sm font-medium">Email Address</Label>
-                    <Input id="email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={255} />
+                    <Input id="email" type="email" placeholder="john@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1.5 h-12 bg-slate-800/50 border-cyan-500/10 text-white placeholder:text-white/20 focus:border-cyan-500/40 text-base" maxLength={255} required />
                   </div>
                   <div>
                     <Label htmlFor="address" className="text-white/60 text-sm font-medium">Property Address</Label>
