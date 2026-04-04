@@ -29,10 +29,10 @@ export default function Stream() {
       const { error: custErr } = await supabase.from('customers').insert({
         full_name: businessName.trim(),
         phone: formattedPhone,
-        source: 'stream-callback',
+        source: 'videography-landing',
         status: 'lead',
         category: 'videography-callback',
-        notes: `Returning contractor requesting scheduling callback via /stream`,
+        notes: `Returning contractor — scheduling callback via /stream`,
       });
 
       if (custErr) throw custErr;
