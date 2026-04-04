@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const VIDEOGRAPHY_ASSISTANT_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
+const DEFAULT_ASSISTANT_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -22,7 +22,7 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { action, customer_id, phone, full_name, event_type, message } = await req.json();
+    const { action, customer_id, phone, full_name, event_type, message, assistant_id } = await req.json();
 
     if (action === "trigger_call") {
       if (!phone || !full_name) {
@@ -59,7 +59,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          assistantId: VIDEOGRAPHY_ASSISTANT_ID,
+          assistantId: assistant_id || DEFAULT_ASSISTANT_ID,
           assistantOverrides: {
             variableValues: {
               clientName: "Warren Guru Videography",
