@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   Video, Globe, Home, Filter, Clock, Mail, Phone, Search,
   Bot, Play, ExternalLink, Send, Loader2,
-  RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2
+  RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,34 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Video; color: 
   videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   realestate: { label: 'Real Estate', icon: Home, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
+};
+
+const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
+  realestate: [
+    { value: 'new', label: 'Funnel Leads' },
+    { value: 'req_trace', label: 'Req. Trace' },
+    { value: 'skip_traced', label: 'Skip Traced' },
+    { value: 'contacted', label: 'Contacted' },
+    { value: 'negotiate', label: 'Negotiate' },
+    { value: 'offer_sent', label: 'Offer Sent' },
+    { value: 'under_contract', label: 'Under Contract' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  webdesign: [
+    { value: 'lead', label: 'Prospect' },
+    { value: 'ai_complete', label: 'AI Complete' },
+    { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  videography: [
+    { value: 'lead', label: 'Prospect' },
+    { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
 };
 
 /* ─── Email Modal ─── */
