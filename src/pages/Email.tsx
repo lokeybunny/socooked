@@ -804,29 +804,35 @@ export default function EmailPage() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      placeholder="Search customers..."
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <div className="border-b p-2">
+                    <Input
                       value={composeCustomerQuery}
-                      onValueChange={setComposeCustomerQuery}
+                      onChange={(e) => setComposeCustomerQuery(e.target.value)}
+                      placeholder="Search customers..."
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="none"
                       spellCheck={false}
                     />
-                    <CommandList>
-                      <CommandEmpty>No customer found.</CommandEmpty>
-                      <CommandGroup>
-                        {composeCustomerOptions.map((c) => (
-                          <CommandItem key={c.id} value={c.id} onSelect={() => { handleCustomerSelect(c.id); setComposeCustomerOpen(false); }}>
-                            <Check className={cn("mr-2 h-4 w-4", form.customer_id === c.id ? "opacity-100" : "opacity-0")} />
-                            {c.full_name} ({c.email})
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto p-1">
+                    {composeCustomerOptions.length === 0 ? (
+                      <p className="py-6 text-center text-sm text-muted-foreground">No customer found.</p>
+                    ) : (
+                      composeCustomerOptions.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { handleCustomerSelect(c.id); setComposeCustomerOpen(false); }}
+                          className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                          <Check className={cn("mr-2 h-4 w-4 shrink-0", form.customer_id === c.id ? "opacity-100" : "opacity-0")} />
+                          <span className="truncate">{c.full_name} ({c.email})</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </PopoverContent>
               </Popover>
             </div>
