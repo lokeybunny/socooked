@@ -368,6 +368,12 @@ export default function VideographyHub() {
           </Badge>
         )}
         <div className="flex gap-2">
+          <Button size="sm" variant={viewTab === 'pipeline' ? 'default' : 'outline'} onClick={() => setViewTab('pipeline')}>
+            <Building2 className="h-3.5 w-3.5 mr-1" /> Pipeline
+          </Button>
+          <Button size="sm" variant={viewTab === 'calendar' ? 'default' : 'outline'} onClick={() => setViewTab('calendar')}>
+            <CalendarDays className="h-3.5 w-3.5 mr-1" /> Calendar
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setAddMode('manual')}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Add
           </Button>
