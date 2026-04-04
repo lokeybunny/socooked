@@ -170,7 +170,7 @@ export default function EmailPage() {
       if (data.length < PAGE) break;
       from += PAGE;
     }
-    setCustomers(data || []);
+    setCustomers(all);
   }, []);
 
   const loadEmails = useCallback(async (tab: string) => {
