@@ -747,8 +747,8 @@ export default function Funnels() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          {(['all', 'webdesign', 'realestate'] as const).map((key) => {
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(['all', 'webdesign', 'realestate', 'videography'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];
