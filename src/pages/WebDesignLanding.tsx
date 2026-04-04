@@ -361,7 +361,7 @@ export default function WebDesignLanding() {
           </Link>
           <div className="flex items-center gap-6">
             <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">Terms</Link>
-            <Link to="/videography" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">Videography</Link>
+            
             <Link to="/" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">Home</Link>
           </div>
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
