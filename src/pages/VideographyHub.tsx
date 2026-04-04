@@ -1,0 +1,436 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import {
+  Phone, Globe, MapPin, User, Clock, Send, CheckCircle2,
+  Search, Filter, ExternalLink, Copy, FileSignature, Bell,
+  ChevronRight, Building2, CalendarClock,
+} from 'lucide-react';
+import { formatDistanceToNow, isPast } from 'date-fns';
+
+const STAGES = [
+  { key: 'new', label: 'New', color: 'bg-muted text-muted-foreground' },
+  { key: 'contacted', label: 'Contacted', color: 'bg-blue-500/20 text-blue-400' },
+  { key: 'meeting_set', label: 'Meeting Set', color: 'bg-purple-500/20 text-purple-400' },
+  { key: 'agreement_sent', label: 'Agreement Sent', color: 'bg-yellow-500/20 text-yellow-400' },
+  { key: 'contracted', label: 'Contracted', color: 'bg-green-500/20 text-green-400' },
+  { key: 'active', label: 'Active', color: 'bg-emerald-500/20 text-emerald-300' },
+  { key: 'dead', label: 'Dead', color: 'bg-red-500/20 text-red-400' },
+];
+
+type Prospect = {
+  id: string;
+  business_name: string;
+  phone: string | null;
+  address: string | null;
+  website: string | null;
+  contact_name: string | null;
+  contact_role: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  pipeline_stage: string;
+  agreement_doc_id: string | null;
+  notes: string | null;
+  next_followup_at: string | null;
+  last_contacted_at: string | null;
+  meta: any;
+  created_at: string;
+  updated_at: string;
+};
+
+export default function VideographyHub() {
+  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [selected, setSelected] = useState<Prospect | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: '', role: '', email: '', phone: '' });
+  const [notesText, setNotesText] = useState('');
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('videography_prospects')
+      .select('*')
+      .order('pipeline_stage', { ascending: true })
+      .order('next_followup_at', { ascending: true });
+    if (data) setProspects(data as Prospect[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const updateProspect = async (id: string, updates: Partial<Prospect>) => {
+    const { error } = await supabase.from('videography_prospects').update(updates).eq('id', id);
+    if (error) { toast.error('Update failed'); return; }
+    toast.success('Updated');
+    load();
+  };
+
+  const markContacted = async (p: Prospect) => {
+    await updateProspect(p.id, {
+      pipeline_stage: p.pipeline_stage === 'new' ? 'contacted' : p.pipeline_stage,
+      last_contacted_at: new Date().toISOString(),
+      next_followup_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    });
+  };
+
+  const advanceStage = async (p: Prospect) => {
+    const order = STAGES.map(s => s.key);
+    const idx = order.indexOf(p.pipeline_stage);
+    if (idx < order.length - 2) { // don't advance past 'active'
+      await updateProspect(p.id, { pipeline_stage: order[idx + 1] });
+    }
+  };
+
+  const saveContact = async () => {
+    if (!selected) return;
+    await updateProspect(selected.id, {
+      contact_name: contactForm.name || null,
+      contact_role: contactForm.role || null,
+      contact_email: contactForm.email || null,
+      contact_phone: contactForm.phone || null,
+      pipeline_stage: selected.pipeline_stage === 'new' ? 'contacted' : selected.pipeline_stage,
+      next_followup_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+    });
+    setEditOpen(false);
+  };
+
+  const saveNotes = async () => {
+    if (!selected) return;
+    await updateProspect(selected.id, { notes: notesText });
+  };
+
+  const copyPhone = (phone: string) => {
+    navigator.clipboard.writeText(phone.replace(/\D/g, ''));
+    toast.success('Phone copied');
+  };
+
+  const sendAgreement = async (p: Prospect) => {
+    if (!p.contact_email && !p.contact_name) {
+      toast.error('Set a contact first before sending agreement');
+      return;
+    }
+    // Create a customer record + trigger agreement flow
+    const { data: cust, error: custErr } = await supabase.from('customers').insert({
+      full_name: p.contact_name || p.business_name,
+      email: p.contact_email,
+      phone: p.contact_phone || p.phone,
+      company: p.business_name,
+      source: 'videography-outreach',
+      category: 'videography',
+      status: 'lead',
+      meta: { videography_prospect_id: p.id },
+    }).select('id').single();
+
+    if (custErr || !cust) { toast.error('Failed to create contact record'); return; }
+
+    // Invoke the wholesale-agreement edge function for videography
+    const { error: fnErr } = await supabase.functions.invoke('wholesale-agreement', {
+      body: {
+        action: 'draft',
+        customer_id: cust.id,
+        agreement_type: 'videography_service',
+        seller_name: p.contact_name || p.business_name,
+        seller_email: p.contact_email,
+        property_address: p.address,
+        meta: { business_name: p.business_name, prospect_id: p.id },
+      },
+    });
+
+    if (fnErr) {
+      toast.error('Agreement generation failed — will be available soon');
+    } else {
+      toast.success('Agreement drafted — check Documents');
+    }
+
+    await updateProspect(p.id, {
+      pipeline_stage: 'agreement_sent',
+      agreement_doc_id: cust.id,
+    });
+  };
+
+  const filtered = prospects.filter(p => {
+    if (stageFilter !== 'all' && p.pipeline_stage !== stageFilter) return false;
+    if (search) {
+      const s = search.toLowerCase();
+      return p.business_name.toLowerCase().includes(s) ||
+        (p.address || '').toLowerCase().includes(s) ||
+        (p.contact_name || '').toLowerCase().includes(s);
+    }
+    return true;
+  });
+
+  const stageCounts = STAGES.reduce((acc, s) => {
+    acc[s.key] = prospects.filter(p => p.pipeline_stage === s.key).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const overdueCount = prospects.filter(p =>
+    p.next_followup_at && isPast(new Date(p.next_followup_at)) && !['dead', 'active'].includes(p.pipeline_stage)
+  ).length;
+
+  const openDetail = (p: Prospect) => {
+    setSelected(p);
+    setContactForm({
+      name: p.contact_name || '',
+      role: p.contact_role || '',
+      email: p.contact_email || '',
+      phone: p.contact_phone || '',
+    });
+    setNotesText(p.notes || '');
+    setEditOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-primary" />
+            Videography Outreach
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Build funeral livestream contracts across Las Vegas
+          </p>
+        </div>
+        {overdueCount > 0 && (
+          <Badge variant="destructive" className="flex items-center gap-1">
+            <Bell className="h-3 w-3" /> {overdueCount} overdue followups
+          </Badge>
+        )}
+      </div>
+
+      {/* Pipeline Summary */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm" variant={stageFilter === 'all' ? 'default' : 'outline'}
+          onClick={() => setStageFilter('all')}
+        >
+          All ({prospects.length})
+        </Button>
+        {STAGES.map(s => (
+          <Button
+            key={s.key} size="sm"
+            variant={stageFilter === s.key ? 'default' : 'outline'}
+            onClick={() => setStageFilter(s.key)}
+          >
+            {s.label} ({stageCounts[s.key] || 0})
+          </Button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search businesses..."
+          className="pl-9"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Prospect Cards */}
+      <div className="grid gap-3">
+        {filtered.map(p => {
+          const stage = STAGES.find(s => s.key === p.pipeline_stage) || STAGES[0];
+          const isOverdue = p.next_followup_at && isPast(new Date(p.next_followup_at)) && !['dead', 'active'].includes(p.pipeline_stage);
+
+          return (
+            <Card key={p.id} className={`cursor-pointer hover:border-primary/50 transition-colors ${isOverdue ? 'border-destructive/50' : ''}`}>
+              <CardContent className="p-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  {/* Left: Business info */}
+                  <div className="flex-1 min-w-0 space-y-1" onClick={() => openDetail(p)}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm truncate">{p.business_name}</span>
+                      <Badge className={`text-[10px] ${stage.color}`}>{stage.label}</Badge>
+                      {isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      {p.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" /> {p.phone}
+                        </span>
+                      )}
+                      {p.address && (
+                        <span className="flex items-center gap-1 truncate max-w-[250px]">
+                          <MapPin className="h-3 w-3" /> {p.address}
+                        </span>
+                      )}
+                      {p.contact_name && (
+                        <span className="flex items-center gap-1 text-primary">
+                          <User className="h-3 w-3" /> {p.contact_name} {p.contact_role ? `(${p.contact_role})` : ''}
+                        </span>
+                      )}
+                    </div>
+                    {p.next_followup_at && (
+                      <div className={`text-[10px] flex items-center gap-1 ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        <CalendarClock className="h-3 w-3" />
+                        Follow up {formatDistanceToNow(new Date(p.next_followup_at), { addSuffix: true })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Actions */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {p.phone && (
+                      <>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => copyPhone(p.phone!)}>
+                          <Copy className="h-3 w-3 mr-1" /> Copy
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                          <a href={`tel:${p.phone}`}>
+                            <Phone className="h-3 w-3 mr-1" /> Call
+                          </a>
+                        </Button>
+                      </>
+                    )}
+                    {p.website && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
+                        <a href={p.website} target="_blank" rel="noopener noreferrer">
+                          <Globe className="h-3 w-3" />
+                        </a>
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => markContacted(p)}>
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Contacted
+                    </Button>
+                    {['contacted', 'meeting_set'].includes(p.pipeline_stage) && (
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => advanceStage(p)}>
+                        <ChevronRight className="h-3 w-3" /> Next
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            No prospects found
+          </div>
+        )}
+      </div>
+
+      {/* Detail / Edit Modal */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              {selected?.business_name}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selected && (
+            <div className="space-y-5">
+              {/* Business Info */}
+              <div className="space-y-2 text-sm">
+                {selected.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${selected.phone}`} className="text-primary hover:underline">{selected.phone}</a>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => copyPhone(selected.phone!)}>Copy</Button>
+                  </div>
+                )}
+                {selected.address && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>{selected.address}</span>
+                  </div>
+                )}
+                {selected.website && (
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <a href={selected.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{selected.website}</a>
+                  </div>
+                )}
+              </div>
+
+              {/* Pipeline Stage */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Pipeline Stage</label>
+                <Select
+                  value={selected.pipeline_stage}
+                  onValueChange={v => {
+                    updateProspect(selected.id, { pipeline_stage: v });
+                    setSelected({ ...selected, pipeline_stage: v });
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STAGES.map(s => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Point of Contact */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <User className="h-3 w-3" /> Point of Contact
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input placeholder="Name" className="h-8 text-xs" value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} />
+                  <Input placeholder="Role/Title" className="h-8 text-xs" value={contactForm.role} onChange={e => setContactForm(f => ({ ...f, role: e.target.value }))} />
+                  <Input placeholder="Email" className="h-8 text-xs" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} />
+                  <Input placeholder="Direct Phone" className="h-8 text-xs" value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <Button size="sm" className="h-7 text-xs" onClick={saveContact}>
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Save Contact
+                </Button>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Notes</label>
+                <Textarea
+                  className="text-xs min-h-[80px]"
+                  placeholder="Call notes, next steps..."
+                  value={notesText}
+                  onChange={e => setNotesText(e.target.value)}
+                />
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={saveNotes}>Save Notes</Button>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                <Button size="sm" className="h-8 text-xs" onClick={() => markContacted(selected)}>
+                  <Phone className="h-3 w-3 mr-1" /> Mark Contacted
+                </Button>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => sendAgreement(selected)}>
+                  <FileSignature className="h-3 w-3 mr-1" /> Send Agreement
+                </Button>
+                <Button
+                  size="sm" variant="outline" className="h-8 text-xs"
+                  onClick={() => updateProspect(selected.id, { pipeline_stage: 'dead' })}
+                >
+                  Not Interested
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

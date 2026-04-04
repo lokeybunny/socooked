@@ -58,6 +58,7 @@ import ApiManagement from "./pages/ApiManagement";
 import Ads from "./pages/Ads";
 import Funnels from "./pages/Funnels";
 import SellerLanding from "./pages/SellerLanding";
+import VideographyHub from "./pages/VideographyHub";
 import VideographyLanding from "./pages/VideographyLanding";
 import WebDesignLanding from "./pages/WebDesignLanding";
 import Pricing from "./pages/Pricing";
@@ -162,6 +163,7 @@ const App = () => (
             <Route path="/api-management" element={<WarrenOnlyGate><AuthLayoutGate><ApiManagement /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
             {/* pricing route removed */}
+            <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/videography" element={<VideographyLanding />} />
             <Route path="/webdesign" element={<WebDesignLanding />} />
             <Route path="/terms" element={<Terms />} />

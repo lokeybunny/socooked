@@ -4140,6 +4140,66 @@ export type Database = {
         }
         Relationships: []
       }
+      videography_prospects: {
+        Row: {
+          address: string | null
+          agreement_doc_id: string | null
+          business_name: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          contact_role: string | null
+          created_at: string
+          id: string
+          last_contacted_at: string | null
+          meta: Json
+          next_followup_at: string | null
+          notes: string | null
+          phone: string | null
+          pipeline_stage: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          agreement_doc_id?: string | null
+          business_name: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_role?: string | null
+          created_at?: string
+          id?: string
+          last_contacted_at?: string | null
+          meta?: Json
+          next_followup_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          pipeline_stage?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          agreement_doc_id?: string | null
+          business_name?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_role?: string | null
+          created_at?: string
+          id?: string
+          last_contacted_at?: string | null
+          meta?: Json
+          next_followup_at?: string | null
+          notes?: string | null
+          phone?: string | null
+          pipeline_stage?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           created_at: string
