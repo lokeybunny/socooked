@@ -390,6 +390,7 @@ export default function Previews() {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [showGenerate, setShowGenerate] = useState(false);
   const [page, setPage] = useState(0);
+  const [showArchived, setShowArchived] = useState(false);
   const PAGE_SIZE = 25;
 
   useEffect(() => {
@@ -414,11 +415,38 @@ export default function Previews() {
     if (!error && data) {
       const items = data as unknown as ApiPreview[];
       setPreviews(items);
-      // All groups start minimized by default
       setExpandedClients(new Set());
     }
     setLoading(false);
   }
+
+  const archivePreview = async (id: string) => {
+    const { error } = await supabase.from('api_previews').update({ archived_at: new Date().toISOString() } as any).eq('id', id);
+    if (error) { toast.error('Failed to archive'); return; }
+    toast.success('Moved to archive — will be deleted in 72 hours');
+    fetchPreviews();
+  };
+
+  const restorePreview = async (id: string) => {
+    const { error } = await supabase.from('api_previews').update({ archived_at: null } as any).eq('id', id);
+    if (error) { toast.error('Failed to restore'); return; }
+    toast.success('Restored from archive');
+    fetchPreviews();
+  };
+
+  const permanentlyDelete = async (id: string) => {
+    const { error } = await supabase.from('api_previews').delete().eq('id', id);
+    if (error) { toast.error('Failed to delete'); return; }
+    toast.success('Permanently deleted');
+    fetchPreviews();
+  };
+
+  const getHoursRemaining = (archivedAt: string) => {
+    const archiveTime = new Date(archivedAt).getTime();
+    const deleteTime = archiveTime + 72 * 60 * 60 * 1000;
+    const remaining = deleteTime - Date.now();
+    return Math.max(0, Math.ceil(remaining / (60 * 60 * 1000)));
+  };
 
   // Group by customer
   // Reset page on filter change
