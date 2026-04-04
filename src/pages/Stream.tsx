@@ -35,23 +35,17 @@ export default function Stream() {
 
       if (custErr) throw custErr;
 
-      // Trigger Vapi outbound call for videography scheduling
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const fnUrl = `https://${projectId}.supabase.co/functions/v1/vapi-videography-outbound`;
-
-      await fetch(fnUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
+      // Trigger Vapi videography scheduling call (assistant 0045f12e)
+      const { data: fnData, error: fnErr } = await supabase.functions.invoke('vapi-videography-outbound', {
+        body: {
+          action: 'trigger_call',
+          phone: formattedPhone,
+          full_name: businessName.trim(),
+          event_type: 'venue booking',
         },
-        body: JSON.stringify({
-          phone: cleanPhone.length === 10 ? `+1${cleanPhone}` : `+${cleanPhone}`,
-          businessName: businessName.trim(),
-        }),
       });
+
+      if (fnErr) console.warn('Vapi trigger warning:', fnErr);
 
       setSubmitted(true);
       toast.success('We\'ll call you shortly to schedule your booking!');
