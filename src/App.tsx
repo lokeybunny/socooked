@@ -60,6 +60,7 @@ const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "pa
 const VideographyLanding = lazyWithRetry(() => import("./pages/VideographyLanding"), "page-videography");
 const WebDesignLanding = lazyWithRetry(() => import("./pages/WebDesignLanding"), "page-webdesign");
 const Terms = lazyWithRetry(() => import("./pages/Terms"), "page-terms");
+const Stream = lazyWithRetry(() => import("./pages/Stream"), "page-stream");
 const ClientDashboard = lazyWithRetry(() => import("./pages/ClientDashboard"), "page-client-dashboard");
 
 const queryClient = new QueryClient({
