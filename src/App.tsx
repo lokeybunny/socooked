@@ -60,6 +60,7 @@ const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "pa
 const VideographyLanding = lazyWithRetry(() => import("./pages/VideographyLanding"), "page-videography");
 const WebDesignLanding = lazyWithRetry(() => import("./pages/WebDesignLanding"), "page-webdesign");
 const Terms = lazyWithRetry(() => import("./pages/Terms"), "page-terms");
+const Stream = lazyWithRetry(() => import("./pages/Stream"), "page-stream");
 const ClientDashboard = lazyWithRetry(() => import("./pages/ClientDashboard"), "page-client-dashboard");
 
 const queryClient = new QueryClient({
@@ -150,6 +151,7 @@ const App = () => (
                 <Route path="/videography" element={<VideographyLanding />} />
                 <Route path="/webdesign" element={<WebDesignLanding />} />
                 <Route path="/terms" element={<Terms />} />
+                <Route path="/stream" element={<Stream />} />
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
                 <Route path="/client-dashboard" element={<ClientDashboard />} />
                 <Route path="*" element={<NotFound />} />
