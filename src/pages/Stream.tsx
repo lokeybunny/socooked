@@ -21,12 +21,14 @@ export default function Stream() {
       return;
     }
 
+    const formattedPhone = cleanPhone.length === 10 ? `+1${cleanPhone}` : `+${cleanPhone}`;
+
     setSubmitting(true);
     try {
       // Create customer record for the callback
       const { error: custErr } = await supabase.from('customers').insert({
         full_name: businessName.trim(),
-        phone: cleanPhone.length === 10 ? `+1${cleanPhone}` : `+${cleanPhone}`,
+        phone: formattedPhone,
         source: 'stream-callback',
         status: 'lead',
         category: 'videography-callback',
