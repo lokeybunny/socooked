@@ -154,6 +154,9 @@ export default function WebDesignLanding() {
             <Link to="/" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Crypto
             </Link>
+            <Link to="/videography" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
+              Videography
+            </Link>
             <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </a>
