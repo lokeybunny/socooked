@@ -120,7 +120,7 @@ export default function WarrenLanding() {
   );
 
   return (
-    <div ref={containerRef} className="bg-black text-white min-h-screen selection:bg-amber-500/20">
+    <div ref={containerRef} className="relative bg-black text-white min-h-screen selection:bg-amber-500/20">
       {/* ── Sticky Header ── */}
       <motion.header
         style={{ backgroundColor: headerBg }}

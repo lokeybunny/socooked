@@ -7,11 +7,6 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    hmr: {
-      overlay: false,
-      clientPort: 443,
-      protocol: "wss",
-    },
   },
   build: {
     rollupOptions: {
