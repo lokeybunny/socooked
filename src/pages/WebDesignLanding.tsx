@@ -67,6 +67,19 @@ export default function WebDesignLanding() {
     }
     setSubmitting(true);
     try {
+      // Remove any drafted duplicate so testers can re-submit
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id, meta')
+        .eq('phone', phone.trim())
+        .eq('source', 'webdesign-landing')
+        .maybeSingle();
+      if (existing) {
+        const meta = (existing.meta as Record<string, unknown>) || {};
+        if (meta.funnel_drafted_at) {
+          await supabase.from('customers').delete().eq('id', existing.id);
+        }
+      }
       const { error: insertErr } = await supabase.from('customers').insert({
         full_name: name.trim(),
         email: email.trim(),
