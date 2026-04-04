@@ -245,6 +245,123 @@ serve(async (req) => {
           .eq("id", customerLead.id);
 
         console.log(`[vapi-webhook] Updated customer ${customerLead.id} with call results`);
+
+        // ─── Videography: Auto-create tentative calendar booking ───
+        const isVideography = customerLead.source === "videography-landing" ||
+          ((customerLead.tags as string[]) || []).includes("videography");
+        const assistantId = message.call?.assistantId || message.call?.assistant?.id || "";
+        const VIDEOGRAPHY_ASSISTANT_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
+
+        if (isVideography && !callFailed && (assistantId === VIDEOGRAPHY_ASSISTANT_ID || isVideography)) {
+          try {
+            const scheduledDate = extractScheduleFromTranscript(transcript, summary);
+            if (scheduledDate) {
+              // Check for conflicts
+              const eventStart = new Date(scheduledDate);
+              const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000); // 2-hour block
+              const { data: conflicts } = await sb
+                .from("calendar_events")
+                .select("id, title, start_time, end_time")
+                .lt("start_time", eventEnd.toISOString())
+                .gt("end_time", eventStart.toISOString());
+
+              const hasConflict = conflicts && conflicts.length > 0;
+
+              // Create tentative calendar event
+              const eventTitle = `📹 ${hasConflict ? "⚠️ CONFLICT — " : ""}Videography: ${customerLead.full_name}`;
+              await sb.from("calendar_events").insert({
+                title: eventTitle,
+                description: `Tentative videography booking from AI call.\n\nClient: ${customerLead.full_name}\nPhone: ${customerLead.phone || "N/A"}\nEmail: ${customerLead.email || "N/A"}\n\n${hasConflict ? "⚠️ CONFLICT: Another event exists at this time. Review needed." : "No conflicts detected."}\n\nAI Notes:\n${aiNotes}`,
+                start_time: eventStart.toISOString(),
+                end_time: eventEnd.toISOString(),
+                category: "videography",
+                source: "vapi-ai",
+                source_id: callId,
+                customer_id: customerLead.id,
+                color: hasConflict ? "#ef4444" : "#8b5cf6",
+                location: "TBD — confirm with client",
+              });
+              console.log(`[vapi-webhook] Created tentative videography booking for ${customerLead.full_name} at ${eventStart.toISOString()}, conflict: ${hasConflict}`);
+
+              // If conflict, send notifications
+              if (hasConflict) {
+                const conflictDetails = (conflicts || []).map(c =>
+                  `• ${c.title} (${new Date(c.start_time).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })})`
+                ).join("\n");
+
+                // 1. Email notification
+                const conflictEmailHtml = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+  <h2 style="color:#ef4444;">⚠️ Videography Booking Conflict</h2>
+  <p>A new tentative videography booking has been created from an AI call, but it <strong>conflicts</strong> with existing events.</p>
+  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0;font-weight:600;">New Booking:</p>
+    <p style="margin:4px 0;">Client: ${escapeHtml(customerLead.full_name)}</p>
+    <p style="margin:4px 0;">Phone: ${escapeHtml(customerLead.phone || "N/A")}</p>
+    <p style="margin:4px 0;">Time: ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT</p>
+  </div>
+  <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin:16px 0;">
+    <p style="margin:0;font-weight:600;">Conflicting Events:</p>
+    <pre style="margin:8px 0 0;white-space:pre-wrap;font-family:inherit;">${escapeHtml(conflictDetails)}</pre>
+  </div>
+  <p>Please review and resolve in the <a href="https://socooked.lovable.app/calendar" style="color:#2563eb;">Calendar</a>.</p>
+</div>`;
+                try {
+                  await sendGmailNotification("warren@stu25.com", "⚠️ Videography Booking Conflict — " + customerLead.full_name, conflictEmailHtml);
+                } catch (e) { console.error("[vapi-webhook] Conflict email failed:", e); }
+
+                // 2. Telegram notification
+                try {
+                  await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+                      "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
+                    },
+                    body: JSON.stringify({
+                      entity_type: "videography_booking",
+                      action: "conflict",
+                      meta: {
+                        message: `⚠️ *VIDEOGRAPHY BOOKING CONFLICT*\n\n📹 Client: *${customerLead.full_name}*\n📞 ${customerLead.phone || "N/A"}\n🕐 ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT\n\n❌ Conflicts with:\n${conflictDetails}\n\nReview in Calendar.`,
+                      },
+                    }),
+                  });
+                } catch (e) { console.error("[vapi-webhook] Conflict telegram failed:", e); }
+
+                // 3. CRM notification (activity_log)
+                await sb.from("activity_log").insert({
+                  entity_type: "videography_booking",
+                  entity_id: customerLead.id,
+                  action: "conflict",
+                  meta: {
+                    name: `Booking conflict: ${customerLead.full_name}`,
+                    message: `Tentative booking at ${eventStart.toISOString()} conflicts with ${conflicts?.length} existing event(s).`,
+                  },
+                });
+              }
+
+              // Update customer meta with booking info
+              await sb.from("customers").update({
+                meta: {
+                  ...existingMeta,
+                  vapi_call_status: "completed",
+                  vapi_transcript: transcript,
+                  vapi_summary: summary,
+                  vapi_recording_url: recordingUrl,
+                  vapi_ended_reason: endedReason,
+                  vapi_duration_seconds: duration,
+                  vapi_ai_notes: aiNotes,
+                  videography_tentative_date: eventStart.toISOString(),
+                  videography_booking_conflict: hasConflict,
+                },
+              }).eq("id", customerLead.id);
+            }
+          } catch (bookingErr) {
+            console.error("[vapi-webhook] Videography booking creation failed:", bookingErr);
+          }
+        }
+
         return new Response(JSON.stringify({ ok: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
