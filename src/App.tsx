@@ -5,8 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
-import { Suspense } from 'react';
-import DomainLanding from "./components/DomainLanding";
 import { AuthLayoutGate } from "./components/layout/AuthLayoutGate";
 
 // /warren-landing renders the Warren landing page directly
@@ -108,7 +106,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Suspense fallback={null}><DomainLanding /></Suspense>} />
+            <Route path="/" element={<WarrenLanding />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
             <Route path="/dash" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
