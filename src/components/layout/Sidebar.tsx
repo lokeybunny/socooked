@@ -161,7 +161,7 @@ export function Sidebar() {
       const { count: custCount } = await supabase
         .from('customers')
         .select('id', { count: 'exact', head: true })
-        .in('source', ['videography-landing', 'webdesign-landing'])
+        .eq('source', 'webdesign-landing')
         .gt('created_at', lastSeen);
       // Count RE leads
       const { count: reCount } = await supabase
