@@ -163,6 +163,7 @@ const App = () => (
             <Route path="/api-management" element={<WarrenOnlyGate><AuthLayoutGate><ApiManagement /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
             {/* pricing route removed */}
+            <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/videography" element={<VideographyLanding />} />
             <Route path="/webdesign" element={<WebDesignLanding />} />
             <Route path="/terms" element={<Terms />} />
