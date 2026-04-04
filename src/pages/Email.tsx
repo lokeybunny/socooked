@@ -103,6 +103,7 @@ export default function EmailPage() {
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [composeCustomerOpen, setComposeCustomerOpen] = useState(false);
+  const [composeCustomerQuery, setComposeCustomerQuery] = useState('');
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -164,7 +165,11 @@ export default function EmailPage() {
     let from = 0;
     const PAGE = 1000;
     while (true) {
-      const { data } = await supabase.from('customers').select('id, full_name, email, phone').range(from, from + PAGE - 1);
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name, email, phone')
+        .order('updated_at', { ascending: false })
+        .range(from, from + PAGE - 1);
       if (!data || data.length === 0) break;
       all.push(...data);
       if (data.length < PAGE) break;
@@ -476,6 +481,13 @@ export default function EmailPage() {
 
   const customerEmailOptions = customers.filter((c) => c.email);
   const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
+  const normalizedComposeCustomerQuery = composeCustomerQuery.trim().toLowerCase();
+  const composeCustomerOptions = customers.filter((c) => {
+    if (!c.email) return false;
+    if (!normalizedComposeCustomerQuery) return true;
+    const haystack = [c.full_name, c.email, c.phone].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(normalizedComposeCustomerQuery);
+  });
 
   const isCustomerEmail = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce) || email.to.toLowerCase().includes(ce));
   const isFromCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce));
@@ -485,7 +497,8 @@ export default function EmailPage() {
 
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
-    setForm({ ...form, customer_id: custId, to: cust?.email || '' });
+    setForm((prev) => ({ ...prev, customer_id: custId, to: cust?.email || '' }));
+    setComposeCustomerQuery('');
   };
 
   const formatDate = (dateStr: string) => {
@@ -633,7 +646,7 @@ export default function EmailPage() {
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </Button>
-            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false); setComposeOpen(true); }} className="gap-1.5">
+            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false); setComposeCustomerQuery(''); setComposeCustomerOpen(false); setComposeOpen(true); }} className="gap-1.5">
               <Plus className="h-4 w-4" /> Compose
             </Button>
           </div>
@@ -778,7 +791,7 @@ export default function EmailPage() {
       </AlertDialog>
 
       {/* Compose Dialog */}
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
+      <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) { setComposeCustomerQuery(''); setComposeCustomerOpen(false); } }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader><DialogTitle>Compose Email</DialogTitle></DialogHeader>
           <div className="space-y-4">
@@ -792,13 +805,21 @@ export default function EmailPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search customers..." />
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Search customers..."
+                      value={composeCustomerQuery}
+                      onValueChange={setComposeCustomerQuery}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                    />
                     <CommandList>
                       <CommandEmpty>No customer found.</CommandEmpty>
                       <CommandGroup>
-                        {customers.filter((c) => c.email).map((c) => (
-                          <CommandItem key={c.id} value={`${c.full_name} ${c.email}`} onSelect={() => { handleCustomerSelect(c.id); setComposeCustomerOpen(false); }}>
+                        {composeCustomerOptions.map((c) => (
+                          <CommandItem key={c.id} value={c.id} onSelect={() => { handleCustomerSelect(c.id); setComposeCustomerOpen(false); }}>
                             <Check className={cn("mr-2 h-4 w-4", form.customer_id === c.id ? "opacity-100" : "opacity-0")} />
                             {c.full_name} ({c.email})
                           </CommandItem>
