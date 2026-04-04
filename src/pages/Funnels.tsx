@@ -548,6 +548,14 @@ export default function Funnels() {
         .order('created_at', { ascending: false })
         .limit(500);
 
+      // Videography from customers
+      const { data: vidLeads } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('source', 'videography-landing')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
       // Real Estate from lw_landing_leads (only manually submitted via funnel form)
       const { data: reLeads } = await supabase
         .from('lw_landing_leads')
@@ -575,6 +583,25 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
+          drafted_at: (meta.funnel_drafted_at as string) || null,
+        });
+      });
+
+      (vidLeads || []).forEach((c) => {
+        const meta = (c.meta as Record<string, unknown>) || {};
+        const tags = c.tags as string[] || [];
+        combined.push({
+          id: c.id, funnel: 'videography' as const, _table: 'customers',
+          full_name: c.full_name, email: c.email, phone: c.phone,
+          created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
+          company: c.company,
+          event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
+          vapi_call_status: null,
+          vapi_call_id: null,
+          ai_notes: null,
+          vapi_recording_url: null,
+          vapi_transcript: null,
+          vapi_summary: null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
