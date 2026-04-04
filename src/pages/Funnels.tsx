@@ -656,7 +656,7 @@ export default function Funnels() {
         )}
 
         <EmailModal lead={emailLead} open={!!emailLead} onClose={() => setEmailLead(null)} />
-        <LeadDetailModal lead={viewLead} open={!!viewLead} onClose={() => setViewLead(null)} />
+        <LeadDetailModal lead={viewLead} open={!!viewLead} onClose={() => setViewLead(null)} onLeadUpdate={(updated) => setLeads(prev => prev.map(l => l.id === updated.id ? updated : l))} />
       </div>
     </AuthLayoutGate>
   );
