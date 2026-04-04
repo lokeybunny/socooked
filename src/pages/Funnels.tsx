@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
-  Globe, Home, Filter, Clock, Mail, Phone, Search,
+  Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
   FileText, Mic, Copy, Sparkles, UserPlus
