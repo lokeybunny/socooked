@@ -22,7 +22,7 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { action, customer_id, phone, full_name, event_type, message } = await req.json();
+    const { action, customer_id, phone, full_name, event_type, message, assistant_id } = await req.json();
 
     if (action === "trigger_call") {
       if (!phone || !full_name) {
