@@ -22,7 +22,7 @@ type FunnelType = 'all' | 'webdesign' | 'realestate';
 
 interface FunnelLead {
   id: string;
-  funnel: 'videography' | 'webdesign' | 'realestate';
+  funnel: 'webdesign' | 'realestate';
   full_name: string;
   email: string | null;
   phone: string | null;
