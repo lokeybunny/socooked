@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,10 +11,10 @@ import { toast } from 'sonner';
 import {
   Phone, Globe, MapPin, User, Clock, Send, CheckCircle2,
   Search, Filter, ExternalLink, Copy, FileSignature, Bell,
-  ChevronRight, Building2, CalendarClock,
-  Plus, Upload,
+  ChevronRight, Building2, CalendarClock, CalendarDays,
+  Plus, Upload, ChevronLeft, Pencil, Trash2,
 } from 'lucide-react';
-import { formatDistanceToNow, isPast } from 'date-fns';
+import { formatDistanceToNow, isPast, format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
 
 const STAGES = [
   { key: 'new', label: 'New', color: 'bg-muted text-muted-foreground' },
