@@ -81,6 +81,16 @@ export default function SellerLanding() {
       return;
     }
     setSubmitting(true);
+    // Remove any drafted duplicate so testers can re-submit
+    const { data: existingLead } = await supabase
+      .from('lw_landing_leads')
+      .select('id, drafted_at')
+      .eq('phone', phone.trim())
+      .not('drafted_at', 'is', null)
+      .maybeSingle();
+    if (existingLead) {
+      await supabase.from('lw_landing_leads').delete().eq('id', existingLead.id);
+    }
     const insertPayload = {
       landing_page_id: page.id,
       full_name: name.trim(),
