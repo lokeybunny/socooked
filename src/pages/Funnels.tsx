@@ -298,6 +298,7 @@ export default function Funnels() {
   const [page, setPage] = useState(1);
   const [emailLead, setEmailLead] = useState<FunnelLead | null>(null);
   const [viewLead, setViewLead] = useState<FunnelLead | null>(null);
+  const [stageFilter, setStageFilter] = useState<string | null>(null);
 
   const fetchLeads = async () => {
     setLoading(true);
