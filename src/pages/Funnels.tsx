@@ -192,6 +192,69 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
     } finally { setAnalyzing(false); }
   };
 
+  const handleCreateCustomer = async () => {
+    if (!lead) return;
+    setCreatingCustomer(true);
+    try {
+      // Build notes combining all AI data
+      const noteParts: string[] = [];
+      if (lead.ai_notes) noteParts.push(`AI Notes:\n${lead.ai_notes}`);
+      if (lead.vapi_summary) noteParts.push(`Call Summary:\n${lead.vapi_summary}`);
+      if (lead.vapi_transcript) noteParts.push(`Transcript:\n${lead.vapi_transcript}`);
+      if (transcriptResult) noteParts.push(`Deepgram Transcription:\n${transcriptResult}`);
+      if (analysisResult) noteParts.push(`AI Analysis:\n${JSON.stringify(analysisResult, null, 2)}`);
+      if (lead.notes) noteParts.push(`Lead Notes:\n${lead.notes}`);
+      if (lead.property_address) noteParts.push(`Property: ${lead.property_address}`);
+      if (lead.motivation) noteParts.push(`Motivation: ${lead.motivation}`);
+      if (lead.timeline) noteParts.push(`Timeline: ${lead.timeline}`);
+      if (lead.property_condition) noteParts.push(`Condition: ${lead.property_condition}`);
+      if (lead.asking_price) noteParts.push(`Asking Price: $${lead.asking_price.toLocaleString()}`);
+      if (lead.lead_score) noteParts.push(`Lead Score: ${lead.lead_score}/100`);
+
+      const funnelLabel = FUNNEL_CONFIG[lead.funnel]?.label || lead.funnel;
+      const meta: Record<string, unknown> = {
+        funnel_source: lead.funnel,
+        funnel_lead_id: lead.id,
+        funnel_table: lead._table,
+        vapi_call_status: lead.vapi_call_status,
+        vapi_call_id: lead.vapi_call_id,
+        vapi_recording_url: lead.vapi_recording_url,
+        vapi_ai_notes: lead.ai_notes,
+        vapi_transcript: lead.vapi_transcript,
+        vapi_summary: lead.vapi_summary,
+      };
+
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('full_name', lead.full_name)
+        .not('source', 'in', '("videography-landing","webdesign-landing")')
+        .maybeSingle();
+
+      if (existing) {
+        toast.error('A customer with this name already exists in CRM');
+        return;
+      }
+
+      const { error } = await supabase.from('customers').insert({
+        full_name: lead.full_name,
+        email: lead.email,
+        phone: lead.phone,
+        company: lead.company || null,
+        source: `funnel-${lead.funnel}`,
+        status: 'lead',
+        notes: noteParts.join('\n\n---\n\n'),
+        tags: [funnelLabel, 'funnel-import'],
+        meta,
+      });
+
+      if (error) throw error;
+      toast.success(`${lead.full_name} added to CRM as a new customer`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create customer');
+    } finally { setCreatingCustomer(false); }
+  };
+
   if (!lead) return null;
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes || lead.vapi_transcript);
