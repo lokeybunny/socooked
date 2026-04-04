@@ -154,9 +154,6 @@ export default function WebDesignLanding() {
             <Link to="/" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Crypto
             </Link>
-            <Link to="/videography#get-started" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Videography
-            </Link>
             <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Web Design
             </a>
@@ -364,7 +361,7 @@ export default function WebDesignLanding() {
           </Link>
           <div className="flex items-center gap-6">
             <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">Terms</Link>
-            <Link to="/videography" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">Videography</Link>
+            
             <Link to="/" className="text-xs tracking-wider uppercase text-white/20 hover:text-cyan-400/50 transition-colors">Home</Link>
           </div>
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
