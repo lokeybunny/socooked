@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
