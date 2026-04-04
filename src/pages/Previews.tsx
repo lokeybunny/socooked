@@ -746,6 +746,64 @@ export default function Previews() {
           )}
           </>
         )}
+
+        {/* Archived Section */}
+        {showArchived && archivedPreviews.length > 0 && (
+          <div className="space-y-3 mt-6">
+            <div className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-medium text-muted-foreground">Archived ({archivedPreviews.length})</h2>
+              <span className="text-[11px] text-muted-foreground">Items are permanently deleted 72 hours after archiving</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {archivedPreviews.map(preview => {
+                const hoursLeft = getHoursRemaining((preview as any).archived_at);
+                return (
+                  <div key={preview.id} className="border border-border rounded-lg p-4 bg-muted/30 opacity-70 hover:opacity-100 transition-opacity">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="text-sm font-medium text-foreground line-clamp-2">{preview.title}</h4>
+                      <Badge variant="outline" className="text-[10px] shrink-0 text-destructive border-destructive/30">
+                        {hoursLeft > 0 ? `${hoursLeft}h left` : 'Expired'}
+                      </Badge>
+                    </div>
+                    {preview.customers && (
+                      <p className="text-xs text-muted-foreground mb-2">{(preview.customers as any)?.full_name}</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mb-3">
+                      Archived {format(new Date((preview as any).archived_at), 'MMM d, h:mm a')}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="text-xs h-7 gap-1" onClick={() => restorePreview(preview.id)}>
+                        <RotateCcw className="h-3 w-3" /> Restore
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-xs h-7 gap-1 text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" /> Delete Now
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete "{preview.title}". This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => permanentlyDelete(preview.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete Forever
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <GenerateWebsiteModal
