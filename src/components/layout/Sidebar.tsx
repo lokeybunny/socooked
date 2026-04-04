@@ -39,7 +39,6 @@ const navEntries: NavEntry[] = [
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', botIcon: true },
   { to: '/research', icon: Target, label: 'Finder', botIcon: true },
   { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
-  { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {
@@ -52,6 +51,7 @@ const navEntries: NavEntry[] = [
       { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
     ],
   },
+  { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', divider: 'Services', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
