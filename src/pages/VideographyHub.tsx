@@ -567,6 +567,33 @@ export default function VideographyHub() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* Event Edit Modal */}
+      <Dialog open={!!editingEvent} onOpenChange={o => { if (!o) setEditingEvent(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Edit Booking
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="Title" value={eventForm.title} onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} />
+            <Input type="date" value={eventForm.date} onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} />
+            <div className="flex gap-2">
+              <Input type="time" value={eventForm.start} onChange={e => setEventForm(f => ({ ...f, start: e.target.value }))} className="flex-1" />
+              <Input type="time" value={eventForm.end} onChange={e => setEventForm(f => ({ ...f, end: e.target.value }))} className="flex-1" />
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={saveEvent}>Save</Button>
+              <Button variant="destructive" size="sm" onClick={() => editingEvent && deleteEvent(editingEvent.id)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail / Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
