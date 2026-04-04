@@ -532,11 +532,11 @@ export default function Funnels() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      // Videography + Web Design from customers (only funnel sources)
+      // Web Design from customers (only funnel sources)
       const { data: custLeads } = await supabase
         .from('customers')
         .select('*')
-        .in('source', ['videography-landing', 'webdesign-landing'])
+        .eq('source', 'webdesign-landing')
         .order('created_at', { ascending: false })
         .limit(500);
 
