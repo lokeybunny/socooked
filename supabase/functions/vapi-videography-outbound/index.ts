@@ -59,7 +59,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          assistantId: VIDEOGRAPHY_ASSISTANT_ID,
+          assistantId: assistant_id || DEFAULT_ASSISTANT_ID,
           assistantOverrides: {
             variableValues: {
               clientName: "Warren Guru Videography",
