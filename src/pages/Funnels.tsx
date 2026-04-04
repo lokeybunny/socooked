@@ -77,6 +77,13 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
   ],
+  videography: [
+    { value: 'lead', label: 'Prospect' },
+    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
 };
 
 /* ─── Email Modal ─── */
