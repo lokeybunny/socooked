@@ -357,8 +357,10 @@ export default function Leads() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
+  const FUNNEL_SOURCES = ['webdesign-landing', 'funnel-webdesign', 'videography-landing', 'wholesale-email-offer', 'wholesale'];
+
   const buildQuery = (status: string) => {
-    let q = supabase.from('customers').select('*').eq('status', status).order('created_at', { ascending: false });
+    let q = supabase.from('customers').select('*').eq('status', status).in('source', FUNNEL_SOURCES).order('created_at', { ascending: false });
     if (filterSource !== 'all') q = q.eq('source', filterSource);
     if (filterCategory !== 'all') q = q.eq('category', filterCategory);
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
