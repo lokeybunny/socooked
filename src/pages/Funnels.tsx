@@ -59,17 +59,6 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: 
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
-  realestate: [
-    { value: 'new', label: 'Funnel Leads' },
-    { value: 'req_trace', label: 'Req. Trace' },
-    { value: 'skip_traced', label: 'Skip Traced' },
-    { value: 'contacted', label: 'Contacted' },
-    { value: 'negotiate', label: 'Negotiate' },
-    { value: 'offer_sent', label: 'Offer Sent' },
-    { value: 'under_contract', label: 'Under Contract' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'dead', label: 'Dead' },
-  ],
   webdesign: [
     { value: 'lead', label: 'Prospect' },
     { value: 'ai_complete', label: 'AI Complete' },
@@ -81,6 +70,17 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'lead', label: 'Prospect' },
     { value: 'scheduled', label: 'Scheduled' },
     { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  realestate: [
+    { value: 'new', label: 'Funnel Leads' },
+    { value: 'req_trace', label: 'Req. Trace' },
+    { value: 'skip_traced', label: 'Skip Traced' },
+    { value: 'contacted', label: 'Contacted' },
+    { value: 'negotiate', label: 'Negotiate' },
+    { value: 'offer_sent', label: 'Offer Sent' },
+    { value: 'under_contract', label: 'Under Contract' },
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
   ],
