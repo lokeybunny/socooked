@@ -46,7 +46,11 @@ const statusStyles: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   skip_traced: 'Skip Traced',
+  req_trace: 'Req. Trace',
   under_contract: 'Under Contract',
+  offer_sent: 'Offer Sent',
+  ai_complete: 'AI Complete',
+  agreement_sent: 'Agreement Sent',
   collecting_info: 'Collecting Info',
   ready_for_docs: 'Ready for Docs',
   docs_generated: 'Docs Generated',
