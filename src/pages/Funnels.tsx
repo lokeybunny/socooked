@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type FunnelType = 'all' | 'webdesign' | 'realestate' | 'videography';
+type FunnelType = 'all' | 'webdesign' | 'videography' | 'realestate';
 
 interface FunnelLead {
   id: string;
@@ -59,17 +59,6 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: 
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
-  realestate: [
-    { value: 'new', label: 'Funnel Leads' },
-    { value: 'req_trace', label: 'Req. Trace' },
-    { value: 'skip_traced', label: 'Skip Traced' },
-    { value: 'contacted', label: 'Contacted' },
-    { value: 'negotiate', label: 'Negotiate' },
-    { value: 'offer_sent', label: 'Offer Sent' },
-    { value: 'under_contract', label: 'Under Contract' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'dead', label: 'Dead' },
-  ],
   webdesign: [
     { value: 'lead', label: 'Prospect' },
     { value: 'ai_complete', label: 'AI Complete' },
@@ -81,6 +70,17 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'lead', label: 'Prospect' },
     { value: 'scheduled', label: 'Scheduled' },
     { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  realestate: [
+    { value: 'new', label: 'Funnel Leads' },
+    { value: 'req_trace', label: 'Req. Trace' },
+    { value: 'skip_traced', label: 'Skip Traced' },
+    { value: 'contacted', label: 'Contacted' },
+    { value: 'negotiate', label: 'Negotiate' },
+    { value: 'offer_sent', label: 'Offer Sent' },
+    { value: 'under_contract', label: 'Under Contract' },
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
   ],
@@ -748,7 +748,7 @@ export default function Funnels() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['all', 'webdesign', 'realestate', 'videography'] as const).map((key) => {
+          {(['all', 'webdesign', 'videography', 'realestate'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];

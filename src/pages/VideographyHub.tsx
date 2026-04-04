@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,10 +11,10 @@ import { toast } from 'sonner';
 import {
   Phone, Globe, MapPin, User, Clock, Send, CheckCircle2,
   Search, Filter, ExternalLink, Copy, FileSignature, Bell,
-  ChevronRight, Building2, CalendarClock,
-  Plus, Upload,
+  ChevronRight, Building2, CalendarClock, CalendarDays,
+  Plus, Upload, ChevronLeft, Pencil, Trash2,
 } from 'lucide-react';
-import { formatDistanceToNow, isPast } from 'date-fns';
+import { formatDistanceToNow, isPast, format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
 
 const STAGES = [
   { key: 'new', label: 'New', color: 'bg-muted text-muted-foreground' },
@@ -59,6 +59,14 @@ export default function VideographyHub() {
   const [manualForm, setManualForm] = useState({ business_name: '', phone: '', address: '', website: '' });
   const [csvText, setCsvText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [viewTab, setViewTab] = useState<'pipeline' | 'calendar'>('pipeline');
+
+  // Calendar state
+  const [calMonth, setCalMonth] = useState(new Date());
+  const [calEvents, setCalEvents] = useState<any[]>([]);
+  const [calLoading, setCalLoading] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any | null>(null);
+  const [eventForm, setEventForm] = useState({ title: '', date: '', start: '', end: '' });
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -71,6 +79,67 @@ export default function VideographyHub() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Calendar data
+  const loadCalEvents = useCallback(async () => {
+    setCalLoading(true);
+    const monthStart = startOfMonth(calMonth);
+    const monthEnd = endOfMonth(calMonth);
+    const { data } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .gte('start_time', monthStart.toISOString())
+      .lte('start_time', monthEnd.toISOString())
+      .or('category.eq.videography,title.ilike.%videography%,title.ilike.%funeral%,title.ilike.%livestream%')
+      .order('start_time', { ascending: true });
+    setCalEvents(data || []);
+    setCalLoading(false);
+  }, [calMonth]);
+
+  useEffect(() => { if (viewTab === 'calendar') loadCalEvents(); }, [viewTab, loadCalEvents]);
+
+  const calDays = useMemo(() => {
+    const ms = startOfMonth(calMonth);
+    const me = endOfMonth(calMonth);
+    return eachDayOfInterval({ start: startOfWeek(ms), end: endOfWeek(me) });
+  }, [calMonth]);
+
+  const getEventsForDay = (day: Date) => calEvents.filter(e => isSameDay(new Date(e.start_time), day));
+
+  const openEventEdit = (ev: any) => {
+    setEditingEvent(ev);
+    const st = new Date(ev.start_time);
+    const et = ev.end_time ? new Date(ev.end_time) : new Date(st.getTime() + 3600000);
+    setEventForm({
+      title: ev.title || '',
+      date: format(st, 'yyyy-MM-dd'),
+      start: format(st, 'HH:mm'),
+      end: format(et, 'HH:mm'),
+    });
+  };
+
+  const saveEvent = async () => {
+    if (!editingEvent) return;
+    const startIso = new Date(`${eventForm.date}T${eventForm.start}:00`).toISOString();
+    const endIso = new Date(`${eventForm.date}T${eventForm.end}:00`).toISOString();
+    const { error } = await supabase.from('calendar_events').update({
+      title: eventForm.title,
+      start_time: startIso,
+      end_time: endIso,
+    }).eq('id', editingEvent.id);
+    if (error) { toast.error('Update failed'); return; }
+    toast.success('Booking updated');
+    setEditingEvent(null);
+    loadCalEvents();
+  };
+
+  const deleteEvent = async (id: string) => {
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id);
+    if (error) { toast.error('Delete failed'); return; }
+    toast.success('Booking removed');
+    setEditingEvent(null);
+    loadCalEvents();
+  };
 
   const updateProspect = async (id: string, updates: Partial<Prospect>) => {
     const { error } = await supabase.from('videography_prospects').update(updates).eq('id', id);
@@ -299,6 +368,12 @@ export default function VideographyHub() {
           </Badge>
         )}
         <div className="flex gap-2">
+          <Button size="sm" variant={viewTab === 'pipeline' ? 'default' : 'outline'} onClick={() => setViewTab('pipeline')}>
+            <Building2 className="h-3.5 w-3.5 mr-1" /> Pipeline
+          </Button>
+          <Button size="sm" variant={viewTab === 'calendar' ? 'default' : 'outline'} onClick={() => setViewTab('calendar')}>
+            <CalendarDays className="h-3.5 w-3.5 mr-1" /> Calendar
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setAddMode('manual')}>
             <Plus className="h-3.5 w-3.5 mr-1" /> Add
           </Button>
@@ -308,6 +383,76 @@ export default function VideographyHub() {
         </div>
       </div>
 
+      {viewTab === 'calendar' ? (
+        /* ─── Calendar View ─── */
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{format(calMonth, 'MMMM yyyy')}</h3>
+            <div className="flex gap-1">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCalMonth(subMonths(calMonth, 1))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => setCalMonth(new Date())}>Today</Button>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCalMonth(addMonths(calMonth, 1))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <div key={d} className="bg-muted p-2 text-center text-xs font-bold text-foreground">{d}</div>
+            ))}
+            {calDays.map(day => {
+              const dayEvents = getEventsForDay(day);
+              const isToday = isSameDay(day, new Date());
+              return (
+                <div key={day.toISOString()} className={`bg-card min-h-[90px] p-1.5 ${!isSameMonth(day, calMonth) ? 'opacity-30' : ''}`}>
+                  <p className={`text-xs mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-bold'}`}>{format(day, 'd')}</p>
+                  <div className="space-y-0.5">
+                    {dayEvents.map(ev => (
+                      <button
+                        key={ev.id}
+                        onClick={() => openEventEdit(ev)}
+                        className="w-full text-left text-[10px] font-semibold px-1.5 py-0.5 rounded truncate bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                      >
+                        {format(new Date(ev.start_time), 'h:mm a')} {ev.title?.replace(/\[.*?\]\s*/g, '')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Upcoming list */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">Upcoming Bookings</h4>
+            {calEvents.filter(e => new Date(e.start_time) >= new Date()).length === 0 && (
+              <p className="text-xs text-muted-foreground">No upcoming videography bookings this month.</p>
+            )}
+            {calEvents
+              .filter(e => new Date(e.start_time) >= new Date())
+              .map(ev => (
+                <Card key={ev.id} className="cursor-pointer hover:border-primary/50" onClick={() => openEventEdit(ev)}>
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{ev.title?.replace(/\[.*?\]\s*/g, '')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(ev.start_time), 'MMM d, yyyy · h:mm a')}
+                        {ev.end_time && ` – ${format(new Date(ev.end_time), 'h:mm a')}`}
+                      </p>
+                      {ev.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{ev.description}</p>}
+                    </div>
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
+      ) : (
+      /* ─── Pipeline View ─── */
+      <>
       {/* Pipeline Summary */}
       <div className="flex flex-wrap gap-2">
         <Button
@@ -422,6 +567,33 @@ export default function VideographyHub() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* Event Edit Modal */}
+      <Dialog open={!!editingEvent} onOpenChange={o => { if (!o) setEditingEvent(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" /> Edit Booking
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="Title" value={eventForm.title} onChange={e => setEventForm(f => ({ ...f, title: e.target.value }))} />
+            <Input type="date" value={eventForm.date} onChange={e => setEventForm(f => ({ ...f, date: e.target.value }))} />
+            <div className="flex gap-2">
+              <Input type="time" value={eventForm.start} onChange={e => setEventForm(f => ({ ...f, start: e.target.value }))} className="flex-1" />
+              <Input type="time" value={eventForm.end} onChange={e => setEventForm(f => ({ ...f, end: e.target.value }))} className="flex-1" />
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1" onClick={saveEvent}>Save</Button>
+              <Button variant="destructive" size="sm" onClick={() => editingEvent && deleteEvent(editingEvent.id)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Detail / Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
