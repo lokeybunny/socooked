@@ -148,6 +148,7 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
   const [analyzing, setAnalyzing] = useState(false);
   const [transcriptResult, setTranscriptResult] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
 
   useEffect(() => { setTranscriptResult(null); setAnalysisResult(null); }, [lead?.id]);
 
