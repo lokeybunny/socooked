@@ -103,10 +103,22 @@ export default function VideographyLanding() {
       supabase.functions.invoke('funnel-autoresponder', {
         body: { funnel: 'videography', recipientEmail: email.trim(), recipientName: name.trim() },
       }).catch((err) => console.error('Autoresponder failed:', err));
+
+      // Trigger Vapi AI scheduling call (assistant fea7fb27)
+      supabase.functions.invoke('vapi-videography-outbound', {
+        body: {
+          action: 'trigger_call',
+          phone: phone.trim(),
+          full_name: name.trim(),
+          event_type: eventType || 'general inquiry',
+          message: message || '',
+          assistant_id: 'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
+        },
+      }).catch((err) => console.warn('Vapi trigger warning:', err));
+
       setSubmitted(true);
       navigate('/thankyou-videography');
       toast.success('Request submitted! We\'ll be in touch shortly.');
-      // Vapi AI call removed — leads go directly to Funnels hub
     } catch {
       toast.error('Something went wrong. Please try again.');
     } finally {
