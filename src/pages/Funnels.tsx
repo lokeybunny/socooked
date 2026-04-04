@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   Video, Globe, Home, Filter, Clock, Mail, Phone, Search,
   Bot, Play, ExternalLink, Send, Loader2,
-  RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2
+  RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,34 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Video; color: 
   videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   realestate: { label: 'Real Estate', icon: Home, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
+};
+
+const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
+  realestate: [
+    { value: 'new', label: 'Funnel Leads' },
+    { value: 'req_trace', label: 'Req. Trace' },
+    { value: 'skip_traced', label: 'Skip Traced' },
+    { value: 'contacted', label: 'Contacted' },
+    { value: 'negotiate', label: 'Negotiate' },
+    { value: 'offer_sent', label: 'Offer Sent' },
+    { value: 'under_contract', label: 'Under Contract' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  webdesign: [
+    { value: 'lead', label: 'Prospect' },
+    { value: 'ai_complete', label: 'AI Complete' },
+    { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
+  videography: [
+    { value: 'lead', label: 'Prospect' },
+    { value: 'agreement_sent', label: 'Agreement Sent' },
+    { value: 'scheduled', label: 'Scheduled' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'dead', label: 'Dead' },
+  ],
 };
 
 /* ─── Email Modal ─── */
@@ -180,14 +209,17 @@ function LeadDetailModal({ lead, open, onClose }: { lead: FunnelLead | null; ope
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
+  onStageChange: (newStatus: string) => void;
 }) {
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
   const isDrafted = !!lead.drafted_at;
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
+  const stages = PIPELINE_STAGES[lead.funnel] || [];
+  const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
 
   return (
     <div className={cn("border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card", isDrafted && "opacity-60 border-dashed")}>
@@ -215,9 +247,18 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft }: {
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+      <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}</span>
-        <Badge variant="secondary" className="text-[10px]">{lead.status}</Badge>
+        <Select value={lead.status} onValueChange={onStageChange}>
+          <SelectTrigger className="h-6 text-[10px] w-auto gap-1 border-dashed px-2 py-0">
+            <SelectValue>{currentStageLabel}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {stages.map(s => (
+              <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {lead.notes && <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>}
       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
@@ -247,7 +288,6 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft }: {
     </div>
   );
 }
-
 /* ─── Main Page ─── */
 export default function Funnels() {
   const [leads, setLeads] = useState<FunnelLead[]>([]);
@@ -258,6 +298,7 @@ export default function Funnels() {
   const [page, setPage] = useState(1);
   const [emailLead, setEmailLead] = useState<FunnelLead | null>(null);
   const [viewLead, setViewLead] = useState<FunnelLead | null>(null);
+  const [stageFilter, setStageFilter] = useState<string | null>(null);
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -356,10 +397,25 @@ export default function Funnels() {
     toast.success(`${lead.full_name} undrafted`);
   };
 
+  const handleStageChange = async (lead: FunnelLead, newStatus: string) => {
+    if (lead.status === newStatus) return;
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+    if (lead._table === 'customers') {
+      const { error } = await supabase.from('customers').update({ status: newStatus }).eq('id', lead.id);
+      if (error) { toast.error(error.message); fetchLeads(); return; }
+    } else {
+      const { error } = await supabase.from('lw_landing_leads').update({ status: newStatus }).eq('id', lead.id);
+      if (error) { toast.error(error.message); fetchLeads(); return; }
+    }
+    const stageLabel = PIPELINE_STAGES[lead.funnel]?.find(s => s.value === newStatus)?.label || newStatus;
+    toast.success(`${lead.full_name} → ${stageLabel}`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
     if (!showDrafted) result = result.filter(l => !l.drafted_at);
+    if (stageFilter) result = result.filter(l => l.status === stageFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(l =>
@@ -371,14 +427,17 @@ export default function Funnels() {
       );
     }
     return result;
-  }, [leads, filter, search, showDrafted]);
+  }, [leads, filter, search, showDrafted, stageFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(page, totalPages);
   const pagedLeads = filtered.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [filter, search, showDrafted]);
+  useEffect(() => { setPage(1); }, [filter, search, showDrafted, stageFilter]);
+
+  // Reset stage filter when funnel changes
+  useEffect(() => { setStageFilter(null); }, [filter]);
 
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
@@ -386,6 +445,19 @@ export default function Funnels() {
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
   }), [leads]);
+
+  // Pipeline stage counts for current funnel
+  const pipelineStages = filter !== 'all' ? PIPELINE_STAGES[filter] || [] : [];
+  const funnelLeadsForPipeline = filter !== 'all' ? leads.filter(l => l.funnel === filter && !l.drafted_at) : [];
+  const stageCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    pipelineStages.forEach(s => { map[s.value] = 0; });
+    funnelLeadsForPipeline.forEach(l => {
+      if (map[l.status] !== undefined) map[l.status]++;
+      else if (pipelineStages.length > 0) map[pipelineStages[0].value] = (map[pipelineStages[0].value] || 0) + 1;
+    });
+    return map;
+  }, [funnelLeadsForPipeline, pipelineStages]);
 
   const draftCount = leads.filter(l => !!l.drafted_at).length;
 
@@ -431,6 +503,31 @@ export default function Funnels() {
           })}
         </div>
 
+        {/* Pipeline Stage Rail */}
+        {filter !== 'all' && pipelineStages.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <Button
+              variant={stageFilter === null ? "default" : "outline"}
+              size="sm"
+              className="shrink-0 text-xs h-8"
+              onClick={() => setStageFilter(null)}
+            >
+              All ({funnelLeadsForPipeline.length})
+            </Button>
+            {pipelineStages.map(s => (
+              <Button
+                key={s.value}
+                variant={stageFilter === s.value ? "default" : "outline"}
+                size="sm"
+                className="shrink-0 text-xs h-8"
+                onClick={() => setStageFilter(stageFilter === s.value ? null : s.value)}
+              >
+                {s.label} <span className="ml-1.5 text-muted-foreground">{stageCounts[s.value] || 0}</span>
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -457,6 +554,7 @@ export default function Funnels() {
                 onView={() => setViewLead(lead)}
                 onDraft={() => handleDraft(lead)}
                 onUndraft={() => handleUndraft(lead)}
+                onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
               />
             ))}
           </div>
