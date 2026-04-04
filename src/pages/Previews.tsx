@@ -516,7 +516,13 @@ export default function Previews() {
             </Button>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" />
-              <span>{previews.length} total asset{previews.length !== 1 ? 's' : ''}</span>
+              <span>{activePreviews.length} active</span>
+              {archivedPreviews.length > 0 && (
+                <Button variant={showArchived ? 'default' : 'outline'} size="sm" className="text-xs gap-1 h-7" onClick={() => setShowArchived(!showArchived)}>
+                  <Archive className="h-3 w-3" />
+                  {archivedPreviews.length} archived
+                </Button>
+              )}
             </div>
           </div>
         </div>
