@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 type NavItem = {
-  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; yellow?: boolean; disabled?: boolean; badge?: number;
+  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; yellow?: boolean; disabled?: boolean; badge?: number; external?: boolean;
 };
 
 type NavGroup = {
@@ -53,6 +53,7 @@ const navEntries: NavEntry[] = [
     ],
   },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
+  { to: 'https://warren.guru/sell/home', icon: Warehouse, label: 'Real Estate', green: true, external: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '#', icon: Video, label: 'Videography', red: true, disabled: true },
   { to: '#', icon: Target, label: 'Crypto', red: true, disabled: true },
@@ -198,25 +199,23 @@ export function Sidebar() {
       );
     }
 
-    return (
-      <NavLink
-        key={item.to}
-        to={item.to}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
-          isActive
-            ? "bg-accent text-foreground"
-            : item.red
-              ? "text-destructive hover:bg-accent"
-              : item.green
-                ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                : item.yellow
-                  ? "text-yellow-500 hover:bg-accent hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
-                  : item.highlight
-                    ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
-        )}
-      >
+    const linkClasses = cn(
+      "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
+      isActive
+        ? "bg-accent text-foreground"
+        : item.red
+          ? "text-destructive hover:bg-accent"
+          : item.green
+            ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+            : item.yellow
+              ? "text-yellow-500 hover:bg-accent hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
+              : item.highlight
+                ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+    );
+
+    const linkContent = (
+      <>
         <span className="relative shrink-0">
           <item.icon className="h-4.5 w-4.5" />
           {showDot && (
@@ -234,6 +233,30 @@ export function Sidebar() {
             )}
           </span>
         )}
+      </>
+    );
+
+    if (item.external) {
+      return (
+        <a
+          key={item.to}
+          href={item.to}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={linkClasses}
+        >
+          {linkContent}
+        </a>
+      );
+    }
+
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        className={linkClasses}
+      >
+        {linkContent}
       </NavLink>
     );
   };
