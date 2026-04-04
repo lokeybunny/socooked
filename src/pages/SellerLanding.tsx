@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { Button } from '@/components/ui/button';
@@ -180,13 +180,13 @@ export default function SellerLanding() {
       {/* Sticky Nav */}
       <nav className="bg-slate-950/90 backdrop-blur-md border-b border-cyan-500/10 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3">
             <img src={warrenLogo} alt="Warren Guru" className="h-9 w-auto" />
             <div className="flex flex-col leading-none">
               <span className="text-lg font-semibold text-white">{page.client_name}</span>
               <span className="text-[10px] tracking-[0.2em] uppercase text-cyan-400/60">Real Estate Investment Firm</span>
             </div>
-          </div>
+          </Link>
           <div className="flex items-center gap-3">
             {page.phone && (
               <a href={`tel:${page.phone}`} className="hidden sm:flex items-center gap-2 text-sm font-medium text-white/60 hover:text-cyan-400 transition">
