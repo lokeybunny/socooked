@@ -43,7 +43,7 @@ const navEntries: NavEntry[] = [
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {
-    icon: Crosshair, label: 'X Promo', divider: 'Services', grey: true,
+    icon: Crosshair, label: 'X Promo', grey: true,
     children: [
       { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
       { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
@@ -52,7 +52,7 @@ const navEntries: NavEntry[] = [
       { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
     ],
   },
-  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', divider: 'Services', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
   
