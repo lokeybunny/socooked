@@ -189,6 +189,7 @@ export default function EmailPage() {
   }, []);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
+  useEffect(() => { if (composeOpen) loadCustomers(); }, [composeOpen, loadCustomers]);
   useEffect(() => {
     // "customers" and "read" tabs use inbox data filtered locally
     const gmailTab = (activeTab === 'customers' || activeTab === 'read') ? 'inbox' : activeTab;
