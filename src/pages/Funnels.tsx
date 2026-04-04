@@ -397,10 +397,25 @@ export default function Funnels() {
     toast.success(`${lead.full_name} undrafted`);
   };
 
+  const handleStageChange = async (lead: FunnelLead, newStatus: string) => {
+    if (lead.status === newStatus) return;
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+    if (lead._table === 'customers') {
+      const { error } = await supabase.from('customers').update({ status: newStatus }).eq('id', lead.id);
+      if (error) { toast.error(error.message); fetchLeads(); return; }
+    } else {
+      const { error } = await supabase.from('lw_landing_leads').update({ status: newStatus }).eq('id', lead.id);
+      if (error) { toast.error(error.message); fetchLeads(); return; }
+    }
+    const stageLabel = PIPELINE_STAGES[lead.funnel]?.find(s => s.value === newStatus)?.label || newStatus;
+    toast.success(`${lead.full_name} → ${stageLabel}`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
     if (!showDrafted) result = result.filter(l => !l.drafted_at);
+    if (stageFilter) result = result.filter(l => l.status === stageFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(l =>
@@ -412,14 +427,17 @@ export default function Funnels() {
       );
     }
     return result;
-  }, [leads, filter, search, showDrafted]);
+  }, [leads, filter, search, showDrafted, stageFilter]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safeCurrentPage = Math.min(page, totalPages);
   const pagedLeads = filtered.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [filter, search, showDrafted]);
+  useEffect(() => { setPage(1); }, [filter, search, showDrafted, stageFilter]);
+
+  // Reset stage filter when funnel changes
+  useEffect(() => { setStageFilter(null); }, [filter]);
 
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
@@ -427,6 +445,19 @@ export default function Funnels() {
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
   }), [leads]);
+
+  // Pipeline stage counts for current funnel
+  const pipelineStages = filter !== 'all' ? PIPELINE_STAGES[filter] || [] : [];
+  const funnelLeadsForPipeline = filter !== 'all' ? leads.filter(l => l.funnel === filter && !l.drafted_at) : [];
+  const stageCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    pipelineStages.forEach(s => { map[s.value] = 0; });
+    funnelLeadsForPipeline.forEach(l => {
+      if (map[l.status] !== undefined) map[l.status]++;
+      else if (pipelineStages.length > 0) map[pipelineStages[0].value] = (map[pipelineStages[0].value] || 0) + 1;
+    });
+    return map;
+  }, [funnelLeadsForPipeline, pipelineStages]);
 
   const draftCount = leads.filter(l => !!l.drafted_at).length;
 
@@ -472,6 +503,31 @@ export default function Funnels() {
           })}
         </div>
 
+        {/* Pipeline Stage Rail */}
+        {filter !== 'all' && pipelineStages.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            <Button
+              variant={stageFilter === null ? "default" : "outline"}
+              size="sm"
+              className="shrink-0 text-xs h-8"
+              onClick={() => setStageFilter(null)}
+            >
+              All ({funnelLeadsForPipeline.length})
+            </Button>
+            {pipelineStages.map(s => (
+              <Button
+                key={s.value}
+                variant={stageFilter === s.value ? "default" : "outline"}
+                size="sm"
+                className="shrink-0 text-xs h-8"
+                onClick={() => setStageFilter(stageFilter === s.value ? null : s.value)}
+              >
+                {s.label} <span className="ml-1.5 text-muted-foreground">{stageCounts[s.value] || 0}</span>
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -498,6 +554,7 @@ export default function Funnels() {
                 onView={() => setViewLead(lead)}
                 onDraft={() => handleDraft(lead)}
                 onUndraft={() => handleUndraft(lead)}
+                onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
               />
             ))}
           </div>
