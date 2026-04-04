@@ -452,7 +452,11 @@ export default function Previews() {
   // Reset page on filter change
   useEffect(() => { setPage(0); }, [search, sourceFilter]);
 
-  const filtered = previews.filter(p => {
+  // Separate active and archived
+  const activePreviews = previews.filter(p => !(p as any).archived_at);
+  const archivedPreviews = previews.filter(p => !!(p as any).archived_at);
+
+  const filtered = activePreviews.filter(p => {
     const matchSearch = !search || 
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.prompt?.toLowerCase().includes(search.toLowerCase()) ||
