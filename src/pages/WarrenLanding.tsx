@@ -137,7 +137,7 @@ export default function WarrenLanding() {
           <div className="hidden sm:flex items-center gap-6">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-white hover:text-amber-400 text-xs tracking-[0.15em] uppercase transition-colors">
               Crypto
-            </a>
+            </button>
             <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
