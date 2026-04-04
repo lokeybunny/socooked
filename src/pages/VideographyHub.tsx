@@ -12,6 +12,7 @@ import {
   Phone, Globe, MapPin, User, Clock, Send, CheckCircle2,
   Search, Filter, ExternalLink, Copy, FileSignature, Bell,
   ChevronRight, Building2, CalendarClock,
+  Plus, Upload,
 } from 'lucide-react';
 import { formatDistanceToNow, isPast } from 'date-fns';
 
@@ -54,6 +55,10 @@ export default function VideographyHub() {
   const [editOpen, setEditOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', role: '', email: '', phone: '' });
   const [notesText, setNotesText] = useState('');
+  const [addMode, setAddMode] = useState<'closed' | 'manual' | 'csv'>('closed');
+  const [manualForm, setManualForm] = useState({ business_name: '', phone: '', address: '', website: '' });
+  const [csvText, setCsvText] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -157,6 +162,84 @@ export default function VideographyHub() {
     });
   };
 
+  const addManual = async () => {
+    if (!manualForm.business_name.trim()) { toast.error('Business name is required'); return; }
+    const { error } = await supabase.from('videography_prospects').insert({
+      business_name: manualForm.business_name.trim(),
+      phone: manualForm.phone.trim() || null,
+      address: manualForm.address.trim() || null,
+      website: manualForm.website.trim() || null,
+      pipeline_stage: 'new',
+    });
+    if (error) { toast.error('Failed to add'); return; }
+    toast.success('Prospect added');
+    setManualForm({ business_name: '', phone: '', address: '', website: '' });
+    setAddMode('closed');
+    load();
+  };
+
+  const importCsv = async () => {
+    const lines = csvText.trim().split('\n').filter(l => l.trim());
+    if (lines.length === 0) { toast.error('Paste CSV content first'); return; }
+
+    // Detect header row
+    const firstLine = lines[0].toLowerCase();
+    const hasHeader = firstLine.includes('business') || firstLine.includes('name') || firstLine.includes('phone') || firstLine.includes('address');
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    // Parse CSV respecting quoted fields
+    const parseCsvLine = (line: string): string[] => {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (const ch of line) {
+        if (ch === '"') { inQuotes = !inQuotes; continue; }
+        if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+        current += ch;
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    // Detect column indices from header
+    let nameIdx = 0, phoneIdx = 1, addressIdx = 2, websiteIdx = 3;
+    if (hasHeader) {
+      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
+      const find = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+      const ni = find(['business', 'name', 'company']);
+      const pi = find(['phone', 'tel', 'number']);
+      const ai = find(['address', 'location', 'street']);
+      const wi = find(['website', 'url', 'site']);
+      if (ni >= 0) nameIdx = ni;
+      if (pi >= 0) phoneIdx = pi;
+      if (ai >= 0) addressIdx = ai;
+      if (wi >= 0) websiteIdx = wi;
+    }
+
+    const rows = dataLines.map(line => {
+      const cols = parseCsvLine(line);
+      return {
+        business_name: cols[nameIdx] || '',
+        phone: cols[phoneIdx] || null,
+        address: cols[addressIdx] || null,
+        website: cols[websiteIdx] || null,
+        pipeline_stage: 'new' as const,
+      };
+    }).filter(r => r.business_name.trim());
+
+    if (rows.length === 0) { toast.error('No valid rows found'); return; }
+
+    setImporting(true);
+    const { error } = await supabase.from('videography_prospects').insert(rows);
+    setImporting(false);
+
+    if (error) { toast.error('Import failed: ' + error.message); return; }
+    toast.success(`Imported ${rows.length} prospects`);
+    setCsvText('');
+    setAddMode('closed');
+    load();
+  };
+
   const filtered = prospects.filter(p => {
     if (stageFilter !== 'all' && p.pipeline_stage !== stageFilter) return false;
     if (search) {
@@ -215,6 +298,14 @@ export default function VideographyHub() {
             <Bell className="h-3 w-3" /> {overdueCount} overdue followups
           </Badge>
         )}
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setAddMode('manual')}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setAddMode('csv')}>
+            <Upload className="h-3.5 w-3.5 mr-1" /> Import CSV
+          </Button>
+        </div>
       </div>
 
       {/* Pipeline Summary */}
@@ -427,6 +518,45 @@ export default function VideographyHub() {
                   Not Interested
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add / Import Modal */}
+      <Dialog open={addMode !== 'closed'} onOpenChange={open => { if (!open) setAddMode('closed'); }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{addMode === 'csv' ? 'Import CSV' : 'Add Prospect'}</DialogTitle>
+          </DialogHeader>
+
+          {addMode === 'manual' && (
+            <div className="space-y-3">
+              <Input placeholder="Business Name *" value={manualForm.business_name} onChange={e => setManualForm(f => ({ ...f, business_name: e.target.value }))} />
+              <Input placeholder="Phone" value={manualForm.phone} onChange={e => setManualForm(f => ({ ...f, phone: e.target.value }))} />
+              <Input placeholder="Address" value={manualForm.address} onChange={e => setManualForm(f => ({ ...f, address: e.target.value }))} />
+              <Input placeholder="Website" value={manualForm.website} onChange={e => setManualForm(f => ({ ...f, website: e.target.value }))} />
+              <Button className="w-full" onClick={addManual}>
+                <Plus className="h-4 w-4 mr-1" /> Add Prospect
+              </Button>
+            </div>
+          )}
+
+          {addMode === 'csv' && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Paste CSV content below. Expected columns: <span className="font-medium">Business Name, Phone, Address, Website</span>.
+                Header row is auto-detected.
+              </p>
+              <Textarea
+                className="min-h-[200px] font-mono text-xs"
+                placeholder={'Business Name,Phone,Address,Website\nAcme Mortuary,(702) 555-1234,"123 Main St, Las Vegas, NV",https://acme.com'}
+                value={csvText}
+                onChange={e => setCsvText(e.target.value)}
+              />
+              <Button className="w-full" onClick={importCsv} disabled={importing}>
+                {importing ? 'Importing…' : `Import ${csvText.trim().split('\n').filter(l => l.trim()).length > 1 ? csvText.trim().split('\n').filter(l => l.trim()).length - 1 : 0} rows`}
+              </Button>
             </div>
           )}
         </DialogContent>
