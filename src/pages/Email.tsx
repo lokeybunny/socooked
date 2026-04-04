@@ -160,7 +160,16 @@ export default function EmailPage() {
   };
 
   const loadCustomers = useCallback(async () => {
-    const { data } = await supabase.from('customers').select('id, full_name, email, phone');
+    const all: typeof customers = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data } = await supabase.from('customers').select('id, full_name, email, phone').range(from, from + PAGE - 1);
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
     setCustomers(data || []);
   }, []);
 
