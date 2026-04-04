@@ -59,6 +59,14 @@ export default function VideographyHub() {
   const [manualForm, setManualForm] = useState({ business_name: '', phone: '', address: '', website: '' });
   const [csvText, setCsvText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [viewTab, setViewTab] = useState<'pipeline' | 'calendar'>('pipeline');
+
+  // Calendar state
+  const [calMonth, setCalMonth] = useState(new Date());
+  const [calEvents, setCalEvents] = useState<any[]>([]);
+  const [calLoading, setCalLoading] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any | null>(null);
+  const [eventForm, setEventForm] = useState({ title: '', date: '', start: '', end: '' });
 
   const load = useCallback(async () => {
     const { data } = await supabase
