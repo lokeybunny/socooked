@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import {
   Video, Globe, Home, Filter, Clock, Mail, Phone, Search,
   Bot, Play, ExternalLink, Send, Loader2,
-  RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown
+  RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
+  FileText, Mic
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
