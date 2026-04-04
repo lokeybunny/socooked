@@ -37,6 +37,8 @@ interface FunnelLead {
   vapi_call_id?: string | null;
   ai_notes?: string | null;
   vapi_recording_url?: string | null;
+  vapi_transcript?: string | null;
+  vapi_summary?: string | null;
   timeline?: string | null;
   property_condition?: string | null;
   motivation?: string | null;
