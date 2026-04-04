@@ -38,6 +38,7 @@ interface ApiPreview {
   created_at: string;
   updated_at: string;
   customers?: { full_name: string; email: string | null } | null;
+  archived_at?: string | null;
 }
 
 interface Customer {
