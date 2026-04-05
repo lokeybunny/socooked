@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
   const [cronCountdown, setCronCountdown] = useState(0);
+  const [cryptoHoldingUsd, setCryptoHoldingUsd] = useState(0);
 
   useEffect(() => {
     const updateClock = () => {
@@ -51,6 +52,19 @@ export default function Dashboard() {
     updateClock();
     const interval = setInterval(updateClock, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Read crypto holding from localStorage (written by Crypto page)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('crypto_holding_usd');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.value && Date.now() - (parsed.ts || 0) < 30 * 60 * 1000) {
+          setCryptoHoldingUsd(parsed.value);
+        }
+      }
+    } catch {}
   }, []);
 
   const formatCountdown = useCallback((s: number) => {
@@ -133,7 +147,7 @@ export default function Dashboard() {
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
     { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly + ${stats.arbPurchasedCount} arb purchased`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
-    { label: 'Potential Lead Conversion', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250 + stats.arbListedSpread).toLocaleString()}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects × $250 + $${stats.arbListedSpread.toLocaleString()} arb listed`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Potential Lead Conversion + Crypto', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250 + stats.arbListedSpread + cryptoHoldingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects × $250 + $${stats.arbListedSpread.toLocaleString()} arb + $${cryptoHoldingUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} crypto`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350 + stats.arbPurchasedSpread).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} clients × $350 + $${stats.arbPurchasedSpread.toLocaleString()} arb profit`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
