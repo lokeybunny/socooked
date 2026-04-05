@@ -5051,7 +5051,7 @@ Deno.serve(async (req) => {
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
-          `🤝 <b>Wiggle:</b> $${arbP.wiggle_price || 0}`,
+          `💲 <b>List Price:</b> $${arbP.wiggle_price || 0} · <b>Profit:</b> $${(arbP.wiggle_price || 0) - (arbP.asking_price || 0)}`,
         ]
         if (arbP.contact_name) lines.push(`👤 <b>Contact:</b> ${arbP.contact_name}`)
         if (arbP.contact_phone) lines.push(`📞 <b>Phone:</b> ${arbP.contact_phone}`)
