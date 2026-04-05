@@ -191,7 +191,6 @@ export default function Crypto() {
       const cached = JSON.parse(raw);
       if (cached.tokenMint !== TOKEN_ADDRESS) return false;
       if (cached.walletSignature !== getWalletCacheSignature(walletList)) return false;
-      if (Date.now() - (cached.ts || 0) > 5 * 60 * 1000) return false;
       if (!Array.isArray(cached.wallets)) return false;
 
       setWalletBalances(cached.wallets);
@@ -306,7 +305,8 @@ export default function Crypto() {
     }
 
     const hadCache = loadCachedBalances(wallets);
-    fetchBalances(hadCache);
+    if (!hadCache) fetchBalances(false);
+    else fetchBalances(true);
   }, [wallets, fetchBalances, loadCachedBalances]);
 
   // Auto-refresh every 60s
