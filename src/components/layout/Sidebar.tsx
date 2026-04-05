@@ -268,17 +268,13 @@ export function Sidebar() {
 
   const renderGroup = (group: NavGroup) => {
     const isChildActive = group.children.some(c => location.pathname === c.to);
-    const isHovered = hoveredGroup === group.label;
     const isExpanded = expandedGroup === group.label;
-    const isManuallyClosed = manualClosed === group.label;
-    const isOpen = isManuallyClosed ? false : (isChildActive || isHovered || isExpanded);
+    const isOpen = isChildActive || isExpanded;
 
     return (
       <div
         key={group.label}
         className="space-y-1"
-        onMouseEnter={() => !collapsed && setHoveredGroup(group.label)}
-        onMouseLeave={() => !collapsed && setHoveredGroup(null)}
       >
         <button
           type="button"
