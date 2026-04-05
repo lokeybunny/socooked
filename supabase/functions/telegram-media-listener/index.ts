@@ -3822,7 +3822,7 @@ Deno.serve(async (req) => {
         event_type: 'arbitrage_awaiting_photo',
         payload: { chat_id: chatId, created: Date.now() },
       })
-      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload a picture to get started.', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload one or multiple pictures to get started.\n<i>Tip: Select 3-4 photos at once — they\'ll all attach to the same item!</i>', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
       return new Response('ok')
     }
 
