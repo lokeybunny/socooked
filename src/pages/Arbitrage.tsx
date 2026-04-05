@@ -500,13 +500,29 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 
     {/* Image Lightbox */}
     <Dialog open={!!lightboxUrl} onOpenChange={(nextOpen) => { if (!nextOpen) setLightboxUrl(null); }}>
-      <DialogContent className="max-w-md overflow-hidden p-2">
+      <DialogContent className="max-w-md overflow-hidden border bg-background p-0 [&>button:last-child]:hidden">
         {lightboxUrl && (
-          <img
-            src={lightboxUrl}
-            alt="Full view"
-            className="max-h-[60vh] w-full rounded-md object-contain bg-muted/30"
-          />
+          <div className="relative">
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="absolute right-3 top-3 z-20 h-9 w-9 rounded-full shadow-md"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setLightboxUrl(null);
+              }}
+            >
+              <X className="h-5 w-5" />
+              <span className="sr-only">Close image</span>
+            </Button>
+            <img
+              src={lightboxUrl}
+              alt="Full view"
+              className="max-h-[60vh] w-full object-contain bg-muted/30"
+            />
+          </div>
         )}
       </DialogContent>
     </Dialog>
