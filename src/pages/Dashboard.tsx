@@ -54,6 +54,19 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Read crypto holding from localStorage (written by Crypto page)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('crypto_holding_usd');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.value && Date.now() - (parsed.ts || 0) < 30 * 60 * 1000) {
+          setCryptoHoldingUsd(parsed.value);
+        }
+      }
+    } catch {}
+  }, []);
+
   const formatCountdown = useCallback((s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
