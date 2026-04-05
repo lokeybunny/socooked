@@ -2737,7 +2737,7 @@ Deno.serve(async (req) => {
                   role: 'user',
                   content: [
                     { type: 'image_url', image_url: { url: originalUrl } },
-                    { type: 'text', text: 'Remove the background from this image completely. Make the background transparent/white. Keep only the main subject/item.' },
+                    { type: 'text', text: 'Remove the background from this image completely. Replace the background with a clean solid white background (#FFFFFF). Keep only the main subject/item centered on the white background. Do not use transparency.' },
                   ],
                 }],
                 modalities: ['image', 'text'],
@@ -5260,7 +5260,7 @@ Deno.serve(async (req) => {
                   role: 'user',
                   content: [
                     { type: 'image_url', image_url: { url: originalUrl } },
-                    { type: 'text', text: 'Remove the background from this image completely. Make the background transparent/white. Keep only the main subject/item.' },
+                    { type: 'text', text: 'Remove the background from this image completely. Replace the background with a clean solid white background (#FFFFFF). Keep only the main subject/item centered on the white background. Do not use transparency.' },
                   ],
                 }],
                 modalities: ['image', 'text'],
