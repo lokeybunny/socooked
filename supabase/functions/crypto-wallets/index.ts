@@ -10,24 +10,20 @@ const RPCS = [
 ];
 
 let rpcCursor = 0;
-function nextRpc(): string {
-  const rpc = RPCS[rpcCursor % RPCS.length];
-  rpcCursor++;
-  return rpc;
-}
 
-async function rpcCallWithFallback(body: string, label: string): Promise<any> {
-  const startRpc = nextRpc();
-  const tried = new Set<string>();
+async function fetchTokenBalance(wallet: string, tokenMint: string): Promise<{ balance: number; decimals: number }> {
+  const body = JSON.stringify({
+    jsonrpc: "2.0", id: 1,
+    method: "getTokenAccountsByOwner",
+    params: [wallet, { mint: tokenMint }, { encoding: "jsonParsed" }],
+  });
 
-  // Try starting RPC, then fallback to others
-  const tryOrder = [startRpc, ...RPCS.filter(r => r !== startRpc)];
-  for (const rpc of tryOrder) {
-    if (tried.has(rpc)) continue;
-    tried.add(rpc);
+  // Try each RPC starting from cursor, rotating
+  for (let attempt = 0; attempt < RPCS.length; attempt++) {
+    const rpc = RPCS[(rpcCursor + attempt) % RPCS.length];
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(rpc, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,17 +33,25 @@ async function rpcCallWithFallback(body: string, label: string): Promise<any> {
       clearTimeout(timeout);
       const data = await res.json();
       if (data.error?.code === 429) {
-        console.warn(`Rate limited: ${rpc} for ${label}`);
-        await new Promise(r => setTimeout(r, 300));
+        console.warn(`429 ${rpc} ${wallet.slice(0,8)}`);
         continue;
       }
       if (data.error) continue;
-      return data;
+      rpcCursor = (rpcCursor + attempt + 1) % RPCS.length; // advance cursor past this RPC
+      const accounts = data.result?.value || [];
+      let totalBalance = 0;
+      let decimals = 6;
+      for (const acct of accounts) {
+        const info = acct.account.data.parsed.info;
+        totalBalance += info.tokenAmount.uiAmount || 0;
+        decimals = info.tokenAmount.decimals;
+      }
+      return { balance: totalBalance, decimals };
     } catch {
       continue;
     }
   }
-  return null;
+  return { balance: 0, decimals: 6 };
 }
 
 Deno.serve(async (req) => {
@@ -67,46 +71,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Process wallets in pairs (token + sol) sequentially, rotating RPCs
-    const results: { wallet: string; balance: number; rawAmount: string; decimals: number; solBalance: number }[] = [];
-
+    // Sequential with 100ms gap, rotating RPCs
+    const results: { wallet: string; balance: number; rawAmount: string; decimals: number }[] = [];
     for (let i = 0; i < wallets.length; i++) {
-      const wallet = wallets[i];
-      const tag = wallet.slice(0, 8);
-
-      // Small delay between wallets to avoid burst rate limits
-      if (i > 0) await new Promise(r => setTimeout(r, 150));
-
-      // Fetch token balance and SOL balance in parallel (2 calls to different RPCs)
-      const [tokenData, solData] = await Promise.all([
-        rpcCallWithFallback(
-          JSON.stringify({
-            jsonrpc: "2.0", id: 1,
-            method: "getTokenAccountsByOwner",
-            params: [wallet, { mint: tokenMint }, { encoding: "jsonParsed" }],
-          }),
-          tag
-        ),
-        rpcCallWithFallback(
-          JSON.stringify({ jsonrpc: "2.0", id: 2, method: "getBalance", params: [wallet] }),
-          tag
-        ),
-      ]);
-
-      let balance = 0, decimals = 6;
-      if (tokenData) {
-        for (const acct of (tokenData.result?.value || [])) {
-          const info = acct.account.data.parsed.info;
-          balance += info.tokenAmount.uiAmount || 0;
-          decimals = info.tokenAmount.decimals;
-        }
-      }
-      const solBalance = solData ? (solData.result?.value || 0) / 1e9 : 0;
-
+      if (i > 0) await new Promise(r => setTimeout(r, 100));
+      const { balance, decimals } = await fetchTokenBalance(wallets[i], tokenMint);
       results.push({
-        wallet, balance,
+        wallet: wallets[i], balance,
         rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
-        decimals, solBalance,
+        decimals,
       });
     }
 
@@ -127,22 +100,14 @@ Deno.serve(async (req) => {
 
     const solPriceUsd = priceNative > 0 ? tokenPrice / priceNative : 0;
     const totalTokens = results.reduce((s, r) => s + r.balance, 0);
-    const totalNativeSol = results.reduce((s, r) => s + r.solBalance, 0);
-    const tokenHoldingValueSol = totalTokens * priceNative;
-    const tokenHoldingValueUsd = totalTokens * tokenPrice;
-    const nativeSolValueUsd = totalNativeSol * solPriceUsd;
 
     return new Response(JSON.stringify({
       wallets: results,
       totals: {
         totalTokens,
         holdingPct: (totalTokens / 1_000_000_000) * 100,
-        holdingValueUsd: tokenHoldingValueUsd + nativeSolValueUsd,
-        holdingValueSol: tokenHoldingValueSol + totalNativeSol,
-        tokenHoldingValueSol,
-        tokenHoldingValueUsd,
-        nativeSolBalance: totalNativeSol,
-        nativeSolValueUsd,
+        holdingValueUsd: totalTokens * tokenPrice,
+        holdingValueSol: totalTokens * priceNative,
         tokenPrice, priceNative, marketCap, solPriceUsd,
       },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
