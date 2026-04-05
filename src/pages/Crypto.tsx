@@ -592,13 +592,17 @@ export default function Crypto() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer" onClick={() => setShowUsd(prev => !prev)}>
             <CardContent className="pt-4 pb-3">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                <DollarSign className="h-3.5 w-3.5" /> Holding Value
+                <DollarSign className="h-3.5 w-3.5" /> Holding Value <span className="text-[10px]">(tap to toggle)</span>
               </div>
               <p className="text-xl font-bold text-foreground">
-                {holdingValue > 0 ? `${holdingValue.toFixed(2)} SOL` : "—"}
+                {holdingValue > 0
+                  ? showUsd
+                    ? `$${(walletTotals?.holdingValueUsd ?? 0).toFixed(2)}`
+                    : `${holdingValue.toFixed(2)} SOL`
+                  : "—"}
               </p>
             </CardContent>
           </Card>
