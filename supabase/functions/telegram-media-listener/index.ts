@@ -94,6 +94,9 @@ function ensureBotCommandsBg(token: string) {
     { command: 'proposal', description: '📝 Create & send a proposal' },
     { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
+    { command: 'fig', description: '🔇 Toggle auto-shill & CRM notifications on/off' },
+    { command: 'defaultaddy', description: '📍 Set default arbitrage address' },
+    { command: 'defaultaddyoff', description: '📍 Disable default arbitrage address' },
     { command: 'shill', description: '🏠 HOME — Shill video to Home communities' },
     { command: 'shill2', description: '✈️ AWAY — Shill video to Away community' },
   ]
