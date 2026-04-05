@@ -456,7 +456,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
                 <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No store</SelectItem>
-                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>)}
+                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.address || s.store_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -865,7 +865,7 @@ export default function Arbitrage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">All Stores</SelectItem>
-                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.store_name} ({storeItemCounts[s.id] || 0})</SelectItem>)}
+                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{(s.address || s.store_name)} ({storeItemCounts[s.id] || 0})</SelectItem>)}
                   {unassignedCount > 0 && <SelectItem value="__unassigned__">Unassigned ({unassignedCount})</SelectItem>}
                 </SelectContent>
               </Select>
@@ -909,7 +909,7 @@ export default function Arbitrage() {
                         <h3 className="font-semibold text-xs line-clamp-1">{item.item_name}</h3>
                         {(store || item.pawn_shop_address) && (
                           <p className="text-[10px] text-muted-foreground truncate flex items-center gap-0.5">
-                            <MapPin className="h-2.5 w-2.5 shrink-0" /> {store?.store_name || item.pawn_shop_address}
+                            <MapPin className="h-2.5 w-2.5 shrink-0" /> {store?.address || item.pawn_shop_address}
                           </p>
                         )}
                         {(item.contact_name) && (
@@ -986,8 +986,8 @@ export default function Arbitrage() {
                       <CardContent className="p-4 space-y-2">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="font-semibold text-sm">{store.store_name}</h3>
-                            {store.address && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{store.address}</p>}
+                            <h3 className="font-semibold text-sm">{store.address || store.store_name}</h3>
+                            {store.address && store.store_name && <p className="text-xs text-muted-foreground flex items-center gap-1"><Store className="h-3 w-3" />{store.store_name}</p>}
                           </div>
                           <Badge variant="outline" className="text-xs">{count} items</Badge>
                         </div>
