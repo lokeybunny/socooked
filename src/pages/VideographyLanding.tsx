@@ -67,19 +67,13 @@ export default function VideographyLanding() {
     }
     setSubmitting(true);
     try {
-      // Remove any drafted duplicate so testers can re-submit
-      const { data: existing } = await supabase
+      // Remove any existing record with same phone+source so re-submissions always work
+      await supabase
         .from('customers')
-        .select('id, meta')
+        .delete()
         .eq('phone', phone.trim())
-        .eq('source', 'videography-landing')
-        .maybeSingle();
-      if (existing) {
-        const meta = (existing.meta as Record<string, unknown>) || {};
-        if (meta.funnel_drafted_at) {
-          await supabase.from('customers').delete().eq('id', existing.id);
-        }
-      }
+        .eq('source', 'videography-landing');
+
       const { error: insertErr } = await supabase.from('customers').insert({
         full_name: name.trim(),
         email: email.trim(),
