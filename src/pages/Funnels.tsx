@@ -568,11 +568,6 @@ export default function Funnels() {
 
       const combined: FunnelLead[] = [];
 
-      // Arbitrage items
-      (arbItems || []).forEach((a: any) => {
-        const meta = (a.meta as Record<string, unknown>) || {};
-        combined.push({
-          id: a.id, funnel: 'arbitrage' as const, _table: 'customers' as const,
           full_name: a.item_name || 'Untitled Item',
           email: null, phone: null,
           created_at: a.created_at, status: a.status || 'new',
