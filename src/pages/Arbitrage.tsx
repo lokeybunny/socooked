@@ -784,6 +784,26 @@ export default function Arbitrage() {
           </div>
         </div>
 
+        {/* Default Address Setting */}
+        <div className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-2 bg-card">
+          <div className="flex items-center gap-2 shrink-0">
+            <MapPin className={cn("h-3.5 w-3.5", defaultAddyEnabled ? "text-primary" : "text-muted-foreground")} />
+            <Label htmlFor="addy-toggle" className="text-xs cursor-pointer select-none whitespace-nowrap">Default Address</Label>
+            <Switch id="addy-toggle" checked={defaultAddyEnabled} onCheckedChange={handleToggleDefaultAddy} disabled={defaultAddySaving || !defaultAddress} />
+          </div>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Input
+              className="h-8 text-xs flex-1"
+              placeholder="e.g. 123 Main St, Las Vegas NV 89101"
+              value={defaultAddyInput}
+              onChange={(e) => setDefaultAddyInput(e.target.value)}
+            />
+            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={handleSaveDefaultAddress} disabled={defaultAddySaving}>
+              {defaultAddySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+            </Button>
+          </div>
+        </div>
+
         {/* Reminders Banner */}
         {reminders.length > 0 && (
           <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
