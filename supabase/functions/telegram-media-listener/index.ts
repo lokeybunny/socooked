@@ -2717,10 +2717,12 @@ Deno.serve(async (req) => {
         const originalUrl = urlData?.publicUrl || ''
 
         // Create arbitrage_item with original image
+        const sku = String.fromCharCode(65+Math.floor(Math.random()*26)) + String.fromCharCode(65+Math.floor(Math.random()*26)) + String(Math.floor(Math.random()*100)).padStart(2,'0')
         const { data: arbItem } = await supabase.from('arbitrage_items').insert({
           item_name: fileName,
           original_image_url: originalUrl,
           status: 'new',
+          sku,
         }).select('id').single()
 
         // Trigger background removal via Nano Banana — only if enabled
@@ -5000,11 +5002,16 @@ Deno.serve(async (req) => {
           payload: { ...arbP, step: 'add_photos', wiggle_price: price },
         }).eq('id', arbS.id)
 
+        // Fetch SKU for display
+        const { data: skuRow } = await supabase.from('arbitrage_items').select('sku').eq('id', itemId).single()
+        const itemSku = skuRow?.sku || '—'
+
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
           `💲 <b>List Price:</b> $${price} · <b>Profit:</b> $${price - (arbP.asking_price || 0)}`,
+          `🏷 <b>SKU:</b> ${itemSku}`,
         ]
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
@@ -5311,10 +5318,12 @@ Deno.serve(async (req) => {
         const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
         const originalUrl = urlData?.publicUrl || ''
 
+        const sku2 = String.fromCharCode(65+Math.floor(Math.random()*26)) + String.fromCharCode(65+Math.floor(Math.random()*26)) + String(Math.floor(Math.random()*100)).padStart(2,'0')
         const { data: arbItem, error: arbInsertErr } = await supabase.from('arbitrage_items').insert({
           item_name: fileName,
           original_image_url: originalUrl,
           status: 'new',
+          sku: sku2,
         }).select('id').single()
 
         if (arbInsertErr || !arbItem?.id) {

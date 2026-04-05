@@ -1,0 +1,1 @@
+ALTER TABLE public.arbitrage_items ADD COLUMN sku text UNIQUE;
