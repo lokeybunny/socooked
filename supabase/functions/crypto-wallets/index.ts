@@ -4,33 +4,39 @@ const corsHeaders = {
 };
 
 const RPCS = [
-  "https://api.mainnet-beta.solana.com",
   "https://solana-rpc.publicnode.com",
+  "https://rpc.ankr.com/solana",
 ];
 
-async function getWalletBalance(wallet: string, tokenMint: string): Promise<{ balance: number; decimals: number }> {
+let rpcCursor = 0;
+
+async function fetchTokenBalance(wallet: string, tokenMint: string): Promise<{ balance: number; decimals: number }> {
   const body = JSON.stringify({
     jsonrpc: "2.0", id: 1,
     method: "getTokenAccountsByOwner",
     params: [wallet, { mint: tokenMint }, { encoding: "jsonParsed" }],
   });
 
-  for (const rpc of RPCS) {
+  // Try each RPC starting from cursor, rotating
+  for (let attempt = 0; attempt < RPCS.length; attempt++) {
+    const rpc = RPCS[(rpcCursor + attempt) % RPCS.length];
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const res = await fetch(rpc, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const data = await res.json();
       if (data.error?.code === 429) {
-        console.warn(`${rpc} rate limited for ${wallet.slice(0,8)}, trying next`);
+        console.warn(`429 ${rpc} ${wallet.slice(0,8)}`);
         continue;
       }
-      if (data.error) {
-        console.warn(`${rpc} error for ${wallet.slice(0,8)}:`, data.error.message);
-        continue;
-      }
+      if (data.error) continue;
+      rpcCursor = (rpcCursor + attempt + 1) % RPCS.length; // advance cursor past this RPC
       const accounts = data.result?.value || [];
       let totalBalance = 0;
       let decimals = 6;
@@ -40,8 +46,8 @@ async function getWalletBalance(wallet: string, tokenMint: string): Promise<{ ba
         decimals = info.tokenAmount.decimals;
       }
       return { balance: totalBalance, decimals };
-    } catch (err) {
-      console.warn(`${rpc} fetch failed for ${wallet.slice(0,8)}:`, err);
+    } catch {
+      continue;
     }
   }
   return { balance: 0, decimals: 6 };
@@ -64,11 +70,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Query all wallets with 500ms stagger
+    // Sequential with 100ms gap, rotating RPCs
     const results: { wallet: string; balance: number; rawAmount: string; decimals: number }[] = [];
     for (let i = 0; i < wallets.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 500));
-      const { balance, decimals } = await getWalletBalance(wallets[i], tokenMint);
+      if (i > 0) await new Promise(r => setTimeout(r, 100));
+      const { balance, decimals } = await fetchTokenBalance(wallets[i], tokenMint);
       results.push({
         wallet: wallets[i], balance,
         rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
@@ -91,7 +97,9 @@ Deno.serve(async (req) => {
       }
     } catch {}
 
+    const solPriceUsd = priceNative > 0 ? tokenPrice / priceNative : 0;
     const totalTokens = results.reduce((s, r) => s + r.balance, 0);
+
     return new Response(JSON.stringify({
       wallets: results,
       totals: {
@@ -99,7 +107,7 @@ Deno.serve(async (req) => {
         holdingPct: (totalTokens / 1_000_000_000) * 100,
         holdingValueUsd: totalTokens * tokenPrice,
         holdingValueSol: totalTokens * priceNative,
-        tokenPrice, priceNative, marketCap,
+        tokenPrice, priceNative, marketCap, solPriceUsd,
       },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
   } catch (err) {
