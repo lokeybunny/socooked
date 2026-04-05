@@ -909,7 +909,7 @@ export default function Arbitrage() {
                         <h3 className="font-semibold text-xs line-clamp-1">{item.item_name}</h3>
                         {(store || item.pawn_shop_address) && (
                           <p className="text-[10px] text-muted-foreground truncate flex items-center gap-0.5">
-                            <MapPin className="h-2.5 w-2.5 shrink-0" /> {store?.store_name || item.pawn_shop_address}
+                            <MapPin className="h-2.5 w-2.5 shrink-0" /> {store?.address || item.pawn_shop_address}
                           </p>
                         )}
                         {(item.contact_name) && (
