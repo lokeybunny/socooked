@@ -25,6 +25,13 @@ export default function Stream() {
 
     setSubmitting(true);
     try {
+      // Remove any existing record with same phone+source so re-submissions always work
+      await supabase
+        .from('customers')
+        .delete()
+        .eq('phone', formattedPhone)
+        .eq('source', 'videography-landing');
+
       // Create customer record for the callback
       const { error: custErr } = await supabase.from('customers').insert({
         full_name: businessName.trim(),
