@@ -706,7 +706,10 @@ export default function Funnels() {
   const handleStageChange = async (lead: FunnelLead, newStatus: string) => {
     if (lead.status === newStatus) return;
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
-    if (lead._table === 'customers') {
+    if (lead.funnel === 'arbitrage') {
+      const { error } = await supabase.from('arbitrage_items').update({ status: newStatus }).eq('id', lead.id);
+      if (error) { toast.error(error.message); fetchLeads(); return; }
+    } else if (lead._table === 'customers') {
       const { error } = await supabase.from('customers').update({ status: newStatus }).eq('id', lead.id);
       if (error) { toast.error(error.message); fetchLeads(); return; }
     } else {
