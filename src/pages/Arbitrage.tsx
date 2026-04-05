@@ -205,7 +205,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
         ...(item.extra_images || []),
       ].filter(Boolean) as string[];
 
-      const listingText = `📦 *${item.item_name}*\n\n${item.condition_notes || 'No description'}\n\n💰 Ask: ${item.asking_price != null ? `$${item.asking_price}` : 'N/A'}${item.wiggle_room_price != null ? ` · Wiggle: $${item.wiggle_room_price}` : ''}${aiAnalysis?.estimated_value_low ? `\n📊 Est. Value: $${aiAnalysis.estimated_value_low}-$${aiAnalysis.estimated_value_high}` : ''}${aiAnalysis?.category ? `\n🏷 ${aiAnalysis.category}` : ''}`;
+      const listingText = `📦 *${item.item_name}*\n\n${item.condition_notes || 'No description'}\n\n💰 Ask: ${item.asking_price != null ? `$${item.asking_price}` : 'N/A'}${item.wiggle_room_price != null ? ` · List: $${item.wiggle_room_price}` : ''}${spread != null ? ` · Profit: $${spread}` : ''}${aiAnalysis?.estimated_value_low ? `\n📊 Est. Value: $${aiAnalysis.estimated_value_low}-$${aiAnalysis.estimated_value_high}` : ''}${aiAnalysis?.category ? `\n🏷 ${aiAnalysis.category}` : ''}`;
 
       const { data, error } = await supabase.functions.invoke('telegram-notify', {
         body: {
