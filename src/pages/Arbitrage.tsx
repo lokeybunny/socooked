@@ -456,7 +456,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
                 <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">No store</SelectItem>
-                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>)}
+                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.address || s.store_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
