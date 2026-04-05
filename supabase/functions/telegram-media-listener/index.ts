@@ -4580,6 +4580,109 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle arbitrage session (multi-step wizard) ───
+    const { data: arbSessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .order('created_at', { ascending: false }).limit(1)
+
+    if (arbSessions && arbSessions.length > 0 && text) {
+      const arbS = arbSessions[0]
+      const arbP = arbS.payload as any
+      const itemId = arbP.item_id
+
+      if (arbP.step === 'address') {
+        await supabase.from('arbitrage_items').update({ pawn_shop_address: text.trim() }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'asking_price', address: text.trim() },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '💰 <b>What\'s the pawn shop\'s asking price?</b>\n\n<i>Just the number, e.g. 150</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'asking_price') {
+        const price = parseFloat(text.replace(/[^0-9.]/g, ''))
+        if (isNaN(price)) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the asking price.' })
+          return new Response('ok')
+        }
+        await supabase.from('arbitrage_items').update({ asking_price: price }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'wiggle_price', asking_price: price },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '🤝 <b>What\'s the wiggle room price?</b> (lowest they\'ll go)\n\n<i>Just the number, e.g. 100</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'wiggle_price') {
+        const price = parseFloat(text.replace(/[^0-9.]/g, ''))
+        if (isNaN(price)) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the wiggle room price.' })
+          return new Response('ok')
+        }
+        await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'notes', wiggle_price: price },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📝 <b>Quick note?</b> (condition, brand, urgency — or type "skip" to finish)',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'notes') {
+        const noteText = text.toLowerCase() === 'skip' ? null : text.trim()
+        if (noteText) {
+          await supabase.from('arbitrage_items').update({
+            condition_notes: noteText,
+            item_name: noteText.substring(0, 60),
+          }).eq('id', itemId)
+        }
+
+        // Clean up session
+        await supabase.from('webhook_events').delete().eq('id', arbS.id)
+
+        // Build summary
+        const lines = [
+          '🏪 <b>Arbitrage Item Logged!</b>\n',
+          `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
+          `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
+          `🤝 <b>Wiggle:</b> $${arbP.wiggle_price || 0}`,
+        ]
+        if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
+        if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
+        if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
+        lines.push('\n✅ Ready to act when you\'re back at your station.')
+
+        // Log activity
+        await supabase.from('activity_log').insert({
+          entity_type: 'arbitrage',
+          entity_id: itemId,
+          action: 'arbitrage_item_logged',
+          meta: { name: `🏪 Arbitrage: ${noteText || 'New item'}`, address: arbP.address },
+        })
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        })
+        return new Response('ok')
+      }
+    }
+
     // ─── Handle xpost session text (message step) ───
     const { data: xSessions } = await supabase.from('webhook_events')
       .select('id, payload')
