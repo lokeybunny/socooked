@@ -262,9 +262,7 @@ export function Sidebar() {
     );
   };
 
-  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const [manualClosed, setManualClosed] = useState<string | null>(null);
 
   const renderGroup = (group: NavGroup) => {
     const isChildActive = group.children.some(c => location.pathname === c.to);
