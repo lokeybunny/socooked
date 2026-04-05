@@ -145,6 +145,7 @@ const App = () => (
                 <Route path="/shillteam" element={<ShillTeam />} />
                 <Route path="/x-shill" element={<RestrictedGate><AuthLayoutGate><XShill /></AuthLayoutGate></RestrictedGate>} />
                 <Route path="/wholesale" element={<WarrenOnlyGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/arbitrage" element={<WarrenOnlyGate><AuthLayoutGate><ArbitragePage /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/sell/:slug" element={<SellerLanding />} />
                 <Route path="/api-management" element={<WarrenOnlyGate><AuthLayoutGate><ApiManagement /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
