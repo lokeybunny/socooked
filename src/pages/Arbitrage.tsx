@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { normalizeArbitrageAddress, normalizeArbitrageStoreKey, parseArbitrageStoresCsv } from '@/lib/arbitrageStoreCsv';
 
 const PAGE_SIZE = 36;
 
@@ -607,87 +608,106 @@ export default function Arbitrage() {
     toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
   };
 
-  // Proper CSV line parser that handles quoted fields with commas
-  const parseCsvLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; continue; }
-        inQuotes = !inQuotes; continue;
-      }
-      if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
-      current += ch;
-    }
-    result.push(current.trim());
-    return result;
-  };
-
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCsvImporting(true);
     try {
       const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) { toast.error('CSV has no data rows'); return; }
+      const rows = parseArbitrageStoresCsv(text);
 
-      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
-
-      // Auto-detect column indices
-      const nameIdx = headers.findIndex(h => /store.?name|name|business|company|shop/i.test(h));
-      const addrIdx = headers.findIndex(h => /address|street|location/i.test(h));
-      const contactIdx = headers.findIndex(h => /contact.?name|owner|person/i.test(h));
-      const phoneIdx = headers.findIndex(h => /phone|tel|mobile/i.test(h));
-      const emailIdx = headers.findIndex(h => /email|e-?mail/i.test(h));
-      const websiteIdx = headers.findIndex(h => /website|web|url|site/i.test(h));
-      const notesIdx = headers.findIndex(h => /notes?|description|comments?/i.test(h));
-
-      if (nameIdx === -1 && addrIdx === -1) {
-        toast.error('CSV needs a "name" or "address" column');
+      if (rows.length === 0) {
+        toast.error('No valid store rows found');
         return;
       }
 
-      const rows: { store_name: string; address: string | null; contact_name: string | null; contact_phone: string | null; email: string | null; website: string | null; notes: string | null }[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = parseCsvLine(lines[i]);
-        const storeName = (nameIdx >= 0 ? cols[nameIdx] : '') || (addrIdx >= 0 ? cols[addrIdx] : '') || '';
-        if (!storeName) continue;
-        rows.push({
-          store_name: storeName,
-          address: addrIdx >= 0 ? cols[addrIdx] || null : null,
-          contact_name: contactIdx >= 0 ? cols[contactIdx] || null : null,
-          contact_phone: phoneIdx >= 0 ? cols[phoneIdx] || null : null,
-          email: emailIdx >= 0 ? cols[emailIdx] || null : null,
-          website: websiteIdx >= 0 ? cols[websiteIdx] || null : null,
-          notes: notesIdx >= 0 ? cols[notesIdx] || null : null,
-        });
+      const { data: existingStores, error: storesError } = await supabase
+        .from('arbitrage_stores')
+        .select('*');
+
+      if (storesError) {
+        toast.error(storesError.message);
+        return;
       }
 
-      if (rows.length === 0) { toast.error('No valid rows found'); return; }
+      const existingByKey = new Map(
+        ((existingStores as ArbStore[]) || []).map(store => [normalizeArbitrageStoreKey(store.store_name, store.address), store])
+      );
 
-      // Deduplicate by store_name + address combo (same name, different location = separate stores)
-      const seen = new Set<string>();
-      const deduped = rows.filter(r => {
-        const key = `${r.store_name.toLowerCase().trim()}|||${(r.address || '').toLowerCase().trim()}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const updates: { id: string; data: Partial<ArbStore> }[] = [];
+      const inserts: Array<Pick<ArbStore, 'store_name' | 'address' | 'contact_name' | 'contact_phone' | 'notes' | 'website' | 'email'>> = [];
 
-      // Batch insert (50 at a time)
+      for (const row of rows) {
+        const key = normalizeArbitrageStoreKey(row.store_name, row.address);
+        const existing = existingByKey.get(key);
+
+        if (existing) {
+          updates.push({
+            id: existing.id,
+            data: {
+              store_name: existing.store_name || row.store_name,
+              address: existing.address || row.address,
+              contact_name: existing.contact_name || row.contact_name,
+              contact_phone: existing.contact_phone || row.contact_phone,
+              website: (existing as any).website || row.website,
+              email: (existing as any).email || row.email,
+              notes: existing.notes || row.notes,
+            },
+          });
+        } else {
+          inserts.push({
+            store_name: row.store_name,
+            address: row.address,
+            contact_name: row.contact_name,
+            contact_phone: row.contact_phone,
+            website: row.website,
+            email: row.email,
+            notes: row.notes,
+          });
+        }
+      }
+
+      let updated = 0;
+      for (const entry of updates) {
+        const { error } = await supabase.from('arbitrage_stores').update(entry.data as any).eq('id', entry.id);
+        if (!error) updated += 1;
+      }
+
       let inserted = 0;
-      for (let i = 0; i < deduped.length; i += 50) {
-        const batch = deduped.slice(i, i + 50);
-        const { error } = await supabase.from('arbitrage_stores').insert(batch);
-        if (error) { toast.error(`Row ${i + 1}: ${error.message}`); break; }
+      for (let i = 0; i < inserts.length; i += 50) {
+        const batch = inserts.slice(i, i + 50);
+        const { error } = await supabase.from('arbitrage_stores').insert(batch as any);
+        if (error) {
+          toast.error(error.message);
+          break;
+        }
         inserted += batch.length;
       }
 
-      toast.success(`Imported ${inserted} stores`);
-      fetchAll();
+      await fetchAll();
+
+      const refreshedStores = Array.from(existingByKey.values());
+      const { data: latestStores } = await supabase.from('arbitrage_stores').select('*');
+      const storeList = ((latestStores as ArbStore[]) || refreshedStores);
+      const storeByAddress = new Map(
+        storeList
+          .filter(store => store.address)
+          .map(store => [normalizeArbitrageAddress(store.address), store.id])
+      );
+
+      const relinkTargets = items
+        .filter(item => !item.store_id && item.pawn_shop_address)
+        .map(item => ({ id: item.id, store_id: storeByAddress.get(normalizeArbitrageAddress(item.pawn_shop_address)) || null }))
+        .filter(item => item.store_id);
+
+      let relinked = 0;
+      for (const target of relinkTargets) {
+        const { error } = await supabase.from('arbitrage_items').update({ store_id: target.store_id } as any).eq('id', target.id);
+        if (!error) relinked += 1;
+      }
+
+      await fetchAll();
+      toast.success(`Stores synced: ${inserted} added, ${updated} updated, ${relinked} items linked`);
     } catch (err: any) {
       toast.error(err.message || 'CSV import failed');
     } finally {
