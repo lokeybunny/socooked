@@ -145,6 +145,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   onDelete: (id: string) => void;
   onRefresh: () => void;
 }) {
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [pushingTG, setPushingTG] = useState(false);
   const [editingName, setEditingName] = useState(false);
