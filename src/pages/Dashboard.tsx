@@ -61,7 +61,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, arbPurchasedRes, arbListedRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
@@ -69,6 +69,8 @@ export default function Dashboard() {
         supabase.from('communications').select('type, created_at'),
         supabase.from('invoices').select('customer_id, status'),
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
+        supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'purchased'),
+        supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'listed'),
       ]);
 
       const allComms = comms.data || [];
@@ -78,9 +80,15 @@ export default function Dashboard() {
       const monthlyCount = monthlyRes.count || 0;
       const clientCount = clientRes.count || 0;
 
+      // Arbitrage metrics
+      const arbPurchased = arbPurchasedRes.data || [];
+      const arbPurchasedCount = arbPurchased.length;
+      const arbPurchasedSpread = arbPurchased.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
+      const arbListed = arbListedRes.data || [];
+      const arbListedSpread = arbListed.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
+
       // Actual lead conversion: monthly/active customers where ALL invoices are paid
       const allInvoices = invoicesRes.data || [];
-      // Get all monthly + active customer IDs
       const [monthlyCustomers, activeCustomers] = await Promise.all([
         supabase.from('customers').select('id').eq('status', 'monthly'),
         supabase.from('customers').select('id').eq('status', 'active'),
@@ -90,7 +98,6 @@ export default function Dashboard() {
         ...(activeCustomers.data || []).map((c: any) => c.id),
       ]);
 
-      // For each converted customer, check if they have at least one invoice and all are paid
       const invoicesByCustomer = new Map<string, boolean>();
       for (const inv of allInvoices) {
         const cid = inv.customer_id;
@@ -108,9 +115,12 @@ export default function Dashboard() {
         prospectEmailedCount,
         monthlyCount,
         clientCount,
-        actualTotalCustomers: convertedIds.size,
+        actualTotalCustomers: convertedIds.size + arbPurchasedCount,
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
+        arbPurchasedCount,
+        arbPurchasedSpread,
+        arbListedSpread,
       });
 
       setRecentCustomers(rc.data || []);
