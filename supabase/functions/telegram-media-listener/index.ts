@@ -5313,10 +5313,12 @@ Deno.serve(async (req) => {
         const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
         const originalUrl = urlData?.publicUrl || ''
 
+        const sku2 = String.fromCharCode(65+Math.floor(Math.random()*26)) + String.fromCharCode(65+Math.floor(Math.random()*26)) + String(Math.floor(Math.random()*100)).padStart(2,'0')
         const { data: arbItem, error: arbInsertErr } = await supabase.from('arbitrage_items').insert({
           item_name: fileName,
           original_image_url: originalUrl,
           status: 'new',
+          sku: sku2,
         }).select('id').single()
 
         if (arbInsertErr || !arbItem?.id) {
