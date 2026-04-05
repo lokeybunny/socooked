@@ -12,9 +12,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const timeframe = url.searchParams.get("timeframe") || "hour";
-    const limit = Math.min(Number(url.searchParams.get("limit") || "200"), 1000);
+    let timeframe = "hour";
+    let limit = 200;
+
+    // Support both GET query params and POST body
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        if (body.timeframe) timeframe = body.timeframe;
+        if (body.limit) limit = Math.min(Number(body.limit), 1000);
+      } catch {}
+    } else {
+      const url = new URL(req.url);
+      timeframe = url.searchParams.get("timeframe") || "hour";
+      limit = Math.min(Number(url.searchParams.get("limit") || "200"), 1000);
+    }
 
     // Also fetch current token info from DexScreener
     const [ohlcvRes, dexRes] = await Promise.all([
