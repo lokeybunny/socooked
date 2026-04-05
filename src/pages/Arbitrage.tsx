@@ -25,8 +25,8 @@ const PAGE_SIZE = 36;
 const STAGES = [
   { value: 'new', label: 'New', color: 'text-blue-500' },
   { value: 'researching', label: 'Researching', color: 'text-yellow-500' },
-  { value: 'purchased', label: 'Purchased', color: 'text-emerald-500' },
   { value: 'listed', label: 'Listed', color: 'text-cyan-500' },
+  { value: 'purchased', label: 'Purchased', color: 'text-emerald-500' },
   { value: 'sold', label: 'Sold', color: 'text-purple-500' },
   { value: 'passed', label: 'Passed', color: 'text-muted-foreground' },
 ];
