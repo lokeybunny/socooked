@@ -921,6 +921,7 @@ export default function Arbitrage() {
                           {item.asking_price != null && <span className="font-bold text-foreground">${item.asking_price}</span>}
                           {sp != null && <span className="text-emerald-500 font-medium">+${sp}</span>}
                         </div>
+                        {(item as any).sku && <p className="text-[10px] font-mono text-muted-foreground">SKU: {(item as any).sku}</p>}
                       </CardContent>
                     </Card>
                   );

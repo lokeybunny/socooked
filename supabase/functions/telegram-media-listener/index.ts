@@ -5002,11 +5002,16 @@ Deno.serve(async (req) => {
           payload: { ...arbP, step: 'add_photos', wiggle_price: price },
         }).eq('id', arbS.id)
 
+        // Fetch SKU for display
+        const { data: skuRow } = await supabase.from('arbitrage_items').select('sku').eq('id', itemId).single()
+        const itemSku = skuRow?.sku || '—'
+
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
           `💲 <b>List Price:</b> $${price} · <b>Profit:</b> $${price - (arbP.asking_price || 0)}`,
+          `🏷 <b>SKU:</b> ${itemSku}`,
         ]
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
