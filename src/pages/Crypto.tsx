@@ -92,8 +92,7 @@ export default function Crypto() {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("crypto-chart", {
-        body: null,
-        method: "GET",
+        body: { timeframe: "hour", limit: 200 },
       });
       if (error) throw error;
       const parsed = typeof data === "string" ? JSON.parse(data) : data;
