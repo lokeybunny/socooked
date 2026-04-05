@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
 
     // Process wallets sequentially with 1.5s gap to avoid rate limits
     for (let i = 0; i < wallets.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 1500));
+      if (i > 0) await new Promise(r => setTimeout(r, 800));
 
       const wallet = wallets[i];
       try {
