@@ -3579,8 +3579,23 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    if (action === 'more3') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Page 3</b> — More tools:', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
+      return new Response('ok')
+    }
+
     if (action === 'back') {
       await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Main Menu</b>', parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
+      return new Response('ok')
+    }
+
+    if (action === 'back2') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Page 2</b> — More tools:', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+      return new Response('ok')
+    }
+
+    if (action === 'arbitrage') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload a picture to get started.', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
       return new Response('ok')
     }
 
