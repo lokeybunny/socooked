@@ -52,7 +52,16 @@ const PAGE_2_KEYBOARD = {
     [{ text: '🍌2️⃣ Banana2' }, { text: '🎬 Higgsfield' }],
     [{ text: '🤖 AI Assistant' }, { text: '📧 Email' }],
     [{ text: '📝 Proposal' }, { text: '🔍 Audit' }],
-    [{ text: '⬅️ Back' }],
+    [{ text: '⬅️ Back' }, { text: '➡️ More 3' }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+}
+
+const PAGE_3_KEYBOARD = {
+  keyboard: [
+    [{ text: '🏪 Arbitrage' }],
+    [{ text: '⬅️ Back 2' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -144,7 +153,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -157,7 +166,10 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === '/meeting' || normalized === 'meeting') return 'meeting'
   if (normalized === '/cancel' || normalized === 'cancel') return 'cancel'
   if (normalized === 'more' || normalized === '/more') return 'more'
+  if (normalized === 'more 3' || normalized === 'more3') return 'more3'
   if (normalized === 'back' || normalized === '/back') return 'back'
+  if (normalized === 'back 2' || normalized === 'back2') return 'back2'
+  if (normalized === 'arbitrage' || normalized === '/arbitrage') return 'arbitrage'
   if (normalized === 'web dev' || normalized === 'webdev' || normalized === '/webdev') return 'webdev'
   if (normalized === 'banana2' || normalized === '/banana2' || /banana\s*2/.test(normalized) || /^2.*banana2$/i.test(normalized)) return 'banana2'
   if ((normalized === 'banana' || normalized === '/banana') && !/banana2/.test(normalized)) return 'banana'
@@ -3567,8 +3579,23 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    if (action === 'more3') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Page 3</b> — More tools:', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
+      return new Response('ok')
+    }
+
     if (action === 'back') {
       await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Main Menu</b>', parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
+      return new Response('ok')
+    }
+
+    if (action === 'back2') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Page 2</b> — More tools:', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+      return new Response('ok')
+    }
+
+    if (action === 'arbitrage') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload a picture to get started.', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
       return new Response('ok')
     }
 
