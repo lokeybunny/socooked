@@ -517,7 +517,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
             )}
             {/* Mark as Sold */}
             {(item.status === 'listed' || item.status === 'purchased') && !showSoldPrompt && (
-              <Button size="sm" onClick={() => { setShowSoldPrompt(true); setSoldPrice(item.wiggle_room_price != null ? String(item.wiggle_room_price) : ''); }} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button size="sm" onClick={() => { setShowSoldPrompt(true); setSoldPrice(item.wiggle_room_price != null ? String(item.wiggle_room_price) : ''); }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <DollarSign className="h-3.5 w-3.5 mr-1" /> Mark as Sold
               </Button>
             )}
