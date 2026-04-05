@@ -176,6 +176,51 @@ export type Database = {
         }
         Relationships: []
       }
+      arbitrage_items: {
+        Row: {
+          asking_price: number | null
+          condition_notes: string | null
+          created_at: string
+          id: string
+          item_name: string
+          meta: Json
+          nobg_image_url: string | null
+          original_image_url: string | null
+          pawn_shop_address: string | null
+          status: string
+          updated_at: string
+          wiggle_room_price: number | null
+        }
+        Insert: {
+          asking_price?: number | null
+          condition_notes?: string | null
+          created_at?: string
+          id?: string
+          item_name?: string
+          meta?: Json
+          nobg_image_url?: string | null
+          original_image_url?: string | null
+          pawn_shop_address?: string | null
+          status?: string
+          updated_at?: string
+          wiggle_room_price?: number | null
+        }
+        Update: {
+          asking_price?: number | null
+          condition_notes?: string | null
+          created_at?: string
+          id?: string
+          item_name?: string
+          meta?: Json
+          nobg_image_url?: string | null
+          original_image_url?: string | null
+          pawn_shop_address?: string | null
+          status?: string
+          updated_at?: string
+          wiggle_room_price?: number | null
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           actions: Json
