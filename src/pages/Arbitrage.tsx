@@ -884,7 +884,7 @@ export default function Arbitrage() {
               <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {paged.map(item => {
                   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
-                  const sp = item.asking_price && item.wiggle_room_price ? item.asking_price - item.wiggle_room_price : null;
+                  const sp = item.asking_price != null && item.wiggle_room_price != null ? item.wiggle_room_price - item.asking_price : null;
                   const store = stores.find(s => s.id === item.store_id);
                   const hasReminder = reminders.some(r => r.item_id === item.id);
                   return (
