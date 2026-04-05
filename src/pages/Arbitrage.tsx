@@ -239,12 +239,12 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
           {aiAnalysis && (
             <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-1">
               <p className="text-xs font-semibold flex items-center gap-1.5 text-primary"><Sparkles className="h-3.5 w-3.5" /> AI Analysis</p>
-              <p className="text-sm font-medium">{aiAnalysis.item_name}</p>
-              <p className="text-xs text-muted-foreground">{aiAnalysis.description}</p>
+              <p data-copy className="text-sm font-medium" onClick={() => cp(aiAnalysis.item_name, 'Item name')}>{aiAnalysis.item_name}</p>
+              <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(aiAnalysis.description, 'Description')}>{aiAnalysis.description}</p>
               {aiAnalysis.estimated_value_low && (
-                <p className="text-xs">Est. Value: <span className="font-semibold text-emerald-500">${aiAnalysis.estimated_value_low} - ${aiAnalysis.estimated_value_high}</span></p>
+                <p data-copy className="text-xs" onClick={() => cp(`$${aiAnalysis.estimated_value_low} - $${aiAnalysis.estimated_value_high}`, 'Est. value')}>Est. Value: <span className="font-semibold text-emerald-500">${aiAnalysis.estimated_value_low} - ${aiAnalysis.estimated_value_high}</span></p>
               )}
-              {aiAnalysis.category && <Badge variant="secondary" className="text-[10px]">{aiAnalysis.category}</Badge>}
+              {aiAnalysis.category && <Badge variant="secondary" className="text-[10px] cursor-pointer" onClick={() => cp(aiAnalysis.category, 'Category')}>{aiAnalysis.category}</Badge>}
             </div>
           )}
 
