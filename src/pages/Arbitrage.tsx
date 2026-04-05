@@ -376,10 +376,15 @@ export default function Arbitrage() {
               <p className="text-sm text-muted-foreground">{items.length} items · {stores.length} stores</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {reminders.length > 0 && (
               <Badge variant="destructive" className="text-xs">{reminders.length} reminder{reminders.length > 1 ? 's' : ''}</Badge>
             )}
+            <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
+              <Zap className={cn("h-3.5 w-3.5", autoBgRemoval ? "text-amber-500" : "text-muted-foreground")} />
+              <Label htmlFor="bg-toggle" className="text-xs cursor-pointer select-none whitespace-nowrap">Auto BG Remove</Label>
+              <Switch id="bg-toggle" checked={autoBgRemoval} onCheckedChange={handleToggleBgRemoval} disabled={bgToggleLoading} />
+            </div>
             <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", loading && "animate-spin")} /> Refresh
             </Button>
