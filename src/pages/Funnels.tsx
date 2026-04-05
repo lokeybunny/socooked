@@ -583,6 +583,28 @@ export default function Funnels() {
 
       const combined: FunnelLead[] = [];
 
+      // Arbitrage items
+      (arbItems || []).forEach((a: any) => {
+        const meta = (a.meta as Record<string, unknown>) || {};
+        combined.push({
+          id: a.id, funnel: 'arbitrage' as const, _table: 'customers' as const,
+          full_name: a.item_name || 'Untitled Item',
+          email: null, phone: null,
+          created_at: a.created_at, status: a.status || 'new',
+          notes: [
+            a.pawn_shop_address ? `📍 ${a.pawn_shop_address}` : null,
+            a.asking_price ? `💰 Asking: $${a.asking_price}` : null,
+            a.wiggle_room_price ? `🤝 Wiggle: $${a.wiggle_room_price}` : null,
+            a.condition_notes ? `📝 ${a.condition_notes}` : null,
+          ].filter(Boolean).join('\n') || null,
+          property_address: a.pawn_shop_address,
+          asking_price: a.asking_price ? Number(a.asking_price) : null,
+          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
+          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
+          drafted_at: (meta.drafted_at as string) || null,
+        });
+      });
+
       (custLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
