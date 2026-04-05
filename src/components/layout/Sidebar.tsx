@@ -52,7 +52,8 @@ const navEntries: NavEntry[] = [
     ],
   },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
-  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', divider: 'Services', green: true },
+  { to: '/arbitrage', icon: ShoppingBag, label: 'Arbitrage', divider: 'Services', green: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
   
