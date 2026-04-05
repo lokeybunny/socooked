@@ -288,13 +288,29 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
             <div className="grid grid-cols-2 gap-3">
               {item.original_image_url && (
                 <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground font-medium">Original</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-muted-foreground font-medium">Original</p>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive hover:text-destructive" onClick={async () => {
+                      if (!confirm('Delete original image?')) return;
+                      await supabase.from('arbitrage_items').update({ original_image_url: null }).eq('id', item.id);
+                      toast.success('Original image deleted');
+                      onRefresh();
+                    }}><X className="h-3 w-3" /></Button>
+                  </div>
                   <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => setLightboxUrl(item.original_image_url!)} />
                 </div>
               )}
               {item.nobg_image_url && (
                 <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
+                    <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive hover:text-destructive" onClick={async () => {
+                      if (!confirm('Delete no-background image?')) return;
+                      await supabase.from('arbitrage_items').update({ nobg_image_url: null }).eq('id', item.id);
+                      toast.success('No-BG image deleted');
+                      onRefresh();
+                    }}><X className="h-3 w-3" /></Button>
+                  </div>
                   <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => setLightboxUrl(item.nobg_image_url!)} />
                 </div>
               )}
@@ -304,7 +320,15 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
                 <p className="text-[10px] text-muted-foreground font-medium">Additional Photos ({item.extra_images.length})</p>
                 <div className="grid grid-cols-3 gap-2">
                   {item.extra_images.map((url, idx) => (
-                    <img key={idx} src={url} alt={`Extra ${idx + 1}`} className="rounded-lg h-24 w-full object-cover bg-muted/30 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all" onClick={() => setLightboxUrl(url)} />
+                    <div key={idx} className="relative group">
+                      <img src={url} alt={`Extra ${idx + 1}`} className="rounded-lg h-24 w-full object-cover bg-muted/30 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all" onClick={() => setLightboxUrl(url)} />
+                      <Button variant="destructive" size="icon" className="h-5 w-5 absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
+                        const updated = (item.extra_images || []).filter((_, i) => i !== idx);
+                        await supabase.from('arbitrage_items').update({ extra_images: updated }).eq('id', item.id);
+                        toast.success('Photo removed');
+                        onRefresh();
+                      }}><X className="h-3 w-3" /></Button>
+                    </div>
                   ))}
                 </div>
               </div>
