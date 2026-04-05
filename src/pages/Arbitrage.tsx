@@ -493,7 +493,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             {item.original_image_url && (
               <Button variant="outline" size="sm" onClick={() => setLightboxUrl(item.original_image_url!)}>
                 <ExternalLink className="h-3.5 w-3.5 mr-1" /> Full Image
