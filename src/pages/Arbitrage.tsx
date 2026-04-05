@@ -239,10 +239,23 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-amber-500" />
-            <span className="cursor-pointer hover:underline" onClick={() => cp(item.item_name, 'Name')}>{item.item_name}</span>
-            <Badge variant="outline" className={cn("text-xs ml-2", stageInfo.color)}>{stageInfo.label}</Badge>
+          <DialogTitle className="flex items-center gap-2 min-w-0">
+            <ShoppingBag className="h-5 w-5 text-amber-500 shrink-0" />
+            {editingName ? (
+              <Input
+                autoFocus
+                defaultValue={item.item_name}
+                className="h-7 text-sm font-semibold"
+                onBlur={e => saveItemName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveItemName((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingName(false); }}
+              />
+            ) : (
+              <span className="cursor-pointer hover:underline truncate" onClick={() => cp(item.item_name, 'Name')} onDoubleClick={() => { setEditingName(true); }}>{item.item_name}</span>
+            )}
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setEditingName(true); }}>
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Badge variant="outline" className={cn("text-xs ml-1 shrink-0", stageInfo.color)}>{stageInfo.label}</Badge>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-sm [&_*[data-copy]]:cursor-pointer [&_*[data-copy]]:hover:bg-muted/40 [&_*[data-copy]]:rounded [&_*[data-copy]]:px-0.5 [&_*[data-copy]]:transition-colors">
