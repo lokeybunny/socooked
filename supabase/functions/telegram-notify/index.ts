@@ -142,6 +142,58 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
 
+    // ── Direct message mode (for arbitrage Push to TG, etc.) ──
+    if (body.message && !body.entity_type && !body.record?.entity_type) {
+      const directMessage = body.message as string;
+      const images = (body.images || []) as string[];
+      const parseMode = body.parse_mode || "Markdown";
+
+      const targetChatIds = new Set<string>();
+      if (TELEGRAM_CHAT_ID) targetChatIds.add(String(TELEGRAM_CHAT_ID));
+
+      if (sb) {
+        const { data: recentChatSessions } = await sb
+          .from('webhook_events')
+          .select('payload')
+          .eq('source', 'telegram')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        recentChatSessions?.forEach((row: any) => {
+          const chatId = row?.payload?.chat_id;
+          if (chatId !== undefined && chatId !== null) targetChatIds.add(String(chatId));
+        });
+      }
+
+      const targetList = Array.from(targetChatIds);
+      if (targetList.length === 0) {
+        return new Response(JSON.stringify({ error: "No chat IDs" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Send images first, then the text message
+      for (const chatId of targetList) {
+        for (const imgUrl of images) {
+          try {
+            await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: chatId, photo: imgUrl }),
+            });
+          } catch (e) { console.error("Photo send error:", e); }
+        }
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: chatId, text: directMessage, parse_mode: parseMode }),
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, sent_to: targetList }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Support both direct payload and trigger-style { record: ... }
     const entry = body.record || body;
 
