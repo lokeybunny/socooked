@@ -174,7 +174,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 
   if (!item) return null;
   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
-  const spread = item.asking_price && item.wiggle_room_price ? item.asking_price - item.wiggle_room_price : null;
+  const spread = item.asking_price != null && item.wiggle_room_price != null ? item.wiggle_room_price - item.asking_price : null;
   const store = stores.find(s => s.id === item.store_id);
   const daysOld = differenceInDays(new Date(), new Date(item.created_at));
   const aiAnalysis = (item.meta as any)?.ai_analysis;
@@ -205,7 +205,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
         ...(item.extra_images || []),
       ].filter(Boolean) as string[];
 
-      const listingText = `📦 *${item.item_name}*\n\n${item.condition_notes || 'No description'}\n\n💰 Ask: ${item.asking_price != null ? `$${item.asking_price}` : 'N/A'}${item.wiggle_room_price != null ? ` · Wiggle: $${item.wiggle_room_price}` : ''}${aiAnalysis?.estimated_value_low ? `\n📊 Est. Value: $${aiAnalysis.estimated_value_low}-$${aiAnalysis.estimated_value_high}` : ''}${aiAnalysis?.category ? `\n🏷 ${aiAnalysis.category}` : ''}`;
+      const listingText = `📦 *${item.item_name}*\n\n${item.condition_notes || 'No description'}\n\n💰 Ask: ${item.asking_price != null ? `$${item.asking_price}` : 'N/A'}${item.wiggle_room_price != null ? ` · List: $${item.wiggle_room_price}` : ''}${spread != null ? ` · Profit: $${spread}` : ''}${aiAnalysis?.estimated_value_low ? `\n📊 Est. Value: $${aiAnalysis.estimated_value_low}-$${aiAnalysis.estimated_value_high}` : ''}${aiAnalysis?.category ? `\n🏷 ${aiAnalysis.category}` : ''}`;
 
       const { data, error } = await supabase.functions.invoke('telegram-notify', {
         body: {
@@ -400,19 +400,19 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
             </div>
             <div>
               <div className="flex items-center gap-1">
-                <p className="text-muted-foreground text-xs">Wiggle Room</p>
+                <p className="text-muted-foreground text-xs">List Price (OfferUp)</p>
                 <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setEditingWiggle(true)}><Edit2 className="h-2 w-2" /></Button>
               </div>
               {editingWiggle ? (
                 <Input autoFocus type="number" defaultValue={item.wiggle_room_price ?? ''} className="h-7 text-xs"
-                  onBlur={e => { onUpdate(item.id, { wiggle_room_price: e.target.value ? Number(e.target.value) : null } as any); setEditingWiggle(false); toast.success('Wiggle price updated'); }}
-                  onKeyDown={e => { if (e.key === 'Enter') { onUpdate(item.id, { wiggle_room_price: (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null } as any); setEditingWiggle(false); toast.success('Wiggle price updated'); } if (e.key === 'Escape') setEditingWiggle(false); }}
+                  onBlur={e => { onUpdate(item.id, { wiggle_room_price: e.target.value ? Number(e.target.value) : null } as any); setEditingWiggle(false); toast.success('List price updated'); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { onUpdate(item.id, { wiggle_room_price: (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null } as any); setEditingWiggle(false); toast.success('List price updated'); } if (e.key === 'Escape') setEditingWiggle(false); }}
                 />
               ) : (
-                <p data-copy className="font-medium" onClick={() => item.wiggle_room_price != null && cp(`${item.wiggle_room_price}`, 'Wiggle price')} onDoubleClick={() => setEditingWiggle(true)}>{item.wiggle_room_price != null ? `$${item.wiggle_room_price}` : '—'}</p>
+                <p data-copy className="font-medium" onClick={() => item.wiggle_room_price != null && cp(`${item.wiggle_room_price}`, 'List price')} onDoubleClick={() => setEditingWiggle(true)}>{item.wiggle_room_price != null ? `$${item.wiggle_room_price}` : '—'}</p>
               )}
             </div>
-            <div><p className="text-muted-foreground text-xs">Spread</p><p data-copy className={cn("font-bold", spread && spread > 0 ? "text-emerald-500" : "text-muted-foreground")} onClick={() => spread != null && cp(`${spread}`, 'Spread')}>{spread != null ? `$${spread}` : '—'}</p></div>
+            <div><p className="text-muted-foreground text-xs">Profit</p><p data-copy className={cn("font-bold", spread != null && spread > 0 ? "text-emerald-500" : spread != null && spread < 0 ? "text-destructive" : "text-muted-foreground")} onClick={() => spread != null && cp(`${spread}`, 'Profit')}>{spread != null ? `$${spread}` : '—'}</p></div>
           </div>
 
           <div>
@@ -884,7 +884,7 @@ export default function Arbitrage() {
               <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {paged.map(item => {
                   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
-                  const sp = item.asking_price && item.wiggle_room_price ? item.asking_price - item.wiggle_room_price : null;
+                  const sp = item.asking_price != null && item.wiggle_room_price != null ? item.wiggle_room_price - item.asking_price : null;
                   const store = stores.find(s => s.id === item.store_id);
                   const hasReminder = reminders.some(r => r.item_id === item.id);
                   return (

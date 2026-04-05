@@ -4981,7 +4981,7 @@ Deno.serve(async (req) => {
         }).eq('id', arbS.id)
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: '🤝 <b>What\'s the wiggle room price?</b> (lowest they\'ll go)\n\n<i>Just the number, e.g. 100</i>',
+          text: '💲 <b>What will you list this for on OfferUp?</b>\n\n<i>Just the number, e.g. 200</i>',
           parse_mode: 'HTML',
         })
         return new Response('ok')
@@ -4990,7 +4990,7 @@ Deno.serve(async (req) => {
       if (arbP.step === 'wiggle_price') {
         const price = parseFloat(text.replace(/[^0-9.]/g, ''))
         if (isNaN(price)) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the wiggle room price.' })
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the list price.' })
           return new Response('ok')
         }
         await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
@@ -5051,7 +5051,7 @@ Deno.serve(async (req) => {
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
-          `🤝 <b>Wiggle:</b> $${arbP.wiggle_price || 0}`,
+          `💲 <b>List Price:</b> $${arbP.wiggle_price || 0} · <b>Profit:</b> $${(arbP.wiggle_price || 0) - (arbP.asking_price || 0)}`,
         ]
         if (arbP.contact_name) lines.push(`👤 <b>Contact:</b> ${arbP.contact_name}`)
         if (arbP.contact_phone) lines.push(`📞 <b>Phone:</b> ${arbP.contact_phone}`)
