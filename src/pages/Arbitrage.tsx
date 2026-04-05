@@ -259,6 +259,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
