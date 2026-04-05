@@ -347,9 +347,24 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
             <div><p className="text-muted-foreground text-xs">Spread</p><p data-copy className={cn("font-bold", spread && spread > 0 ? "text-emerald-500" : "text-muted-foreground")} onClick={() => spread != null && cp(`${spread}`, 'Spread')}>{spread != null ? `$${spread}` : '—'}</p></div>
           </div>
 
-          {item.condition_notes && (
-            <div><p className="text-muted-foreground text-xs mb-1">Notes</p><p data-copy className="text-sm whitespace-pre-wrap" onClick={() => cp(item.condition_notes!, 'Notes')}>{item.condition_notes}</p></div>
-          )}
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              <p className="text-muted-foreground text-xs">Notes / Description</p>
+              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setDraftNotes(item.condition_notes || ''); setEditingNotes(true); }}>
+                <Edit2 className="h-2.5 w-2.5" />
+              </Button>
+            </div>
+            {editingNotes ? (
+              <Textarea autoFocus value={draftNotes} onChange={e => setDraftNotes(e.target.value)} rows={4} className="text-sm"
+                onBlur={() => saveNotes(draftNotes)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(draftNotes); } if (e.key === 'Escape') setEditingNotes(false); }}
+              />
+            ) : (
+              <p data-copy className="text-sm whitespace-pre-wrap" onClick={() => item.condition_notes && cp(item.condition_notes, 'Notes')} onDoubleClick={() => { setDraftNotes(item.condition_notes || ''); setEditingNotes(true); }}>
+                {item.condition_notes || <span className="text-muted-foreground italic">No notes — double-click or tap edit to add</span>}
+              </p>
+            )}
+          </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>Added {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}</span>
