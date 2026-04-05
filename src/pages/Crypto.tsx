@@ -170,6 +170,7 @@ export default function Crypto() {
   const chartData = visibleData.map((c) => ({
     time: format(new Date(c.timestamp), "MMM d HH:mm"),
     close: c.close,
+    mcap: Math.round(c.close * SUPPLY),
     volume: c.volume,
   }));
 
