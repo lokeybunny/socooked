@@ -4752,7 +4752,10 @@ Deno.serve(async (req) => {
           }).eq('id', itemId)
         }
 
-        await supabase.from('webhook_events').delete().eq('id', arbS.id)
+        // Don't delete the session — move to "add_photos" step so user can attach more images
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'add_photos', notes: noteText },
+        }).eq('id', arbS.id)
 
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
@@ -4765,7 +4768,7 @@ Deno.serve(async (req) => {
         if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
-        lines.push('\n✅ Ready to act when you\'re back at your station.')
+        lines.push('\n📸 <b>Send more photos</b> to add to this item, or type <b>"done"</b> to finish.')
 
         await supabase.from('activity_log').insert({
           entity_type: 'arbitrage',
@@ -4786,6 +4789,20 @@ Deno.serve(async (req) => {
           disable_web_page_preview: true,
         })
         return new Response('ok')
+      }
+
+      // Handle "done" during add_photos step
+      if (arbP.step === 'add_photos') {
+        if (text.toLowerCase() === 'done') {
+          await supabase.from('webhook_events').delete().eq('id', arbS.id)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '✅ <b>Item complete!</b> Ready to act when you\'re back at your station.\n\nSend another photo to log a new item, or tap 🏪 Arbitrage.',
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+        // Any other text during add_photos — ignore silently
       }
     }
 
