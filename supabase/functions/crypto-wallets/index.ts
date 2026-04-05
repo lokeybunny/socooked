@@ -3,80 +3,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SOLANA_RPCS = [
+const RPCS = [
   "https://api.mainnet-beta.solana.com",
-  "https://solana-mainnet.g.alchemy.com/v2/demo",
+  "https://solana-rpc.publicnode.com",
 ];
 
-interface TokenAccountInfo {
-  pubkey: string;
-  account: {
-    data: {
-      parsed: {
-        info: {
-          mint: string;
-          owner: string;
-          tokenAmount: {
-            amount: string;
-            decimals: number;
-            uiAmount: number;
-            uiAmountString: string;
-          };
-        };
-      };
-    };
-  };
-}
+async function getWalletBalance(wallet: string, tokenMint: string): Promise<{ balance: number; decimals: number }> {
+  const body = JSON.stringify({
+    jsonrpc: "2.0", id: 1,
+    method: "getTokenAccountsByOwner",
+    params: [wallet, { mint: tokenMint }, { encoding: "jsonParsed" }],
+  });
 
-async function fetchWithRetry(wallet: string, tokenMint: string, retries = 3): Promise<{ balance: number; decimals: number }> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    // Rotate through RPCs on each attempt
-    const rpc = SOLANA_RPCS[attempt % SOLANA_RPCS.length];
+  for (const rpc of RPCS) {
     try {
-      const rpcRes = await fetch(rpc, {
+      const res = await fetch(rpc, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getTokenAccountsByOwner",
-          params: [
-            wallet,
-            { mint: tokenMint },
-            { encoding: "jsonParsed" },
-          ],
-        }),
+        body,
       });
-
-      const rpcData = await rpcRes.json();
-
-      if (rpcData.error) {
-        // Rate limited — wait and retry
-        if (rpcData.error.code === 429) {
-          console.warn(`RPC rate limited for ${wallet} on attempt ${attempt + 1}, retrying...`);
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-          continue;
-        }
-        console.error(`RPC error for ${wallet}:`, rpcData.error);
-        return { balance: 0, decimals: 6 };
+      const data = await res.json();
+      if (data.error?.code === 429) {
+        console.warn(`${rpc} rate limited for ${wallet.slice(0,8)}, trying next`);
+        continue;
       }
-
-      const accounts: TokenAccountInfo[] = rpcData.result?.value || [];
+      if (data.error) {
+        console.warn(`${rpc} error for ${wallet.slice(0,8)}:`, data.error.message);
+        continue;
+      }
+      const accounts = data.result?.value || [];
       let totalBalance = 0;
       let decimals = 6;
-
       for (const acct of accounts) {
         const info = acct.account.data.parsed.info;
         totalBalance += info.tokenAmount.uiAmount || 0;
         decimals = info.tokenAmount.decimals;
       }
-
       return { balance: totalBalance, decimals };
     } catch (err) {
-      console.error(`Attempt ${attempt + 1} error for ${wallet}:`, err);
-      if (attempt < retries - 1) {
-        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-      }
+      console.warn(`${rpc} fetch failed for ${wallet.slice(0,8)}:`, err);
     }
   }
   return { balance: 0, decimals: 6 };
@@ -99,36 +64,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    const results: {
-      wallet: string;
-      balance: number;
-      rawAmount: string;
-      decimals: number;
-    }[] = [];
-
-    // Stagger requests with small delays to avoid rate limiting
+    // Query all wallets with 500ms stagger
+    const results: { wallet: string; balance: number; rawAmount: string; decimals: number }[] = [];
     for (let i = 0; i < wallets.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 400));
-      const wallet = wallets[i];
-      const { balance, decimals } = await fetchWithRetry(wallet, tokenMint);
+      if (i > 0) await new Promise(r => setTimeout(r, 500));
+      const { balance, decimals } = await getWalletBalance(wallets[i], tokenMint);
       results.push({
-        wallet,
-        balance,
+        wallet: wallets[i], balance,
         rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
         decimals,
       });
     }
 
-    // Fetch current token price from DexScreener
-    const POOL = "EPHW3pF79SD7DBssRMX9wC1btisJFKnG7VnDwg7mjX4i";
-    let tokenPrice = 0;
-    let priceNative = 0;
-    let marketCap = 0;
-
+    // Token price from DexScreener
+    let tokenPrice = 0, priceNative = 0, marketCap = 0;
     try {
-      const dexRes = await fetch(
-        `https://api.dexscreener.com/latest/dex/pairs/solana/${POOL}`
-      );
+      const dexRes = await fetch("https://api.dexscreener.com/latest/dex/pairs/solana/EPHW3pF79SD7DBssRMX9wC1btisJFKnG7VnDwg7mjX4i");
       if (dexRes.ok) {
         const dexData = await dexRes.json();
         const pair = dexData?.pair || dexData?.pairs?.[0];
@@ -140,33 +91,20 @@ Deno.serve(async (req) => {
       }
     } catch {}
 
-    const totalTokens = results.reduce((sum, r) => sum + r.balance, 0);
-    const totalSupply = 1_000_000_000;
-    const holdingPct = (totalTokens / totalSupply) * 100;
-    const holdingValueUsd = totalTokens * tokenPrice;
-    const holdingValueSol = totalTokens * priceNative;
-
-    return new Response(
-      JSON.stringify({
-        wallets: results,
-        totals: {
-          totalTokens,
-          holdingPct,
-          holdingValueUsd,
-          holdingValueSol,
-          tokenPrice,
-          priceNative,
-          marketCap,
-        },
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-    );
+    const totalTokens = results.reduce((s, r) => s + r.balance, 0);
+    return new Response(JSON.stringify({
+      wallets: results,
+      totals: {
+        totalTokens,
+        holdingPct: (totalTokens / 1_000_000_000) * 100,
+        holdingValueUsd: totalTokens * tokenPrice,
+        holdingValueSol: totalTokens * priceNative,
+        tokenPrice, priceNative, marketCap,
+      },
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("crypto-wallets error:", msg);
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-    );
+    return new Response(JSON.stringify({ error: msg }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 });
   }
 });
