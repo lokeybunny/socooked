@@ -3551,15 +3551,26 @@ Deno.serve(async (req) => {
     // ─── Check for persistent button / slash command BEFORE reply guard ───
     const action = resolvePersistentAction(text)
 
-    // ─── If this is a reply-to-message and no button/command matched, stay silent ───
-    // This prevents the bot from treating replies as session input
-    if (message.reply_to_message && (!isGroup || isAllowedGroup) && !action) {
-      return new Response('ok')
-    }
-
-    // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
+    // Session types we track for cleanup and workflow continuation
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'arbitrage_session', 'arbitrage_awaiting_photo']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
+
+    // ─── If this is a reply-to-message and no button/command matched, stay silent ───
+    // Allow active workflows (especially arbitrage) to continue when the user replies directly to the bot prompt.
+    if (message.reply_to_message && (!isGroup || isAllowedGroup) && !action) {
+      const { data: replySessions } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram')
+        .in('event_type', ALL_SESSIONS)
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .eq('processed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (!replySessions || replySessions.length === 0) {
+        return new Response('ok')
+      }
+    }
 
     // action already resolved above (before reply guard)
 
