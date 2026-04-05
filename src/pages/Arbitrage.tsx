@@ -133,6 +133,14 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [pushingTG, setPushingTG] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editingAiName, setEditingAiName] = useState(false);
+  const [editingAiDesc, setEditingAiDesc] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftNotes, setDraftNotes] = useState('');
+  const [draftAiName, setDraftAiName] = useState('');
+  const [draftAiDesc, setDraftAiDesc] = useState('');
 
   if (!item) return null;
   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
