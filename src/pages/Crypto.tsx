@@ -586,11 +586,10 @@ export default function Crypto() {
           <Card>
             <CardContent className="pt-4 pb-3">
               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
-                {isProfit ? <TrendingUp className="h-3.5 w-3.5 text-green-500" /> : <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
-                PNL (SOL)
+                <DollarSign className="h-3.5 w-3.5" /> Market Cap
               </div>
-              <p className={cn("text-xl font-bold", hasWalletData || isSimulating ? (isProfit ? "text-green-500" : "text-red-500") : "text-foreground")}>
-                {hasWalletData || isSimulating ? fmtSol(pnlSol) : "—"}
+              <p className="text-xl font-bold text-foreground">
+                {displayMcap > 0 ? fmtMcap(displayMcap) : "—"}
               </p>
             </CardContent>
           </Card>
