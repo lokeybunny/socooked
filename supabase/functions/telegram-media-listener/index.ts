@@ -4521,6 +4521,7 @@ Deno.serve(async (req) => {
             inline_keyboard: [
               [
                 { text: '✅ Save', callback_data: `save_${inserted.id}` },
+                { text: '🏪 Arbitrage', callback_data: `arb_${inserted.id}` },
                 { text: '⏭️ Skip', callback_data: `skip_${inserted.id}` },
               ],
             ],
