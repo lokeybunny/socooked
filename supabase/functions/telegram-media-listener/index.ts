@@ -4981,7 +4981,7 @@ Deno.serve(async (req) => {
         }).eq('id', arbS.id)
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: '🤝 <b>What\'s the wiggle room price?</b> (lowest they\'ll go)\n\n<i>Just the number, e.g. 100</i>',
+          text: '💲 <b>What will you list this for on OfferUp?</b>\n\n<i>Just the number, e.g. 200</i>',
           parse_mode: 'HTML',
         })
         return new Response('ok')
