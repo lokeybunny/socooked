@@ -512,6 +512,7 @@ export default function Arbitrage() {
   const [autoBgRemoval, setAutoBgRemoval] = useState(true);
   const [bgToggleLoading, setBgToggleLoading] = useState(false);
   const [csvImporting, setCsvImporting] = useState(false);
+  const [storeSearch, setStoreSearch] = useState('');
   const [defaultAddress, setDefaultAddress] = useState('');
   const [defaultAddyEnabled, setDefaultAddyEnabled] = useState(false);
   const [defaultAddyInput, setDefaultAddyInput] = useState('');
