@@ -5418,22 +5418,63 @@ Deno.serve(async (req) => {
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
           .filter('payload->>chat_id', 'eq', String(chatId))
+
+        // Check for default address
+        let defaultAddress2: string | null = null
+        {
+          const { data: defCfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+          const defContent = defCfg?.content as any
+          if (defContent?.enabled && defContent?.address) {
+            defaultAddress2 = defContent.address
+          }
+        }
+
+        const resolvedAddress2 = defaultAddress2
+        const startStep2 = resolvedAddress2 ? 'asking_price' : 'address'
+
+        // If using default address, save it to the item and try store match
+        let defaultMatchedStore2: any = null
+        if (defaultAddress2) {
+          await supabase.from('arbitrage_items').update({ pawn_shop_address: defaultAddress2 }).eq('id', arbItem.id)
+          const { data: allStores } = await supabase.from('arbitrage_stores').select('*')
+          if (allStores) {
+            const normAddr = defaultAddress2.toLowerCase().replace(/[^a-z0-9]/g, '')
+            defaultMatchedStore2 = allStores.find((s: any) => s.address && s.address.toLowerCase().replace(/[^a-z0-9]/g, '') === normAddr)
+            if (defaultMatchedStore2) {
+              await supabase.from('arbitrage_items').update({ store_id: defaultMatchedStore2.id }).eq('id', arbItem.id)
+            }
+          }
+        }
+
         await supabase.from('webhook_events').insert({
           source: 'telegram',
           event_type: 'arbitrage_session',
           payload: {
             chat_id: chatId,
             item_id: arbItem.id,
-            step: 'address',
+            step: startStep2,
             original_url: originalUrl,
             nobg_url: nobgUrl,
+            address: resolvedAddress2 || null,
           },
         })
 
         const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
+        let locationInfo2 = ''
+        if (defaultAddress2 && defaultMatchedStore2) {
+          locationInfo2 = `\n📍 <b>Default address used!</b> Auto-assigned to <b>${defaultMatchedStore2.store_name}</b>`
+        } else if (defaultAddress2) {
+          locationInfo2 = `\n📍 <b>Default address used:</b> ${defaultAddress2}`
+        }
+
+        const nextPrompt2 = resolvedAddress2
+          ? '\n\n💰 <b>What\'s the pawn shop\'s asking price?</b>\n<i>Just the number, e.g. 150</i>'
+          : '\n\n📍 <b>What\'s the pawn shop address?</b>'
+
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}\n\n📍 <b>What's the pawn shop address?</b>`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo2}${nextPrompt2}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
