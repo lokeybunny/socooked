@@ -765,9 +765,22 @@ export default function Arbitrage() {
           <TabsContent value="stores" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Manage your vendor stores and contacts</p>
-              <Button size="sm" onClick={() => { setEditStore(null); setStoreModalOpen(true); }}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add Store
-              </Button>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleCsvUpload}
+                />
+                <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} disabled={csvImporting}>
+                  {csvImporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                  Import CSV
+                </Button>
+                <Button size="sm" onClick={() => { setEditStore(null); setStoreModalOpen(true); }}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Store
+                </Button>
+              </div>
             </div>
 
             {stores.length === 0 ? (
