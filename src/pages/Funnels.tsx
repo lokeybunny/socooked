@@ -540,13 +540,6 @@ export default function Funnels() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      // Arbitrage items
-      const { data: arbItems } = await supabase
-        .from('arbitrage_items')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(500);
-
       // Web Design from customers (only funnel sources)
       const { data: custLeads } = await supabase
         .from('customers')
