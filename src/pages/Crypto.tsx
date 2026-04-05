@@ -131,8 +131,8 @@ export default function Crypto() {
   const currentPrice = currentCandle?.close || entryPrice;
   const currentMcapSim = currentPrice * SUPPLY;
   const mcapChangePct = ((currentMcapSim - POSITION.entryMcap) / POSITION.entryMcap) * 100;
-  const holdingValue = POSITION.holdingSol * (1 + mcapChangePct / 100);
-  const pnlSol = holdingValue - POSITION.holdingSol;
+  const holdingValue = POSITION.initialBagSol * (currentMcapSim / POSITION.entryMcap);
+  const pnlSol = holdingValue - POSITION.initialBagSol;
   const priceChangePct = mcapChangePct;
   const isProfit = pnlSol >= 0;
 
