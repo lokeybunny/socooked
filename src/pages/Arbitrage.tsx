@@ -497,7 +497,8 @@ export default function Arbitrage() {
   const [tab, setTab] = useState('inventory');
   const [autoBgRemoval, setAutoBgRemoval] = useState(true);
   const [bgToggleLoading, setBgToggleLoading] = useState(false);
-
+  const [csvImporting, setCsvImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [itemsRes, storesRes, remindersRes, bgCfgRes] = await Promise.all([
