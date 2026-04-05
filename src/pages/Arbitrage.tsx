@@ -202,11 +202,11 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-amber-500" />
-            {item.item_name}
+            <span className="cursor-pointer hover:underline" onClick={() => cp(item.item_name, 'Name')}>{item.item_name}</span>
             <Badge variant="outline" className={cn("text-xs ml-2", stageInfo.color)}>{stageInfo.label}</Badge>
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-4 text-sm [&_*[data-copy]]:cursor-pointer [&_*[data-copy]]:hover:bg-muted/40 [&_*[data-copy]]:rounded [&_*[data-copy]]:px-0.5 [&_*[data-copy]]:transition-colors">
           {/* Images */}
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3">
