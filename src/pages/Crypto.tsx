@@ -39,9 +39,9 @@ import { format } from "date-fns";
 const TOKEN_ADDRESS = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
 const POSITION = {
   holdingPct: 0.72,
-  holdingSol: 15.17,
-  initialPnlPct: -77,
-  initialPnlSol: -49.72,
+  holdingSol: 15.18,
+  initialPnlSol: -49.73,
+  entryMcap: 888_000, // 888K entry
 };
 
 interface Candle {
@@ -68,6 +68,7 @@ interface PairInfo {
 /* ── chart config ── */
 const chartConfig: ChartConfig = {
   close: { label: "Price", color: "hsl(var(--primary))" },
+  mcap: { label: "Market Cap", color: "hsl(var(--accent))" },
 };
 
 /* ── format helpers ── */
@@ -123,12 +124,15 @@ export default function Crypto() {
   const currentCandle = visibleData[visibleData.length - 1];
   const entryCandle = candles[0];
 
-  // PNL simulation: use entry price vs current visible price
+  // PNL: based on entry mcap vs current mcap
+  const SUPPLY = 1_000_000_000;
   const entryPrice = entryCandle?.close || 1;
   const currentPrice = currentCandle?.close || entryPrice;
-  const priceChangePct = ((currentPrice - entryPrice) / entryPrice) * 100;
-  const holdingValue = POSITION.holdingSol * (1 + priceChangePct / 100);
+  const currentMcapSim = currentPrice * SUPPLY;
+  const mcapChangePct = ((currentMcapSim - POSITION.entryMcap) / POSITION.entryMcap) * 100;
+  const holdingValue = POSITION.holdingSol * (1 + mcapChangePct / 100);
   const pnlSol = holdingValue - POSITION.holdingSol;
+  const priceChangePct = mcapChangePct;
   const isProfit = pnlSol >= 0;
 
   const tick = useCallback(() => {
@@ -166,6 +170,7 @@ export default function Crypto() {
   const chartData = visibleData.map((c) => ({
     time: format(new Date(c.timestamp), "MMM d HH:mm"),
     close: c.close,
+    mcap: Math.round(c.close * SUPPLY),
     volume: c.volume,
   }));
 
@@ -447,10 +452,18 @@ export default function Crypto() {
                     interval={Math.max(Math.floor(chartData.length / 8), 1)}
                   />
                   <YAxis
+                    yAxisId="price"
                     domain={[minPrice, maxPrice]}
                     tick={{ fontSize: 10 }}
                     tickFormatter={(v) => `$${v.toFixed(6)}`}
                     width={80}
+                  />
+                  <YAxis
+                    yAxisId="mcap"
+                    orientation="right"
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => fmtMcap(v)}
+                    width={70}
                   />
                   <ChartTooltip
                     content={
@@ -462,22 +475,26 @@ export default function Crypto() {
                                 ${Number(value).toFixed(8)}
                               </span>
                             );
+                          if (name === "mcap")
+                            return <span>{fmtMcap(Number(value))}</span>;
                           return <span>{String(value)}</span>;
                         }}
                       />
                     }
                   />
                   <ReferenceLine
-                    y={entryPrice}
-                    stroke="hsl(var(--muted-foreground))"
+                    yAxisId="mcap"
+                    y={POSITION.entryMcap}
+                    stroke="hsl(45, 93%, 47%)"
                     strokeDasharray="4 4"
                     label={{
-                      value: "Entry",
-                      fill: "hsl(var(--muted-foreground))",
+                      value: `Entry ${fmtMcap(POSITION.entryMcap)}`,
+                      fill: "hsl(45, 93%, 47%)",
                       fontSize: 10,
                     }}
                   />
                   <Area
+                    yAxisId="price"
                     type="monotone"
                     dataKey="close"
                     stroke={
@@ -487,6 +504,16 @@ export default function Crypto() {
                     }
                     strokeWidth={2}
                     fill="url(#priceGrad)"
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    yAxisId="mcap"
+                    type="monotone"
+                    dataKey="mcap"
+                    stroke="hsl(var(--accent-foreground))"
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                    fill="none"
                     isAnimationActive={false}
                   />
                 </AreaChart>
