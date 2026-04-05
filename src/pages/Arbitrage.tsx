@@ -77,6 +77,8 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
   const [address, setAddress] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [website, setWebsite] = useState('');
+  const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -84,16 +86,21 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
     if (store) {
       setName(store.store_name); setAddress(store.address || '');
       setContactName(store.contact_name || ''); setContactPhone(store.contact_phone || '');
+      setWebsite(store.website || ''); setEmail(store.email || '');
       setNotes(store.notes || '');
     } else {
-      setName(''); setAddress(''); setContactName(''); setContactPhone(''); setNotes('');
+      setName(''); setAddress(''); setContactName(''); setContactPhone('');
+      setWebsite(''); setEmail(''); setNotes('');
     }
   }, [store, open]);
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Store name required'); return; }
     setSaving(true);
-    const payload = { store_name: name.trim(), address: address || null, contact_name: contactName || null, contact_phone: contactPhone || null, notes: notes || null };
+    const payload = {
+      store_name: name.trim(), address: address || null, contact_name: contactName || null,
+      contact_phone: contactPhone || null, website: website || null, email: email || null, notes: notes || null,
+    };
     if (store) {
       const { error } = await supabase.from('arbitrage_stores').update(payload).eq('id', store.id);
       if (error) toast.error(error.message); else { toast.success('Store updated'); onSaved(); onClose(); }
@@ -110,10 +117,14 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
         <DialogHeader><DialogTitle>{store ? 'Edit Store' : 'Add Store'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <Input placeholder="Store name *" value={name} onChange={e => setName(e.target.value)} />
-          <Input placeholder="Address" value={address} onChange={e => setAddress(e.target.value)} />
+          <Input placeholder="Full address" value={address} onChange={e => setAddress(e.target.value)} />
           <div className="grid grid-cols-2 gap-2">
             <Input placeholder="Contact name" value={contactName} onChange={e => setContactName(e.target.value)} />
             <Input placeholder="Contact phone" value={contactPhone} onChange={e => setContactPhone(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Website" value={website} onChange={e => setWebsite(e.target.value)} />
+            <Input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <Textarea placeholder="Notes..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
           <div className="flex justify-end gap-2">
