@@ -498,30 +498,18 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
       </DialogContent>
     </Dialog>
 
-    {/* Image Lightbox – small overlay, doesn't block the item modal */}
-    {lightboxUrl && (
-      <div
-        className="fixed inset-0 z-[200] flex items-center justify-center p-8 bg-black/40"
-        onMouseDown={(e) => { e.stopPropagation(); setLightboxUrl(null); }}
-      >
-        <div
-          className="relative max-w-md max-h-[60vh] rounded-xl overflow-hidden shadow-2xl border border-border bg-background"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <button
-            className="absolute top-2 right-2 z-10 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-            onClick={() => setLightboxUrl(null)}
-          >
-            <X className="h-5 w-5" />
-          </button>
+    {/* Image Lightbox */}
+    <Dialog open={!!lightboxUrl} onOpenChange={(nextOpen) => { if (!nextOpen) setLightboxUrl(null); }}>
+      <DialogContent className="max-w-md overflow-hidden p-2">
+        {lightboxUrl && (
           <img
             src={lightboxUrl}
             alt="Full view"
-            className="max-h-[60vh] w-full object-contain bg-muted/30"
+            className="max-h-[60vh] w-full rounded-md object-contain bg-muted/30"
           />
-        </div>
-      </div>
-    )}
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
