@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   ShoppingBag, Search, RefreshCw, Trash2, ExternalLink, Phone, User,
   ChevronLeft, ChevronRight, Store, Plus, X, Bell, BellOff, MapPin, Edit2,
-  ChevronDown, ImageIcon, Zap
+  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -125,16 +125,71 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
 }
 
 /* ─── Item Detail Modal ─── */
-function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete }: {
+function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRefresh }: {
   item: ArbItem | null; stores: ArbStore[]; open: boolean; onClose: () => void;
   onUpdate: (id: string, updates: Partial<ArbItem>) => void;
   onDelete: (id: string) => void;
+  onRefresh: () => void;
 }) {
+  const [analyzing, setAnalyzing] = useState(false);
+  const [pushingTG, setPushingTG] = useState(false);
+
   if (!item) return null;
   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
   const spread = item.asking_price && item.wiggle_room_price ? item.asking_price - item.wiggle_room_price : null;
   const store = stores.find(s => s.id === item.store_id);
   const daysOld = differenceInDays(new Date(), new Date(item.created_at));
+  const aiAnalysis = (item.meta as any)?.ai_analysis;
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('arbitrage-analyze', {
+        body: { item_id: item.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Identified: ${data.analysis.item_name}`);
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e.message || 'Analysis failed');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handlePushToTG = async () => {
+    setPushingTG(true);
+    try {
+      const allImages = [
+        item.nobg_image_url,
+        item.original_image_url,
+        ...(item.extra_images || []),
+      ].filter(Boolean) as string[];
+
+      const listingText = `📦 *${item.item_name}*\n\n${item.condition_notes || 'No description'}\n\n💰 Ask: ${item.asking_price != null ? `$${item.asking_price}` : 'N/A'}${item.wiggle_room_price != null ? ` · Wiggle: $${item.wiggle_room_price}` : ''}${aiAnalysis?.estimated_value_low ? `\n📊 Est. Value: $${aiAnalysis.estimated_value_low}-$${aiAnalysis.estimated_value_high}` : ''}${aiAnalysis?.category ? `\n🏷 ${aiAnalysis.category}` : ''}`;
+
+      const { data, error } = await supabase.functions.invoke('telegram-notify', {
+        body: {
+          message: listingText,
+          images: allImages,
+          parse_mode: 'Markdown',
+        },
+      });
+      if (error) throw error;
+      toast.success('Pushed to Telegram!');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to push to Telegram');
+    } finally {
+      setPushingTG(false);
+    }
+  };
+
+  const handleCopyListing = () => {
+    const text = `${item.item_name}\n\n${item.condition_notes || ''}${item.asking_price != null ? `\n\nPrice: $${item.asking_price}` : ''}`;
+    navigator.clipboard.writeText(text);
+    toast.success('Listing copied to clipboard!');
+  };
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
@@ -174,6 +229,19 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete }: {
               </div>
             )}
           </div>
+
+          {/* AI Analysis Badge */}
+          {aiAnalysis && (
+            <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-1">
+              <p className="text-xs font-semibold flex items-center gap-1.5 text-primary"><Sparkles className="h-3.5 w-3.5" /> AI Analysis</p>
+              <p className="text-sm font-medium">{aiAnalysis.item_name}</p>
+              <p className="text-xs text-muted-foreground">{aiAnalysis.description}</p>
+              {aiAnalysis.estimated_value_low && (
+                <p className="text-xs">Est. Value: <span className="font-semibold text-emerald-500">${aiAnalysis.estimated_value_low} - ${aiAnalysis.estimated_value_high}</span></p>
+              )}
+              {aiAnalysis.category && <Badge variant="secondary" className="text-[10px]">{aiAnalysis.category}</Badge>}
+            </div>
+          )}
 
           {/* Store & Contact */}
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -232,10 +300,27 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete }: {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          {/* Action Buttons */}
+          <div className="flex gap-2 flex-wrap">
             {item.original_image_url && (
               <Button variant="outline" size="sm" onClick={() => window.open(item.original_image_url!, '_blank')}>
                 <ExternalLink className="h-3.5 w-3.5 mr-1" /> Full Image
+              </Button>
+            )}
+            {/* Analyze Button */}
+            <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={analyzing} className="border-primary/30 text-primary hover:bg-primary/10">
+              {analyzing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+              {analyzing ? 'Analyzing...' : 'Analyze'}
+            </Button>
+            {/* Copy Listing */}
+            <Button variant="outline" size="sm" onClick={handleCopyListing}>
+              <Copy className="h-3.5 w-3.5 mr-1" /> Copy Listing
+            </Button>
+            {/* Push to TG - shown for researching items */}
+            {item.status === 'researching' && (
+              <Button size="sm" onClick={handlePushToTG} disabled={pushingTG} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                {pushingTG ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+                {pushingTG ? 'Sending...' : 'Push to TG'}
               </Button>
             )}
             <Button variant="destructive" size="sm" onClick={() => { onDelete(item.id); onClose(); }}>
@@ -591,6 +676,7 @@ export default function Arbitrage() {
           onClose={() => setViewItem(null)}
           onUpdate={(id, updates) => { handleUpdate(id, updates); }}
           onDelete={handleDelete}
+          onRefresh={() => { fetchAll(); setViewItem(null); }}
         />
         <StoreModal open={storeModalOpen} onClose={() => setStoreModalOpen(false)} store={editStore} onSaved={fetchAll} />
       </div>
