@@ -9,11 +9,25 @@ const RPCS = [
   "https://api.mainnet-beta.solana.com",
 ];
 
-async function rpcCall(body: string, walletHint: string): Promise<any> {
-  for (const rpc of RPCS) {
+let rpcCursor = 0;
+function nextRpc(): string {
+  const rpc = RPCS[rpcCursor % RPCS.length];
+  rpcCursor++;
+  return rpc;
+}
+
+async function rpcCallWithFallback(body: string, label: string): Promise<any> {
+  const startRpc = nextRpc();
+  const tried = new Set<string>();
+
+  // Try starting RPC, then fallback to others
+  const tryOrder = [startRpc, ...RPCS.filter(r => r !== startRpc)];
+  for (const rpc of tryOrder) {
+    if (tried.has(rpc)) continue;
+    tried.add(rpc);
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 6000);
       const res = await fetch(rpc, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -23,7 +37,8 @@ async function rpcCall(body: string, walletHint: string): Promise<any> {
       clearTimeout(timeout);
       const data = await res.json();
       if (data.error?.code === 429) {
-        console.warn(`${rpc} rate limited for ${walletHint.slice(0,8)}`);
+        console.warn(`Rate limited: ${rpc} for ${label}`);
+        await new Promise(r => setTimeout(r, 300));
         continue;
       }
       if (data.error) continue;
@@ -52,42 +67,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Process wallets in batches of 4, with 200ms between batches
-    const BATCH = 4;
+    // Process wallets in pairs (token + sol) sequentially, rotating RPCs
     const results: { wallet: string; balance: number; rawAmount: string; decimals: number; solBalance: number }[] = [];
-    
-    for (let i = 0; i < wallets.length; i += BATCH) {
-      if (i > 0) await new Promise(r => setTimeout(r, 200));
-      const batch = wallets.slice(i, i + BATCH);
-      const batchResults = await Promise.all(batch.map(async (wallet) => {
-        // Token balance
-        const tokenBody = JSON.stringify({
-          jsonrpc: "2.0", id: 1,
-          method: "getTokenAccountsByOwner",
-          params: [wallet, { mint: tokenMint }, { encoding: "jsonParsed" }],
-        });
-        const tokenData = await rpcCall(tokenBody, wallet);
-        let balance = 0, decimals = 6;
-        if (tokenData) {
-          for (const acct of (tokenData.result?.value || [])) {
-            const info = acct.account.data.parsed.info;
-            balance += info.tokenAmount.uiAmount || 0;
-            decimals = info.tokenAmount.decimals;
-          }
+
+    for (let i = 0; i < wallets.length; i++) {
+      const wallet = wallets[i];
+      const tag = wallet.slice(0, 8);
+
+      // Small delay between wallets to avoid burst rate limits
+      if (i > 0) await new Promise(r => setTimeout(r, 150));
+
+      // Fetch token balance and SOL balance in parallel (2 calls to different RPCs)
+      const [tokenData, solData] = await Promise.all([
+        rpcCallWithFallback(
+          JSON.stringify({
+            jsonrpc: "2.0", id: 1,
+            method: "getTokenAccountsByOwner",
+            params: [wallet, { mint: tokenMint }, { encoding: "jsonParsed" }],
+          }),
+          tag
+        ),
+        rpcCallWithFallback(
+          JSON.stringify({ jsonrpc: "2.0", id: 2, method: "getBalance", params: [wallet] }),
+          tag
+        ),
+      ]);
+
+      let balance = 0, decimals = 6;
+      if (tokenData) {
+        for (const acct of (tokenData.result?.value || [])) {
+          const info = acct.account.data.parsed.info;
+          balance += info.tokenAmount.uiAmount || 0;
+          decimals = info.tokenAmount.decimals;
         }
+      }
+      const solBalance = solData ? (solData.result?.value || 0) / 1e9 : 0;
 
-        // Native SOL balance
-        const solBody = JSON.stringify({ jsonrpc: "2.0", id: 2, method: "getBalance", params: [wallet] });
-        const solData = await rpcCall(solBody, wallet);
-        const solBalance = solData ? (solData.result?.value || 0) / 1e9 : 0;
-
-        return {
-          wallet, balance,
-          rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
-          decimals, solBalance,
-        };
-      }));
-      results.push(...batchResults);
+      results.push({
+        wallet, balance,
+        rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
+        decimals, solBalance,
+      });
     }
 
     // Token price from DexScreener
