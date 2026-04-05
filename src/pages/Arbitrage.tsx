@@ -488,8 +488,11 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
             <Button variant="destructive" size="sm" onClick={() => { onDelete(item.id); onClose(); }}>
               <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
             </Button>
-          </div>
-        </div>
+           </div>
+           {(item as any).sku && (
+             <span className="text-[10px] font-mono text-muted-foreground select-all ml-auto">SKU: {(item as any).sku}</span>
+           )}
+         </div>
       </DialogContent>
     </Dialog>
   );
