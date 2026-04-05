@@ -5,8 +5,10 @@ import { toast } from 'sonner';
 import {
   ShoppingBag, Search, RefreshCw, Trash2, ExternalLink, Phone, User,
   ChevronLeft, ChevronRight, Store, Plus, X, Bell, BellOff, MapPin, Edit2,
-  ChevronDown, ImageIcon
+  ChevronDown, ImageIcon, Zap
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
