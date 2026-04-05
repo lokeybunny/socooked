@@ -27,92 +27,124 @@ import {
   Pause,
   RotateCcw,
   ExternalLink,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
-/* ── token config ── */
-const TOKEN = {
-  name: "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump",
-  symbol: "SOL Token",
+/* ── token + position config ── */
+const TOKEN_ADDRESS = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
+const POSITION = {
   holdingPct: 0.72,
+  holdingSol: 15.17,
   initialPnlPct: -77,
   initialPnlSol: -49.72,
-  holdingSol: 15.17,
-  entryMcap: 100_000, // simulated entry mcap
 };
 
-/* ── generate realistic price history ── */
-function generatePriceHistory(points: number): { time: string; price: number; mcap: number }[] {
-  const data: { time: string; price: number; mcap: number }[] = [];
-  let price = 0.00012; // starting price
-  const supply = 1_000_000_000;
-
-  for (let i = 0; i < points; i++) {
-    const hour = i;
-    const dayLabel = `${Math.floor(hour / 24)}d ${hour % 24}h`;
-
-    // Simulate volatility — crypto-style random walk
-    const trend = Math.sin(i / 20) * 0.03;
-    const noise = (Math.random() - 0.48) * 0.08;
-    const spike = Math.random() > 0.95 ? (Math.random() - 0.3) * 0.25 : 0;
-    price = Math.max(price * (1 + trend + noise + spike), 0.000001);
-
-    const mcap = price * supply;
-    data.push({ time: dayLabel, price: +price.toFixed(8), mcap: Math.round(mcap) });
-  }
-  return data;
+interface Candle {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }
 
-const FULL_HISTORY = generatePriceHistory(200);
+interface PairInfo {
+  name: string;
+  symbol: string;
+  priceUsd: string;
+  priceNative: string;
+  marketCap: number;
+  liquidity: number;
+  priceChange: Record<string, number>;
+  volume24h: number;
+  imageUrl?: string;
+}
 
 /* ── chart config ── */
 const chartConfig: ChartConfig = {
-  price: { label: "Price", color: "hsl(var(--primary))" },
-  mcap: { label: "Market Cap", color: "hsl(var(--accent))" },
+  close: { label: "Price", color: "hsl(var(--primary))" },
 };
 
 /* ── format helpers ── */
 const fmtMcap = (v: number) => {
   if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
   if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
-  return `$${v}`;
+  return `$${v.toFixed(0)}`;
 };
-
 const fmtSol = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)} SOL`;
 const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
 export default function Crypto() {
-  const [visibleIdx, setVisibleIdx] = useState(60); // show first 60 points
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [pairInfo, setPairInfo] = useState<PairInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [visibleIdx, setVisibleIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const visibleData = FULL_HISTORY.slice(0, visibleIdx);
-  const currentPoint = visibleData[visibleData.length - 1];
-  const entryPoint = FULL_HISTORY[0];
+  /* ── fetch real data ── */
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crypto-chart", {
+        body: null,
+        method: "GET",
+      });
+      if (error) throw error;
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (parsed.error) throw new Error(parsed.error);
+      setCandles(parsed.candles || []);
+      setPairInfo(parsed.pairInfo || null);
+      setVisibleIdx(parsed.candles?.length || 0);
+    } catch (err: any) {
+      console.error("Failed to fetch chart:", err);
+      toast.error("Failed to load chart data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  /* ── simulation PNL calc ── */
-  const priceChange = currentPoint
-    ? (currentPoint.price - entryPoint.price) / entryPoint.price
-    : 0;
-  const holdingValue = TOKEN.holdingSol * (1 + priceChange);
-  const pnlSol = holdingValue - TOKEN.holdingSol;
-  const pnlPct = priceChange * 100;
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  /* ── auto-refresh every 60s ── */
+  useEffect(() => {
+    const id = setInterval(fetchData, 60_000);
+    return () => clearInterval(id);
+  }, [fetchData]);
+
+  /* ── simulation playback ── */
+  const visibleData = candles.slice(0, visibleIdx);
+  const currentCandle = visibleData[visibleData.length - 1];
+  const entryCandle = candles[0];
+
+  // PNL simulation: use entry price vs current visible price
+  const entryPrice = entryCandle?.close || 1;
+  const currentPrice = currentCandle?.close || entryPrice;
+  const priceChangePct = ((currentPrice - entryPrice) / entryPrice) * 100;
+  const holdingValue = POSITION.holdingSol * (1 + priceChangePct / 100);
+  const pnlSol = holdingValue - POSITION.holdingSol;
   const isProfit = pnlSol >= 0;
 
-  /* ── play/pause simulation ── */
   const tick = useCallback(() => {
     setVisibleIdx((prev) => {
-      if (prev >= FULL_HISTORY.length) {
+      if (prev >= candles.length) {
         setPlaying(false);
         return prev;
       }
       return prev + 1;
     });
-  }, []);
+  }, [candles.length]);
 
   useEffect(() => {
     if (playing) {
-      intervalRef.current = setInterval(tick, 300);
+      intervalRef.current = setInterval(tick, 200);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -121,43 +153,120 @@ export default function Crypto() {
     };
   }, [playing, tick]);
 
-  const reset = () => {
-    setPlaying(false);
-    setVisibleIdx(60);
+  const startSimulation = () => {
+    setVisibleIdx(1);
+    setPlaying(true);
   };
 
-  /* ── price range for chart ── */
-  const prices = visibleData.map((d) => d.price);
-  const minPrice = Math.min(...prices) * 0.9;
-  const maxPrice = Math.max(...prices) * 1.1;
+  const reset = () => {
+    setPlaying(false);
+    setVisibleIdx(candles.length);
+  };
+
+  /* ── chart data ── */
+  const chartData = visibleData.map((c) => ({
+    time: format(new Date(c.timestamp), "MMM d HH:mm"),
+    close: c.close,
+    volume: c.volume,
+  }));
+
+  const prices = visibleData.map((d) => d.close);
+  const minPrice = prices.length ? Math.min(...prices) * 0.95 : 0;
+  const maxPrice = prices.length ? Math.max(...prices) * 1.05 : 1;
+
+  /* ── live mcap from DexScreener or simulated ── */
+  const liveMcap = pairInfo?.marketCap || 0;
+  const displayMcap =
+    visibleIdx >= candles.length && liveMcap > 0
+      ? liveMcap
+      : currentCandle
+      ? Math.round(currentCandle.close * 1_000_000_000) // rough supply estimate
+      : 0;
 
   return (
     <AppLayout>
       <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Activity className="h-6 w-6 text-primary" />
-              Crypto Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1 font-mono break-all">
-              {TOKEN.name}
-            </p>
+          <div className="flex items-center gap-3">
+            {pairInfo?.imageUrl && (
+              <img
+                src={pairInfo.imageUrl}
+                alt={pairInfo.symbol}
+                className="h-10 w-10 rounded-full"
+              />
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Activity className="h-6 w-6 text-primary" />
+                {pairInfo?.name || "Crypto"}{" "}
+                {pairInfo?.symbol && (
+                  <Badge variant="outline" className="text-xs">
+                    ${pairInfo.symbol}
+                  </Badge>
+                )}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-0.5 font-mono break-all">
+                {TOKEN_ADDRESS}
+              </p>
+            </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              window.open(
-                `https://pump.fun/coin/${TOKEN.name}`,
-                "_blank"
-              )
-            }
-          >
-            <ExternalLink className="h-4 w-4 mr-1" /> View on Pump.fun
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                window.open(
+                  `https://gmgn.ai/sol/token/${TOKEN_ADDRESS}`,
+                  "_blank"
+                )
+              }
+            >
+              <ExternalLink className="h-4 w-4 mr-1" /> GMGN
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                window.open(
+                  `https://dexscreener.com/solana/${TOKEN_ADDRESS}`,
+                  "_blank"
+                )
+              }
+            >
+              <ExternalLink className="h-4 w-4 mr-1" /> DexScreener
+            </Button>
+          </div>
         </div>
+
+        {/* Live Price */}
+        {pairInfo && (
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="text-3xl font-bold text-foreground">
+              ${Number(pairInfo.priceUsd).toFixed(6)}
+            </span>
+            <span className="text-lg text-muted-foreground">
+              {Number(pairInfo.priceNative).toFixed(8)} SOL
+            </span>
+            {pairInfo.priceChange?.h24 != null && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-sm",
+                  pairInfo.priceChange.h24 >= 0
+                    ? "border-green-500/30 text-green-500"
+                    : "border-red-500/30 text-red-500"
+                )}
+              >
+                {fmtPct(pairInfo.priceChange.h24)} 24h
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -167,7 +276,7 @@ export default function Crypto() {
                 <Percent className="h-3.5 w-3.5" /> Holdings
               </div>
               <p className="text-xl font-bold text-foreground">
-                {TOKEN.holdingPct}%
+                {POSITION.holdingPct}%
               </p>
             </CardContent>
           </Card>
@@ -217,48 +326,62 @@ export default function Crypto() {
                   isProfit ? "text-green-500" : "text-red-500"
                 )}
               >
-                {fmtPct(pnlPct)}
+                {fmtPct(priceChangePct)}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Market Cap */}
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Current Market Cap</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {currentPoint ? fmtMcap(currentPoint.mcap) : "—"}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-sm",
-                  isProfit
-                    ? "border-green-500/30 text-green-500"
-                    : "border-red-500/30 text-red-500"
-                )}
-              >
-                {isProfit ? "PROFIT" : "LOSS"}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Market Cap + Liquidity */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground">Market Cap</p>
+              <p className="text-2xl font-bold text-foreground">
+                {displayMcap > 0 ? fmtMcap(displayMcap) : "—"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground">Liquidity</p>
+              <p className="text-2xl font-bold text-foreground">
+                {pairInfo?.liquidity ? fmtMcap(pairInfo.liquidity) : "—"}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs text-muted-foreground">24h Volume</p>
+              <p className="text-2xl font-bold text-foreground">
+                {pairInfo?.volume24h ? fmtMcap(pairInfo.volume24h) : "—"}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Chart */}
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Price Chart (Simulation)</CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="text-base">
+                Price Chart — Real Data (GeckoTerminal)
+              </CardTitle>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={startSimulation}
+                  disabled={candles.length === 0}
+                >
+                  <Play className="h-4 w-4 mr-1" /> Simulate
+                </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
                   onClick={() => setPlaying((p) => !p)}
+                  disabled={candles.length === 0}
                 >
                   {playing ? (
                     <Pause className="h-4 w-4" />
@@ -275,83 +398,105 @@ export default function Crypto() {
                   <RotateCcw className="h-4 w-4" />
                 </Button>
                 <span className="text-xs text-muted-foreground tabular-nums">
-                  {visibleIdx} / {FULL_HISTORY.length}
+                  {visibleIdx} / {candles.length}
                 </span>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[350px] w-full">
-              <AreaChart data={visibleData}>
-                <defs>
-                  <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="0%"
-                      stopColor={
-                        isProfit
-                          ? "hsl(142, 76%, 36%)"
-                          : "hsl(0, 84%, 60%)"
-                      }
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor={
-                        isProfit
-                          ? "hsl(142, 76%, 36%)"
-                          : "hsl(0, 84%, 60%)"
-                      }
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/30" />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 10 }}
-                  interval={Math.max(Math.floor(visibleData.length / 8), 1)}
-                />
-                <YAxis
-                  domain={[minPrice, maxPrice]}
-                  tick={{ fontSize: 10 }}
-                  tickFormatter={(v) => v.toFixed(6)}
-                  width={70}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, name) => {
-                        if (name === "price")
-                          return (
-                            <span className="font-mono">
-                              ${Number(value).toFixed(8)}
-                            </span>
-                          );
-                        return <span>{fmtMcap(Number(value))}</span>;
-                      }}
-                    />
-                  }
-                />
-                <ReferenceLine
-                  y={entryPoint.price}
-                  stroke="hsl(var(--muted-foreground))"
-                  strokeDasharray="4 4"
-                  label={{ value: "Entry", fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="price"
-                  stroke={isProfit ? "hsl(142, 76%, 36%)" : "hsl(0, 84%, 60%)"}
-                  strokeWidth={2}
-                  fill="url(#priceGrad)"
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ChartContainer>
+            {loading && candles.length === 0 ? (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                Loading chart data…
+              </div>
+            ) : candles.length === 0 ? (
+              <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                No chart data available
+              </div>
+            ) : (
+              <ChartContainer config={chartConfig} className="h-[350px] w-full">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="0%"
+                        stopColor={
+                          isProfit
+                            ? "hsl(142, 76%, 36%)"
+                            : "hsl(0, 84%, 60%)"
+                        }
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={
+                          isProfit
+                            ? "hsl(142, 76%, 36%)"
+                            : "hsl(0, 84%, 60%)"
+                        }
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border/30"
+                  />
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontSize: 10 }}
+                    interval={Math.max(Math.floor(chartData.length / 8), 1)}
+                  />
+                  <YAxis
+                    domain={[minPrice, maxPrice]}
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => `$${v.toFixed(6)}`}
+                    width={80}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => {
+                          if (name === "close")
+                            return (
+                              <span className="font-mono">
+                                ${Number(value).toFixed(8)}
+                              </span>
+                            );
+                          return <span>{String(value)}</span>;
+                        }}
+                      />
+                    }
+                  />
+                  <ReferenceLine
+                    y={entryPrice}
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="4 4"
+                    label={{
+                      value: "Entry",
+                      fill: "hsl(var(--muted-foreground))",
+                      fontSize: 10,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="close"
+                    stroke={
+                      isProfit
+                        ? "hsl(142, 76%, 36%)"
+                        : "hsl(0, 84%, 60%)"
+                    }
+                    strokeWidth={2}
+                    fill="url(#priceGrad)"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
 
-        {/* Simulation Log */}
+        {/* Position Summary */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Position Summary</CardTitle>
@@ -361,44 +506,59 @@ export default function Crypto() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Token</span>
-                  <span className="font-mono text-foreground text-xs break-all max-w-[200px] text-right">
-                    {TOKEN.name.slice(0, 12)}…{TOKEN.name.slice(-4)}
+                  <span className="font-mono text-foreground text-xs">
+                    {TOKEN_ADDRESS.slice(0, 8)}…{TOKEN_ADDRESS.slice(-4)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Holdings %</span>
-                  <span className="text-foreground font-medium">{TOKEN.holdingPct}%</span>
+                  <span className="text-foreground font-medium">
+                    {POSITION.holdingPct}%
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Entry Price</span>
-                  <span className="text-foreground font-mono">${entryPoint.price.toFixed(8)}</span>
+                  <span className="text-foreground font-mono">
+                    ${entryPrice.toFixed(8)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current Price</span>
                   <span className="text-foreground font-mono">
-                    ${currentPoint?.price.toFixed(8) ?? "—"}
+                    ${currentPrice.toFixed(8)}
                   </span>
                 </div>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Initial Investment</span>
-                  <span className="text-foreground font-medium">{TOKEN.holdingSol} SOL</span>
+                  <span className="text-muted-foreground">Initial Bag</span>
+                  <span className="text-foreground font-medium">
+                    {POSITION.holdingSol} SOL
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current Value</span>
-                  <span className="text-foreground font-medium">{holdingValue.toFixed(2)} SOL</span>
+                  <span className="text-foreground font-medium">
+                    {holdingValue.toFixed(2)} SOL
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">PNL</span>
-                  <span className={cn("font-bold", isProfit ? "text-green-500" : "text-red-500")}>
-                    {fmtSol(pnlSol)} ({fmtPct(pnlPct)})
+                  <span className="text-muted-foreground">
+                    Simulated PNL
+                  </span>
+                  <span
+                    className={cn(
+                      "font-bold",
+                      isProfit ? "text-green-500" : "text-red-500"
+                    )}
+                  >
+                    {fmtSol(pnlSol)} ({fmtPct(priceChangePct)})
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Market Cap</span>
                   <span className="text-foreground font-medium">
-                    {currentPoint ? fmtMcap(currentPoint.mcap) : "—"}
+                    {displayMcap > 0 ? fmtMcap(displayMcap) : "—"}
                   </span>
                 </div>
               </div>
