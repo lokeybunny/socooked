@@ -617,6 +617,34 @@ export default function Arbitrage() {
     toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
   };
 
+  const handleSaveDefaultAddress = async () => {
+    setDefaultAddySaving(true);
+    const addr = defaultAddyInput.trim();
+    await supabase.from('site_configs').upsert({
+      site_id: 'arbitrage',
+      section: 'default-address',
+      content: { enabled: !!addr, address: addr },
+      is_published: true,
+    }, { onConflict: 'site_id,section' });
+    setDefaultAddress(addr);
+    setDefaultAddyEnabled(!!addr);
+    setDefaultAddySaving(false);
+    toast.success(addr ? `Default address saved: ${addr}` : 'Default address cleared');
+  };
+
+  const handleToggleDefaultAddy = async (enabled: boolean) => {
+    setDefaultAddySaving(true);
+    setDefaultAddyEnabled(enabled);
+    await supabase.from('site_configs').upsert({
+      site_id: 'arbitrage',
+      section: 'default-address',
+      content: { enabled, address: defaultAddress },
+      is_published: true,
+    }, { onConflict: 'site_id,section' });
+    setDefaultAddySaving(false);
+    toast.success(`Default address ${enabled ? 'ON' : 'OFF'}`);
+  };
+
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
