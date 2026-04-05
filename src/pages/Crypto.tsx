@@ -39,9 +39,9 @@ import { format } from "date-fns";
 const TOKEN_ADDRESS = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
 const POSITION = {
   holdingPct: 0.72,
-  holdingSol: 15.17,
-  initialPnlPct: -77,
-  initialPnlSol: -49.72,
+  holdingSol: 15.18,
+  initialPnlSol: -49.73,
+  entryMcap: 888_000, // 888K entry
 };
 
 interface Candle {
