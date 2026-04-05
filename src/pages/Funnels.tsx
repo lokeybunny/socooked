@@ -743,6 +743,7 @@ export default function Funnels() {
 
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
+    arbitrage: leads.filter(l => l.funnel === 'arbitrage' && !l.drafted_at).length,
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
     videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
