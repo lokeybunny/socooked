@@ -191,7 +191,6 @@ export default function Crypto() {
       const cached = JSON.parse(raw);
       if (cached.tokenMint !== TOKEN_ADDRESS) return false;
       if (cached.walletSignature !== getWalletCacheSignature(walletList)) return false;
-      if (Date.now() - (cached.ts || 0) > 5 * 60 * 1000) return false;
       if (!Array.isArray(cached.wallets)) return false;
 
       setWalletBalances(cached.wallets);
