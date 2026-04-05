@@ -6,7 +6,7 @@ import {
   Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
-  FileText, Mic, Copy, Sparkles, UserPlus, ShoppingBag
+  FileText, Mic, Copy, Sparkles, UserPlus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,11 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type FunnelType = 'all' | 'arbitrage' | 'webdesign' | 'videography' | 'realestate';
+type FunnelType = 'all' | 'webdesign' | 'videography' | 'realestate';
 
 interface FunnelLead {
   id: string;
-  funnel: 'arbitrage' | 'webdesign' | 'realestate' | 'videography';
+  funnel: 'webdesign' | 'realestate' | 'videography';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -53,20 +53,12 @@ interface FunnelLead {
 const PAGE_SIZE = 30;
 
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
-  arbitrage: { label: 'Arbitrage', icon: ShoppingBag, color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   realestate: { label: 'Real Estate', icon: Home, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
   videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
-  arbitrage: [
-    { value: 'new', label: 'New' },
-    { value: 'researching', label: 'Researching' },
-    { value: 'purchased', label: 'Purchased' },
-    { value: 'sold', label: 'Sold' },
-    { value: 'passed', label: 'Passed' },
-  ],
   webdesign: [
     { value: 'lead', label: 'Prospect' },
     { value: 'ai_complete', label: 'AI Complete' },
@@ -548,13 +540,6 @@ export default function Funnels() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      // Arbitrage items
-      const { data: arbItems } = await supabase
-        .from('arbitrage_items')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(500);
-
       // Web Design from customers (only funnel sources)
       const { data: custLeads } = await supabase
         .from('customers')
@@ -583,27 +568,7 @@ export default function Funnels() {
 
       const combined: FunnelLead[] = [];
 
-      // Arbitrage items
-      (arbItems || []).forEach((a: any) => {
-        const meta = (a.meta as Record<string, unknown>) || {};
-        combined.push({
-          id: a.id, funnel: 'arbitrage' as const, _table: 'customers' as const,
-          full_name: a.item_name || 'Untitled Item',
-          email: null, phone: null,
-          created_at: a.created_at, status: a.status || 'new',
-          notes: [
-            a.pawn_shop_address ? `📍 ${a.pawn_shop_address}` : null,
-            a.asking_price ? `💰 Asking: $${a.asking_price}` : null,
-            a.wiggle_room_price ? `🤝 Wiggle: $${a.wiggle_room_price}` : null,
-            a.condition_notes ? `📝 ${a.condition_notes}` : null,
-          ].filter(Boolean).join('\n') || null,
-          property_address: a.pawn_shop_address,
-          asking_price: a.asking_price ? Number(a.asking_price) : null,
-          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
-          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
-          drafted_at: (meta.drafted_at as string) || null,
-        });
-      });
+
 
       (custLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
@@ -680,9 +645,7 @@ export default function Funnels() {
 
   const handleDraft = async (lead: FunnelLead) => {
     const now = new Date().toISOString();
-    if (lead.funnel === 'arbitrage') {
-      await supabase.from('arbitrage_items').update({ meta: { drafted_at: now } } as any).eq('id', lead.id);
-    } else if (lead._table === 'customers') {
+    if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: { funnel_drafted_at: now } } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: now }).eq('id', lead.id);
@@ -692,9 +655,7 @@ export default function Funnels() {
   };
 
   const handleUndraft = async (lead: FunnelLead) => {
-    if (lead.funnel === 'arbitrage') {
-      await supabase.from('arbitrage_items').update({ meta: {} } as any).eq('id', lead.id);
-    } else if (lead._table === 'customers') {
+    if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: {} } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: null }).eq('id', lead.id);
@@ -706,10 +667,7 @@ export default function Funnels() {
   const handleStageChange = async (lead: FunnelLead, newStatus: string) => {
     if (lead.status === newStatus) return;
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
-    if (lead.funnel === 'arbitrage') {
-      const { error } = await supabase.from('arbitrage_items').update({ status: newStatus }).eq('id', lead.id);
-      if (error) { toast.error(error.message); fetchLeads(); return; }
-    } else if (lead._table === 'customers') {
+    if (lead._table === 'customers') {
       const { error } = await supabase.from('customers').update({ status: newStatus }).eq('id', lead.id);
       if (error) { toast.error(error.message); fetchLeads(); return; }
     } else {
@@ -750,7 +708,6 @@ export default function Funnels() {
 
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
-    arbitrage: leads.filter(l => l.funnel === 'arbitrage' && !l.drafted_at).length,
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
     videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
@@ -792,8 +749,8 @@ export default function Funnels() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {(['all', 'arbitrage', 'webdesign', 'videography', 'realestate'] as const).map((key) => {
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {(['all', 'webdesign', 'videography', 'realestate'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];

@@ -180,6 +180,8 @@ export type Database = {
         Row: {
           asking_price: number | null
           condition_notes: string | null
+          contact_name: string | null
+          contact_phone: string | null
           created_at: string
           id: string
           item_name: string
@@ -188,12 +190,15 @@ export type Database = {
           original_image_url: string | null
           pawn_shop_address: string | null
           status: string
+          store_id: string | null
           updated_at: string
           wiggle_room_price: number | null
         }
         Insert: {
           asking_price?: number | null
           condition_notes?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           item_name?: string
@@ -202,12 +207,15 @@ export type Database = {
           original_image_url?: string | null
           pawn_shop_address?: string | null
           status?: string
+          store_id?: string | null
           updated_at?: string
           wiggle_room_price?: number | null
         }
         Update: {
           asking_price?: number | null
           condition_notes?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           item_name?: string
@@ -216,8 +224,91 @@ export type Database = {
           original_image_url?: string | null
           pawn_shop_address?: string | null
           status?: string
+          store_id?: string | null
           updated_at?: string
           wiggle_room_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arbitrage_items_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "arbitrage_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arbitrage_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          is_dismissed: boolean
+          item_id: string
+          notes: string | null
+          reminder_date: string
+          reminder_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          item_id: string
+          notes?: string | null
+          reminder_date: string
+          reminder_type?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          item_id?: string
+          notes?: string | null
+          reminder_date?: string
+          reminder_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arbitrage_reminders_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "arbitrage_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arbitrage_stores: {
+        Row: {
+          address: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          meta: Json
+          notes: string | null
+          store_name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          notes?: string | null
+          store_name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json
+          notes?: string | null
+          store_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
