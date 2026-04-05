@@ -288,7 +288,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
               {item.original_image_url && (
                 <div className="space-y-1">
                   <p className="text-[10px] text-muted-foreground font-medium">Original</p>
-                  <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.original_image_url!, '_blank')} />
+                  <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => setLightboxUrl(item.original_image_url!)} />
                 </div>
               )}
               {item.nobg_image_url && (
