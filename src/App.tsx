@@ -64,6 +64,7 @@ const WebDesignLanding = lazyWithRetry(() => import("./pages/WebDesignLanding"),
 const Terms = lazyWithRetry(() => import("./pages/Terms"), "page-terms");
 const Stream = lazyWithRetry(() => import("./pages/Stream"), "page-stream");
 const ClientDashboard = lazyWithRetry(() => import("./pages/ClientDashboard"), "page-client-dashboard");
+const Crypto = lazyWithRetry(() => import("./pages/Crypto"), "page-crypto");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -157,6 +158,7 @@ const App = () => (
                 <Route path="/liquidate" element={<Liquidate />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/stream" element={<Stream />} />
+                <Route path="/crypto" element={<WarrenOnlyGate><AuthLayoutGate><Crypto /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
                 <Route path="/client-dashboard" element={<ClientDashboard />} />
                 <Route path="*" element={<NotFound />} />
