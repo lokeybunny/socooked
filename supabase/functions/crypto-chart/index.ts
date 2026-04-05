@@ -1,4 +1,7 @@
-import { corsHeaders } from "@supabase/supabase-js/cors";
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 const POOL_ADDRESS = "EPHW3pF79SD7DBssRMX9wC1btisJFKnG7VnDwg7mjX4i";
 const GECKO_BASE = "https://api.geckoterminal.com/api/v2";
