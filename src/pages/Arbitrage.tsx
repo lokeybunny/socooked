@@ -560,6 +560,8 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
                </div>
              </div>
            )}
+           {(item as any).sku && (
+              <span className="text-[10px] font-mono text-muted-foreground select-all ml-auto">SKU: {(item as any).sku}</span>
            )}
           </div>
       </DialogContent>
