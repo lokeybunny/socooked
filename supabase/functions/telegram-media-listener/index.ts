@@ -52,7 +52,16 @@ const PAGE_2_KEYBOARD = {
     [{ text: '🍌2️⃣ Banana2' }, { text: '🎬 Higgsfield' }],
     [{ text: '🤖 AI Assistant' }, { text: '📧 Email' }],
     [{ text: '📝 Proposal' }, { text: '🔍 Audit' }],
-    [{ text: '⬅️ Back' }],
+    [{ text: '⬅️ Back' }, { text: '➡️ More 3' }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+}
+
+const PAGE_3_KEYBOARD = {
+  keyboard: [
+    [{ text: '🏪 Arbitrage' }],
+    [{ text: '⬅️ Back 2' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
