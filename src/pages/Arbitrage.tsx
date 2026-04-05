@@ -46,6 +46,7 @@ interface ArbItem {
   item_name: string;
   original_image_url: string | null;
   nobg_image_url: string | null;
+  extra_images: string[] | null;
   pawn_shop_address: string | null;
   asking_price: number | null;
   wiggle_room_price: number | null;
