@@ -289,10 +289,32 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 
           {/* AI Analysis Badge */}
           {aiAnalysis && (
-            <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-1">
+            <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-2">
               <p className="text-xs font-semibold flex items-center gap-1.5 text-primary"><Sparkles className="h-3.5 w-3.5" /> AI Analysis</p>
-              <p data-copy className="text-sm font-medium" onClick={() => cp(aiAnalysis.item_name, 'Item name')}>{aiAnalysis.item_name}</p>
-              <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(aiAnalysis.description, 'Description')}>{aiAnalysis.description}</p>
+              {/* AI Item Name */}
+              <div className="flex items-start gap-1">
+                {editingAiName ? (
+                  <Input autoFocus defaultValue={aiAnalysis.item_name} className="h-7 text-sm font-medium"
+                    onBlur={e => saveAiField('item_name', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveAiField('item_name', (e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingAiName(false); }}
+                  />
+                ) : (
+                  <p data-copy className="text-sm font-medium flex-1" onClick={() => cp(aiAnalysis.item_name, 'AI name')} onDoubleClick={() => setEditingAiName(true)}>{aiAnalysis.item_name}</p>
+                )}
+                {!editingAiName && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setEditingAiName(true)}><Edit2 className="h-2.5 w-2.5" /></Button>}
+              </div>
+              {/* AI Description */}
+              <div className="flex items-start gap-1">
+                {editingAiDesc ? (
+                  <Textarea autoFocus defaultValue={aiAnalysis.description} rows={3} className="text-xs"
+                    onBlur={e => saveAiField('description', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveAiField('description', (e.target as HTMLTextAreaElement).value); } if (e.key === 'Escape') setEditingAiDesc(false); }}
+                  />
+                ) : (
+                  <p data-copy className="text-xs text-muted-foreground flex-1" onClick={() => cp(aiAnalysis.description, 'Description')} onDoubleClick={() => setEditingAiDesc(true)}>{aiAnalysis.description}</p>
+                )}
+                {!editingAiDesc && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setEditingAiDesc(true)}><Edit2 className="h-2.5 w-2.5" /></Button>}
+              </div>
               {aiAnalysis.estimated_value_low && (
                 <p data-copy className="text-xs" onClick={() => cp(`$${aiAnalysis.estimated_value_low} - $${aiAnalysis.estimated_value_high}`, 'Est. value')}>Est. Value: <span className="font-semibold text-emerald-500">${aiAnalysis.estimated_value_low} - ${aiAnalysis.estimated_value_high}</span></p>
               )}
