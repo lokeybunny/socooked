@@ -3933,6 +3933,17 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    const priorityArbMedia = extractMedia(message)
+    let priorityArbAwait: any[] | null = null
+    if (priorityArbMedia) {
+      const { data } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .limit(1)
+      priorityArbAwait = data
+    }
+
     // ─── Check for active sessions (SINGLE query instead of 12) ───
     const { data: activeSessions } = await supabase.from('webhook_events')
       .select('id, event_type, payload')
@@ -3942,7 +3953,7 @@ Deno.serve(async (req) => {
       .eq('processed', false)
       .order('created_at', { ascending: false }).limit(1)
 
-    if (activeSessions && activeSessions.length > 0) {
+    if ((!priorityArbAwait || priorityArbAwait.length === 0) && activeSessions && activeSessions.length > 0) {
       const session = activeSessions[0]
       const sp = session.payload as any
 
