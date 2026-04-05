@@ -138,6 +138,8 @@ export default function Crypto() {
   const [newWalletLabel, setNewWalletLabel] = useState("");
   const [addingWallet, setAddingWallet] = useState(false);
   const [fetchingBalances, setFetchingBalances] = useState(false);
+  const [walletsOpen, setWalletsOpen] = useState(false);
+  const [showUsd, setShowUsd] = useState(false);
 
   /* ── fetch chart data ── */
   const fetchChart = useCallback(async () => {
