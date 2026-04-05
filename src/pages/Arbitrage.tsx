@@ -38,6 +38,8 @@ interface ArbStore {
   contact_name: string | null;
   contact_phone: string | null;
   notes: string | null;
+  website: string | null;
+  email: string | null;
   created_at: string;
 }
 
