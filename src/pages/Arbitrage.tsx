@@ -160,6 +160,8 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   const [draftNotes, setDraftNotes] = useState('');
   const [draftAiName, setDraftAiName] = useState('');
   const [draftAiDesc, setDraftAiDesc] = useState('');
+  const [showSoldPrompt, setShowSoldPrompt] = useState(false);
+  const [soldPrice, setSoldPrice] = useState('');
 
   // Reset edit states when item changes
   useEffect(() => {
@@ -171,6 +173,8 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
     setEditingWiggle(false);
     setEditingContact(false);
     setEditingPhone(false);
+    setShowSoldPrompt(false);
+    setSoldPrice('');
   }, [item?.id]);
 
   if (!item) return null;
