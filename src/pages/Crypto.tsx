@@ -305,7 +305,8 @@ export default function Crypto() {
     }
 
     const hadCache = loadCachedBalances(wallets);
-    fetchBalances(hadCache);
+    if (!hadCache) fetchBalances(false);
+    else fetchBalances(true);
   }, [wallets, fetchBalances, loadCachedBalances]);
 
   // Auto-refresh every 60s
