@@ -291,7 +291,7 @@ export default function Crypto() {
                 <DollarSign className="h-3.5 w-3.5" /> Holding Value
               </div>
               <p className="text-xl font-bold text-foreground">
-                {holdingValue.toFixed(2)} SOL
+                {visibleIdx < candles.length ? holdingValue.toFixed(2) : POSITION.holdingSol.toFixed(2)} SOL
               </p>
             </CardContent>
           </Card>
