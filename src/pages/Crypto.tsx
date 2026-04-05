@@ -452,10 +452,18 @@ export default function Crypto() {
                     interval={Math.max(Math.floor(chartData.length / 8), 1)}
                   />
                   <YAxis
+                    yAxisId="price"
                     domain={[minPrice, maxPrice]}
                     tick={{ fontSize: 10 }}
                     tickFormatter={(v) => `$${v.toFixed(6)}`}
                     width={80}
+                  />
+                  <YAxis
+                    yAxisId="mcap"
+                    orientation="right"
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(v) => fmtMcap(v)}
+                    width={70}
                   />
                   <ChartTooltip
                     content={
@@ -467,22 +475,26 @@ export default function Crypto() {
                                 ${Number(value).toFixed(8)}
                               </span>
                             );
+                          if (name === "mcap")
+                            return <span>{fmtMcap(Number(value))}</span>;
                           return <span>{String(value)}</span>;
                         }}
                       />
                     }
                   />
                   <ReferenceLine
-                    y={entryPrice}
-                    stroke="hsl(var(--muted-foreground))"
+                    yAxisId="mcap"
+                    y={POSITION.entryMcap}
+                    stroke="hsl(45, 93%, 47%)"
                     strokeDasharray="4 4"
                     label={{
-                      value: "Entry",
-                      fill: "hsl(var(--muted-foreground))",
+                      value: `Entry ${fmtMcap(POSITION.entryMcap)}`,
+                      fill: "hsl(45, 93%, 47%)",
                       fontSize: 10,
                     }}
                   />
                   <Area
+                    yAxisId="price"
                     type="monotone"
                     dataKey="close"
                     stroke={
@@ -492,6 +504,16 @@ export default function Crypto() {
                     }
                     strokeWidth={2}
                     fill="url(#priceGrad)"
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    yAxisId="mcap"
+                    type="monotone"
+                    dataKey="mcap"
+                    stroke="hsl(var(--accent-foreground))"
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
+                    fill="none"
                     isAnimationActive={false}
                   />
                 </AreaChart>
