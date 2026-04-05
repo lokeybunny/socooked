@@ -594,6 +594,64 @@ export default function Arbitrage() {
     toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
   };
 
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error('CSV has no data rows'); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+
+      // Auto-detect column indices
+      const nameIdx = headers.findIndex(h => /store.?name|name|business|company|shop/i.test(h));
+      const addrIdx = headers.findIndex(h => /address|street|location/i.test(h));
+      const contactIdx = headers.findIndex(h => /contact.?name|owner|person/i.test(h));
+      const phoneIdx = headers.findIndex(h => /phone|tel|mobile/i.test(h));
+      const notesIdx = headers.findIndex(h => /notes?|description|comments?/i.test(h));
+
+      if (nameIdx === -1 && addrIdx === -1) {
+        toast.error('CSV needs a "name" or "address" column');
+        return;
+      }
+
+      const rows: { store_name: string; address: string | null; contact_name: string | null; contact_phone: string | null; notes: string | null }[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].match(/("([^"]*)"|[^,]*)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || [];
+        const storeName = (nameIdx >= 0 ? cols[nameIdx] : '') || (addrIdx >= 0 ? cols[addrIdx] : '') || '';
+        if (!storeName) continue;
+        rows.push({
+          store_name: storeName,
+          address: addrIdx >= 0 ? cols[addrIdx] || null : null,
+          contact_name: contactIdx >= 0 ? cols[contactIdx] || null : null,
+          contact_phone: phoneIdx >= 0 ? cols[phoneIdx]?.replace(/[^\d+\-() ]/g, '') || null : null,
+          notes: notesIdx >= 0 ? cols[notesIdx] || null : null,
+        });
+      }
+
+      if (rows.length === 0) { toast.error('No valid rows found'); return; }
+
+      // Batch insert (50 at a time)
+      let inserted = 0;
+      for (let i = 0; i < rows.length; i += 50) {
+        const batch = rows.slice(i, i + 50);
+        const { error } = await supabase.from('arbitrage_stores').insert(batch);
+        if (error) { toast.error(`Row ${i + 1}: ${error.message}`); break; }
+        inserted += batch.length;
+      }
+
+      toast.success(`Imported ${inserted} stores`);
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message || 'CSV import failed');
+    } finally {
+      setCsvImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
+  };
+
   const unassignedCount = items.filter(i => !i.store_id).length;
 
   return (
