@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,8 @@ const navEntries: NavEntry[] = [
     ],
   },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
-  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', divider: 'Services', green: true },
+  { to: '/arbitrage', icon: ShoppingBag, label: 'Arbitrage', divider: 'Services', green: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
   
