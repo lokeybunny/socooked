@@ -168,90 +168,124 @@ export default function Crypto() {
   }, [user]);
 
   /* ── localStorage cache helpers ── */
-  const CACHE_KEY = "crypto_wallet_cache";
-  const loadCachedBalances = useCallback(() => {
+  const CACHE_KEY = "crypto_wallet_cache_v2";
+  const getWalletCacheSignature = useCallback(
+    (walletList: Pick<WalletRow, "wallet_address">[]) =>
+      walletList.map((wallet) => wallet.wallet_address).sort().join("|"),
+    [],
+  );
+
+  const loadCachedBalances = useCallback((walletList: WalletRow[]) => {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return false;
+
       const cached = JSON.parse(raw);
       if (cached.tokenMint !== TOKEN_ADDRESS) return false;
-      // Only use cache if it's less than 5 minutes old
+      if (cached.walletSignature !== getWalletCacheSignature(walletList)) return false;
       if (Date.now() - (cached.ts || 0) > 5 * 60 * 1000) return false;
-      setWalletBalances(cached.wallets || []);
+      if (!Array.isArray(cached.wallets)) return false;
+
+      setWalletBalances(cached.wallets);
       setWalletTotals(cached.totals || null);
       return true;
-    } catch { return false; }
-  }, []);
+    } catch {
+      return false;
+    }
+  }, [getWalletCacheSignature]);
 
-  const saveCacheBalances = useCallback((walletData: any[], totalsData: any) => {
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        tokenMint: TOKEN_ADDRESS,
-        wallets: walletData,
-        totals: totalsData,
-        ts: Date.now(),
-      }));
-    } catch {}
-  }, []);
+  const saveCacheBalances = useCallback(
+    (walletList: WalletRow[], walletData: WalletBalance[], totalsData: WalletTotals | null) => {
+      if (walletData.length !== walletList.length) return;
+
+      try {
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            tokenMint: TOKEN_ADDRESS,
+            walletSignature: getWalletCacheSignature(walletList),
+            wallets: walletData,
+            totals: totalsData,
+            ts: Date.now(),
+          }),
+        );
+      } catch {}
+    },
+    [getWalletCacheSignature],
+  );
 
   /* ── fetch on-chain balances ── */
-  const fetchBalances = useCallback(async () => {
-    if (!wallets.length) {
-      setWalletBalances([]);
-      setWalletTotals(null);
-      return;
-    }
-    setFetchingBalances(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("crypto-wallets", {
-        body: {
-          wallets: wallets.map((w) => w.wallet_address),
-          token_mint: TOKEN_ADDRESS,
-        },
-      });
-      if (error) throw error;
-      const parsed = typeof data === "string" ? JSON.parse(data) : data;
-      setWalletBalances(parsed.wallets || []);
-      setWalletTotals(parsed.totals || null);
-      saveCacheBalances(parsed.wallets || [], parsed.totals || null);
-    } catch (err: any) {
-      console.error("Failed to fetch balances:", err);
-      toast.error("Failed to fetch wallet balances");
-    } finally {
-      setFetchingBalances(false);
-    }
-  }, [wallets, saveCacheBalances]);
+  const fetchBalances = useCallback(
+    async (silent = false) => {
+      if (!wallets.length) {
+        setWalletBalances([]);
+        setWalletTotals(null);
+        try {
+          localStorage.removeItem(CACHE_KEY);
+        } catch {}
+        return;
+      }
+
+      if (!silent) setFetchingBalances(true);
+
+      try {
+        let nextWalletBalances: WalletBalance[] = [];
+        let nextWalletTotals: WalletTotals | null = null;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data, error } = await supabase.functions.invoke("crypto-wallets", {
+            body: {
+              wallets: wallets.map((wallet) => wallet.wallet_address),
+              token_mint: TOKEN_ADDRESS,
+            },
+          });
+
+          if (error) throw error;
+
+          const parsed = typeof data === "string" ? JSON.parse(data) : data;
+          nextWalletBalances = Array.isArray(parsed?.wallets) ? parsed.wallets : [];
+          nextWalletTotals = parsed?.totals || null;
+
+          const hasNonZeroBalance = nextWalletBalances.some((wallet) => Number(wallet.balance) > 0);
+          if (hasNonZeroBalance || attempt === 2) break;
+
+          await new Promise((resolve) => setTimeout(resolve, 700));
+        }
+
+        const hasNonZeroBalance = nextWalletBalances.some((wallet) => Number(wallet.balance) > 0);
+        const hasExistingNonZeroBalance =
+          walletBalances.some((wallet) => Number(wallet.balance) > 0) || Number(walletTotals?.totalTokens || 0) > 0;
+
+        if (!hasNonZeroBalance && silent && hasExistingNonZeroBalance) return;
+
+        setWalletBalances(nextWalletBalances);
+        setWalletTotals(nextWalletTotals);
+        saveCacheBalances(wallets, nextWalletBalances, nextWalletTotals);
+      } catch (err: any) {
+        console.error("Failed to fetch balances:", err);
+        if (!silent) toast.error("Failed to fetch wallet balances");
+      } finally {
+        if (!silent) setFetchingBalances(false);
+      }
+    },
+    [wallets, walletBalances, walletTotals, saveCacheBalances],
+  );
 
   useEffect(() => {
     fetchChart();
     fetchWallets();
   }, [fetchChart, fetchWallets]);
 
-  // Load cached balances immediately, then refresh from chain
   useEffect(() => {
-    if (wallets.length > 0) {
-      const hadCache = loadCachedBalances();
-      // If we had cache, still refresh in background but don't show spinner
-      if (hadCache) {
-        // Silently refresh
-        (async () => {
-          try {
-            const { data, error } = await supabase.functions.invoke("crypto-wallets", {
-              body: { wallets: wallets.map((w) => w.wallet_address), token_mint: TOKEN_ADDRESS },
-            });
-            if (!error) {
-              const parsed = typeof data === "string" ? JSON.parse(data) : data;
-              setWalletBalances(parsed.wallets || []);
-              setWalletTotals(parsed.totals || null);
-              saveCacheBalances(parsed.wallets || [], parsed.totals || null);
-            }
-          } catch {}
-        })();
-      } else {
-        fetchBalances();
-      }
+    if (!wallets.length) {
+      setWalletBalances([]);
+      setWalletTotals(null);
+      return;
     }
-  }, [wallets, fetchBalances, loadCachedBalances, saveCacheBalances]);
+
+    const hadCache = loadCachedBalances(wallets);
+    fetchBalances(hadCache);
+  }, [wallets, fetchBalances, loadCachedBalances]);
 
   // Auto-refresh every 60s
   useEffect(() => {
