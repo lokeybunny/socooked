@@ -294,7 +294,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
               {item.nobg_image_url && (
                 <div className="space-y-1">
                   <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
-                  <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.nobg_image_url!, '_blank')} />
+                  <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => setLightboxUrl(item.nobg_image_url!)} />
                 </div>
               )}
             </div>
