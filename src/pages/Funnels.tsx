@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'realestate';
+type FunnelType = 'all' | 'arbitrage' | 'webdesign' | 'videography' | 'realestate';
 
 interface FunnelLead {
   id: string;
