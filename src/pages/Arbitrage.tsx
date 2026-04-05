@@ -865,7 +865,7 @@ export default function Arbitrage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">All Stores</SelectItem>
-                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.store_name} ({storeItemCounts[s.id] || 0})</SelectItem>)}
+                  {stores.map(s => <SelectItem key={s.id} value={s.id}>{(s.address || s.store_name)} ({storeItemCounts[s.id] || 0})</SelectItem>)}
                   {unassignedCount > 0 && <SelectItem value="__unassigned__">Unassigned ({unassignedCount})</SelectItem>}
                 </SelectContent>
               </Select>
