@@ -552,7 +552,8 @@ export default function Arbitrage() {
         i.item_name.toLowerCase().includes(q) ||
         (i.pawn_shop_address || '').toLowerCase().includes(q) ||
         (i.condition_notes || '').toLowerCase().includes(q) ||
-        (i.contact_name || '').toLowerCase().includes(q)
+        (i.contact_name || '').toLowerCase().includes(q) ||
+        ((i as any).sku || '').toLowerCase().includes(q)
       );
     }
     return result;
