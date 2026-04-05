@@ -190,6 +190,7 @@ export type Database = {
           nobg_image_url: string | null
           original_image_url: string | null
           pawn_shop_address: string | null
+          sku: string | null
           status: string
           store_id: string | null
           updated_at: string
@@ -208,6 +209,7 @@ export type Database = {
           nobg_image_url?: string | null
           original_image_url?: string | null
           pawn_shop_address?: string | null
+          sku?: string | null
           status?: string
           store_id?: string | null
           updated_at?: string
@@ -226,6 +228,7 @@ export type Database = {
           nobg_image_url?: string | null
           original_image_url?: string | null
           pawn_shop_address?: string | null
+          sku?: string | null
           status?: string
           store_id?: string | null
           updated_at?: string
