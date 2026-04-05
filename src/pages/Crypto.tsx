@@ -131,9 +131,14 @@ export default function Crypto() {
   const currentPrice = currentCandle?.close || entryPrice;
   const currentMcapSim = currentPrice * SUPPLY;
   const mcapChangePct = ((currentMcapSim - POSITION.entryMcap) / POSITION.entryMcap) * 100;
-  const holdingValue = POSITION.initialBagSol * (currentMcapSim / POSITION.entryMcap);
+  const isSimulating = visibleIdx < candles.length;
+  const holdingValue = isSimulating
+    ? POSITION.initialBagSol * (currentMcapSim / POSITION.entryMcap)
+    : POSITION.holdingSol;
   const pnlSol = holdingValue - POSITION.initialBagSol;
-  const priceChangePct = mcapChangePct;
+  const priceChangePct = isSimulating
+    ? mcapChangePct
+    : ((POSITION.holdingSol - POSITION.initialBagSol) / POSITION.initialBagSol) * 100;
   const isProfit = pnlSol >= 0;
 
   const tick = useCallback(() => {
@@ -291,7 +296,7 @@ export default function Crypto() {
                 <DollarSign className="h-3.5 w-3.5" /> Holding Value
               </div>
               <p className="text-xl font-bold text-foreground">
-                {holdingValue.toFixed(2)} SOL
+                {visibleIdx < candles.length ? holdingValue.toFixed(2) : POSITION.holdingSol.toFixed(2)} SOL
               </p>
             </CardContent>
           </Card>
