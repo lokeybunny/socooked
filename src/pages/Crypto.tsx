@@ -68,6 +68,7 @@ interface PairInfo {
 /* ── chart config ── */
 const chartConfig: ChartConfig = {
   close: { label: "Price", color: "hsl(var(--primary))" },
+  mcap: { label: "Market Cap", color: "hsl(var(--accent))" },
 };
 
 /* ── format helpers ── */
