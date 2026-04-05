@@ -3595,6 +3595,15 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'arbitrage') {
+      // Set arbitrage_awaiting_photo session so next photo auto-routes
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'arbitrage_awaiting_photo',
+        payload: { chat_id: chatId, created: Date.now() },
+      })
       await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload a picture to get started.', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
       return new Response('ok')
     }
