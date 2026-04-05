@@ -2523,6 +2523,191 @@ Deno.serve(async (req) => {
       }
 
       // ─── Media save/skip callbacks ───
+      // ─── Arbitrage callback ───
+      if (cbData.startsWith('arb_')) {
+        const eventId = cbData.replace('arb_', '')
+        const { data: pendingEvent } = await supabase.from('webhook_events')
+          .select('*').eq('id', eventId).single()
+
+        if (!pendingEvent) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId, message_id: cbq.message.message_id,
+            text: '⚠️ Media expired or already processed.',
+          })
+          return new Response('ok')
+        }
+
+        const mediaPayload = pendingEvent.payload as any
+        const fileId = mediaPayload.file_id
+        const fileName = mediaPayload.file_name || 'file'
+
+        // Download and upload the original photo to storage
+        let retries = 3
+        let filePath = ''
+        while (retries-- > 0) {
+          const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId }),
+          })
+          const fileInfo = await fileInfoRes.json()
+          filePath = fileInfo.result?.file_path || ''
+          if (filePath) break
+          await new Promise(r => setTimeout(r, 1000))
+        }
+
+        if (!filePath) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId, message_id: cbq.message.message_id,
+            text: '❌ Could not retrieve file from Telegram.',
+          })
+          return new Response('ok')
+        }
+
+        const downloadUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+        const fileRes = await fetch(downloadUrl)
+        const fileBlob = await fileRes.blob()
+        const fileBuffer = await fileBlob.arrayBuffer()
+
+        const storagePath = `arbitrage/${Date.now()}_${fileName}`
+        const { error: uploadErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(storagePath, new Uint8Array(fileBuffer), {
+            contentType: fileBlob.type || 'image/jpeg',
+            upsert: false,
+          })
+
+        if (uploadErr) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId, message_id: cbq.message.message_id,
+            text: `❌ Upload failed: ${uploadErr.message}`,
+          })
+          return new Response('ok')
+        }
+
+        const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+        const originalUrl = urlData?.publicUrl || ''
+
+        // Create arbitrage_item with original image
+        const { data: arbItem } = await supabase.from('arbitrage_items').insert({
+          item_name: fileName,
+          original_image_url: originalUrl,
+          status: 'new',
+        }).select('id').single()
+
+        // Trigger background removal via Nano Banana
+        let nobgUrl: string | null = null
+        try {
+          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+          if (LOVABLE_API_KEY) {
+            const bgRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-3-pro-image-preview',
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'image_url', image_url: { url: originalUrl } },
+                    { type: 'text', text: 'Remove the background from this image completely. Make the background transparent/white. Keep only the main subject/item.' },
+                  ],
+                }],
+                modalities: ['image', 'text'],
+              }),
+            })
+
+            if (bgRes.ok) {
+              const bgData = await bgRes.json()
+              const choice = bgData.choices?.[0]?.message
+              let base64Img: string | null = null
+
+              // Check images array
+              if (choice?.images && Array.isArray(choice.images)) {
+                for (const img of choice.images) {
+                  if (img.type === 'image_url' && img.image_url?.url) {
+                    if (img.image_url.url.startsWith('data:')) {
+                      base64Img = img.image_url.url
+                    } else {
+                      nobgUrl = img.image_url.url
+                    }
+                    break
+                  }
+                }
+              }
+              // Check content array
+              if (!nobgUrl && !base64Img && Array.isArray(choice?.content)) {
+                for (const part of choice.content) {
+                  if (part.type === 'image_url' && part.image_url?.url) {
+                    if (part.image_url.url.startsWith('data:')) {
+                      base64Img = part.image_url.url
+                    } else {
+                      nobgUrl = part.image_url.url
+                    }
+                    break
+                  }
+                }
+              }
+
+              // Upload base64 if we got it
+              if (base64Img && !nobgUrl) {
+                const match = base64Img.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/)
+                if (match) {
+                  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+                  const raw = match[2]
+                  const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+                  const nobgPath = `arbitrage/${Date.now()}_nobg.${ext}`
+                  const { error: nobgUpErr } = await supabase.storage
+                    .from('content-uploads')
+                    .upload(nobgPath, bytes, { contentType: `image/${match[1]}`, upsert: true })
+                  if (!nobgUpErr) {
+                    const { data: nobgPub } = supabase.storage.from('content-uploads').getPublicUrl(nobgPath)
+                    nobgUrl = nobgPub?.publicUrl || null
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[arbitrage] bg removal error:', e)
+        }
+
+        // Update with nobg URL
+        if (arbItem?.id && nobgUrl) {
+          await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
+        }
+
+        // Mark pending event processed
+        await supabase.from('webhook_events').update({ processed: true }).eq('id', eventId)
+
+        // Create arbitrage session for collecting details
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'arbitrage_session',
+          payload: {
+            chat_id: cbChatId,
+            item_id: arbItem?.id,
+            step: 'address',
+            original_url: originalUrl,
+            nobg_url: nobgUrl,
+          },
+        })
+
+        const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
+        await tgPost(TG_TOKEN, 'editMessageText', {
+          chat_id: cbChatId,
+          message_id: cbq.message.message_id,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}\n\n📍 <b>What's the pawn shop address?</b>`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
       if (cbData.startsWith('save_') || cbData.startsWith('skip_')) {
         const action = cbData.startsWith('save_') ? 'save' : 'skip'
         const eventId = cbData.replace(/^(save_|skip_)/, '')
