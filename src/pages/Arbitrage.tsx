@@ -142,6 +142,14 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   const [draftAiName, setDraftAiName] = useState('');
   const [draftAiDesc, setDraftAiDesc] = useState('');
 
+  // Reset edit states when item changes
+  useEffect(() => {
+    setEditingName(false);
+    setEditingNotes(false);
+    setEditingAiName(false);
+    setEditingAiDesc(false);
+  }, [item?.id]);
+
   if (!item) return null;
   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
   const spread = item.asking_price && item.wiggle_room_price ? item.asking_price - item.wiggle_room_price : null;
@@ -202,6 +210,29 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   const cp = (val: string, label?: string) => {
     navigator.clipboard.writeText(val);
     toast.success(`${label || 'Copied'} to clipboard`);
+  };
+
+  const saveItemName = (name: string) => {
+    if (name.trim()) {
+      onUpdate(item.id, { item_name: name.trim() });
+      toast.success('Name updated');
+    }
+    setEditingName(false);
+  };
+
+  const saveNotes = (notes: string) => {
+    onUpdate(item.id, { condition_notes: notes });
+    toast.success('Notes updated');
+    setEditingNotes(false);
+  };
+
+  const saveAiField = async (field: 'item_name' | 'description', value: string) => {
+    const updatedAnalysis = { ...aiAnalysis, [field]: value };
+    const updatedMeta = { ...(item.meta as any), ai_analysis: updatedAnalysis };
+    onUpdate(item.id, { meta: updatedMeta } as any);
+    toast.success('AI analysis updated');
+    if (field === 'item_name') setEditingAiName(false);
+    else setEditingAiDesc(false);
   };
 
   return (
