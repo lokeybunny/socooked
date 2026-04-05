@@ -2607,11 +2607,16 @@ Deno.serve(async (req) => {
           status: 'new',
         }).select('id').single()
 
-        // Trigger background removal via Nano Banana
+        // Trigger background removal via Nano Banana — only if enabled
         let nobgUrl: string | null = null
         try {
+          // Check BG removal config
+          const { data: bgCfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle()
+          const bgEnabled = (bgCfg?.content as any)?.enabled !== false // default ON
+
           const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-          if (LOVABLE_API_KEY) {
+          if (LOVABLE_API_KEY && bgEnabled) {
             const bgRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: {
