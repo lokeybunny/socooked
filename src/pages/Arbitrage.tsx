@@ -348,8 +348,8 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-muted-foreground text-xs">Store</p>
-              <p data-copy className="font-medium" onClick={() => cp(store?.store_name || item.pawn_shop_address || '', 'Store')}>{store?.store_name || item.pawn_shop_address || '—'}</p>
-              {store?.address && <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(store.address!, 'Address')}>📍 {store.address}</p>}
+              <p data-copy className="font-medium" onClick={() => cp(store?.address || item.pawn_shop_address || '', 'Address')}>{store?.address || item.pawn_shop_address || '—'}</p>
+              {store?.store_name && <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(store.store_name, 'Store name')}>{store.store_name}</p>}
             </div>
             <div>
               <div className="flex items-center gap-1">
