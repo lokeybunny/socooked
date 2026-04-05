@@ -16,11 +16,14 @@ interface Stats {
   actualTotalCustomers: number;
   paidConvertedCount: number;
   emailsToday: number;
+  arbPurchasedCount: number;
+  arbPurchasedSpread: number;
+  arbListedSpread: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, arbPurchasedCount: 0, arbPurchasedSpread: 0, arbListedSpread: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -58,7 +61,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, arbPurchasedRes, arbListedRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
@@ -66,6 +69,8 @@ export default function Dashboard() {
         supabase.from('communications').select('type, created_at'),
         supabase.from('invoices').select('customer_id, status'),
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
+        supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'purchased'),
+        supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'listed'),
       ]);
 
       const allComms = comms.data || [];
@@ -75,9 +80,15 @@ export default function Dashboard() {
       const monthlyCount = monthlyRes.count || 0;
       const clientCount = clientRes.count || 0;
 
+      // Arbitrage metrics
+      const arbPurchased = arbPurchasedRes.data || [];
+      const arbPurchasedCount = arbPurchased.length;
+      const arbPurchasedSpread = arbPurchased.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
+      const arbListed = arbListedRes.data || [];
+      const arbListedSpread = arbListed.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
+
       // Actual lead conversion: monthly/active customers where ALL invoices are paid
       const allInvoices = invoicesRes.data || [];
-      // Get all monthly + active customer IDs
       const [monthlyCustomers, activeCustomers] = await Promise.all([
         supabase.from('customers').select('id').eq('status', 'monthly'),
         supabase.from('customers').select('id').eq('status', 'active'),
@@ -87,7 +98,6 @@ export default function Dashboard() {
         ...(activeCustomers.data || []).map((c: any) => c.id),
       ]);
 
-      // For each converted customer, check if they have at least one invoice and all are paid
       const invoicesByCustomer = new Map<string, boolean>();
       for (const inv of allInvoices) {
         const cid = inv.customer_id;
@@ -105,9 +115,12 @@ export default function Dashboard() {
         prospectEmailedCount,
         monthlyCount,
         clientCount,
-        actualTotalCustomers: convertedIds.size,
+        actualTotalCustomers: convertedIds.size + arbPurchasedCount,
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
+        arbPurchasedCount,
+        arbPurchasedSpread,
+        arbListedSpread,
       });
 
       setRecentCustomers(rc.data || []);
@@ -118,10 +131,10 @@ export default function Dashboard() {
 
   const metricCards = [
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
-    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly (deduplicated)`, icon: Users, color: 'text-emerald-500' },
+    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly + ${stats.arbPurchasedCount} arb purchased`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
-    { label: 'Potential Lead Conversion', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed × $250`, icon: TrendingUp, color: 'text-green-500' },
-    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
+    { label: 'Potential Lead Conversion', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250 + stats.arbListedSpread).toLocaleString()}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects × $250 + $${stats.arbListedSpread.toLocaleString()} arb listed`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350 + stats.arbPurchasedSpread).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} clients × $350 + $${stats.arbPurchasedSpread.toLocaleString()} arb profit`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
 
