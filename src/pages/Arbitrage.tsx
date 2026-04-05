@@ -913,6 +913,16 @@ export default function Arbitrage() {
                             <Phone className="h-3 w-3" /> {store.contact_phone}
                           </a>
                         )}
+                        {(store as any).email && (
+                          <a href={`mailto:${(store as any).email}`} className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <Mail className="h-3 w-3" /> {(store as any).email}
+                          </a>
+                        )}
+                        {(store as any).website && (
+                          <a href={(store as any).website.startsWith('http') ? (store as any).website : `https://${(store as any).website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <Globe className="h-3 w-3" /> {(store as any).website}
+                          </a>
+                        )}
                         {store.notes && <p className="text-xs text-muted-foreground line-clamp-2">{store.notes}</p>}
                         <div className="flex items-center gap-1.5 pt-1">
                           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setStoreFilter(store.id); setTab('inventory'); }}>
