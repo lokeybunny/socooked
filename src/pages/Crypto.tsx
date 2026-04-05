@@ -216,6 +216,10 @@ export default function Crypto() {
             ts: Date.now(),
           }),
         );
+        // Expose holding USD for dashboard consumption
+        if (totalsData?.holdingValueUsd) {
+          localStorage.setItem("crypto_holding_usd", JSON.stringify({ value: totalsData.holdingValueUsd, ts: Date.now() }));
+        }
       } catch {}
     },
     [getWalletCacheSignature],
