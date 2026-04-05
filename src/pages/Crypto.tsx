@@ -560,7 +560,7 @@ export default function Crypto() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Initial Bag</span>
                   <span className="text-foreground font-medium">
-                    {POSITION.holdingSol} SOL
+                    {POSITION.initialBagSol} SOL
                   </span>
                 </div>
                 <div className="flex justify-between">
