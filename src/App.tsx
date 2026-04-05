@@ -87,6 +87,7 @@ function WarrenOnlyGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/* cache-bust: v2 */
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
