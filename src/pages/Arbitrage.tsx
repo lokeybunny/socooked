@@ -519,11 +519,12 @@ export default function Arbitrage() {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [itemsRes, storesRes, remindersRes, bgCfgRes] = await Promise.all([
+    const [itemsRes, storesRes, remindersRes, bgCfgRes, addyCfgRes] = await Promise.all([
       supabase.from('arbitrage_items').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('arbitrage_stores').select('*').order('store_name'),
       supabase.from('arbitrage_reminders').select('*').eq('is_dismissed', false).lte('reminder_date', new Date().toISOString()).order('reminder_date'),
       supabase.from('site_configs').select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle(),
+      supabase.from('site_configs').select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle(),
     ]);
     if (itemsRes.error) toast.error(itemsRes.error.message);
     if (storesRes.error) toast.error(storesRes.error.message);
