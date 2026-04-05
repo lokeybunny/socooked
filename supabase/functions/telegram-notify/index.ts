@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       "auto-shill", "shill-bot-msg", "smm", "content", "customer", "deal",
       "project", "task", "board", "card", "invoice", "document", "signature",
       "thread", "lead", "meeting", "automation", "template", "communication",
-      "interaction", "email", "scheduled-email",
+      "interaction", "email", "scheduled-email", "site_config",
     ]);
     if (FIG_ENTITY_TYPES.has(entry.entity_type) && sb) {
       const { data: figToggle } = await sb
