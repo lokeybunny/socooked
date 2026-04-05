@@ -124,12 +124,15 @@ export default function Crypto() {
   const currentCandle = visibleData[visibleData.length - 1];
   const entryCandle = candles[0];
 
-  // PNL simulation: use entry price vs current visible price
+  // PNL: based on entry mcap vs current mcap
+  const SUPPLY = 1_000_000_000;
   const entryPrice = entryCandle?.close || 1;
   const currentPrice = currentCandle?.close || entryPrice;
-  const priceChangePct = ((currentPrice - entryPrice) / entryPrice) * 100;
-  const holdingValue = POSITION.holdingSol * (1 + priceChangePct / 100);
+  const currentMcapSim = currentPrice * SUPPLY;
+  const mcapChangePct = ((currentMcapSim - POSITION.entryMcap) / POSITION.entryMcap) * 100;
+  const holdingValue = POSITION.holdingSol * (1 + mcapChangePct / 100);
   const pnlSol = holdingValue - POSITION.holdingSol;
+  const priceChangePct = mcapChangePct;
   const isProfit = pnlSol >= 0;
 
   const tick = useCallback(() => {
