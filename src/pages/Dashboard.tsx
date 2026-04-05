@@ -21,6 +21,8 @@ interface Stats {
   arbListedSpread: number;
 }
 
+const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, arbPurchasedCount: 0, arbPurchasedSpread: 0, arbListedSpread: 0 });
@@ -54,18 +56,97 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Read crypto holding from localStorage (written by Crypto page)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('crypto_holding_usd');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.value && Date.now() - (parsed.ts || 0) < 30 * 60 * 1000) {
-          setCryptoHoldingUsd(parsed.value);
+    let cancelled = false;
+
+    const loadCachedCrypto = () => {
+      try {
+        const directRaw = localStorage.getItem('crypto_holding_usd');
+        if (directRaw) {
+          const parsed = JSON.parse(directRaw);
+          const cachedValue = Number(parsed?.value ?? 0);
+          if (Number.isFinite(cachedValue)) {
+            setCryptoHoldingUsd(cachedValue);
+            return;
+          }
         }
+
+        const walletCacheRaw = localStorage.getItem('crypto_wallet_cache_v2');
+        if (walletCacheRaw) {
+          const parsed = JSON.parse(walletCacheRaw);
+          const cachedValue = Number(parsed?.totals?.holdingValueUsd ?? 0);
+          if (Number.isFinite(cachedValue)) {
+            setCryptoHoldingUsd(cachedValue);
+          }
+        }
+      } catch {}
+    };
+
+    const refreshCryptoHolding = async () => {
+      if (!user) return;
+
+      try {
+        const { data: walletRows, error: walletError } = await supabase
+          .from('crypto_wallets')
+          .select('wallet_address')
+          .eq('token_address', CRYPTO_TOKEN_ADDRESS)
+          .eq('is_active', true);
+
+        if (walletError) throw walletError;
+
+        const walletAddresses = (walletRows || [])
+          .map((wallet) => wallet.wallet_address)
+          .filter(Boolean);
+
+        if (!walletAddresses.length) {
+          if (!cancelled) setCryptoHoldingUsd(0);
+          try {
+            localStorage.removeItem('crypto_holding_usd');
+            localStorage.removeItem('crypto_wallet_cache_v2');
+          } catch {}
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke('crypto-wallets', {
+          body: {
+            wallets: walletAddresses,
+            token_mint: CRYPTO_TOKEN_ADDRESS,
+          },
+        });
+
+        if (error) throw error;
+
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        const nextValue = Number(parsed?.totals?.holdingValueUsd ?? 0);
+        if (!Number.isFinite(nextValue) || cancelled) return;
+
+        setCryptoHoldingUsd(nextValue);
+        try {
+          localStorage.setItem('crypto_holding_usd', JSON.stringify({ value: nextValue, ts: Date.now() }));
+        } catch {}
+      } catch (error) {
+        console.error('Failed to refresh dashboard crypto:', error);
       }
-    } catch {}
-  }, []);
+    };
+
+    loadCachedCrypto();
+    void refreshCryptoHolding();
+
+    const interval = window.setInterval(() => {
+      void refreshCryptoHolding();
+    }, 120_000);
+
+    const handleFocus = () => {
+      void refreshCryptoHolding();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [user]);
 
   const formatCountdown = useCallback((s: number) => {
     const m = Math.floor(s / 60);

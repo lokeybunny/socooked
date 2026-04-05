@@ -176,6 +176,7 @@ export default function Crypto() {
 
   /* ── localStorage cache helpers ── */
   const CACHE_KEY = "crypto_wallet_cache_v2";
+  const HOLDING_CACHE_KEY = "crypto_holding_usd";
   const getWalletCacheSignature = useCallback(
     (walletList: Pick<WalletRow, "wallet_address">[]) =>
       walletList.map((wallet) => wallet.wallet_address).sort().join("|"),
@@ -216,10 +217,10 @@ export default function Crypto() {
             ts: Date.now(),
           }),
         );
-        // Expose holding USD for dashboard consumption
-        if (totalsData?.holdingValueUsd) {
-          localStorage.setItem("crypto_holding_usd", JSON.stringify({ value: totalsData.holdingValueUsd, ts: Date.now() }));
-        }
+        localStorage.setItem(
+          HOLDING_CACHE_KEY,
+          JSON.stringify({ value: Number(totalsData?.holdingValueUsd ?? 0), ts: Date.now() }),
+        );
       } catch {}
     },
     [getWalletCacheSignature],
@@ -233,6 +234,7 @@ export default function Crypto() {
         setWalletTotals(null);
         try {
           localStorage.removeItem(CACHE_KEY);
+          localStorage.removeItem(HOLDING_CACHE_KEY);
         } catch {}
         return;
       }
