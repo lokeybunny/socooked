@@ -3822,7 +3822,7 @@ Deno.serve(async (req) => {
         event_type: 'arbitrage_awaiting_photo',
         payload: { chat_id: chatId, created: Date.now() },
       })
-      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload a picture to get started.', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload one or multiple pictures to get started.\n<i>Tip: Select 3-4 photos at once — they\'ll all attach to the same item!</i>', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
       return new Response('ok')
     }
 
@@ -5242,6 +5242,68 @@ Deno.serve(async (req) => {
           parse_mode: 'HTML',
         })
         return new Response('ok')
+      }
+
+      // If there's any active arbitrage session (any step), silently append extra photos
+      // This handles batch uploads where user sends 3-4 photos at once
+      if (media.type === 'image') {
+        const { data: anyArbSession } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .order('created_at', { ascending: false }).limit(1)
+
+        if (anyArbSession && anyArbSession.length > 0) {
+          const arbPayload = anyArbSession[0].payload as any
+          const batchItemId = arbPayload.item_id
+
+          // Download file
+          let batchFilePath = ''
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: media.fileId }),
+              })
+              const fileInfo = await fileInfoRes.json()
+              batchFilePath = fileInfo.result?.file_path || ''
+              if (batchFilePath) break
+            } catch (_e) {}
+            if (attempt < 3) await new Promise(r => setTimeout(r, 1000))
+          }
+
+          if (batchFilePath) {
+            const downloadUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${batchFilePath}`
+            const fileRes = await fetch(downloadUrl)
+            if (fileRes.ok) {
+              const fileBlob = await fileRes.blob()
+              const fileBuffer = await fileBlob.arrayBuffer()
+              const storagePath = `arbitrage/${Date.now()}_extra_${media.fileName}`
+              const { error: uploadErr } = await supabase.storage
+                .from('content-uploads')
+                .upload(storagePath, new Uint8Array(fileBuffer), { contentType: fileBlob.type || 'image/jpeg', upsert: false })
+
+              if (!uploadErr) {
+                const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+                const extraUrl = urlData?.publicUrl || ''
+
+                const { data: currentItem } = await supabase.from('arbitrage_items').select('extra_images').eq('id', batchItemId).single()
+                const existingImages = (currentItem?.extra_images as string[]) || []
+                await supabase.from('arbitrage_items').update({
+                  extra_images: [...existingImages, extraUrl],
+                }).eq('id', batchItemId)
+
+                const totalExtras = existingImages.length + 1
+                await tgPost(TG_TOKEN, 'sendMessage', {
+                  chat_id: chatId,
+                  text: `📸 Extra photo #${totalExtras} added to current item!`,
+                  parse_mode: 'HTML',
+                })
+              }
+            }
+          }
+          return new Response('ok')
+        }
       }
 
       // Store pending media in webhook_events
