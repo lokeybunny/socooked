@@ -619,13 +619,15 @@ export default function Crypto() {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between">
+              <div className="flex justify-between">
                   <span className="text-muted-foreground">Initial Bag</span>
                   <span className="text-foreground font-medium">{INITIAL_BAG_SOL} SOL</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Current Value</span>
-                  <span className="text-foreground font-medium">{holdingValue > 0 ? `${holdingValue.toFixed(2)} SOL` : "—"}</span>
+                  <span className={cn("font-medium", hasWalletData ? (isProfit ? "text-green-500" : "text-red-500") : "text-foreground")}>
+                    {hasWalletData ? `${holdingValue.toFixed(2)} SOL ($${walletTotals!.holdingValueUsd.toFixed(2)})` : isSimulating ? `${holdingValue.toFixed(2)} SOL` : "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">PNL</span>
