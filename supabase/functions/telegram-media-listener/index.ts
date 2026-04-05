@@ -3830,7 +3830,107 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── Handle /shill command (admin-only) — must NOT match /shill2 ───
+    // ─── Handle /fig toggle (auto-shill & CRM notifications) ───
+    if (action === 'fig') {
+      try {
+        const { data: existing } = await supabase
+          .from('site_configs')
+          .select('content')
+          .eq('site_id', 'system')
+          .eq('section', 'fig_notifications')
+          .single()
+
+        const currentlyEnabled = existing?.content?.enabled !== false // default true
+        const newEnabled = !currentlyEnabled
+
+        await supabase
+          .from('site_configs')
+          .upsert({
+            site_id: 'system',
+            section: 'fig_notifications',
+            content: { enabled: newEnabled },
+            is_published: true,
+          }, { onConflict: 'site_id,section' })
+
+        const statusEmoji = newEnabled ? '✅' : '🔇'
+        const statusText = newEnabled ? 'ON' : 'OFF'
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `${statusEmoji} <b>Auto-Shill & CRM Notifications: ${statusText}</b>\n\nType /fig again to toggle.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        console.error('[fig-toggle] error:', e)
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to toggle: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+    // ─── Handle /defaultaddy command (set default arbitrage address) ───
+    if (action === 'defaultaddy') {
+      try {
+        const addrText = text.replace(/^\/?defaultaddy\s*/i, '').trim()
+        if (!addrText) {
+          // Show current default
+          const { data: cfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+          const current = (cfg?.content as any)
+          if (current?.enabled && current?.address) {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `📍 <b>Current default address:</b>\n${current.address}\n\nTo change: <code>/defaultaddy 123 Main St</code>\nTo disable: <code>/defaultaddyoff</code>`,
+              parse_mode: 'HTML',
+            })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `📍 <b>No default address set.</b>\n\nUsage: <code>/defaultaddy 123 Main St, Las Vegas NV</code>`,
+              parse_mode: 'HTML',
+            })
+          }
+          return new Response('ok')
+        }
+        await supabase.from('site_configs').upsert({
+          site_id: 'arbitrage',
+          section: 'default-address',
+          content: { enabled: true, address: addrText },
+          is_published: true,
+        }, { onConflict: 'site_id,section' })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `✅ <b>Default address saved & enabled:</b>\n📍 ${addrText}\n\nNew arbitrage items will auto-use this address.\nType <code>/defaultaddyoff</code> to disable.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+    // ─── Handle /defaultaddyoff command ───
+    if (action === 'defaultaddyoff') {
+      try {
+        const { data: cfg } = await supabase.from('site_configs')
+          .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+        const current = (cfg?.content as any) || {}
+        await supabase.from('site_configs').upsert({
+          site_id: 'arbitrage',
+          section: 'default-address',
+          content: { ...current, enabled: false },
+          is_published: true,
+        }, { onConflict: 'site_id,section' })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `🔴 <b>Default address disabled.</b>\n\nArbitrage will ask for location each time.\nType <code>/defaultaddy [address]</code> to re-enable.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+
     if (text.toLowerCase().startsWith('/shill') && !text.toLowerCase().startsWith('/shill2')) {
       const senderUsername = (message.from?.username || '').toLowerCase()
       if (senderUsername !== 'lokeybunny') {
