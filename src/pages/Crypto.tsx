@@ -39,9 +39,10 @@ import { format } from "date-fns";
 const TOKEN_ADDRESS = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
 const POSITION = {
   holdingPct: 0.72,
-  holdingSol: 15.18,
+  initialBagSol: 64.91,
+  holdingSol: 15.14,
   initialPnlSol: -49.73,
-  entryMcap: 888_000, // 888K entry
+  entryMcap: 888_000,
 };
 
 interface Candle {
@@ -130,8 +131,8 @@ export default function Crypto() {
   const currentPrice = currentCandle?.close || entryPrice;
   const currentMcapSim = currentPrice * SUPPLY;
   const mcapChangePct = ((currentMcapSim - POSITION.entryMcap) / POSITION.entryMcap) * 100;
-  const holdingValue = POSITION.holdingSol * (1 + mcapChangePct / 100);
-  const pnlSol = holdingValue - POSITION.holdingSol;
+  const holdingValue = POSITION.initialBagSol * (currentMcapSim / POSITION.entryMcap);
+  const pnlSol = holdingValue - POSITION.initialBagSol;
   const priceChangePct = mcapChangePct;
   const isProfit = pnlSol >= 0;
 
@@ -559,7 +560,7 @@ export default function Crypto() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Initial Bag</span>
                   <span className="text-foreground font-medium">
-                    {POSITION.holdingSol} SOL
+                    {POSITION.initialBagSol} SOL
                   </span>
                 </div>
                 <div className="flex justify-between">
