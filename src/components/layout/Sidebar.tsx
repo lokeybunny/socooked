@@ -53,9 +53,9 @@ const navEntries: NavEntry[] = [
   },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/arbitrage', icon: ShoppingBag, label: 'Arbitrage', divider: 'Services', green: true },
-  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   
   { to: '#', icon: Target, label: 'Crypto', red: true, disabled: true },
 ];
@@ -262,23 +262,17 @@ export function Sidebar() {
     );
   };
 
-  const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-  const [manualClosed, setManualClosed] = useState<string | null>(null);
 
   const renderGroup = (group: NavGroup) => {
     const isChildActive = group.children.some(c => location.pathname === c.to);
-    const isHovered = hoveredGroup === group.label;
     const isExpanded = expandedGroup === group.label;
-    const isManuallyClosed = manualClosed === group.label;
-    const isOpen = isManuallyClosed ? false : (isChildActive || isHovered || isExpanded);
+    const isOpen = isChildActive || isExpanded;
 
     return (
       <div
         key={group.label}
         className="space-y-1"
-        onMouseEnter={() => !collapsed && setHoveredGroup(group.label)}
-        onMouseLeave={() => !collapsed && setHoveredGroup(null)}
       >
         <button
           type="button"
