@@ -2717,10 +2717,12 @@ Deno.serve(async (req) => {
         const originalUrl = urlData?.publicUrl || ''
 
         // Create arbitrage_item with original image
+        const sku = String.fromCharCode(65+Math.floor(Math.random()*26)) + String.fromCharCode(65+Math.floor(Math.random()*26)) + String(Math.floor(Math.random()*100)).padStart(2,'0')
         const { data: arbItem } = await supabase.from('arbitrage_items').insert({
           item_name: fileName,
           original_image_url: originalUrl,
           status: 'new',
+          sku,
         }).select('id').single()
 
         // Trigger background removal via Nano Banana — only if enabled
