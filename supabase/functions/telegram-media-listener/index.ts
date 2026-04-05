@@ -3933,6 +3933,17 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    const priorityArbMedia = extractMedia(message)
+    let priorityArbAwait: any[] | null = null
+    if (priorityArbMedia) {
+      const { data } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .limit(1)
+      priorityArbAwait = data
+    }
+
     // ─── Check for active sessions (SINGLE query instead of 12) ───
     const { data: activeSessions } = await supabase.from('webhook_events')
       .select('id, event_type, payload')
@@ -3942,7 +3953,7 @@ Deno.serve(async (req) => {
       .eq('processed', false)
       .order('created_at', { ascending: false }).limit(1)
 
-    if (activeSessions && activeSessions.length > 0) {
+    if ((!priorityArbAwait || priorityArbAwait.length === 0) && activeSessions && activeSessions.length > 0) {
       const session = activeSessions[0]
       const sp = session.payload as any
 
@@ -4844,75 +4855,164 @@ Deno.serve(async (req) => {
       }).select('id').single()
 
       if (inserted && arbAwait && arbAwait.length > 0) {
-        // Auto-route to arbitrage — clean up awaiting session
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
           .filter('payload->>chat_id', 'eq', String(chatId))
 
-        // Simulate the arb_ callback inline — process immediately
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 Processing arbitrage item...', parse_mode: 'HTML' })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '🏪 Processing arbitrage item...',
+          parse_mode: 'HTML',
+        })
 
-        // Download the file
-        let fileBlob: Blob | null = null
-        let fileName = media.fileName
+        const fileId = media.fileId
+        const fileName = media.fileName || 'file'
+
+        let filePath = ''
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            const fileRes = await tgPost(TG_TOKEN, 'getFile', { file_id: media.fileId })
-            const filePath = fileRes?.result?.file_path
-            if (!filePath) throw new Error('No file_path')
-            const dlUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
-            const dlRes = await fetch(dlUrl)
-            if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
-            fileBlob = await dlRes.blob()
-            break
-          } catch (e) {
-            if (attempt === 3) {
-              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Failed to download photo after 3 attempts. Please try again.' })
-              return new Response('ok')
-            }
-            await new Promise(r => setTimeout(r, 1000))
+            const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file_id: fileId }),
+            })
+            const fileInfo = await fileInfoRes.json()
+            filePath = fileInfo.result?.file_path || ''
+            if (filePath) break
+          } catch (_e) {
           }
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1000))
         }
 
-        if (!fileBlob) return new Response('ok')
+        if (!filePath) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '❌ Could not retrieve file from Telegram.',
+          })
+          return new Response('ok')
+        }
 
+        const downloadUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+        const fileRes = await fetch(downloadUrl)
+        if (!fileRes.ok) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ File download failed (${fileRes.status}).`,
+          })
+          return new Response('ok')
+        }
+
+        const fileBlob = await fileRes.blob()
         const fileBuffer = await fileBlob.arrayBuffer()
         const storagePath = `arbitrage/${Date.now()}_${fileName}`
         const { error: uploadErr } = await supabase.storage
           .from('content-uploads')
-          .upload(storagePath, fileBuffer, { contentType: fileBlob.type || 'image/jpeg', upsert: true })
+          .upload(storagePath, new Uint8Array(fileBuffer), {
+            contentType: fileBlob.type || 'image/jpeg',
+            upsert: false,
+          })
 
         if (uploadErr) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Upload failed: ' + uploadErr.message })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ Upload failed: ${uploadErr.message}`,
+          })
           return new Response('ok')
         }
 
         const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
         const originalUrl = urlData?.publicUrl || ''
 
-        // Create arbitrage_item
-        const { data: arbItem } = await supabase.from('arbitrage_items').insert({
+        const { data: arbItem, error: arbInsertErr } = await supabase.from('arbitrage_items').insert({
           item_name: fileName,
           original_image_url: originalUrl,
           status: 'new',
-          meta: { telegram_chat_id: chatId },
         }).select('id').single()
 
-        // Mark pending_media as processed
+        if (arbInsertErr || !arbItem?.id) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ Could not create arbitrage item: ${arbInsertErr?.message || 'unknown error'}`,
+          })
+          return new Response('ok')
+        }
+
         await supabase.from('webhook_events').update({ processed: true }).eq('id', inserted.id)
 
-        // Try background removal
-        let nobgUrl = ''
+        let nobgUrl: string | null = null
         try {
-          const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')
-          if (OPENROUTER_API_KEY && originalUrl) {
-            // Skip bg removal for now, just proceed
+          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+          if (LOVABLE_API_KEY) {
+            const bgRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-3-pro-image-preview',
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'image_url', image_url: { url: originalUrl } },
+                    { type: 'text', text: 'Remove the background from this image completely. Make the background transparent/white. Keep only the main subject/item.' },
+                  ],
+                }],
+                modalities: ['image', 'text'],
+              }),
+            })
+
+            if (bgRes.ok) {
+              const bgData = await bgRes.json()
+              const choice = bgData.choices?.[0]?.message
+              let base64Img: string | null = null
+
+              if (choice?.images && Array.isArray(choice.images)) {
+                for (const img of choice.images) {
+                  if (img.type === 'image_url' && img.image_url?.url) {
+                    if (img.image_url.url.startsWith('data:')) base64Img = img.image_url.url
+                    else nobgUrl = img.image_url.url
+                    break
+                  }
+                }
+              }
+
+              if (!nobgUrl && !base64Img && Array.isArray(choice?.content)) {
+                for (const part of choice.content) {
+                  if (part.type === 'image_url' && part.image_url?.url) {
+                    if (part.image_url.url.startsWith('data:')) base64Img = part.image_url.url
+                    else nobgUrl = part.image_url.url
+                    break
+                  }
+                }
+              }
+
+              if (base64Img && !nobgUrl) {
+                const match = base64Img.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/)
+                if (match) {
+                  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+                  const raw = match[2]
+                  const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+                  const nobgPath = `arbitrage/${Date.now()}_nobg.${ext}`
+                  const { error: nobgUpErr } = await supabase.storage
+                    .from('content-uploads')
+                    .upload(nobgPath, bytes, { contentType: `image/${match[1]}`, upsert: true })
+                  if (!nobgUpErr) {
+                    const { data: nobgPub } = supabase.storage.from('content-uploads').getPublicUrl(nobgPath)
+                    nobgUrl = nobgPub?.publicUrl || null
+                  }
+                }
+              }
+            }
           }
         } catch (e) {
           console.error('[arbitrage] bg removal error:', e)
         }
 
-        // Create arbitrage session for collecting details
+        if (nobgUrl) {
+          await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
+        }
+
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
           .filter('payload->>chat_id', 'eq', String(chatId))
@@ -4921,15 +5021,17 @@ Deno.serve(async (req) => {
           event_type: 'arbitrage_session',
           payload: {
             chat_id: chatId,
-            item_id: arbItem?.id,
+            item_id: arbItem.id,
             step: 'address',
-            created: Date.now(),
+            original_url: originalUrl,
+            nobg_url: nobgUrl,
           },
         })
 
+        const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n\n📍 <b>What's the pawn shop address?</b>`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}\n\n📍 <b>What's the pawn shop address?</b>`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
