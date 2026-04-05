@@ -347,6 +347,19 @@ export default function Arbitrage() {
     return map;
   }, [items]);
 
+  const handleToggleBgRemoval = async (enabled: boolean) => {
+    setBgToggleLoading(true);
+    setAutoBgRemoval(enabled);
+    await supabase.from('site_configs').upsert({
+      site_id: 'arbitrage',
+      section: 'bg-removal',
+      content: { enabled },
+      is_published: true,
+    }, { onConflict: 'site_id,section' });
+    setBgToggleLoading(false);
+    toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
+  };
+
   const unassignedCount = items.filter(i => !i.store_id).length;
 
   return (
