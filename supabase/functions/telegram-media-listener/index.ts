@@ -5453,6 +5453,16 @@ Deno.serve(async (req) => {
             defaultMatchedStore2 = allStores.find((s: any) => s.address && s.address.toLowerCase().replace(/[^a-z0-9]/g, '') === normAddr)
             if (defaultMatchedStore2) {
               await supabase.from('arbitrage_items').update({ store_id: defaultMatchedStore2.id }).eq('id', arbItem.id)
+            } else {
+              // Auto-create store from default address
+              const { data: newStore } = await supabase.from('arbitrage_stores').insert({
+                store_name: defaultAddress2,
+                address: defaultAddress2,
+              }).select('*').single()
+              if (newStore) {
+                defaultMatchedStore2 = newStore
+                await supabase.from('arbitrage_items').update({ store_id: newStore.id }).eq('id', arbItem.id)
+              }
             }
           }
         }
