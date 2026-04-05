@@ -57,7 +57,7 @@ const navEntries: NavEntry[] = [
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   
-  { to: '#', icon: Target, label: 'Crypto', red: true, disabled: true },
+  { to: '/crypto', icon: Target, label: 'Crypto', green: true },
 ];
 
 export function Sidebar() {

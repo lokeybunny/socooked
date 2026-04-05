@@ -158,6 +158,7 @@ const App = () => (
                 <Route path="/liquidate" element={<Liquidate />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/stream" element={<Stream />} />
+                <Route path="/crypto" element={<WarrenOnlyGate><AuthLayoutGate><Crypto /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
                 <Route path="/client-dashboard" element={<ClientDashboard />} />
                 <Route path="*" element={<NotFound />} />
