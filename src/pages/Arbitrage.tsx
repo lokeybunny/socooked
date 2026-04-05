@@ -133,6 +133,22 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [pushingTG, setPushingTG] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editingAiName, setEditingAiName] = useState(false);
+  const [editingAiDesc, setEditingAiDesc] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftNotes, setDraftNotes] = useState('');
+  const [draftAiName, setDraftAiName] = useState('');
+  const [draftAiDesc, setDraftAiDesc] = useState('');
+
+  // Reset edit states when item changes
+  useEffect(() => {
+    setEditingName(false);
+    setEditingNotes(false);
+    setEditingAiName(false);
+    setEditingAiDesc(false);
+  }, [item?.id]);
 
   if (!item) return null;
   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
@@ -196,14 +212,50 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
     toast.success(`${label || 'Copied'} to clipboard`);
   };
 
+  const saveItemName = (name: string) => {
+    if (name.trim()) {
+      onUpdate(item.id, { item_name: name.trim() });
+      toast.success('Name updated');
+    }
+    setEditingName(false);
+  };
+
+  const saveNotes = (notes: string) => {
+    onUpdate(item.id, { condition_notes: notes });
+    toast.success('Notes updated');
+    setEditingNotes(false);
+  };
+
+  const saveAiField = async (field: 'item_name' | 'description', value: string) => {
+    const updatedAnalysis = { ...aiAnalysis, [field]: value };
+    const updatedMeta = { ...(item.meta as any), ai_analysis: updatedAnalysis };
+    onUpdate(item.id, { meta: updatedMeta } as any);
+    toast.success('AI analysis updated');
+    if (field === 'item_name') setEditingAiName(false);
+    else setEditingAiDesc(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShoppingBag className="h-5 w-5 text-amber-500" />
-            <span className="cursor-pointer hover:underline" onClick={() => cp(item.item_name, 'Name')}>{item.item_name}</span>
-            <Badge variant="outline" className={cn("text-xs ml-2", stageInfo.color)}>{stageInfo.label}</Badge>
+          <DialogTitle className="flex items-center gap-2 min-w-0">
+            <ShoppingBag className="h-5 w-5 text-amber-500 shrink-0" />
+            {editingName ? (
+              <Input
+                autoFocus
+                defaultValue={item.item_name}
+                className="h-7 text-sm font-semibold"
+                onBlur={e => saveItemName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveItemName((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingName(false); }}
+              />
+            ) : (
+              <span className="cursor-pointer hover:underline truncate" onClick={() => cp(item.item_name, 'Name')} onDoubleClick={() => { setEditingName(true); }}>{item.item_name}</span>
+            )}
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setEditingName(true); }}>
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Badge variant="outline" className={cn("text-xs ml-1 shrink-0", stageInfo.color)}>{stageInfo.label}</Badge>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-sm [&_*[data-copy]]:cursor-pointer [&_*[data-copy]]:hover:bg-muted/40 [&_*[data-copy]]:rounded [&_*[data-copy]]:px-0.5 [&_*[data-copy]]:transition-colors">
@@ -237,10 +289,32 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 
           {/* AI Analysis Badge */}
           {aiAnalysis && (
-            <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-1">
+            <div className="border border-primary/20 bg-primary/5 rounded-lg p-3 space-y-2">
               <p className="text-xs font-semibold flex items-center gap-1.5 text-primary"><Sparkles className="h-3.5 w-3.5" /> AI Analysis</p>
-              <p data-copy className="text-sm font-medium" onClick={() => cp(aiAnalysis.item_name, 'Item name')}>{aiAnalysis.item_name}</p>
-              <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(aiAnalysis.description, 'Description')}>{aiAnalysis.description}</p>
+              {/* AI Item Name */}
+              <div className="flex items-start gap-1">
+                {editingAiName ? (
+                  <Input autoFocus defaultValue={aiAnalysis.item_name} className="h-7 text-sm font-medium"
+                    onBlur={e => saveAiField('item_name', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveAiField('item_name', (e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditingAiName(false); }}
+                  />
+                ) : (
+                  <p data-copy className="text-sm font-medium flex-1" onClick={() => cp(aiAnalysis.item_name, 'AI name')} onDoubleClick={() => setEditingAiName(true)}>{aiAnalysis.item_name}</p>
+                )}
+                {!editingAiName && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setEditingAiName(true)}><Edit2 className="h-2.5 w-2.5" /></Button>}
+              </div>
+              {/* AI Description */}
+              <div className="flex items-start gap-1">
+                {editingAiDesc ? (
+                  <Textarea autoFocus defaultValue={aiAnalysis.description} rows={3} className="text-xs"
+                    onBlur={e => saveAiField('description', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveAiField('description', (e.target as HTMLTextAreaElement).value); } if (e.key === 'Escape') setEditingAiDesc(false); }}
+                  />
+                ) : (
+                  <p data-copy className="text-xs text-muted-foreground flex-1" onClick={() => cp(aiAnalysis.description, 'Description')} onDoubleClick={() => setEditingAiDesc(true)}>{aiAnalysis.description}</p>
+                )}
+                {!editingAiDesc && <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => setEditingAiDesc(true)}><Edit2 className="h-2.5 w-2.5" /></Button>}
+              </div>
               {aiAnalysis.estimated_value_low && (
                 <p data-copy className="text-xs" onClick={() => cp(`$${aiAnalysis.estimated_value_low} - $${aiAnalysis.estimated_value_high}`, 'Est. value')}>Est. Value: <span className="font-semibold text-emerald-500">${aiAnalysis.estimated_value_low} - ${aiAnalysis.estimated_value_high}</span></p>
               )}
@@ -273,9 +347,24 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
             <div><p className="text-muted-foreground text-xs">Spread</p><p data-copy className={cn("font-bold", spread && spread > 0 ? "text-emerald-500" : "text-muted-foreground")} onClick={() => spread != null && cp(`${spread}`, 'Spread')}>{spread != null ? `$${spread}` : '—'}</p></div>
           </div>
 
-          {item.condition_notes && (
-            <div><p className="text-muted-foreground text-xs mb-1">Notes</p><p data-copy className="text-sm whitespace-pre-wrap" onClick={() => cp(item.condition_notes!, 'Notes')}>{item.condition_notes}</p></div>
-          )}
+          <div>
+            <div className="flex items-center gap-1 mb-1">
+              <p className="text-muted-foreground text-xs">Notes / Description</p>
+              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setDraftNotes(item.condition_notes || ''); setEditingNotes(true); }}>
+                <Edit2 className="h-2.5 w-2.5" />
+              </Button>
+            </div>
+            {editingNotes ? (
+              <Textarea autoFocus value={draftNotes} onChange={e => setDraftNotes(e.target.value)} rows={4} className="text-sm"
+                onBlur={() => saveNotes(draftNotes)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveNotes(draftNotes); } if (e.key === 'Escape') setEditingNotes(false); }}
+              />
+            ) : (
+              <p data-copy className="text-sm whitespace-pre-wrap" onClick={() => item.condition_notes && cp(item.condition_notes, 'Notes')} onDoubleClick={() => { setDraftNotes(item.condition_notes || ''); setEditingNotes(true); }}>
+                {item.condition_notes || <span className="text-muted-foreground italic">No notes — double-click or tap edit to add</span>}
+              </p>
+            )}
+          </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>Added {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}</span>
