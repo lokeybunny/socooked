@@ -338,20 +338,66 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
               {store?.address && <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(store.address!, 'Address')}>📍 {store.address}</p>}
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Contact</p>
-              <p data-copy className="font-medium" onClick={() => cp(item.contact_name || store?.contact_name || '', 'Contact')}>{item.contact_name || store?.contact_name || '—'}</p>
-              {(item.contact_phone || store?.contact_phone) && (
-                <span data-copy className="text-xs text-primary hover:underline flex items-center gap-1" onClick={() => cp(item.contact_phone || store?.contact_phone || '', 'Phone')}>
-                  <Phone className="h-3 w-3" /> {item.contact_phone || store?.contact_phone}
-                </span>
+              <div className="flex items-center gap-1">
+                <p className="text-muted-foreground text-xs">Contact</p>
+                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setEditingContact(true)}><Edit2 className="h-2 w-2" /></Button>
+              </div>
+              {editingContact ? (
+                <Input autoFocus defaultValue={item.contact_name || store?.contact_name || ''} className="h-7 text-xs"
+                  onBlur={e => { onUpdate(item.id, { contact_name: e.target.value || null }); setEditingContact(false); toast.success('Contact updated'); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { onUpdate(item.id, { contact_name: (e.target as HTMLInputElement).value || null }); setEditingContact(false); toast.success('Contact updated'); } if (e.key === 'Escape') setEditingContact(false); }}
+                />
+              ) : (
+                <p data-copy className="font-medium" onClick={() => cp(item.contact_name || store?.contact_name || '', 'Contact')} onDoubleClick={() => setEditingContact(true)}>{item.contact_name || store?.contact_name || '—'}</p>
               )}
+              <div className="flex items-center gap-1">
+                {editingPhone ? (
+                  <Input autoFocus defaultValue={item.contact_phone || store?.contact_phone || ''} className="h-7 text-xs mt-0.5"
+                    onBlur={e => { onUpdate(item.id, { contact_phone: e.target.value || null }); setEditingPhone(false); toast.success('Phone updated'); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { onUpdate(item.id, { contact_phone: (e.target as HTMLInputElement).value || null }); setEditingPhone(false); toast.success('Phone updated'); } if (e.key === 'Escape') setEditingPhone(false); }}
+                  />
+                ) : (
+                  <>
+                    <span data-copy className="text-xs text-primary hover:underline flex items-center gap-1" onClick={() => cp(item.contact_phone || store?.contact_phone || '', 'Phone')} onDoubleClick={() => setEditingPhone(true)}>
+                      <Phone className="h-3 w-3" /> {item.contact_phone || store?.contact_phone || '—'}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setEditingPhone(true)}><Edit2 className="h-2 w-2" /></Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Pricing */}
           <div className="grid grid-cols-3 gap-3 text-sm">
-            <div><p className="text-muted-foreground text-xs">Asking</p><p data-copy className="font-bold text-foreground" onClick={() => item.asking_price != null && cp(`${item.asking_price}`, 'Asking price')}>{item.asking_price != null ? `$${item.asking_price}` : '—'}</p></div>
-            <div><p className="text-muted-foreground text-xs">Wiggle Room</p><p data-copy className="font-medium" onClick={() => item.wiggle_room_price != null && cp(`${item.wiggle_room_price}`, 'Wiggle price')}>{item.wiggle_room_price != null ? `$${item.wiggle_room_price}` : '—'}</p></div>
+            <div>
+              <div className="flex items-center gap-1">
+                <p className="text-muted-foreground text-xs">Asking</p>
+                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setEditingAsking(true)}><Edit2 className="h-2 w-2" /></Button>
+              </div>
+              {editingAsking ? (
+                <Input autoFocus type="number" defaultValue={item.asking_price ?? ''} className="h-7 text-xs"
+                  onBlur={e => { onUpdate(item.id, { asking_price: e.target.value ? Number(e.target.value) : null } as any); setEditingAsking(false); toast.success('Asking price updated'); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { onUpdate(item.id, { asking_price: (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null } as any); setEditingAsking(false); toast.success('Asking price updated'); } if (e.key === 'Escape') setEditingAsking(false); }}
+                />
+              ) : (
+                <p data-copy className="font-bold text-foreground" onClick={() => item.asking_price != null && cp(`${item.asking_price}`, 'Asking price')} onDoubleClick={() => setEditingAsking(true)}>{item.asking_price != null ? `$${item.asking_price}` : '—'}</p>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-1">
+                <p className="text-muted-foreground text-xs">Wiggle Room</p>
+                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setEditingWiggle(true)}><Edit2 className="h-2 w-2" /></Button>
+              </div>
+              {editingWiggle ? (
+                <Input autoFocus type="number" defaultValue={item.wiggle_room_price ?? ''} className="h-7 text-xs"
+                  onBlur={e => { onUpdate(item.id, { wiggle_room_price: e.target.value ? Number(e.target.value) : null } as any); setEditingWiggle(false); toast.success('Wiggle price updated'); }}
+                  onKeyDown={e => { if (e.key === 'Enter') { onUpdate(item.id, { wiggle_room_price: (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null } as any); setEditingWiggle(false); toast.success('Wiggle price updated'); } if (e.key === 'Escape') setEditingWiggle(false); }}
+                />
+              ) : (
+                <p data-copy className="font-medium" onClick={() => item.wiggle_room_price != null && cp(`${item.wiggle_room_price}`, 'Wiggle price')} onDoubleClick={() => setEditingWiggle(true)}>{item.wiggle_room_price != null ? `$${item.wiggle_room_price}` : '—'}</p>
+              )}
+            </div>
             <div><p className="text-muted-foreground text-xs">Spread</p><p data-copy className={cn("font-bold", spread && spread > 0 ? "text-emerald-500" : "text-muted-foreground")} onClick={() => spread != null && cp(`${spread}`, 'Spread')}>{spread != null ? `$${spread}` : '—'}</p></div>
           </div>
 
