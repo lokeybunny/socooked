@@ -167,6 +167,33 @@ export default function Crypto() {
     setWallets((data as WalletRow[]) || []);
   }, [user]);
 
+  /* ── localStorage cache helpers ── */
+  const CACHE_KEY = "crypto_wallet_cache";
+  const loadCachedBalances = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return false;
+      const cached = JSON.parse(raw);
+      if (cached.tokenMint !== TOKEN_ADDRESS) return false;
+      // Only use cache if it's less than 5 minutes old
+      if (Date.now() - (cached.ts || 0) > 5 * 60 * 1000) return false;
+      setWalletBalances(cached.wallets || []);
+      setWalletTotals(cached.totals || null);
+      return true;
+    } catch { return false; }
+  }, []);
+
+  const saveCacheBalances = useCallback((walletData: any[], totalsData: any) => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        tokenMint: TOKEN_ADDRESS,
+        wallets: walletData,
+        totals: totalsData,
+        ts: Date.now(),
+      }));
+    } catch {}
+  }, []);
+
   /* ── fetch on-chain balances ── */
   const fetchBalances = useCallback(async () => {
     if (!wallets.length) {
@@ -186,22 +213,45 @@ export default function Crypto() {
       const parsed = typeof data === "string" ? JSON.parse(data) : data;
       setWalletBalances(parsed.wallets || []);
       setWalletTotals(parsed.totals || null);
+      saveCacheBalances(parsed.wallets || [], parsed.totals || null);
     } catch (err: any) {
       console.error("Failed to fetch balances:", err);
       toast.error("Failed to fetch wallet balances");
     } finally {
       setFetchingBalances(false);
     }
-  }, [wallets]);
+  }, [wallets, saveCacheBalances]);
 
   useEffect(() => {
     fetchChart();
     fetchWallets();
   }, [fetchChart, fetchWallets]);
 
+  // Load cached balances immediately, then refresh from chain
   useEffect(() => {
-    if (wallets.length > 0) fetchBalances();
-  }, [wallets, fetchBalances]);
+    if (wallets.length > 0) {
+      const hadCache = loadCachedBalances();
+      // If we had cache, still refresh in background but don't show spinner
+      if (hadCache) {
+        // Silently refresh
+        (async () => {
+          try {
+            const { data, error } = await supabase.functions.invoke("crypto-wallets", {
+              body: { wallets: wallets.map((w) => w.wallet_address), token_mint: TOKEN_ADDRESS },
+            });
+            if (!error) {
+              const parsed = typeof data === "string" ? JSON.parse(data) : data;
+              setWalletBalances(parsed.wallets || []);
+              setWalletTotals(parsed.totals || null);
+              saveCacheBalances(parsed.wallets || [], parsed.totals || null);
+            }
+          } catch {}
+        })();
+      } else {
+        fetchBalances();
+      }
+    }
+  }, [wallets, fetchBalances, loadCachedBalances, saveCacheBalances]);
 
   // Auto-refresh every 60s
   useEffect(() => {
