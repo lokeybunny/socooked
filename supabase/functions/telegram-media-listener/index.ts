@@ -3551,15 +3551,26 @@ Deno.serve(async (req) => {
     // ─── Check for persistent button / slash command BEFORE reply guard ───
     const action = resolvePersistentAction(text)
 
-    // ─── If this is a reply-to-message and no button/command matched, stay silent ───
-    // This prevents the bot from treating replies as session input
-    if (message.reply_to_message && (!isGroup || isAllowedGroup) && !action) {
-      return new Response('ok')
-    }
-
-    // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
+    // Session types we track for cleanup and workflow continuation
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'arbitrage_session', 'arbitrage_awaiting_photo']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
+
+    // ─── If this is a reply-to-message and no button/command matched, stay silent ───
+    // Allow active workflows (especially arbitrage) to continue when the user replies directly to the bot prompt.
+    if (message.reply_to_message && (!isGroup || isAllowedGroup) && !action) {
+      const { data: replySessions } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram')
+        .in('event_type', ALL_SESSIONS)
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .eq('processed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (!replySessions || replySessions.length === 0) {
+        return new Response('ok')
+      }
+    }
 
     // action already resolved above (before reply guard)
 
@@ -3944,6 +3955,17 @@ Deno.serve(async (req) => {
       priorityArbAwait = data
     }
 
+    let priorityArbSession: any[] | null = null
+    if (text) {
+      const { data } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+      priorityArbSession = data
+    }
+
     // ─── Check for active sessions (SINGLE query instead of 12) ───
     const { data: activeSessions } = await supabase.from('webhook_events')
       .select('id, event_type, payload')
@@ -3953,7 +3975,7 @@ Deno.serve(async (req) => {
       .eq('processed', false)
       .order('created_at', { ascending: false }).limit(1)
 
-    if ((!priorityArbAwait || priorityArbAwait.length === 0) && activeSessions && activeSessions.length > 0) {
+    if ((!priorityArbAwait || priorityArbAwait.length === 0) && (!priorityArbSession || priorityArbSession.length === 0) && activeSessions && activeSessions.length > 0) {
       const session = activeSessions[0]
       const sp = session.payload as any
 
@@ -4678,7 +4700,35 @@ Deno.serve(async (req) => {
         }
         await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
         await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'notes', wiggle_price: price },
+          payload: { ...arbP, step: 'contact_name', wiggle_price: price },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '👤 <b>Who is the point of contact?</b>\n\n<i>Type their name, or "skip" if you do not have it yet.</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'contact_name') {
+        const contactName = text.toLowerCase() === 'skip' ? null : text.trim()
+        await supabase.from('arbitrage_items').update({ contact_name: contactName }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'contact_phone', contact_name: contactName },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📞 <b>What\'s their phone number?</b>\n\n<i>Type the phone number, or "skip" if you do not have it yet.</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'contact_phone') {
+        const contactPhone = text.toLowerCase() === 'skip' ? null : text.trim()
+        await supabase.from('arbitrage_items').update({ contact_phone: contactPhone }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'notes', contact_phone: contactPhone },
         }).eq('id', arbS.id)
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
@@ -4697,27 +4747,31 @@ Deno.serve(async (req) => {
           }).eq('id', itemId)
         }
 
-        // Clean up session
         await supabase.from('webhook_events').delete().eq('id', arbS.id)
 
-        // Build summary
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
           `🤝 <b>Wiggle:</b> $${arbP.wiggle_price || 0}`,
         ]
+        if (arbP.contact_name) lines.push(`👤 <b>Contact:</b> ${arbP.contact_name}`)
+        if (arbP.contact_phone) lines.push(`📞 <b>Phone:</b> ${arbP.contact_phone}`)
         if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
         lines.push('\n✅ Ready to act when you\'re back at your station.')
 
-        // Log activity
         await supabase.from('activity_log').insert({
           entity_type: 'arbitrage',
           entity_id: itemId,
           action: 'arbitrage_item_logged',
-          meta: { name: `🏪 Arbitrage: ${noteText || 'New item'}`, address: arbP.address },
+          meta: {
+            name: `🏪 Arbitrage: ${noteText || 'New item'}`,
+            address: arbP.address,
+            contact_name: arbP.contact_name,
+            contact_phone: arbP.contact_phone,
+          },
         })
 
         await tgPost(TG_TOKEN, 'sendMessage', {
