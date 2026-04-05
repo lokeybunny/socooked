@@ -668,10 +668,10 @@ export default function Arbitrage() {
 
       if (rows.length === 0) { toast.error('No valid rows found'); return; }
 
-      // Deduplicate by store_name (keep first occurrence)
+      // Deduplicate by store_name + address combo (same name, different location = separate stores)
       const seen = new Set<string>();
       const deduped = rows.filter(r => {
-        const key = r.store_name.toLowerCase().trim();
+        const key = `${r.store_name.toLowerCase().trim()}|||${(r.address || '').toLowerCase().trim()}`;
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
