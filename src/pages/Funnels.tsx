@@ -6,7 +6,7 @@ import {
   Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
-  FileText, Mic, Copy, Sparkles, UserPlus, ShoppingBag
+  FileText, Mic, Copy, Sparkles, UserPlus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
