@@ -2804,30 +2804,72 @@ Deno.serve(async (req) => {
           await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
         }
 
+        // ─── EXIF GPS extraction & store auto-matching ───
+        let gpsAddress: string | null = null
+        let matchedStore: { id: string; store_name: string; address: string | null } | null = null
+        try {
+          const gps = extractExifGps(fileBuffer)
+          if (gps) {
+            console.log(`[arbitrage] EXIF GPS found: ${gps.lat}, ${gps.lng}`)
+            gpsAddress = await reverseGeocode(gps.lat, gps.lng)
+            if (gpsAddress) {
+              console.log(`[arbitrage] Geocoded address: ${gpsAddress}`)
+              // Update item with detected address
+              await supabase.from('arbitrage_items').update({ pawn_shop_address: gpsAddress }).eq('id', arbItem?.id)
+
+              // Try to match to existing store
+              const { data: allStores } = await supabase.from('arbitrage_stores').select('id, store_name, address')
+              if (allStores && allStores.length > 0) {
+                matchedStore = findMatchingStore(gpsAddress, allStores)
+                if (matchedStore) {
+                  await supabase.from('arbitrage_items').update({ store_id: matchedStore.id }).eq('id', arbItem?.id)
+                  console.log(`[arbitrage] Auto-matched to store: ${matchedStore.store_name}`)
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[arbitrage] GPS extraction error:', e)
+        }
+
         // Mark pending event processed
         await supabase.from('webhook_events').update({ processed: true }).eq('id', eventId)
 
-        // Create arbitrage session for collecting details
+        // Create arbitrage session — skip address step if GPS was found
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
           .filter('payload->>chat_id', 'eq', String(cbChatId))
+
+        const startStep = gpsAddress ? 'asking_price' : 'address'
         await supabase.from('webhook_events').insert({
           source: 'telegram',
           event_type: 'arbitrage_session',
           payload: {
             chat_id: cbChatId,
             item_id: arbItem?.id,
-            step: 'address',
+            step: startStep,
             original_url: originalUrl,
             nobg_url: nobgUrl,
+            address: gpsAddress || null,
           },
         })
 
         const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
+        let locationInfo = ''
+        if (gpsAddress && matchedStore) {
+          locationInfo = `\n📍 <b>Location detected!</b> Auto-assigned to <b>${matchedStore.store_name}</b>`
+        } else if (gpsAddress) {
+          locationInfo = `\n📍 <b>Location detected:</b> ${gpsAddress}`
+        }
+
+        const nextPrompt = gpsAddress
+          ? '\n\n💰 <b>What\'s the pawn shop\'s asking price?</b>\n<i>Just the number, e.g. 150</i>'
+          : '\n\n📍 <b>What\'s the pawn shop address?</b>'
+
         await tgPost(TG_TOKEN, 'editMessageText', {
           chat_id: cbChatId,
           message_id: cbq.message.message_id,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}\n\n📍 <b>What's the pawn shop address?</b>`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo}${nextPrompt}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
