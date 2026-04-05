@@ -2848,7 +2848,35 @@ Deno.serve(async (req) => {
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
           .filter('payload->>chat_id', 'eq', String(cbChatId))
 
-        const startStep = gpsAddress ? 'asking_price' : 'address'
+        // Check for default address if no GPS
+        let defaultAddress: string | null = null
+        if (!gpsAddress) {
+          const { data: defCfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+          const defContent = defCfg?.content as any
+          if (defContent?.enabled && defContent?.address) {
+            defaultAddress = defContent.address
+          }
+        }
+
+        const resolvedAddress = gpsAddress || defaultAddress
+        const startStep = resolvedAddress ? 'asking_price' : 'address'
+
+        // If using default address, save it to the item and try store match
+        let defaultMatchedStore: any = null
+        if (defaultAddress && !gpsAddress) {
+          await supabase.from('arbitrage_items').update({ pawn_shop_address: defaultAddress }).eq('id', arbItem?.id)
+          // Try to match to existing store
+          const { data: allStores } = await supabase.from('arbitrage_stores').select('*')
+          if (allStores) {
+            const normAddr = defaultAddress.toLowerCase().replace(/[^a-z0-9]/g, '')
+            defaultMatchedStore = allStores.find((s: any) => s.address && s.address.toLowerCase().replace(/[^a-z0-9]/g, '') === normAddr)
+            if (defaultMatchedStore) {
+              await supabase.from('arbitrage_items').update({ store_id: defaultMatchedStore.id }).eq('id', arbItem?.id)
+            }
+          }
+        }
+
         await supabase.from('webhook_events').insert({
           source: 'telegram',
           event_type: 'arbitrage_session',
@@ -2858,7 +2886,7 @@ Deno.serve(async (req) => {
             step: startStep,
             original_url: originalUrl,
             nobg_url: nobgUrl,
-            address: gpsAddress || null,
+            address: resolvedAddress || null,
           },
         })
 
@@ -2868,9 +2896,13 @@ Deno.serve(async (req) => {
           locationInfo = `\n📍 <b>Location detected!</b> Auto-assigned to <b>${matchedStore.store_name}</b>`
         } else if (gpsAddress) {
           locationInfo = `\n📍 <b>Location detected:</b> ${gpsAddress}`
+        } else if (defaultAddress && defaultMatchedStore) {
+          locationInfo = `\n📍 <b>Default address used!</b> Auto-assigned to <b>${defaultMatchedStore.store_name}</b>`
+        } else if (defaultAddress) {
+          locationInfo = `\n📍 <b>Default address used:</b> ${defaultAddress}`
         }
 
-        const nextPrompt = gpsAddress
+        const nextPrompt = resolvedAddress
           ? '\n\n💰 <b>What\'s the pawn shop\'s asking price?</b>\n<i>Just the number, e.g. 150</i>'
           : '\n\n📍 <b>What\'s the pawn shop address?</b>'
 
