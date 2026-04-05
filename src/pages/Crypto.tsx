@@ -129,6 +129,8 @@ export default function Crypto() {
   const [wallets, setWallets] = useState<WalletRow[]>([]);
   const [walletBalances, setWalletBalances] = useState<WalletBalance[]>([]);
   const [walletTotals, setWalletTotals] = useState<WalletTotals | null>(null);
+  const walletBalancesRef = useRef<WalletBalance[]>([]);
+  const walletTotalsRef = useRef<WalletTotals | null>(null);
   const [newWalletInput, setNewWalletInput] = useState("");
   const [newWalletLabel, setNewWalletLabel] = useState("");
   const [addingWallet, setAddingWallet] = useState(false);
