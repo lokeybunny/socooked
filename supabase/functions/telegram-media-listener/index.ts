@@ -4700,7 +4700,35 @@ Deno.serve(async (req) => {
         }
         await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
         await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'notes', wiggle_price: price },
+          payload: { ...arbP, step: 'contact_name', wiggle_price: price },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '👤 <b>Who is the point of contact?</b>\n\n<i>Type their name, or "skip" if you do not have it yet.</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'contact_name') {
+        const contactName = text.toLowerCase() === 'skip' ? null : text.trim()
+        await supabase.from('arbitrage_items').update({ contact_name: contactName }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'contact_phone', contact_name: contactName },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📞 <b>What\'s their phone number?</b>\n\n<i>Type the phone number, or "skip" if you do not have it yet.</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'contact_phone') {
+        const contactPhone = text.toLowerCase() === 'skip' ? null : text.trim()
+        await supabase.from('arbitrage_items').update({ contact_phone: contactPhone }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'notes', contact_phone: contactPhone },
         }).eq('id', arbS.id)
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
@@ -4719,27 +4747,31 @@ Deno.serve(async (req) => {
           }).eq('id', itemId)
         }
 
-        // Clean up session
         await supabase.from('webhook_events').delete().eq('id', arbS.id)
 
-        // Build summary
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
           `🤝 <b>Wiggle:</b> $${arbP.wiggle_price || 0}`,
         ]
+        if (arbP.contact_name) lines.push(`👤 <b>Contact:</b> ${arbP.contact_name}`)
+        if (arbP.contact_phone) lines.push(`📞 <b>Phone:</b> ${arbP.contact_phone}`)
         if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
         lines.push('\n✅ Ready to act when you\'re back at your station.')
 
-        // Log activity
         await supabase.from('activity_log').insert({
           entity_type: 'arbitrage',
           entity_id: itemId,
           action: 'arbitrage_item_logged',
-          meta: { name: `🏪 Arbitrage: ${noteText || 'New item'}`, address: arbP.address },
+          meta: {
+            name: `🏪 Arbitrage: ${noteText || 'New item'}`,
+            address: arbP.address,
+            contact_name: arbP.contact_name,
+            contact_phone: arbP.contact_phone,
+          },
         })
 
         await tgPost(TG_TOKEN, 'sendMessage', {
