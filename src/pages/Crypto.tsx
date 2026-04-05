@@ -274,6 +274,14 @@ export default function Crypto() {
   );
 
   useEffect(() => {
+    walletBalancesRef.current = walletBalances;
+  }, [walletBalances]);
+
+  useEffect(() => {
+    walletTotalsRef.current = walletTotals;
+  }, [walletTotals]);
+
+  useEffect(() => {
     fetchChart();
     fetchWallets();
   }, [fetchChart, fetchWallets]);
