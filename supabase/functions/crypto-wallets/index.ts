@@ -3,82 +3,74 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SOLANA_RPCS = [
-  "https://api.mainnet-beta.solana.com",
-  "https://solana-mainnet.g.alchemy.com/v2/demo",
-];
+const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+const TOKEN_PROGRAM = "TokenkegQfeZyiNNt8cf7TbfHpvbR8e4H43B6v4Jm5d";
+const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 
-interface TokenAccountInfo {
-  pubkey: string;
-  account: {
-    data: {
-      parsed: {
-        info: {
-          mint: string;
-          owner: string;
-          tokenAmount: {
-            amount: string;
-            decimals: number;
-            uiAmount: number;
-            uiAmountString: string;
-          };
-        };
-      };
-    };
-  };
-}
-
-async function fetchWithRetry(wallet: string, tokenMint: string, retries = 3): Promise<{ balance: number; decimals: number }> {
+async function rpcCall(body: unknown, retries = 4): Promise<any> {
   for (let attempt = 0; attempt < retries; attempt++) {
-    // Rotate through RPCs on each attempt
-    const rpc = SOLANA_RPCS[attempt % SOLANA_RPCS.length];
+    if (attempt > 0) {
+      // Exponential backoff: 2s, 4s, 8s
+      await new Promise(r => setTimeout(r, 2000 * Math.pow(2, attempt - 1)));
+    }
     try {
-      const rpcRes = await fetch(rpc, {
+      const res = await fetch(SOLANA_RPC, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getTokenAccountsByOwner",
-          params: [
-            wallet,
-            { mint: tokenMint },
-            { encoding: "jsonParsed" },
-          ],
-        }),
+        body: JSON.stringify(body),
       });
-
-      const rpcData = await rpcRes.json();
-
-      if (rpcData.error) {
-        // Rate limited — wait and retry
-        if (rpcData.error.code === 429) {
-          console.warn(`RPC rate limited for ${wallet} on attempt ${attempt + 1}, retrying...`);
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-          continue;
-        }
-        console.error(`RPC error for ${wallet}:`, rpcData.error);
-        return { balance: 0, decimals: 6 };
+      const data = await res.json();
+      if (data.error?.code === 429) {
+        console.warn(`RPC rate limited (attempt ${attempt + 1}/${retries}), backing off...`);
+        continue;
       }
-
-      const accounts: TokenAccountInfo[] = rpcData.result?.value || [];
-      let totalBalance = 0;
-      let decimals = 6;
-
-      for (const acct of accounts) {
-        const info = acct.account.data.parsed.info;
-        totalBalance += info.tokenAmount.uiAmount || 0;
-        decimals = info.tokenAmount.decimals;
-      }
-
-      return { balance: totalBalance, decimals };
+      return data;
     } catch (err) {
-      console.error(`Attempt ${attempt + 1} error for ${wallet}:`, err);
-      if (attempt < retries - 1) {
-        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-      }
+      console.error(`RPC fetch error (attempt ${attempt + 1}):`, err);
+      if (attempt === retries - 1) throw err;
     }
   }
+  return { error: { code: 429, message: "Rate limited after all retries" } };
+}
+
+async function getWalletBalance(wallet: string, tokenMint: string): Promise<{ balance: number; decimals: number }> {
+  // Query BOTH token programs (SPL Token and Token-2022)
+  for (const programId of [TOKEN_PROGRAM, TOKEN_2022_PROGRAM]) {
+    const data = await rpcCall({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getTokenAccountsByOwner",
+      params: [
+        wallet,
+        { programId },
+        { encoding: "jsonParsed" },
+      ],
+    });
+
+    if (data.error) {
+      console.error(`RPC error for ${wallet} (program ${programId.slice(0,5)}):`, data.error);
+      continue;
+    }
+
+    const accounts = data.result?.value || [];
+    let totalBalance = 0;
+    let decimals = 6;
+    let found = false;
+
+    for (const acct of accounts) {
+      const info = acct.account.data.parsed.info;
+      if (info.mint === tokenMint) {
+        totalBalance += info.tokenAmount.uiAmount || 0;
+        decimals = info.tokenAmount.decimals;
+        found = true;
+      }
+    }
+
+    if (found) {
+      return { balance: totalBalance, decimals };
+    }
+  }
+
   return { balance: 0, decimals: 6 };
 }
 
@@ -106,17 +98,23 @@ Deno.serve(async (req) => {
       decimals: number;
     }[] = [];
 
-    // Stagger requests with small delays to avoid rate limiting
+    // Process wallets sequentially with 1.5s gap to avoid rate limits
     for (let i = 0; i < wallets.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 400));
+      if (i > 0) await new Promise(r => setTimeout(r, 1500));
+
       const wallet = wallets[i];
-      const { balance, decimals } = await fetchWithRetry(wallet, tokenMint);
-      results.push({
-        wallet,
-        balance,
-        rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
-        decimals,
-      });
+      try {
+        const { balance, decimals } = await getWalletBalance(wallet, tokenMint);
+        results.push({
+          wallet,
+          balance,
+          rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
+          decimals,
+        });
+      } catch (err) {
+        console.error(`Error fetching wallet ${wallet}:`, err);
+        results.push({ wallet, balance: 0, rawAmount: "0", decimals: 0 });
+      }
     }
 
     // Fetch current token price from DexScreener
