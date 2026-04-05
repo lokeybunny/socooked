@@ -6,7 +6,6 @@ const corsHeaders = {
 const RPCS = [
   "https://solana-rpc.publicnode.com",
   "https://rpc.ankr.com/solana",
-  "https://api.mainnet-beta.solana.com",
 ];
 
 let rpcCursor = 0;
