@@ -256,7 +256,8 @@ export default function Crypto() {
 
         const hasNonZeroBalance = nextWalletBalances.some((wallet) => Number(wallet.balance) > 0);
         const hasExistingNonZeroBalance =
-          walletBalances.some((wallet) => Number(wallet.balance) > 0) || Number(walletTotals?.totalTokens || 0) > 0;
+          walletBalancesRef.current.some((wallet) => Number(wallet.balance) > 0) ||
+          Number(walletTotalsRef.current?.totalTokens || 0) > 0;
 
         if (!hasNonZeroBalance && silent && hasExistingNonZeroBalance) return;
 
@@ -270,7 +271,7 @@ export default function Crypto() {
         if (!silent) setFetchingBalances(false);
       }
     },
-    [wallets, walletBalances, walletTotals, saveCacheBalances],
+    [wallets, saveCacheBalances],
   );
 
   useEffect(() => {
