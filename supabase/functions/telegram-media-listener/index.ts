@@ -3595,6 +3595,15 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'arbitrage') {
+      // Set arbitrage_awaiting_photo session so next photo auto-routes
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'arbitrage_awaiting_photo',
+        payload: { chat_id: chatId, created: Date.now() },
+      })
       await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 <b>Arbitrage Mode</b>\n\nSend me a photo of the item and I\'ll guide you through logging it.\n\n📸 Upload a picture to get started.', parse_mode: 'HTML', reply_markup: PAGE_3_KEYBOARD })
       return new Response('ok')
     }
@@ -4812,6 +4821,13 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // Check if user is in arbitrage_awaiting_photo mode
+      const { data: arbAwait } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .limit(1)
+
       // Store pending media in webhook_events
       const { data: inserted } = await supabase.from('webhook_events').insert({
         source: 'telegram',
@@ -4826,6 +4842,98 @@ Deno.serve(async (req) => {
         },
         processed: false,
       }).select('id').single()
+
+      if (inserted && arbAwait && arbAwait.length > 0) {
+        // Auto-route to arbitrage — clean up awaiting session
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+
+        // Simulate the arb_ callback inline — process immediately
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🏪 Processing arbitrage item...', parse_mode: 'HTML' })
+
+        // Download the file
+        let fileBlob: Blob | null = null
+        let fileName = media.fileName
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const fileRes = await tgPost(TG_TOKEN, 'getFile', { file_id: media.fileId })
+            const filePath = fileRes?.result?.file_path
+            if (!filePath) throw new Error('No file_path')
+            const dlUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+            const dlRes = await fetch(dlUrl)
+            if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
+            fileBlob = await dlRes.blob()
+            break
+          } catch (e) {
+            if (attempt === 3) {
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Failed to download photo after 3 attempts. Please try again.' })
+              return new Response('ok')
+            }
+            await new Promise(r => setTimeout(r, 1000))
+          }
+        }
+
+        if (!fileBlob) return new Response('ok')
+
+        const fileBuffer = await fileBlob.arrayBuffer()
+        const storagePath = `arbitrage/${Date.now()}_${fileName}`
+        const { error: uploadErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(storagePath, fileBuffer, { contentType: fileBlob.type || 'image/jpeg', upsert: true })
+
+        if (uploadErr) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Upload failed: ' + uploadErr.message })
+          return new Response('ok')
+        }
+
+        const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+        const originalUrl = urlData?.publicUrl || ''
+
+        // Create arbitrage_item
+        const { data: arbItem } = await supabase.from('arbitrage_items').insert({
+          item_name: fileName,
+          original_image_url: originalUrl,
+          status: 'new',
+          meta: { telegram_chat_id: chatId },
+        }).select('id').single()
+
+        // Mark pending_media as processed
+        await supabase.from('webhook_events').update({ processed: true }).eq('id', inserted.id)
+
+        // Try background removal
+        let nobgUrl = ''
+        try {
+          const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')
+          if (OPENROUTER_API_KEY && originalUrl) {
+            // Skip bg removal for now, just proceed
+          }
+        } catch (e) {
+          console.error('[arbitrage] bg removal error:', e)
+        }
+
+        // Create arbitrage session for collecting details
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'arbitrage_session',
+          payload: {
+            chat_id: chatId,
+            item_id: arbItem?.id,
+            step: 'address',
+            created: Date.now(),
+          },
+        })
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n\n📍 <b>What's the pawn shop address?</b>`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
 
       if (inserted) {
         await tgPost(TG_TOKEN, 'sendMessage', {
