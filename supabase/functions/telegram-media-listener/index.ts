@@ -181,7 +181,12 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
   if (normalized === 'audit' || normalized === '/audit') return 'audit'
-  if (normalized === 'gains' || normalized === '/gains') return 'gains'
+   if (normalized === 'gains' || normalized === '/gains') return 'gains'
+   if (normalized === 'fig' || normalized === '/fig') return 'fig'
+   if (normalized.startsWith('defaultaddy') || normalized.startsWith('/defaultaddy')) {
+     if (normalized === 'defaultaddyoff' || normalized === '/defaultaddyoff') return 'defaultaddyoff'
+     return 'defaultaddy'
+   }
   return null
 }
 
