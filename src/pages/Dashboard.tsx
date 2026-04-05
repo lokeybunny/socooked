@@ -16,6 +16,9 @@ interface Stats {
   actualTotalCustomers: number;
   paidConvertedCount: number;
   emailsToday: number;
+  arbPurchasedCount: number;
+  arbPurchasedSpread: number;
+  arbListedSpread: number;
 }
 
 export default function Dashboard() {
