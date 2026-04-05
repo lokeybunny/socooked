@@ -60,6 +60,13 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: 
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
+  arbitrage: [
+    { value: 'new', label: 'New' },
+    { value: 'researching', label: 'Researching' },
+    { value: 'purchased', label: 'Purchased' },
+    { value: 'sold', label: 'Sold' },
+    { value: 'passed', label: 'Passed' },
+  ],
   webdesign: [
     { value: 'lead', label: 'Prospect' },
     { value: 'ai_complete', label: 'AI Complete' },
