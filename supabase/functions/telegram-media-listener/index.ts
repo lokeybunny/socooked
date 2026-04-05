@@ -94,6 +94,9 @@ function ensureBotCommandsBg(token: string) {
     { command: 'proposal', description: '📝 Create & send a proposal' },
     { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
+    { command: 'fig', description: '🔇 Toggle auto-shill & CRM notifications on/off' },
+    { command: 'defaultaddy', description: '📍 Set default arbitrage address' },
+    { command: 'defaultaddyoff', description: '📍 Disable default arbitrage address' },
     { command: 'shill', description: '🏠 HOME — Shill video to Home communities' },
     { command: 'shill2', description: '✈️ AWAY — Shill video to Away community' },
   ]
@@ -153,7 +156,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -178,7 +181,12 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
   if (normalized === 'audit' || normalized === '/audit') return 'audit'
-  if (normalized === 'gains' || normalized === '/gains') return 'gains'
+   if (normalized === 'gains' || normalized === '/gains') return 'gains'
+   if (normalized === 'fig' || normalized === '/fig') return 'fig'
+   if (normalized.startsWith('defaultaddy') || normalized.startsWith('/defaultaddy')) {
+     if (normalized === 'defaultaddyoff' || normalized === '/defaultaddyoff') return 'defaultaddyoff'
+     return 'defaultaddy'
+   }
   return null
 }
 
@@ -2840,7 +2848,35 @@ Deno.serve(async (req) => {
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
           .filter('payload->>chat_id', 'eq', String(cbChatId))
 
-        const startStep = gpsAddress ? 'asking_price' : 'address'
+        // Check for default address if no GPS
+        let defaultAddress: string | null = null
+        if (!gpsAddress) {
+          const { data: defCfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+          const defContent = defCfg?.content as any
+          if (defContent?.enabled && defContent?.address) {
+            defaultAddress = defContent.address
+          }
+        }
+
+        const resolvedAddress = gpsAddress || defaultAddress
+        const startStep = resolvedAddress ? 'asking_price' : 'address'
+
+        // If using default address, save it to the item and try store match
+        let defaultMatchedStore: any = null
+        if (defaultAddress && !gpsAddress) {
+          await supabase.from('arbitrage_items').update({ pawn_shop_address: defaultAddress }).eq('id', arbItem?.id)
+          // Try to match to existing store
+          const { data: allStores } = await supabase.from('arbitrage_stores').select('*')
+          if (allStores) {
+            const normAddr = defaultAddress.toLowerCase().replace(/[^a-z0-9]/g, '')
+            defaultMatchedStore = allStores.find((s: any) => s.address && s.address.toLowerCase().replace(/[^a-z0-9]/g, '') === normAddr)
+            if (defaultMatchedStore) {
+              await supabase.from('arbitrage_items').update({ store_id: defaultMatchedStore.id }).eq('id', arbItem?.id)
+            }
+          }
+        }
+
         await supabase.from('webhook_events').insert({
           source: 'telegram',
           event_type: 'arbitrage_session',
@@ -2850,7 +2886,7 @@ Deno.serve(async (req) => {
             step: startStep,
             original_url: originalUrl,
             nobg_url: nobgUrl,
-            address: gpsAddress || null,
+            address: resolvedAddress || null,
           },
         })
 
@@ -2860,9 +2896,13 @@ Deno.serve(async (req) => {
           locationInfo = `\n📍 <b>Location detected!</b> Auto-assigned to <b>${matchedStore.store_name}</b>`
         } else if (gpsAddress) {
           locationInfo = `\n📍 <b>Location detected:</b> ${gpsAddress}`
+        } else if (defaultAddress && defaultMatchedStore) {
+          locationInfo = `\n📍 <b>Default address used!</b> Auto-assigned to <b>${defaultMatchedStore.store_name}</b>`
+        } else if (defaultAddress) {
+          locationInfo = `\n📍 <b>Default address used:</b> ${defaultAddress}`
         }
 
-        const nextPrompt = gpsAddress
+        const nextPrompt = resolvedAddress
           ? '\n\n💰 <b>What\'s the pawn shop\'s asking price?</b>\n<i>Just the number, e.g. 150</i>'
           : '\n\n📍 <b>What\'s the pawn shop address?</b>'
 
@@ -3822,7 +3862,107 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── Handle /shill command (admin-only) — must NOT match /shill2 ───
+    // ─── Handle /fig toggle (auto-shill & CRM notifications) ───
+    if (action === 'fig') {
+      try {
+        const { data: existing } = await supabase
+          .from('site_configs')
+          .select('content')
+          .eq('site_id', 'system')
+          .eq('section', 'fig_notifications')
+          .single()
+
+        const currentlyEnabled = existing?.content?.enabled !== false // default true
+        const newEnabled = !currentlyEnabled
+
+        await supabase
+          .from('site_configs')
+          .upsert({
+            site_id: 'system',
+            section: 'fig_notifications',
+            content: { enabled: newEnabled },
+            is_published: true,
+          }, { onConflict: 'site_id,section' })
+
+        const statusEmoji = newEnabled ? '✅' : '🔇'
+        const statusText = newEnabled ? 'ON' : 'OFF'
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `${statusEmoji} <b>Auto-Shill & CRM Notifications: ${statusText}</b>\n\nType /fig again to toggle.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        console.error('[fig-toggle] error:', e)
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to toggle: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+    // ─── Handle /defaultaddy command (set default arbitrage address) ───
+    if (action === 'defaultaddy') {
+      try {
+        const addrText = text.replace(/^\/?defaultaddy\s*/i, '').trim()
+        if (!addrText) {
+          // Show current default
+          const { data: cfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+          const current = (cfg?.content as any)
+          if (current?.enabled && current?.address) {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `📍 <b>Current default address:</b>\n${current.address}\n\nTo change: <code>/defaultaddy 123 Main St</code>\nTo disable: <code>/defaultaddyoff</code>`,
+              parse_mode: 'HTML',
+            })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `📍 <b>No default address set.</b>\n\nUsage: <code>/defaultaddy 123 Main St, Las Vegas NV</code>`,
+              parse_mode: 'HTML',
+            })
+          }
+          return new Response('ok')
+        }
+        await supabase.from('site_configs').upsert({
+          site_id: 'arbitrage',
+          section: 'default-address',
+          content: { enabled: true, address: addrText },
+          is_published: true,
+        }, { onConflict: 'site_id,section' })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `✅ <b>Default address saved & enabled:</b>\n📍 ${addrText}\n\nNew arbitrage items will auto-use this address.\nType <code>/defaultaddyoff</code> to disable.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+    // ─── Handle /defaultaddyoff command ───
+    if (action === 'defaultaddyoff') {
+      try {
+        const { data: cfg } = await supabase.from('site_configs')
+          .select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle()
+        const current = (cfg?.content as any) || {}
+        await supabase.from('site_configs').upsert({
+          site_id: 'arbitrage',
+          section: 'default-address',
+          content: { ...current, enabled: false },
+          is_published: true,
+        }, { onConflict: 'site_id,section' })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `🔴 <b>Default address disabled.</b>\n\nArbitrage will ask for location each time.\nType <code>/defaultaddy [address]</code> to re-enable.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+
     if (text.toLowerCase().startsWith('/shill') && !text.toLowerCase().startsWith('/shill2')) {
       const senderUsername = (message.from?.username || '').toLowerCase()
       if (senderUsername !== 'lokeybunny') {

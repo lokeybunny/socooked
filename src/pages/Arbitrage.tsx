@@ -512,14 +512,19 @@ export default function Arbitrage() {
   const [autoBgRemoval, setAutoBgRemoval] = useState(true);
   const [bgToggleLoading, setBgToggleLoading] = useState(false);
   const [csvImporting, setCsvImporting] = useState(false);
+  const [defaultAddress, setDefaultAddress] = useState('');
+  const [defaultAddyEnabled, setDefaultAddyEnabled] = useState(false);
+  const [defaultAddyInput, setDefaultAddyInput] = useState('');
+  const [defaultAddySaving, setDefaultAddySaving] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [itemsRes, storesRes, remindersRes, bgCfgRes] = await Promise.all([
+    const [itemsRes, storesRes, remindersRes, bgCfgRes, addyCfgRes] = await Promise.all([
       supabase.from('arbitrage_items').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('arbitrage_stores').select('*').order('store_name'),
       supabase.from('arbitrage_reminders').select('*').eq('is_dismissed', false).lte('reminder_date', new Date().toISOString()).order('reminder_date'),
       supabase.from('site_configs').select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle(),
+      supabase.from('site_configs').select('content').eq('site_id', 'arbitrage').eq('section', 'default-address').maybeSingle(),
     ]);
     if (itemsRes.error) toast.error(itemsRes.error.message);
     if (storesRes.error) toast.error(storesRes.error.message);
@@ -527,6 +532,10 @@ export default function Arbitrage() {
     setStores((storesRes.data as ArbStore[]) || []);
     setReminders((remindersRes.data as ArbReminder[]) || []);
     setAutoBgRemoval((bgCfgRes.data?.content as any)?.enabled !== false);
+    const addyContent = addyCfgRes.data?.content as any;
+    setDefaultAddyEnabled(!!addyContent?.enabled);
+    setDefaultAddress(addyContent?.address || '');
+    setDefaultAddyInput(addyContent?.address || '');
     setLoading(false);
   }, []);
 
@@ -606,6 +615,34 @@ export default function Arbitrage() {
     }, { onConflict: 'site_id,section' });
     setBgToggleLoading(false);
     toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
+  };
+
+  const handleSaveDefaultAddress = async () => {
+    setDefaultAddySaving(true);
+    const addr = defaultAddyInput.trim();
+    await supabase.from('site_configs').upsert({
+      site_id: 'arbitrage',
+      section: 'default-address',
+      content: { enabled: !!addr, address: addr },
+      is_published: true,
+    }, { onConflict: 'site_id,section' });
+    setDefaultAddress(addr);
+    setDefaultAddyEnabled(!!addr);
+    setDefaultAddySaving(false);
+    toast.success(addr ? `Default address saved: ${addr}` : 'Default address cleared');
+  };
+
+  const handleToggleDefaultAddy = async (enabled: boolean) => {
+    setDefaultAddySaving(true);
+    setDefaultAddyEnabled(enabled);
+    await supabase.from('site_configs').upsert({
+      site_id: 'arbitrage',
+      section: 'default-address',
+      content: { enabled, address: defaultAddress },
+      is_published: true,
+    }, { onConflict: 'site_id,section' });
+    setDefaultAddySaving(false);
+    toast.success(`Default address ${enabled ? 'ON' : 'OFF'}`);
   };
 
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -743,6 +780,26 @@ export default function Arbitrage() {
             </div>
             <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", loading && "animate-spin")} /> Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* Default Address Setting */}
+        <div className="border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center gap-2 bg-card">
+          <div className="flex items-center gap-2 shrink-0">
+            <MapPin className={cn("h-3.5 w-3.5", defaultAddyEnabled ? "text-primary" : "text-muted-foreground")} />
+            <Label htmlFor="addy-toggle" className="text-xs cursor-pointer select-none whitespace-nowrap">Default Address</Label>
+            <Switch id="addy-toggle" checked={defaultAddyEnabled} onCheckedChange={handleToggleDefaultAddy} disabled={defaultAddySaving || !defaultAddress} />
+          </div>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Input
+              className="h-8 text-xs flex-1"
+              placeholder="e.g. 123 Main St, Las Vegas NV 89101"
+              value={defaultAddyInput}
+              onChange={(e) => setDefaultAddyInput(e.target.value)}
+            />
+            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={handleSaveDefaultAddress} disabled={defaultAddySaving}>
+              {defaultAddySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
             </Button>
           </div>
         </div>

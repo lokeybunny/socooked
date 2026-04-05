@@ -212,6 +212,29 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if /fig notifications are disabled (auto-shill & CRM notifications)
+    const FIG_ENTITY_TYPES = new Set([
+      "auto-shill", "shill-bot-msg", "smm", "content", "customer", "deal",
+      "project", "task", "board", "card", "invoice", "document", "signature",
+      "thread", "lead", "meeting", "automation", "template", "communication",
+      "interaction", "email", "scheduled-email",
+    ]);
+    if (FIG_ENTITY_TYPES.has(entry.entity_type) && sb) {
+      const { data: figToggle } = await sb
+        .from('site_configs')
+        .select('content')
+        .eq('site_id', 'system')
+        .eq('section', 'fig_notifications')
+        .single();
+      if (figToggle?.content?.enabled === false) {
+        console.log(`[telegram-notify] fig notifications disabled, skipping ${entry.entity_type}`);
+        return new Response(
+          JSON.stringify({ success: true, skipped: 'fig_notifications_disabled' }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Check if TP10 gains alerts are disabled
     if (entry.entity_type === "top_gainer" && sb) {
       const { data: toggle } = await sb
