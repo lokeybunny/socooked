@@ -174,7 +174,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
 
   if (!item) return null;
   const stageInfo = STAGES.find(s => s.value === item.status) || STAGES[0];
-  const spread = item.asking_price && item.wiggle_room_price ? item.asking_price - item.wiggle_room_price : null;
+  const spread = item.asking_price != null && item.wiggle_room_price != null ? item.wiggle_room_price - item.asking_price : null;
   const store = stores.find(s => s.id === item.store_id);
   const daysOld = differenceInDays(new Date(), new Date(item.created_at));
   const aiAnalysis = (item.meta as any)?.ai_analysis;
