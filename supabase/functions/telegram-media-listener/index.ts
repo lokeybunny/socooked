@@ -361,6 +361,114 @@ async function processEmailCommand(
   }
 }
 
+// ─── Lightweight EXIF GPS extractor (works on JPEG bytes from documents) ───
+function extractExifGps(buffer: ArrayBuffer): { lat: number; lng: number } | null {
+  try {
+    const view = new DataView(buffer)
+    if (view.getUint16(0) !== 0xFFD8) return null // not JPEG
+
+    let offset = 2
+    while (offset < view.byteLength - 4) {
+      const marker = view.getUint16(offset)
+      if (marker === 0xFFE1) { // APP1 (EXIF)
+        const len = view.getUint16(offset + 2)
+        const exifStart = offset + 4
+        // Check "Exif\0\0"
+        if (view.getUint32(exifStart) === 0x45786966 && view.getUint16(exifStart + 4) === 0x0000) {
+          const tiffStart = exifStart + 6
+          const isLE = view.getUint16(tiffStart) === 0x4949
+          const getU16 = (o: number) => view.getUint16(o, isLE)
+          const getU32 = (o: number) => view.getUint32(o, isLE)
+          const getRat = (o: number) => {
+            const num = getU32(o)
+            const den = getU32(o + 4)
+            return den ? num / den : 0
+          }
+
+          // Walk IFD0 to find GPS IFD pointer
+          const ifd0Offset = tiffStart + getU32(tiffStart + 4)
+          const ifd0Count = getU16(ifd0Offset)
+          let gpsIfdOffset = 0
+          for (let i = 0; i < ifd0Count; i++) {
+            const entryOffset = ifd0Offset + 2 + i * 12
+            if (getU16(entryOffset) === 0x8825) { // GPSInfoIFDPointer
+              gpsIfdOffset = tiffStart + getU32(entryOffset + 8)
+              break
+            }
+          }
+
+          if (!gpsIfdOffset) return null
+
+          const gpsCount = getU16(gpsIfdOffset)
+          let latRef = '', lngRef = ''
+          let latVals: number[] = [], lngVals: number[] = []
+
+          for (let i = 0; i < gpsCount; i++) {
+            const entry = gpsIfdOffset + 2 + i * 12
+            const tag = getU16(entry)
+            const valOffset = tiffStart + getU32(entry + 8)
+
+            if (tag === 1) latRef = String.fromCharCode(view.getUint8(entry + 8)) // GPSLatitudeRef
+            if (tag === 3) lngRef = String.fromCharCode(view.getUint8(entry + 8)) // GPSLongitudeRef
+            if (tag === 2) latVals = [getRat(valOffset), getRat(valOffset + 8), getRat(valOffset + 16)]
+            if (tag === 4) lngVals = [getRat(valOffset), getRat(valOffset + 8), getRat(valOffset + 16)]
+          }
+
+          if (latVals.length === 3 && lngVals.length === 3) {
+            let lat = latVals[0] + latVals[1] / 60 + latVals[2] / 3600
+            let lng = lngVals[0] + lngVals[1] / 60 + lngVals[2] / 3600
+            if (latRef === 'S') lat = -lat
+            if (lngRef === 'W') lng = -lng
+            if (lat !== 0 || lng !== 0) return { lat, lng }
+          }
+        }
+        return null
+      }
+      if ((marker & 0xFF00) !== 0xFF00) break
+      offset += 2 + view.getUint16(offset + 2)
+    }
+  } catch (e) {
+    console.error('[exif] parse error:', e)
+  }
+  return null
+}
+
+// Reverse geocode GPS coordinates to street address via Nominatim
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`, {
+      headers: { 'User-Agent': 'ArbitrageBot/1.0' },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.display_name || null
+  } catch {
+    return null
+  }
+}
+
+// Normalize address for fuzzy matching — strip common suffixes and non-alphanumeric chars
+function normalizeAddress(addr: string): string {
+  return addr.toLowerCase()
+    .replace(/\b(ave(nue)?|st(reet)?|rd|road|dr(ive)?|ln|lane|blvd|boulevard|ct|court|pl(ace)?|way|cir(cle)?|pkwy|hwy|ste|suite|apt|unit|#)\b/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+// Find the best matching store by address similarity
+function findMatchingStore(address: string, stores: { id: string; store_name: string; address: string | null }[]): { id: string; store_name: string; address: string | null } | null {
+  const normAddr = normalizeAddress(address)
+  if (!normAddr) return null
+
+  for (const s of stores) {
+    if (!s.address) continue
+    const normStore = normalizeAddress(s.address)
+    if (!normStore) continue
+    // Check if one contains the other (handles partial matches)
+    if (normAddr.includes(normStore) || normStore.includes(normAddr)) return s
+  }
+  return null
+}
+
 function extractMedia(message: Record<string, unknown>): { fileId: string; type: string; fileName: string; fileSize: number } | null {
   if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
     const largest = message.photo[message.photo.length - 1] as Record<string, unknown>
@@ -2696,30 +2804,72 @@ Deno.serve(async (req) => {
           await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
         }
 
+        // ─── EXIF GPS extraction & store auto-matching ───
+        let gpsAddress: string | null = null
+        let matchedStore: { id: string; store_name: string; address: string | null } | null = null
+        try {
+          const gps = extractExifGps(fileBuffer)
+          if (gps) {
+            console.log(`[arbitrage] EXIF GPS found: ${gps.lat}, ${gps.lng}`)
+            gpsAddress = await reverseGeocode(gps.lat, gps.lng)
+            if (gpsAddress) {
+              console.log(`[arbitrage] Geocoded address: ${gpsAddress}`)
+              // Update item with detected address
+              await supabase.from('arbitrage_items').update({ pawn_shop_address: gpsAddress }).eq('id', arbItem?.id)
+
+              // Try to match to existing store
+              const { data: allStores } = await supabase.from('arbitrage_stores').select('id, store_name, address')
+              if (allStores && allStores.length > 0) {
+                matchedStore = findMatchingStore(gpsAddress, allStores)
+                if (matchedStore) {
+                  await supabase.from('arbitrage_items').update({ store_id: matchedStore.id }).eq('id', arbItem?.id)
+                  console.log(`[arbitrage] Auto-matched to store: ${matchedStore.store_name}`)
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[arbitrage] GPS extraction error:', e)
+        }
+
         // Mark pending event processed
         await supabase.from('webhook_events').update({ processed: true }).eq('id', eventId)
 
-        // Create arbitrage session for collecting details
+        // Create arbitrage session — skip address step if GPS was found
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
           .filter('payload->>chat_id', 'eq', String(cbChatId))
+
+        const startStep = gpsAddress ? 'asking_price' : 'address'
         await supabase.from('webhook_events').insert({
           source: 'telegram',
           event_type: 'arbitrage_session',
           payload: {
             chat_id: cbChatId,
             item_id: arbItem?.id,
-            step: 'address',
+            step: startStep,
             original_url: originalUrl,
             nobg_url: nobgUrl,
+            address: gpsAddress || null,
           },
         })
 
         const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
+        let locationInfo = ''
+        if (gpsAddress && matchedStore) {
+          locationInfo = `\n📍 <b>Location detected!</b> Auto-assigned to <b>${matchedStore.store_name}</b>`
+        } else if (gpsAddress) {
+          locationInfo = `\n📍 <b>Location detected:</b> ${gpsAddress}`
+        }
+
+        const nextPrompt = gpsAddress
+          ? '\n\n💰 <b>What\'s the pawn shop\'s asking price?</b>\n<i>Just the number, e.g. 150</i>'
+          : '\n\n📍 <b>What\'s the pawn shop address?</b>'
+
         await tgPost(TG_TOKEN, 'editMessageText', {
           chat_id: cbChatId,
           message_id: cbq.message.message_id,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}\n\n📍 <b>What's the pawn shop address?</b>`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo}${nextPrompt}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')

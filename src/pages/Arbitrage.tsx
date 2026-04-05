@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
   ShoppingBag, Search, RefreshCw, Trash2, ExternalLink, Phone, User,
   ChevronLeft, ChevronRight, Store, Plus, X, Bell, BellOff, MapPin, Edit2,
-  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2
+  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2, Upload
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -497,7 +497,8 @@ export default function Arbitrage() {
   const [tab, setTab] = useState('inventory');
   const [autoBgRemoval, setAutoBgRemoval] = useState(true);
   const [bgToggleLoading, setBgToggleLoading] = useState(false);
-
+  const [csvImporting, setCsvImporting] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [itemsRes, storesRes, remindersRes, bgCfgRes] = await Promise.all([
@@ -591,6 +592,64 @@ export default function Arbitrage() {
     }, { onConflict: 'site_id,section' });
     setBgToggleLoading(false);
     toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
+  };
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error('CSV has no data rows'); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+
+      // Auto-detect column indices
+      const nameIdx = headers.findIndex(h => /store.?name|name|business|company|shop/i.test(h));
+      const addrIdx = headers.findIndex(h => /address|street|location/i.test(h));
+      const contactIdx = headers.findIndex(h => /contact.?name|owner|person/i.test(h));
+      const phoneIdx = headers.findIndex(h => /phone|tel|mobile/i.test(h));
+      const notesIdx = headers.findIndex(h => /notes?|description|comments?/i.test(h));
+
+      if (nameIdx === -1 && addrIdx === -1) {
+        toast.error('CSV needs a "name" or "address" column');
+        return;
+      }
+
+      const rows: { store_name: string; address: string | null; contact_name: string | null; contact_phone: string | null; notes: string | null }[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].match(/("([^"]*)"|[^,]*)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || [];
+        const storeName = (nameIdx >= 0 ? cols[nameIdx] : '') || (addrIdx >= 0 ? cols[addrIdx] : '') || '';
+        if (!storeName) continue;
+        rows.push({
+          store_name: storeName,
+          address: addrIdx >= 0 ? cols[addrIdx] || null : null,
+          contact_name: contactIdx >= 0 ? cols[contactIdx] || null : null,
+          contact_phone: phoneIdx >= 0 ? cols[phoneIdx]?.replace(/[^\d+\-() ]/g, '') || null : null,
+          notes: notesIdx >= 0 ? cols[notesIdx] || null : null,
+        });
+      }
+
+      if (rows.length === 0) { toast.error('No valid rows found'); return; }
+
+      // Batch insert (50 at a time)
+      let inserted = 0;
+      for (let i = 0; i < rows.length; i += 50) {
+        const batch = rows.slice(i, i + 50);
+        const { error } = await supabase.from('arbitrage_stores').insert(batch);
+        if (error) { toast.error(`Row ${i + 1}: ${error.message}`); break; }
+        inserted += batch.length;
+      }
+
+      toast.success(`Imported ${inserted} stores`);
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message || 'CSV import failed');
+    } finally {
+      setCsvImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = '';
+    }
   };
 
   const unassignedCount = items.filter(i => !i.store_id).length;
@@ -765,9 +824,22 @@ export default function Arbitrage() {
           <TabsContent value="stores" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Manage your vendor stores and contacts</p>
-              <Button size="sm" onClick={() => { setEditStore(null); setStoreModalOpen(true); }}>
-                <Plus className="h-3.5 w-3.5 mr-1" /> Add Store
-              </Button>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleCsvUpload}
+                />
+                <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} disabled={csvImporting}>
+                  {csvImporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                  Import CSV
+                </Button>
+                <Button size="sm" onClick={() => { setEditStore(null); setStoreModalOpen(true); }}>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Store
+                </Button>
+              </div>
             </div>
 
             {stores.length === 0 ? (
