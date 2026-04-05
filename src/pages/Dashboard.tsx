@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
   const [cronCountdown, setCronCountdown] = useState(0);
+  const [cryptoHoldingUsd, setCryptoHoldingUsd] = useState(0);
 
   useEffect(() => {
     const updateClock = () => {
