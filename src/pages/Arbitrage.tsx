@@ -986,8 +986,8 @@ export default function Arbitrage() {
                       <CardContent className="p-4 space-y-2">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="font-semibold text-sm">{store.store_name}</h3>
-                            {store.address && <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" />{store.address}</p>}
+                            <h3 className="font-semibold text-sm">{store.address || store.store_name}</h3>
+                            {store.address && store.store_name && <p className="text-xs text-muted-foreground flex items-center gap-1"><Store className="h-3 w-3" />{store.store_name}</p>}
                           </div>
                           <Badge variant="outline" className="text-xs">{count} items</Badge>
                         </div>
