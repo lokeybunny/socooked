@@ -4994,68 +4994,18 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
         await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
-        await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'contact_name', wiggle_price: price },
-        }).eq('id', arbS.id)
-        await tgPost(TG_TOKEN, 'sendMessage', {
-          chat_id: chatId,
-          text: '👤 <b>Who is the point of contact?</b>\n\n<i>Type their name, or "skip" if you do not have it yet.</i>',
-          parse_mode: 'HTML',
-        })
-        return new Response('ok')
-      }
 
-      if (arbP.step === 'contact_name') {
-        const contactName = text.toLowerCase() === 'skip' ? null : text.trim()
-        await supabase.from('arbitrage_items').update({ contact_name: contactName }).eq('id', itemId)
+        // Skip contact/notes steps — go straight to add_photos
         await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'contact_phone', contact_name: contactName },
-        }).eq('id', arbS.id)
-        await tgPost(TG_TOKEN, 'sendMessage', {
-          chat_id: chatId,
-          text: '📞 <b>What\'s their phone number?</b>\n\n<i>Type the phone number, or "skip" if you do not have it yet.</i>',
-          parse_mode: 'HTML',
-        })
-        return new Response('ok')
-      }
-
-      if (arbP.step === 'contact_phone') {
-        const contactPhone = text.toLowerCase() === 'skip' ? null : text.trim()
-        await supabase.from('arbitrage_items').update({ contact_phone: contactPhone }).eq('id', itemId)
-        await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'notes', contact_phone: contactPhone },
-        }).eq('id', arbS.id)
-        await tgPost(TG_TOKEN, 'sendMessage', {
-          chat_id: chatId,
-          text: '📝 <b>Quick note?</b> (condition, brand, urgency — or type "skip" to finish)',
-          parse_mode: 'HTML',
-        })
-        return new Response('ok')
-      }
-
-      if (arbP.step === 'notes') {
-        const noteText = text.toLowerCase() === 'skip' ? null : text.trim()
-        if (noteText) {
-          await supabase.from('arbitrage_items').update({
-            condition_notes: noteText,
-            item_name: noteText.substring(0, 60),
-          }).eq('id', itemId)
-        }
-
-        // Don't delete the session — move to "add_photos" step so user can attach more images
-        await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'add_photos', notes: noteText },
+          payload: { ...arbP, step: 'add_photos', wiggle_price: price },
         }).eq('id', arbS.id)
 
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
-          `💲 <b>List Price:</b> $${arbP.wiggle_price || 0} · <b>Profit:</b> $${(arbP.wiggle_price || 0) - (arbP.asking_price || 0)}`,
+          `💲 <b>List Price:</b> $${price} · <b>Profit:</b> $${price - (arbP.asking_price || 0)}`,
         ]
-        if (arbP.contact_name) lines.push(`👤 <b>Contact:</b> ${arbP.contact_name}`)
-        if (arbP.contact_phone) lines.push(`📞 <b>Phone:</b> ${arbP.contact_phone}`)
-        if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
         lines.push('\n📸 <b>Send more photos</b> to add to this item, or type <b>"done"</b> to finish.')
@@ -5065,10 +5015,8 @@ Deno.serve(async (req) => {
           entity_id: itemId,
           action: 'arbitrage_item_logged',
           meta: {
-            name: `🏪 Arbitrage: ${noteText || 'New item'}`,
+            name: `🏪 Arbitrage: New item`,
             address: arbP.address,
-            contact_name: arbP.contact_name,
-            contact_phone: arbP.contact_phone,
           },
         })
 
