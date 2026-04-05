@@ -148,17 +148,29 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete }: {
         </DialogHeader>
         <div className="space-y-4">
           {/* Images */}
-          <div className="grid grid-cols-2 gap-3">
-            {item.original_image_url && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              {item.original_image_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Original</p>
+                  <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.original_image_url!, '_blank')} />
+                </div>
+              )}
+              {item.nobg_image_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
+                  <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.nobg_image_url!, '_blank')} />
+                </div>
+              )}
+            </div>
+            {item.extra_images && item.extra_images.length > 0 && (
               <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground font-medium">Original</p>
-                <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.original_image_url!, '_blank')} />
-              </div>
-            )}
-            {item.nobg_image_url && (
-              <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
-                <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.nobg_image_url!, '_blank')} />
+                <p className="text-[10px] text-muted-foreground font-medium">Additional Photos ({item.extra_images.length})</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {item.extra_images.map((url, idx) => (
+                    <img key={idx} src={url} alt={`Extra ${idx + 1}`} className="rounded-lg h-24 w-full object-cover bg-muted/30 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all" onClick={() => window.open(url, '_blank')} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
