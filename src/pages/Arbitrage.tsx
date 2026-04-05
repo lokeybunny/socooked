@@ -532,6 +532,10 @@ export default function Arbitrage() {
     setStores((storesRes.data as ArbStore[]) || []);
     setReminders((remindersRes.data as ArbReminder[]) || []);
     setAutoBgRemoval((bgCfgRes.data?.content as any)?.enabled !== false);
+    const addyContent = addyCfgRes.data?.content as any;
+    setDefaultAddyEnabled(!!addyContent?.enabled);
+    setDefaultAddress(addyContent?.address || '');
+    setDefaultAddyInput(addyContent?.address || '');
     setLoading(false);
   }, []);
 
