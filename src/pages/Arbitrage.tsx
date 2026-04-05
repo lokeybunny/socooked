@@ -303,7 +303,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
                 <p className="text-[10px] text-muted-foreground font-medium">Additional Photos ({item.extra_images.length})</p>
                 <div className="grid grid-cols-3 gap-2">
                   {item.extra_images.map((url, idx) => (
-                    <img key={idx} src={url} alt={`Extra ${idx + 1}`} className="rounded-lg h-24 w-full object-cover bg-muted/30 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all" onClick={() => window.open(url, '_blank')} />
+                    <img key={idx} src={url} alt={`Extra ${idx + 1}`} className="rounded-lg h-24 w-full object-cover bg-muted/30 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all" onClick={() => setLightboxUrl(url)} />
                   ))}
                 </div>
               </div>
