@@ -225,7 +225,8 @@ export default function Crypto() {
     [getWalletCacheSignature],
   );
 
-  /* ── fetch on-chain balances ── */
+  /* ── fetch on-chain balances (chunked to avoid edge-function timeouts) ── */
+  const CHUNK_SIZE = 5;
   const fetchBalances = useCallback(
     async (silent = false) => {
       if (!wallets.length) {
@@ -241,39 +242,51 @@ export default function Crypto() {
       if (!silent) setFetchingBalances(true);
 
       try {
-        let nextWalletBalances: WalletBalance[] = [];
-        let nextWalletTotals: WalletTotals | null = null;
-
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const { data, error } = await supabase.functions.invoke("crypto-wallets", {
-            body: {
-              wallets: wallets.map((wallet) => wallet.wallet_address),
-              token_mint: TOKEN_ADDRESS,
-            },
-          });
-
-          if (error) throw error;
-
-          const parsed = typeof data === "string" ? JSON.parse(data) : data;
-          nextWalletBalances = Array.isArray(parsed?.wallets) ? parsed.wallets : [];
-          nextWalletTotals = parsed?.totals || null;
-
-          const hasNonZeroBalance = nextWalletBalances.some((wallet) => Number(wallet.balance) > 0);
-          if (hasNonZeroBalance || attempt === 2) break;
-
-          await new Promise((resolve) => setTimeout(resolve, 700));
+        const addresses = wallets.map((w) => w.wallet_address);
+        const chunks: string[][] = [];
+        for (let i = 0; i < addresses.length; i += CHUNK_SIZE) {
+          chunks.push(addresses.slice(i, i + CHUNK_SIZE));
         }
 
-        const hasNonZeroBalance = nextWalletBalances.some((wallet) => Number(wallet.balance) > 0);
+        let allBalances: WalletBalance[] = [];
+        let lastTotals: WalletTotals | null = null;
+
+        for (let ci = 0; ci < chunks.length; ci++) {
+          const { data, error } = await supabase.functions.invoke("crypto-wallets", {
+            body: { wallets: chunks[ci], token_mint: TOKEN_ADDRESS },
+          });
+          if (error) throw error;
+          const parsed = typeof data === "string" ? JSON.parse(data) : data;
+          const chunkBalances: WalletBalance[] = Array.isArray(parsed?.wallets) ? parsed.wallets : [];
+          allBalances = allBalances.concat(chunkBalances);
+          lastTotals = parsed?.totals || null;
+        }
+
+        // Recompute totals across all chunks using price info from last chunk
+        const totalTokens = allBalances.reduce((s, w) => s + (Number(w.balance) || 0), 0);
+        const tokenPrice = lastTotals?.tokenPrice ?? 0;
+        const priceNative = lastTotals?.priceNative ?? 0;
+        const marketCap = lastTotals?.marketCap ?? 0;
+        const mergedTotals: WalletTotals = {
+          totalTokens,
+          holdingPct: (totalTokens / SUPPLY) * 100,
+          holdingValueUsd: totalTokens * tokenPrice,
+          holdingValueSol: totalTokens * priceNative,
+          tokenPrice,
+          priceNative,
+          marketCap,
+        };
+
+        const hasNonZeroBalance = allBalances.some((w) => Number(w.balance) > 0);
         const hasExistingNonZeroBalance =
-          walletBalancesRef.current.some((wallet) => Number(wallet.balance) > 0) ||
+          walletBalancesRef.current.some((w) => Number(w.balance) > 0) ||
           Number(walletTotalsRef.current?.totalTokens || 0) > 0;
 
         if (!hasNonZeroBalance && silent && hasExistingNonZeroBalance) return;
 
-        setWalletBalances(nextWalletBalances);
-        setWalletTotals(nextWalletTotals);
-        saveCacheBalances(wallets, nextWalletBalances, nextWalletTotals);
+        setWalletBalances(allBalances);
+        setWalletTotals(mergedTotals);
+        saveCacheBalances(wallets, allBalances, mergedTotals);
       } catch (err: any) {
         console.error("Failed to fetch balances:", err);
         if (!silent) toast.error("Failed to fetch wallet balances");
