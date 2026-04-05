@@ -252,29 +252,29 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-muted-foreground text-xs">Store</p>
-              <p className="font-medium">{store?.store_name || item.pawn_shop_address || '—'}</p>
-              {store?.address && <p className="text-xs text-muted-foreground">📍 {store.address}</p>}
+              <p data-copy className="font-medium" onClick={() => cp(store?.store_name || item.pawn_shop_address || '', 'Store')}>{store?.store_name || item.pawn_shop_address || '—'}</p>
+              {store?.address && <p data-copy className="text-xs text-muted-foreground" onClick={() => cp(store.address!, 'Address')}>📍 {store.address}</p>}
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Contact</p>
-              <p className="font-medium">{item.contact_name || store?.contact_name || '—'}</p>
+              <p data-copy className="font-medium" onClick={() => cp(item.contact_name || store?.contact_name || '', 'Contact')}>{item.contact_name || store?.contact_name || '—'}</p>
               {(item.contact_phone || store?.contact_phone) && (
-                <a href={`tel:${item.contact_phone || store?.contact_phone}`} className="text-xs text-primary hover:underline flex items-center gap-1">
+                <span data-copy className="text-xs text-primary hover:underline flex items-center gap-1" onClick={() => cp(item.contact_phone || store?.contact_phone || '', 'Phone')}>
                   <Phone className="h-3 w-3" /> {item.contact_phone || store?.contact_phone}
-                </a>
+                </span>
               )}
             </div>
           </div>
 
           {/* Pricing */}
           <div className="grid grid-cols-3 gap-3 text-sm">
-            <div><p className="text-muted-foreground text-xs">Asking</p><p className="font-bold text-foreground">{item.asking_price != null ? `$${item.asking_price}` : '—'}</p></div>
-            <div><p className="text-muted-foreground text-xs">Wiggle Room</p><p className="font-medium">{item.wiggle_room_price != null ? `$${item.wiggle_room_price}` : '—'}</p></div>
-            <div><p className="text-muted-foreground text-xs">Spread</p><p className={cn("font-bold", spread && spread > 0 ? "text-emerald-500" : "text-muted-foreground")}>{spread != null ? `$${spread}` : '—'}</p></div>
+            <div><p className="text-muted-foreground text-xs">Asking</p><p data-copy className="font-bold text-foreground" onClick={() => item.asking_price != null && cp(`${item.asking_price}`, 'Asking price')}>{item.asking_price != null ? `$${item.asking_price}` : '—'}</p></div>
+            <div><p className="text-muted-foreground text-xs">Wiggle Room</p><p data-copy className="font-medium" onClick={() => item.wiggle_room_price != null && cp(`${item.wiggle_room_price}`, 'Wiggle price')}>{item.wiggle_room_price != null ? `$${item.wiggle_room_price}` : '—'}</p></div>
+            <div><p className="text-muted-foreground text-xs">Spread</p><p data-copy className={cn("font-bold", spread && spread > 0 ? "text-emerald-500" : "text-muted-foreground")} onClick={() => spread != null && cp(`${spread}`, 'Spread')}>{spread != null ? `$${spread}` : '—'}</p></div>
           </div>
 
           {item.condition_notes && (
-            <div><p className="text-muted-foreground text-xs mb-1">Notes</p><p className="text-sm whitespace-pre-wrap">{item.condition_notes}</p></div>
+            <div><p className="text-muted-foreground text-xs mb-1">Notes</p><p data-copy className="text-sm whitespace-pre-wrap" onClick={() => cp(item.condition_notes!, 'Notes')}>{item.condition_notes}</p></div>
           )}
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
