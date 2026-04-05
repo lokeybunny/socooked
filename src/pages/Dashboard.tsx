@@ -131,10 +131,10 @@ export default function Dashboard() {
 
   const metricCards = [
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
-    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly (deduplicated)`, icon: Users, color: 'text-emerald-500' },
+    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly + ${stats.arbPurchasedCount} arb purchased`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
-    { label: 'Potential Lead Conversion', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed × $250`, icon: TrendingUp, color: 'text-green-500' },
-    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
+    { label: 'Potential Lead Conversion', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250 + stats.arbListedSpread).toLocaleString()}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects × $250 + $${stats.arbListedSpread.toLocaleString()} arb listed`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350 + stats.arbPurchasedSpread).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} clients × $350 + $${stats.arbPurchasedSpread.toLocaleString()} arb profit`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
 
