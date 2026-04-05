@@ -44,7 +44,7 @@ import { useAuth } from "@/hooks/useAuth";
 /* ── token config ── */
 const TOKEN_ADDRESS = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
 const ENTRY_MCAP = 888_000;
-const INITIAL_BAG_SOL = 64.91;
+const INITIAL_BAG_SOL = 65.91;
 const SUPPLY = 1_000_000_000;
 
 interface Candle {
