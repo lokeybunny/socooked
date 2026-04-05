@@ -285,33 +285,39 @@ export type Database = {
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          email: string | null
           id: string
           meta: Json
           notes: string | null
           store_name: string
           updated_at: string
+          website: string | null
         }
         Insert: {
           address?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           meta?: Json
           notes?: string | null
           store_name: string
           updated_at?: string
+          website?: string | null
         }
         Update: {
           address?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           meta?: Json
           notes?: string | null
           store_name?: string
           updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
