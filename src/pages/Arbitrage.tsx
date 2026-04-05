@@ -512,6 +512,7 @@ export default function Arbitrage() {
   const [autoBgRemoval, setAutoBgRemoval] = useState(true);
   const [bgToggleLoading, setBgToggleLoading] = useState(false);
   const [csvImporting, setCsvImporting] = useState(false);
+  const [storeSearch, setStoreSearch] = useState('');
   const [defaultAddress, setDefaultAddress] = useState('');
   const [defaultAddyEnabled, setDefaultAddyEnabled] = useState(false);
   const [defaultAddyInput, setDefaultAddyInput] = useState('');
@@ -970,7 +971,15 @@ export default function Arbitrage() {
               </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {stores.map(store => {
+                {stores.filter(s => {
+                  if (!storeSearch.trim()) return true;
+                  const q = storeSearch.toLowerCase();
+                  return s.store_name.toLowerCase().includes(q) ||
+                    (s.address || '').toLowerCase().includes(q) ||
+                    (s.contact_name || '').toLowerCase().includes(q) ||
+                    (s.contact_phone || '').toLowerCase().includes(q) ||
+                    ((s as any).email || '').toLowerCase().includes(q);
+                }).map(store => {
                   const count = storeItemCounts[store.id] || 0;
                   return (
                     <Card key={store.id} className="hover:ring-1 hover:ring-primary/30 transition-all">
