@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, Phone, TrendingUp, Clock, Shield, Users, ChevronRight, CheckCircle2, Store, DollarSign, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import heroImg1 from '@/assets/liquidate-hero-1.jpg';
+import heroImg2 from '@/assets/liquidate-hero-2.jpg';
+import heroImg3 from '@/assets/liquidate-hero-3.jpg';
 
 const STEPS = [
   { icon: Phone, title: 'You Call or Text Us', desc: 'Tell us what items you have. We respond within 24 hours.' },
@@ -21,6 +24,18 @@ const BENEFITS = [
   { icon: Store, title: 'Built for Pawn Shops', desc: 'We understand your business. Quick turnarounds, no fluff.' },
 ];
 
+const HERO_IMAGES = [heroImg1, heroImg2, heroImg3];
+
+function useParallax() {
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return scrollY;
+}
+
 export default function Liquidate() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,6 +43,13 @@ export default function Liquidate() {
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const scrollY = useParallax();
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentSlide(prev => (prev + 1) % HERO_IMAGES.length), 5000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,24 +89,83 @@ export default function Liquidate() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="max-w-6xl mx-auto px-4 py-16 md:py-24 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium mb-6">
-          <Store className="h-3.5 w-3.5" /> Built for Pawn Shops & Resellers
+      {/* Hero with Parallax Images */}
+      <section className="relative overflow-hidden" style={{ minHeight: '85vh' }}>
+        {/* Parallax background images */}
+        {HERO_IMAGES.map((img, i) => (
+          <div
+            key={i}
+            className={cn(
+              "absolute inset-0 transition-opacity duration-1000",
+              currentSlide === i ? "opacity-100" : "opacity-0"
+            )}
+          >
+            <img
+              src={img}
+              alt={`Liquidation showcase ${i + 1}`}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ transform: `translateY(${scrollY * 0.3}px)` }}
+              width={1920}
+              height={1080}
+              {...(i === 0 ? {} : { loading: 'lazy' as const })}
+            />
+          </div>
+        ))}
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
+
+        {/* Content */}
+        <div className="relative z-10 max-w-6xl mx-auto px-4 py-24 md:py-36 text-center flex flex-col items-center justify-center" style={{ minHeight: '85vh' }}>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-medium mb-6 backdrop-blur-sm border border-amber-500/20">
+            <Store className="h-3.5 w-3.5" /> Built for Pawn Shops & Resellers
+          </div>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white leading-tight max-w-4xl mx-auto drop-shadow-lg">
+            Turn Dead Inventory Into <span className="text-amber-400">Cash</span>
+          </h1>
+          <p className="mt-6 text-lg md:text-xl text-white/80 max-w-xl mx-auto">
+            We help pawn shops liquidate stale inventory fast. No upfront costs, no risk — just results.
+          </p>
+          <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-white px-10 text-lg h-14 shadow-lg shadow-amber-500/30" onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}>
+              Get Started <ChevronRight className="h-5 w-5 ml-1" />
+            </Button>
+            <Button variant="outline" size="lg" className="border-white/30 text-white hover:bg-white/10 h-14 text-lg" onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>
+              How It Works
+            </Button>
+          </div>
+
+          {/* Slide indicators */}
+          <div className="flex gap-2 mt-10">
+            {HERO_IMAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentSlide(i)}
+                className={cn(
+                  "w-2.5 h-2.5 rounded-full transition-all",
+                  currentSlide === i ? "bg-amber-400 w-8" : "bg-white/40 hover:bg-white/60"
+                )}
+              />
+            ))}
+          </div>
         </div>
-        <h1 className="text-4xl md:text-6xl font-extrabold text-foreground leading-tight max-w-3xl mx-auto">
-          Turn Dead Inventory Into <span className="text-amber-600">Cash</span>
-        </h1>
-        <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-          We help pawn shops liquidate stale inventory fast. No upfront costs, no risk — just results.
-        </p>
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <Button size="lg" className="bg-amber-600 hover:bg-amber-700 text-white px-8" onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}>
-            Get Started <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-          <Button variant="outline" size="lg" onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>
-            How It Works
-          </Button>
+      </section>
+
+      {/* Parallax divider image */}
+      <section className="relative h-64 md:h-80 overflow-hidden">
+        <img
+          src={heroImg2}
+          alt="Luxury items"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ transform: `translateY(${(scrollY - 800) * 0.2}px)` }}
+          loading="lazy"
+          width={1920}
+          height={1080}
+        />
+        <div className="absolute inset-0 bg-amber-900/60" />
+        <div className="relative z-10 h-full flex items-center justify-center text-center px-4">
+          <p className="text-2xl md:text-3xl font-bold text-white max-w-2xl drop-shadow">
+            "We turned $15k of dead inventory into $11k cash in under 30 days."
+          </p>
         </div>
       </section>
 
@@ -125,6 +206,20 @@ export default function Liquidate() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* Parallax warehouse divider */}
+      <section className="relative h-64 md:h-80 overflow-hidden">
+        <img
+          src={heroImg3}
+          alt="Fulfillment center"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ transform: `translateY(${(scrollY - 2000) * 0.15}px)` }}
+          loading="lazy"
+          width={1920}
+          height={1080}
+        />
+        <div className="absolute inset-0 bg-black/50" />
       </section>
 
       {/* Stats */}

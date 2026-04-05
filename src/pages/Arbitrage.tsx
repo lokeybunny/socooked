@@ -5,8 +5,10 @@ import { toast } from 'sonner';
 import {
   ShoppingBag, Search, RefreshCw, Trash2, ExternalLink, Phone, User,
   ChevronLeft, ChevronRight, Store, Plus, X, Bell, BellOff, MapPin, Edit2,
-  ChevronDown, ImageIcon
+  ChevronDown, ImageIcon, Zap
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +46,7 @@ interface ArbItem {
   item_name: string;
   original_image_url: string | null;
   nobg_image_url: string | null;
+  extra_images: string[] | null;
   pawn_shop_address: string | null;
   asking_price: number | null;
   wiggle_room_price: number | null;
@@ -145,17 +148,29 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete }: {
         </DialogHeader>
         <div className="space-y-4">
           {/* Images */}
-          <div className="grid grid-cols-2 gap-3">
-            {item.original_image_url && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              {item.original_image_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Original</p>
+                  <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.original_image_url!, '_blank')} />
+                </div>
+              )}
+              {item.nobg_image_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
+                  <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.nobg_image_url!, '_blank')} />
+                </div>
+              )}
+            </div>
+            {item.extra_images && item.extra_images.length > 0 && (
               <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground font-medium">Original</p>
-                <img src={item.original_image_url} alt="Original" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.original_image_url!, '_blank')} />
-              </div>
-            )}
-            {item.nobg_image_url && (
-              <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground font-medium">No Background</p>
-                <img src={item.nobg_image_url} alt="No BG" className="rounded-lg w-full h-48 object-contain bg-muted/30 cursor-pointer" onClick={() => window.open(item.nobg_image_url!, '_blank')} />
+                <p className="text-[10px] text-muted-foreground font-medium">Additional Photos ({item.extra_images.length})</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {item.extra_images.map((url, idx) => (
+                    <img key={idx} src={url} alt={`Extra ${idx + 1}`} className="rounded-lg h-24 w-full object-cover bg-muted/30 cursor-pointer hover:ring-2 hover:ring-primary/40 transition-all" onClick={() => window.open(url, '_blank')} />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -247,19 +262,23 @@ export default function Arbitrage() {
   const [storeModalOpen, setStoreModalOpen] = useState(false);
   const [editStore, setEditStore] = useState<ArbStore | null>(null);
   const [tab, setTab] = useState('inventory');
+  const [autoBgRemoval, setAutoBgRemoval] = useState(true);
+  const [bgToggleLoading, setBgToggleLoading] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [itemsRes, storesRes, remindersRes] = await Promise.all([
+    const [itemsRes, storesRes, remindersRes, bgCfgRes] = await Promise.all([
       supabase.from('arbitrage_items').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('arbitrage_stores').select('*').order('store_name'),
       supabase.from('arbitrage_reminders').select('*').eq('is_dismissed', false).lte('reminder_date', new Date().toISOString()).order('reminder_date'),
+      supabase.from('site_configs').select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle(),
     ]);
     if (itemsRes.error) toast.error(itemsRes.error.message);
     if (storesRes.error) toast.error(storesRes.error.message);
     setItems((itemsRes.data as ArbItem[]) || []);
     setStores((storesRes.data as ArbStore[]) || []);
     setReminders((remindersRes.data as ArbReminder[]) || []);
+    setAutoBgRemoval((bgCfgRes.data?.content as any)?.enabled !== false);
     setLoading(false);
   }, []);
 
@@ -328,6 +347,19 @@ export default function Arbitrage() {
     return map;
   }, [items]);
 
+  const handleToggleBgRemoval = async (enabled: boolean) => {
+    setBgToggleLoading(true);
+    setAutoBgRemoval(enabled);
+    await supabase.from('site_configs').upsert({
+      site_id: 'arbitrage',
+      section: 'bg-removal',
+      content: { enabled },
+      is_published: true,
+    }, { onConflict: 'site_id,section' });
+    setBgToggleLoading(false);
+    toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
+  };
+
   const unassignedCount = items.filter(i => !i.store_id).length;
 
   return (
@@ -344,10 +376,15 @@ export default function Arbitrage() {
               <p className="text-sm text-muted-foreground">{items.length} items · {stores.length} stores</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {reminders.length > 0 && (
               <Badge variant="destructive" className="text-xs">{reminders.length} reminder{reminders.length > 1 ? 's' : ''}</Badge>
             )}
+            <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
+              <Zap className={cn("h-3.5 w-3.5", autoBgRemoval ? "text-amber-500" : "text-muted-foreground")} />
+              <Label htmlFor="bg-toggle" className="text-xs cursor-pointer select-none whitespace-nowrap">Auto BG Remove</Label>
+              <Switch id="bg-toggle" checked={autoBgRemoval} onCheckedChange={handleToggleBgRemoval} disabled={bgToggleLoading} />
+            </div>
             <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", loading && "animate-spin")} /> Refresh
             </Button>

@@ -2607,11 +2607,16 @@ Deno.serve(async (req) => {
           status: 'new',
         }).select('id').single()
 
-        // Trigger background removal via Nano Banana
+        // Trigger background removal via Nano Banana — only if enabled
         let nobgUrl: string | null = null
         try {
+          // Check BG removal config
+          const { data: bgCfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle()
+          const bgEnabled = (bgCfg?.content as any)?.enabled !== false // default ON
+
           const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-          if (LOVABLE_API_KEY) {
+          if (LOVABLE_API_KEY && bgEnabled) {
             const bgRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: {
@@ -4747,7 +4752,10 @@ Deno.serve(async (req) => {
           }).eq('id', itemId)
         }
 
-        await supabase.from('webhook_events').delete().eq('id', arbS.id)
+        // Don't delete the session — move to "add_photos" step so user can attach more images
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'add_photos', notes: noteText },
+        }).eq('id', arbS.id)
 
         const lines = [
           '🏪 <b>Arbitrage Item Logged!</b>\n',
@@ -4760,7 +4768,7 @@ Deno.serve(async (req) => {
         if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
-        lines.push('\n✅ Ready to act when you\'re back at your station.')
+        lines.push('\n📸 <b>Send more photos</b> to add to this item, or type <b>"done"</b> to finish.')
 
         await supabase.from('activity_log').insert({
           entity_type: 'arbitrage',
@@ -4781,6 +4789,20 @@ Deno.serve(async (req) => {
           disable_web_page_preview: true,
         })
         return new Response('ok')
+      }
+
+      // Handle "done" during add_photos step
+      if (arbP.step === 'add_photos') {
+        if (text.toLowerCase() === 'done') {
+          await supabase.from('webhook_events').delete().eq('id', arbS.id)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '✅ <b>Item complete!</b> Ready to act when you\'re back at your station.\n\nSend another photo to log a new item, or tap 🏪 Arbitrage.',
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+        // Any other text during add_photos — ignore silently
       }
     }
 
@@ -4893,6 +4915,80 @@ Deno.serve(async (req) => {
         .filter('payload->>chat_id', 'eq', String(chatId))
         .limit(1)
 
+      // Check if user is in add_photos step of an active arbitrage session
+      const { data: arbAddPhotoSession } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .filter('payload->>step', 'eq', 'add_photos')
+        .order('created_at', { ascending: false }).limit(1)
+
+      // If in add_photos mode, append this photo to the existing item
+      if (arbAddPhotoSession && arbAddPhotoSession.length > 0 && media.type === 'image') {
+        const addSession = arbAddPhotoSession[0]
+        const addPayload = addSession.payload as any
+        const itemId = addPayload.item_id
+
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📸 Uploading extra photo...' })
+
+        // Download and upload
+        let filePath = ''
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file_id: media.fileId }),
+            })
+            const fileInfo = await fileInfoRes.json()
+            filePath = fileInfo.result?.file_path || ''
+            if (filePath) break
+          } catch (_e) {}
+          if (attempt < 3) await new Promise(r => setTimeout(r, 1000))
+        }
+
+        if (!filePath) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Could not retrieve file.' })
+          return new Response('ok')
+        }
+
+        const downloadUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+        const fileRes = await fetch(downloadUrl)
+        if (!fileRes.ok) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ File download failed.' })
+          return new Response('ok')
+        }
+
+        const fileBlob = await fileRes.blob()
+        const fileBuffer = await fileBlob.arrayBuffer()
+        const storagePath = `arbitrage/${Date.now()}_extra_${media.fileName}`
+        const { error: uploadErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(storagePath, new Uint8Array(fileBuffer), { contentType: fileBlob.type || 'image/jpeg', upsert: false })
+
+        if (uploadErr) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${uploadErr.message}` })
+          return new Response('ok')
+        }
+
+        const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+        const extraUrl = urlData?.publicUrl || ''
+
+        // Append to extra_images array
+        const { data: currentItem } = await supabase.from('arbitrage_items').select('extra_images').eq('id', itemId).single()
+        const existingImages = (currentItem?.extra_images as string[]) || []
+        await supabase.from('arbitrage_items').update({
+          extra_images: [...existingImages, extraUrl],
+        }).eq('id', itemId)
+
+        const totalExtras = existingImages.length + 1
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `✅ Extra photo #${totalExtras} added!\n\n📸 Send more photos or type <b>"done"</b> to finish.`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
       // Store pending media in webhook_events
       const { data: inserted } = await supabase.from('webhook_events').insert({
         source: 'telegram',
@@ -4995,8 +5091,13 @@ Deno.serve(async (req) => {
 
         let nobgUrl: string | null = null
         try {
+          // Check BG removal config
+          const { data: bgCfg } = await supabase.from('site_configs')
+            .select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle()
+          const bgEnabled = (bgCfg?.content as any)?.enabled !== false
+
           const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-          if (LOVABLE_API_KEY) {
+          if (LOVABLE_API_KEY && bgEnabled) {
             const bgRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
               method: 'POST',
               headers: {
