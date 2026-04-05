@@ -515,12 +515,51 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
                 {pushingTG ? 'Sending...' : 'Push to TG'}
               </Button>
             )}
+            {/* Mark as Sold */}
+            {(item.status === 'listed' || item.status === 'purchased') && !showSoldPrompt && (
+              <Button size="sm" onClick={() => { setShowSoldPrompt(true); setSoldPrice(item.wiggle_room_price != null ? String(item.wiggle_room_price) : ''); }} className="bg-purple-600 hover:bg-purple-700 text-white">
+                <DollarSign className="h-3.5 w-3.5 mr-1" /> Mark as Sold
+              </Button>
+            )}
             <Button variant="destructive" size="sm" onClick={() => { onDelete(item.id); onClose(); }}>
               <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
             </Button>
            </div>
-           {(item as any).sku && (
-             <span className="text-[10px] font-mono text-muted-foreground select-all ml-auto">SKU: {(item as any).sku}</span>
+
+           {/* Sold Price Prompt */}
+           {showSoldPrompt && (
+             <div className="border border-purple-500/30 bg-purple-500/5 rounded-lg p-3 space-y-2">
+               <p className="text-sm font-medium">How much did this item sell for?</p>
+               <div className="flex items-center gap-2">
+                 <span className="text-sm font-bold">$</span>
+                 <Input
+                   autoFocus
+                   type="number"
+                   placeholder="Sale price"
+                   value={soldPrice}
+                   onChange={e => setSoldPrice(e.target.value)}
+                   className="h-8 w-40"
+                   onKeyDown={e => {
+                     if (e.key === 'Enter' && soldPrice) {
+                       onUpdate(item.id, { status: 'sold', wiggle_room_price: Number(soldPrice) } as any);
+                       toast.success(`Marked as sold for $${soldPrice}`);
+                       setShowSoldPrompt(false);
+                       onClose();
+                     }
+                     if (e.key === 'Escape') setShowSoldPrompt(false);
+                   }}
+                 />
+                 <Button size="sm" disabled={!soldPrice} onClick={() => {
+                   if (!soldPrice) return;
+                   onUpdate(item.id, { status: 'sold', wiggle_room_price: Number(soldPrice) } as any);
+                   toast.success(`Marked as sold for $${soldPrice}`);
+                   setShowSoldPrompt(false);
+                   onClose();
+                 }}>Confirm</Button>
+                 <Button variant="ghost" size="sm" onClick={() => setShowSoldPrompt(false)}>Cancel</Button>
+               </div>
+             </div>
+           )}
            )}
           </div>
       </DialogContent>
