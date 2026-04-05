@@ -682,9 +682,7 @@ export default function Funnels() {
   };
 
   const handleUndraft = async (lead: FunnelLead) => {
-    if (lead.funnel === 'arbitrage') {
-      await supabase.from('arbitrage_items').update({ meta: {} } as any).eq('id', lead.id);
-    } else if (lead._table === 'customers') {
+    if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: {} } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: null }).eq('id', lead.id);
