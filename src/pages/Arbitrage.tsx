@@ -191,6 +191,11 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
     toast.success('Listing copied to clipboard!');
   };
 
+  const cp = (val: string, label?: string) => {
+    navigator.clipboard.writeText(val);
+    toast.success(`${label || 'Copied'} to clipboard`);
+  };
+
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
