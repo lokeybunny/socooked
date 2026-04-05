@@ -473,98 +473,112 @@ export default function Crypto() {
         )}
 
         {/* Wallet Management */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wallet className="h-4 w-4" /> My Wallets
-              {fetchingBalances && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add wallet form */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">Solscan URL or Wallet Address</Label>
-                <Input
-                  placeholder="https://solscan.io/account/... or wallet address"
-                  value={newWalletInput}
-                  onChange={(e) => setNewWalletInput(e.target.value)}
-                  className="font-mono text-xs"
-                />
-              </div>
-              <div className="w-full sm:w-36">
-                <Label className="text-xs text-muted-foreground">Label (optional)</Label>
-                <Input
-                  placeholder="e.g. Main"
-                  value={newWalletLabel}
-                  onChange={(e) => setNewWalletLabel(e.target.value)}
-                />
-              </div>
-              <div className="flex items-end">
-                <Button onClick={handleAddWallet} disabled={addingWallet || !newWalletInput.trim()} size="sm">
-                  {addingWallet ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
-                  Add
-                </Button>
-              </div>
-            </div>
+        <Collapsible open={walletsOpen} onOpenChange={setWalletsOpen}>
+          <Card>
+            <CardHeader className="pb-2">
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center gap-2 w-full text-left">
+                  {walletsOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Wallet className="h-4 w-4" /> My Wallets
+                    {fetchingBalances && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                    {!walletsOpen && walletTotals && (
+                      <span className="text-xs font-normal text-muted-foreground ml-2">
+                        ({walletTotals.totalTokens.toLocaleString(undefined, { maximumFractionDigits: 0 })} tokens · ${walletTotals.holdingValueUsd.toFixed(2)})
+                      </span>
+                    )}
+                  </CardTitle>
+                </button>
+              </CollapsibleTrigger>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent className="space-y-4">
+                {/* Add wallet form */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">Solscan URL or Wallet Address</Label>
+                    <Input
+                      placeholder="https://solscan.io/account/... or wallet address"
+                      value={newWalletInput}
+                      onChange={(e) => setNewWalletInput(e.target.value)}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <div className="w-full sm:w-36">
+                    <Label className="text-xs text-muted-foreground">Label (optional)</Label>
+                    <Input
+                      placeholder="e.g. Main"
+                      value={newWalletLabel}
+                      onChange={(e) => setNewWalletLabel(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button onClick={handleAddWallet} disabled={addingWallet || !newWalletInput.trim()} size="sm">
+                      {addingWallet ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                      Add
+                    </Button>
+                  </div>
+                </div>
 
-            {/* Wallet list */}
-            {wallets.length > 0 && (
-              <div className="space-y-2">
-                {wallets.map((w) => {
-                  const bal = walletBalances.find((b) => b.wallet === w.wallet_address);
-                  return (
-                    <div key={w.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {w.label && <Badge variant="secondary" className="text-xs">{w.label}</Badge>}
-                          <a
-                            href={`https://solscan.io/account/${w.wallet_address}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono text-xs text-primary hover:underline truncate"
-                          >
-                            {w.wallet_address.slice(0, 8)}…{w.wallet_address.slice(-6)}
-                          </a>
+                {/* Wallet list */}
+                {wallets.length > 0 && (
+                  <div className="space-y-2">
+                    {wallets.map((w) => {
+                      const bal = walletBalances.find((b) => b.wallet === w.wallet_address);
+                      return (
+                        <div key={w.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {w.label && <Badge variant="secondary" className="text-xs">{w.label}</Badge>}
+                              <a
+                                href={`https://solscan.io/account/${w.wallet_address}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-mono text-xs text-primary hover:underline truncate"
+                              >
+                                {w.wallet_address.slice(0, 8)}…{w.wallet_address.slice(-6)}
+                              </a>
+                            </div>
+                            {bal && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {bal.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} tokens
+                              </p>
+                            )}
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveWallet(w.id)}>
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
                         </div>
-                        {bal && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {bal.balance.toLocaleString(undefined, { maximumFractionDigits: 2 })} tokens
-                          </p>
-                        )}
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveWallet(w.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
 
-                {/* Totals */}
-                {walletTotals && (
-                  <div className="border-t pt-2 mt-2 flex flex-wrap gap-4 text-sm">
-                    <span className="text-muted-foreground">
-                      Total: <span className="text-foreground font-medium">{walletTotals.totalTokens.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> tokens
-                    </span>
-                    <span className="text-muted-foreground">
-                      Holdings: <span className="text-foreground font-medium">{walletTotals.holdingPct.toFixed(4)}%</span>
-                    </span>
-                    <span className="text-muted-foreground">
-                      Value: <span className="text-foreground font-medium">{walletTotals.holdingValueSol.toFixed(2)} SOL</span>
-                      {" "}(${walletTotals.holdingValueUsd.toFixed(2)})
-                    </span>
+                    {/* Totals */}
+                    {walletTotals && (
+                      <div className="border-t pt-2 mt-2 flex flex-wrap gap-4 text-sm">
+                        <span className="text-muted-foreground">
+                          Total: <span className="text-foreground font-medium">{walletTotals.totalTokens.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> tokens
+                        </span>
+                        <span className="text-muted-foreground">
+                          Holdings: <span className="text-foreground font-medium">{walletTotals.holdingPct.toFixed(4)}%</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Value: <span className="text-foreground font-medium">{walletTotals.holdingValueSol.toFixed(2)} SOL</span>
+                          {" "}(${walletTotals.holdingValueUsd.toFixed(2)})
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {wallets.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                Add your wallet addresses or Solscan URLs to track real on-chain holdings and PNL.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+                {wallets.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Add your wallet addresses or Solscan URLs to track real on-chain holdings and PNL.
+                  </p>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
