@@ -2523,6 +2523,191 @@ Deno.serve(async (req) => {
       }
 
       // ─── Media save/skip callbacks ───
+      // ─── Arbitrage callback ───
+      if (cbData.startsWith('arb_')) {
+        const eventId = cbData.replace('arb_', '')
+        const { data: pendingEvent } = await supabase.from('webhook_events')
+          .select('*').eq('id', eventId).single()
+
+        if (!pendingEvent) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId, message_id: cbq.message.message_id,
+            text: '⚠️ Media expired or already processed.',
+          })
+          return new Response('ok')
+        }
+
+        const mediaPayload = pendingEvent.payload as any
+        const fileId = mediaPayload.file_id
+        const fileName = mediaPayload.file_name || 'file'
+
+        // Download and upload the original photo to storage
+        let retries = 3
+        let filePath = ''
+        while (retries-- > 0) {
+          const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: fileId }),
+          })
+          const fileInfo = await fileInfoRes.json()
+          filePath = fileInfo.result?.file_path || ''
+          if (filePath) break
+          await new Promise(r => setTimeout(r, 1000))
+        }
+
+        if (!filePath) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId, message_id: cbq.message.message_id,
+            text: '❌ Could not retrieve file from Telegram.',
+          })
+          return new Response('ok')
+        }
+
+        const downloadUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+        const fileRes = await fetch(downloadUrl)
+        const fileBlob = await fileRes.blob()
+        const fileBuffer = await fileBlob.arrayBuffer()
+
+        const storagePath = `arbitrage/${Date.now()}_${fileName}`
+        const { error: uploadErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(storagePath, new Uint8Array(fileBuffer), {
+            contentType: fileBlob.type || 'image/jpeg',
+            upsert: false,
+          })
+
+        if (uploadErr) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId, message_id: cbq.message.message_id,
+            text: `❌ Upload failed: ${uploadErr.message}`,
+          })
+          return new Response('ok')
+        }
+
+        const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+        const originalUrl = urlData?.publicUrl || ''
+
+        // Create arbitrage_item with original image
+        const { data: arbItem } = await supabase.from('arbitrage_items').insert({
+          item_name: fileName,
+          original_image_url: originalUrl,
+          status: 'new',
+        }).select('id').single()
+
+        // Trigger background removal via Nano Banana
+        let nobgUrl: string | null = null
+        try {
+          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+          if (LOVABLE_API_KEY) {
+            const bgRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-3-pro-image-preview',
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'image_url', image_url: { url: originalUrl } },
+                    { type: 'text', text: 'Remove the background from this image completely. Make the background transparent/white. Keep only the main subject/item.' },
+                  ],
+                }],
+                modalities: ['image', 'text'],
+              }),
+            })
+
+            if (bgRes.ok) {
+              const bgData = await bgRes.json()
+              const choice = bgData.choices?.[0]?.message
+              let base64Img: string | null = null
+
+              // Check images array
+              if (choice?.images && Array.isArray(choice.images)) {
+                for (const img of choice.images) {
+                  if (img.type === 'image_url' && img.image_url?.url) {
+                    if (img.image_url.url.startsWith('data:')) {
+                      base64Img = img.image_url.url
+                    } else {
+                      nobgUrl = img.image_url.url
+                    }
+                    break
+                  }
+                }
+              }
+              // Check content array
+              if (!nobgUrl && !base64Img && Array.isArray(choice?.content)) {
+                for (const part of choice.content) {
+                  if (part.type === 'image_url' && part.image_url?.url) {
+                    if (part.image_url.url.startsWith('data:')) {
+                      base64Img = part.image_url.url
+                    } else {
+                      nobgUrl = part.image_url.url
+                    }
+                    break
+                  }
+                }
+              }
+
+              // Upload base64 if we got it
+              if (base64Img && !nobgUrl) {
+                const match = base64Img.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/)
+                if (match) {
+                  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+                  const raw = match[2]
+                  const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+                  const nobgPath = `arbitrage/${Date.now()}_nobg.${ext}`
+                  const { error: nobgUpErr } = await supabase.storage
+                    .from('content-uploads')
+                    .upload(nobgPath, bytes, { contentType: `image/${match[1]}`, upsert: true })
+                  if (!nobgUpErr) {
+                    const { data: nobgPub } = supabase.storage.from('content-uploads').getPublicUrl(nobgPath)
+                    nobgUrl = nobgPub?.publicUrl || null
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[arbitrage] bg removal error:', e)
+        }
+
+        // Update with nobg URL
+        if (arbItem?.id && nobgUrl) {
+          await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
+        }
+
+        // Mark pending event processed
+        await supabase.from('webhook_events').update({ processed: true }).eq('id', eventId)
+
+        // Create arbitrage session for collecting details
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'arbitrage_session',
+          payload: {
+            chat_id: cbChatId,
+            item_id: arbItem?.id,
+            step: 'address',
+            original_url: originalUrl,
+            nobg_url: nobgUrl,
+          },
+        })
+
+        const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
+        await tgPost(TG_TOKEN, 'editMessageText', {
+          chat_id: cbChatId,
+          message_id: cbq.message.message_id,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}\n\n📍 <b>What's the pawn shop address?</b>`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
       if (cbData.startsWith('save_') || cbData.startsWith('skip_')) {
         const action = cbData.startsWith('save_') ? 'save' : 'skip'
         const eventId = cbData.replace(/^(save_|skip_)/, '')
@@ -4395,6 +4580,109 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle arbitrage session (multi-step wizard) ───
+    const { data: arbSessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .order('created_at', { ascending: false }).limit(1)
+
+    if (arbSessions && arbSessions.length > 0 && text) {
+      const arbS = arbSessions[0]
+      const arbP = arbS.payload as any
+      const itemId = arbP.item_id
+
+      if (arbP.step === 'address') {
+        await supabase.from('arbitrage_items').update({ pawn_shop_address: text.trim() }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'asking_price', address: text.trim() },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '💰 <b>What\'s the pawn shop\'s asking price?</b>\n\n<i>Just the number, e.g. 150</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'asking_price') {
+        const price = parseFloat(text.replace(/[^0-9.]/g, ''))
+        if (isNaN(price)) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the asking price.' })
+          return new Response('ok')
+        }
+        await supabase.from('arbitrage_items').update({ asking_price: price }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'wiggle_price', asking_price: price },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '🤝 <b>What\'s the wiggle room price?</b> (lowest they\'ll go)\n\n<i>Just the number, e.g. 100</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'wiggle_price') {
+        const price = parseFloat(text.replace(/[^0-9.]/g, ''))
+        if (isNaN(price)) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the wiggle room price.' })
+          return new Response('ok')
+        }
+        await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
+        await supabase.from('webhook_events').update({
+          payload: { ...arbP, step: 'notes', wiggle_price: price },
+        }).eq('id', arbS.id)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📝 <b>Quick note?</b> (condition, brand, urgency — or type "skip" to finish)',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      if (arbP.step === 'notes') {
+        const noteText = text.toLowerCase() === 'skip' ? null : text.trim()
+        if (noteText) {
+          await supabase.from('arbitrage_items').update({
+            condition_notes: noteText,
+            item_name: noteText.substring(0, 60),
+          }).eq('id', itemId)
+        }
+
+        // Clean up session
+        await supabase.from('webhook_events').delete().eq('id', arbS.id)
+
+        // Build summary
+        const lines = [
+          '🏪 <b>Arbitrage Item Logged!</b>\n',
+          `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
+          `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
+          `🤝 <b>Wiggle:</b> $${arbP.wiggle_price || 0}`,
+        ]
+        if (noteText) lines.push(`📝 <b>Notes:</b> ${noteText}`)
+        if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
+        if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
+        lines.push('\n✅ Ready to act when you\'re back at your station.')
+
+        // Log activity
+        await supabase.from('activity_log').insert({
+          entity_type: 'arbitrage',
+          entity_id: itemId,
+          action: 'arbitrage_item_logged',
+          meta: { name: `🏪 Arbitrage: ${noteText || 'New item'}`, address: arbP.address },
+        })
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+        })
+        return new Response('ok')
+      }
+    }
+
     // ─── Handle xpost session text (message step) ───
     const { data: xSessions } = await supabase.from('webhook_events')
       .select('id, payload')
@@ -4521,6 +4809,7 @@ Deno.serve(async (req) => {
             inline_keyboard: [
               [
                 { text: '✅ Save', callback_data: `save_${inserted.id}` },
+                { text: '🏪 Arbitrage', callback_data: `arb_${inserted.id}` },
                 { text: '⏭️ Skip', callback_data: `skip_${inserted.id}` },
               ],
             ],
