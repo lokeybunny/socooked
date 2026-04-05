@@ -5007,17 +5007,25 @@ Deno.serve(async (req) => {
         }
         await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
 
-        // Skip contact/notes steps — go straight to add_photos
-        await supabase.from('webhook_events').update({
-          payload: { ...arbP, step: 'add_photos', wiggle_price: price },
-        }).eq('id', arbS.id)
+        // Item complete — clean up session and keep awaiting next photo
+        await supabase.from('webhook_events').delete().eq('id', arbS.id)
+
+        // Keep arbitrage_awaiting_photo active so next photo auto-starts a new item
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'arbitrage_awaiting_photo',
+          payload: { chat_id: chatId, created: Date.now() },
+        })
 
         // Fetch SKU for display
         const { data: skuRow } = await supabase.from('arbitrage_items').select('sku').eq('id', itemId).single()
         const itemSku = skuRow?.sku || '—'
 
         const lines = [
-          '🏪 <b>Arbitrage Item Logged!</b>\n',
+          '✅ <b>Arbitrage Item Logged!</b>\n',
           `📍 <b>Shop:</b> ${arbP.address || 'N/A'}`,
           `💰 <b>Asking:</b> $${arbP.asking_price || 0}`,
           `💲 <b>List Price:</b> $${price} · <b>Profit:</b> $${price - (arbP.asking_price || 0)}`,
@@ -5025,7 +5033,7 @@ Deno.serve(async (req) => {
         ]
         if (arbP.original_url) lines.push(`\n📸 <a href="${arbP.original_url}">Original Photo</a>`)
         if (arbP.nobg_url) lines.push(`🖼 <a href="${arbP.nobg_url}">No-BG Version</a>`)
-        lines.push('\n📸 <b>Send more photos</b> to add to this item, or type <b>"done"</b> to finish.')
+        lines.push('\n📸 <b>Send another photo to log a new item!</b>')
 
         await supabase.from('activity_log').insert({
           entity_type: 'arbitrage',
@@ -5044,20 +5052,6 @@ Deno.serve(async (req) => {
           disable_web_page_preview: true,
         })
         return new Response('ok')
-      }
-
-      // Handle "done" during add_photos step
-      if (arbP.step === 'add_photos') {
-        if (text.toLowerCase() === 'done') {
-          await supabase.from('webhook_events').delete().eq('id', arbS.id)
-          await tgPost(TG_TOKEN, 'sendMessage', {
-            chat_id: chatId,
-            text: '✅ <b>Item complete!</b> Ready to act when you\'re back at your station.\n\nSend another photo to log a new item, or tap 🏪 Arbitrage.',
-            parse_mode: 'HTML',
-          })
-          return new Response('ok')
-        }
-        // Any other text during add_photos — ignore silently
       }
     }
 
