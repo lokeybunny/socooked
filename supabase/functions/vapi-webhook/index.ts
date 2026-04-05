@@ -605,49 +605,92 @@ function buildAINotes(
   }
 
   if (transcript) {
-    const conditionPatterns = [
-      { pattern: /(?:major|significant)\s*repair/i, value: "Major repairs needed" },
-      { pattern: /needs?\s*(?:some\s*)?work/i, value: "Needs work" },
-      { pattern: /(?:fair|okay|decent)\s*(?:condition|shape)/i, value: "Fair condition" },
-      { pattern: /(?:good|great|excellent)\s*(?:condition|shape)/i, value: "Good condition" },
-    ];
-    for (const { pattern, value } of conditionPatterns) {
-      if (pattern.test(transcript)) {
-        lines.push(`• Property Condition: ${value}`);
-        break;
-      }
-    }
+    // ─── Videography-specific extraction ───
+    const lcTranscript = transcript.toLowerCase();
+    const isVideographyCall = lcTranscript.includes("livestream") || lcTranscript.includes("live stream") ||
+      lcTranscript.includes("vivian") || lcTranscript.includes("videography") ||
+      lcTranscript.includes("funeral") || lcTranscript.includes("memorial") || lcTranscript.includes("graveside");
 
-    const timelinePatterns = [
-      { pattern: /asap|as\s*soon\s*as\s*possible|right\s*away|immediately/i, value: "ASAP" },
-      { pattern: /(?:1|one|two|2|three|3)\s*(?:to\s*(?:3|three))?\s*months?/i, value: "1-3 months" },
-      { pattern: /flexible|no\s*rush|whenever/i, value: "Flexible" },
-      { pattern: /just\s*(?:looking|exploring|curious)/i, value: "Just exploring" },
-    ];
-    for (const { pattern, value } of timelinePatterns) {
-      if (pattern.test(transcript)) {
-        lines.push(`• Selling Timeline: ${value}`);
-        break;
-      }
-    }
+    if (isVideographyCall) {
+      // Extract service type
+      const serviceTypes = ["funeral", "memorial", "graveside", "multiple locations", "celebration of life", "viewing", "wake", "repast"];
+      const foundTypes = serviceTypes.filter(t => lcTranscript.includes(t));
+      if (foundTypes.length) lines.push(`• Service Type: ${foundTypes.join(", ")}`);
 
-    const motivationPatterns = [
-      { pattern: /downsize|downsizing/i, value: "Downsizing" },
-      { pattern: /relocat|moving/i, value: "Relocation" },
-      { pattern: /financ|behind\s*on\s*payment|foreclosure/i, value: "Financial hardship" },
-      { pattern: /inherit/i, value: "Inherited property" },
-      { pattern: /divorce|separat/i, value: "Divorce/Separation" },
-    ];
-    for (const { pattern, value } of motivationPatterns) {
-      if (pattern.test(transcript)) {
-        lines.push(`• Motivation: ${value}`);
-        break;
-      }
-    }
+      // Extract duration mentioned
+      const durMatch = transcript.match(/(?:about\s*)?(\w+)\s*hours?/i);
+      if (durMatch) lines.push(`• Estimated Duration: ${durMatch[0].trim()}`);
 
-    const priceMatch = transcript.match(/\$[\d,]+(?:\.\d{2})?|\b(\d{2,3})\s*(?:thousand|k)\b/i);
-    if (priceMatch) {
-      lines.push(`• Price Mentioned: ${priceMatch[0]}`);
+      // Extract address from transcript (look for patterns near "address" or "held" or "location")
+      const addrMatch = transcript.match(/(?:address|held|location)[^.]*?(\d+\s+[\w\s]+(?:lane|street|drive|road|ave|avenue|blvd|boulevard|way|court|ct|pl|place|circle|cir|parkway|pkwy|trail|trl))/i);
+      if (addrMatch) lines.push(`• Venue Address: ${addrMatch[1].trim()}`);
+
+      // Extract funeral home / org name
+      const orgMatch = transcript.match(/(?:funeral\s*home|organization)[^.]*?(?:is\s*|name\s*(?:is\s*)?)?([A-Z][\w\s]+?)(?:\.|$)/m);
+      if (orgMatch) lines.push(`• Organization: ${orgMatch[1].trim()}`);
+
+      // Extract contact name
+      const contactMatch = transcript.match(/(?:this\s*is\s*(?:me,?\s*)?|my\s*name\s*is\s*|name\s*is\s*)([A-Z][a-z]+\s+[A-Z][a-z]+)/);
+      if (contactMatch) lines.push(`• Contact Name: ${contactMatch[1].trim()}`);
+
+      // Recording requested?
+      if (lcTranscript.includes("recorded") || lcTranscript.includes("recording")) {
+        const wantsRecording = /(?:would you like|want).*record.*?\b(yes|sure|yeah|please|absolutely)/i.test(transcript) ||
+          /(?:yes|sure)\b.*record/i.test(transcript);
+        if (wantsRecording) lines.push(`• Recording Requested: Yes`);
+      }
+
+      // Private viewing link
+      if (lcTranscript.includes("private viewing link") || lcTranscript.includes("private link")) {
+        const wantsPrivate = /private\s*(?:viewing\s*)?link.*?\b(yes|sure|yeah|please)/i.test(transcript);
+        lines.push(`• Private Viewing Link: ${wantsPrivate ? "Yes" : "No"}`);
+      }
+    } else {
+      // ─── Real estate extraction (existing) ───
+      const conditionPatterns = [
+        { pattern: /(?:major|significant)\s*repair/i, value: "Major repairs needed" },
+        { pattern: /needs?\s*(?:some\s*)?work/i, value: "Needs work" },
+        { pattern: /(?:fair|okay|decent)\s*(?:condition|shape)/i, value: "Fair condition" },
+        { pattern: /(?:good|great|excellent)\s*(?:condition|shape)/i, value: "Good condition" },
+      ];
+      for (const { pattern, value } of conditionPatterns) {
+        if (pattern.test(transcript)) {
+          lines.push(`• Property Condition: ${value}`);
+          break;
+        }
+      }
+
+      const timelinePatterns = [
+        { pattern: /asap|as\s*soon\s*as\s*possible|right\s*away|immediately/i, value: "ASAP" },
+        { pattern: /(?:1|one|two|2|three|3)\s*(?:to\s*(?:3|three))?\s*months?/i, value: "1-3 months" },
+        { pattern: /flexible|no\s*rush|whenever/i, value: "Flexible" },
+        { pattern: /just\s*(?:looking|exploring|curious)/i, value: "Just exploring" },
+      ];
+      for (const { pattern, value } of timelinePatterns) {
+        if (pattern.test(transcript)) {
+          lines.push(`• Selling Timeline: ${value}`);
+          break;
+        }
+      }
+
+      const motivationPatterns = [
+        { pattern: /downsize|downsizing/i, value: "Downsizing" },
+        { pattern: /relocat|moving/i, value: "Relocation" },
+        { pattern: /financ|behind\s*on\s*payment|foreclosure/i, value: "Financial hardship" },
+        { pattern: /inherit/i, value: "Inherited property" },
+        { pattern: /divorce|separat/i, value: "Divorce/Separation" },
+      ];
+      for (const { pattern, value } of motivationPatterns) {
+        if (pattern.test(transcript)) {
+          lines.push(`• Motivation: ${value}`);
+          break;
+        }
+      }
+
+      const priceMatch = transcript.match(/\$[\d,]+(?:\.\d{2})?|\b(\d{2,3})\s*(?:thousand|k)\b/i);
+      if (priceMatch) {
+        lines.push(`• Price Mentioned: ${priceMatch[0]}`);
+      }
     }
 
     const emailMatch = transcript.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
