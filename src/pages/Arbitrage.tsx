@@ -137,6 +137,10 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingAiName, setEditingAiName] = useState(false);
   const [editingAiDesc, setEditingAiDesc] = useState(false);
+  const [editingAsking, setEditingAsking] = useState(false);
+  const [editingWiggle, setEditingWiggle] = useState(false);
+  const [editingContact, setEditingContact] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftNotes, setDraftNotes] = useState('');
   const [draftAiName, setDraftAiName] = useState('');
@@ -148,6 +152,10 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
     setEditingNotes(false);
     setEditingAiName(false);
     setEditingAiDesc(false);
+    setEditingAsking(false);
+    setEditingWiggle(false);
+    setEditingContact(false);
+    setEditingPhone(false);
   }, [item?.id]);
 
   if (!item) return null;
