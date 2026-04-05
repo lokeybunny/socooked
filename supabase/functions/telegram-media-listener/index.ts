@@ -4990,7 +4990,7 @@ Deno.serve(async (req) => {
       if (arbP.step === 'wiggle_price') {
         const price = parseFloat(text.replace(/[^0-9.]/g, ''))
         if (isNaN(price)) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the wiggle room price.' })
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Please enter a valid number for the list price.' })
           return new Response('ok')
         }
         await supabase.from('arbitrage_items').update({ wiggle_room_price: price }).eq('id', itemId)
