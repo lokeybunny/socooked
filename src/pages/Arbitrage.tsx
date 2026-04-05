@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   ShoppingBag, Search, RefreshCw, Trash2, ExternalLink, Phone, User,
   ChevronLeft, ChevronRight, Store, Plus, X, Bell, BellOff, MapPin, Edit2,
-  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2, Upload
+  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2, Upload, Mail, Globe
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -38,6 +38,8 @@ interface ArbStore {
   contact_name: string | null;
   contact_phone: string | null;
   notes: string | null;
+  website: string | null;
+  email: string | null;
   created_at: string;
 }
 
@@ -75,6 +77,8 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
   const [address, setAddress] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  const [website, setWebsite] = useState('');
+  const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -82,16 +86,21 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
     if (store) {
       setName(store.store_name); setAddress(store.address || '');
       setContactName(store.contact_name || ''); setContactPhone(store.contact_phone || '');
+      setWebsite(store.website || ''); setEmail(store.email || '');
       setNotes(store.notes || '');
     } else {
-      setName(''); setAddress(''); setContactName(''); setContactPhone(''); setNotes('');
+      setName(''); setAddress(''); setContactName(''); setContactPhone('');
+      setWebsite(''); setEmail(''); setNotes('');
     }
   }, [store, open]);
 
   const handleSave = async () => {
     if (!name.trim()) { toast.error('Store name required'); return; }
     setSaving(true);
-    const payload = { store_name: name.trim(), address: address || null, contact_name: contactName || null, contact_phone: contactPhone || null, notes: notes || null };
+    const payload = {
+      store_name: name.trim(), address: address || null, contact_name: contactName || null,
+      contact_phone: contactPhone || null, website: website || null, email: email || null, notes: notes || null,
+    };
     if (store) {
       const { error } = await supabase.from('arbitrage_stores').update(payload).eq('id', store.id);
       if (error) toast.error(error.message); else { toast.success('Store updated'); onSaved(); onClose(); }
@@ -108,10 +117,14 @@ function StoreModal({ open, onClose, store, onSaved }: { open: boolean; onClose:
         <DialogHeader><DialogTitle>{store ? 'Edit Store' : 'Add Store'}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <Input placeholder="Store name *" value={name} onChange={e => setName(e.target.value)} />
-          <Input placeholder="Address" value={address} onChange={e => setAddress(e.target.value)} />
+          <Input placeholder="Full address" value={address} onChange={e => setAddress(e.target.value)} />
           <div className="grid grid-cols-2 gap-2">
             <Input placeholder="Contact name" value={contactName} onChange={e => setContactName(e.target.value)} />
             <Input placeholder="Contact phone" value={contactPhone} onChange={e => setContactPhone(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Input placeholder="Website" value={website} onChange={e => setWebsite(e.target.value)} />
+            <Input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <Textarea placeholder="Notes..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} />
           <div className="flex justify-end gap-2">
@@ -594,6 +607,24 @@ export default function Arbitrage() {
     toast.success(`Auto BG removal ${enabled ? 'ON' : 'OFF'}`);
   };
 
+  // Proper CSV line parser that handles quoted fields with commas
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; continue; }
+        inQuotes = !inQuotes; continue;
+      }
+      if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+      current += ch;
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -603,13 +634,15 @@ export default function Arbitrage() {
       const lines = text.split(/\r?\n/).filter(l => l.trim());
       if (lines.length < 2) { toast.error('CSV has no data rows'); return; }
 
-      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
 
       // Auto-detect column indices
       const nameIdx = headers.findIndex(h => /store.?name|name|business|company|shop/i.test(h));
       const addrIdx = headers.findIndex(h => /address|street|location/i.test(h));
       const contactIdx = headers.findIndex(h => /contact.?name|owner|person/i.test(h));
       const phoneIdx = headers.findIndex(h => /phone|tel|mobile/i.test(h));
+      const emailIdx = headers.findIndex(h => /email|e-?mail/i.test(h));
+      const websiteIdx = headers.findIndex(h => /website|web|url|site/i.test(h));
       const notesIdx = headers.findIndex(h => /notes?|description|comments?/i.test(h));
 
       if (nameIdx === -1 && addrIdx === -1) {
@@ -617,26 +650,37 @@ export default function Arbitrage() {
         return;
       }
 
-      const rows: { store_name: string; address: string | null; contact_name: string | null; contact_phone: string | null; notes: string | null }[] = [];
+      const rows: { store_name: string; address: string | null; contact_name: string | null; contact_phone: string | null; email: string | null; website: string | null; notes: string | null }[] = [];
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].match(/("([^"]*)"|[^,]*)/g)?.map(c => c.replace(/^"|"$/g, '').trim()) || [];
+        const cols = parseCsvLine(lines[i]);
         const storeName = (nameIdx >= 0 ? cols[nameIdx] : '') || (addrIdx >= 0 ? cols[addrIdx] : '') || '';
         if (!storeName) continue;
         rows.push({
           store_name: storeName,
           address: addrIdx >= 0 ? cols[addrIdx] || null : null,
           contact_name: contactIdx >= 0 ? cols[contactIdx] || null : null,
-          contact_phone: phoneIdx >= 0 ? cols[phoneIdx]?.replace(/[^\d+\-() ]/g, '') || null : null,
+          contact_phone: phoneIdx >= 0 ? cols[phoneIdx] || null : null,
+          email: emailIdx >= 0 ? cols[emailIdx] || null : null,
+          website: websiteIdx >= 0 ? cols[websiteIdx] || null : null,
           notes: notesIdx >= 0 ? cols[notesIdx] || null : null,
         });
       }
 
       if (rows.length === 0) { toast.error('No valid rows found'); return; }
 
+      // Deduplicate by store_name (keep first occurrence)
+      const seen = new Set<string>();
+      const deduped = rows.filter(r => {
+        const key = r.store_name.toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       // Batch insert (50 at a time)
       let inserted = 0;
-      for (let i = 0; i < rows.length; i += 50) {
-        const batch = rows.slice(i, i + 50);
+      for (let i = 0; i < deduped.length; i += 50) {
+        const batch = deduped.slice(i, i + 50);
         const { error } = await supabase.from('arbitrage_stores').insert(batch);
         if (error) { toast.error(`Row ${i + 1}: ${error.message}`); break; }
         inserted += batch.length;
@@ -867,6 +911,16 @@ export default function Arbitrage() {
                         {store.contact_phone && (
                           <a href={`tel:${store.contact_phone}`} className="text-xs text-primary hover:underline flex items-center gap-1">
                             <Phone className="h-3 w-3" /> {store.contact_phone}
+                          </a>
+                        )}
+                        {(store as any).email && (
+                          <a href={`mailto:${(store as any).email}`} className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <Mail className="h-3 w-3" /> {(store as any).email}
+                          </a>
+                        )}
+                        {(store as any).website && (
+                          <a href={(store as any).website.startsWith('http') ? (store as any).website : `https://${(store as any).website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <Globe className="h-3 w-3" /> {(store as any).website}
                           </a>
                         )}
                         {store.notes && <p className="text-xs text-muted-foreground line-clamp-2">{store.notes}</p>}
