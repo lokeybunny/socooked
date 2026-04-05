@@ -568,8 +568,6 @@ export default function Funnels() {
 
       const combined: FunnelLead[] = [];
 
-          full_name: a.item_name || 'Untitled Item',
-          email: null, phone: null,
           created_at: a.created_at, status: a.status || 'new',
           notes: [
             a.pawn_shop_address ? `📍 ${a.pawn_shop_address}` : null,
