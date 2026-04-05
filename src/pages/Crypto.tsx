@@ -34,7 +34,10 @@ import {
   Plus,
   Trash2,
   Wallet,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
