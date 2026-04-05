@@ -183,6 +183,7 @@ export type Database = {
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          extra_images: string[] | null
           id: string
           item_name: string
           meta: Json
@@ -200,6 +201,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          extra_images?: string[] | null
           id?: string
           item_name?: string
           meta?: Json
@@ -217,6 +219,7 @@ export type Database = {
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          extra_images?: string[] | null
           id?: string
           item_name?: string
           meta?: Json
