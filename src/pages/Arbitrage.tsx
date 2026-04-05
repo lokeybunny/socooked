@@ -262,19 +262,23 @@ export default function Arbitrage() {
   const [storeModalOpen, setStoreModalOpen] = useState(false);
   const [editStore, setEditStore] = useState<ArbStore | null>(null);
   const [tab, setTab] = useState('inventory');
+  const [autoBgRemoval, setAutoBgRemoval] = useState(true);
+  const [bgToggleLoading, setBgToggleLoading] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [itemsRes, storesRes, remindersRes] = await Promise.all([
+    const [itemsRes, storesRes, remindersRes, bgCfgRes] = await Promise.all([
       supabase.from('arbitrage_items').select('*').order('created_at', { ascending: false }).limit(1000),
       supabase.from('arbitrage_stores').select('*').order('store_name'),
       supabase.from('arbitrage_reminders').select('*').eq('is_dismissed', false).lte('reminder_date', new Date().toISOString()).order('reminder_date'),
+      supabase.from('site_configs').select('content').eq('site_id', 'arbitrage').eq('section', 'bg-removal').maybeSingle(),
     ]);
     if (itemsRes.error) toast.error(itemsRes.error.message);
     if (storesRes.error) toast.error(storesRes.error.message);
     setItems((itemsRes.data as ArbItem[]) || []);
     setStores((storesRes.data as ArbStore[]) || []);
     setReminders((remindersRes.data as ArbReminder[]) || []);
+    setAutoBgRemoval((bgCfgRes.data?.content as any)?.enabled !== false);
     setLoading(false);
   }, []);
 
