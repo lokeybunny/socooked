@@ -53,6 +53,7 @@ const ShillTeam = lazyWithRetry(() => import("./pages/ShillTeam"), "page-shill-t
 const XShill = lazyWithRetry(() => import("./pages/XShill"), "page-x-shill");
 const Wholesale = lazyWithRetry(() => import("./pages/Wholesale"), "page-wholesale");
 const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arbitrage");
+const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
 const ApiManagement = lazyWithRetry(() => import("./pages/ApiManagement"), "page-api-management");
 const Ads = lazyWithRetry(() => import("./pages/Ads"), "page-ads");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
