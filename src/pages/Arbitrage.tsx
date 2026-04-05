@@ -676,6 +676,7 @@ export default function Arbitrage() {
           onClose={() => setViewItem(null)}
           onUpdate={(id, updates) => { handleUpdate(id, updates); }}
           onDelete={handleDelete}
+          onRefresh={() => { fetchAll(); setViewItem(null); }}
         />
         <StoreModal open={storeModalOpen} onClose={() => setStoreModalOpen(false)} store={editStore} onSaved={fetchAll} />
       </div>
