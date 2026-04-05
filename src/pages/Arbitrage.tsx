@@ -493,38 +493,42 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-2 flex-wrap">
-            {item.original_image_url && (
-              <Button variant="outline" size="sm" onClick={() => setLightboxUrl(item.original_image_url!)}>
-                <ExternalLink className="h-3.5 w-3.5 mr-1" /> Full Image
+          <div className="space-y-2">
+            <div className="flex gap-2 flex-wrap items-center">
+              {item.original_image_url && (
+                <Button variant="outline" size="sm" onClick={() => setLightboxUrl(item.original_image_url!)}>
+                  <ExternalLink className="h-3.5 w-3.5 mr-1" /> Full Image
+                </Button>
+              )}
+              {/* Analyze Button */}
+              <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={analyzing} className="border-primary/30 text-primary hover:bg-primary/10">
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                {analyzing ? 'Analyzing...' : 'Analyze'}
               </Button>
-            )}
-            {/* Analyze Button */}
-            <Button variant="outline" size="sm" onClick={handleAnalyze} disabled={analyzing} className="border-primary/30 text-primary hover:bg-primary/10">
-              {analyzing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1" />}
-              {analyzing ? 'Analyzing...' : 'Analyze'}
-            </Button>
-            {/* Copy Listing */}
-            <Button variant="outline" size="sm" onClick={handleCopyListing}>
-              <Copy className="h-3.5 w-3.5 mr-1" /> Copy Listing
-            </Button>
-            {/* Push to TG - shown for researching items */}
-            {item.status === 'researching' && (
-              <Button size="sm" onClick={handlePushToTG} disabled={pushingTG} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {pushingTG ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
-                {pushingTG ? 'Sending...' : 'Push to TG'}
+              {/* Push to TG - shown for researching items */}
+              {item.status === 'researching' && (
+                <Button size="sm" onClick={handlePushToTG} disabled={pushingTG} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  {pushingTG ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+                  {pushingTG ? 'Sending...' : 'Push to TG'}
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2 items-center">
+              {/* Copy Listing */}
+              <Button variant="outline" size="sm" onClick={handleCopyListing}>
+                <Copy className="h-3.5 w-3.5 mr-1" /> Copy Listing
               </Button>
-            )}
-            {/* Mark as Sold */}
-            {(item.status === 'listed' || item.status === 'purchased') && !showSoldPrompt && (
-              <Button size="sm" onClick={() => { setShowSoldPrompt(true); setSoldPrice(item.wiggle_room_price != null ? String(item.wiggle_room_price) : ''); }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                <DollarSign className="h-3.5 w-3.5 mr-1" /> Mark as Sold
+              {/* Mark as Sold */}
+              {(item.status === 'listed' || item.status === 'purchased') && !showSoldPrompt && (
+                <Button size="sm" onClick={() => { setShowSoldPrompt(true); setSoldPrice(item.wiggle_room_price != null ? String(item.wiggle_room_price) : ''); }} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <DollarSign className="h-3.5 w-3.5 mr-1" /> Mark as Sold
+                </Button>
+              )}
+              <Button variant="destructive" size="sm" onClick={() => { onDelete(item.id); onClose(); }}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
               </Button>
-            )}
-            <Button variant="destructive" size="sm" onClick={() => { onDelete(item.id); onClose(); }}>
-              <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-            </Button>
-           </div>
+            </div>
+          </div>
 
            {/* Sold Price Prompt */}
            {showSoldPrompt && (
