@@ -466,7 +466,7 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
           {/* Action Buttons */}
           <div className="flex gap-2 flex-wrap">
             {item.original_image_url && (
-              <Button variant="outline" size="sm" onClick={() => window.open(item.original_image_url!, '_blank')}>
+              <Button variant="outline" size="sm" onClick={() => setLightboxUrl(item.original_image_url!)}>
                 <ExternalLink className="h-3.5 w-3.5 mr-1" /> Full Image
               </Button>
             )}
@@ -493,9 +493,31 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
            {(item as any).sku && (
              <span className="text-[10px] font-mono text-muted-foreground select-all ml-auto">SKU: {(item as any).sku}</span>
            )}
-         </div>
+          </div>
       </DialogContent>
     </Dialog>
+
+    {/* Image Lightbox */}
+    {lightboxUrl && (
+      <div
+        className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+        onClick={() => setLightboxUrl(null)}
+      >
+        <button
+          className="absolute top-4 right-4 text-white/80 hover:text-white z-[101]"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <X className="h-8 w-8" />
+        </button>
+        <img
+          src={lightboxUrl}
+          alt="Full view"
+          className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl cursor-default"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
+    </>
   );
 }
 
