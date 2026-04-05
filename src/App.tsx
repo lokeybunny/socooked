@@ -153,6 +153,7 @@ const App = () => (
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography" element={<VideographyLanding />} />
                 <Route path="/webdesign" element={<WebDesignLanding />} />
+                <Route path="/liquidate" element={<Liquidate />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/stream" element={<Stream />} />
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
