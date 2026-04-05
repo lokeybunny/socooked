@@ -22,14 +22,8 @@ export default defineConfig(({ mode }) => ({
           if (id.includes("@react-three") || id.includes("/three/")) {
             return "three-vendor";
           }
-          if (id.includes("recharts")) {
-            return "charts-vendor";
-          }
           if (id.includes("jspdf") || id.includes("jszip") || id.includes("xlsx")) {
             return "export-vendor";
-          }
-          if (id.includes("framer-motion")) {
-            return "motion-vendor";
           }
         },
       },
