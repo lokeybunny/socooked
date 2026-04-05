@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
   ShoppingBag, Search, RefreshCw, Trash2, ExternalLink, Phone, User,
   ChevronLeft, ChevronRight, Store, Plus, X, Bell, BellOff, MapPin, Edit2,
-  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2
+  ChevronDown, ImageIcon, Zap, Sparkles, Send, Copy, Loader2, Upload
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
