@@ -188,6 +188,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
      if (normalized === 'defaultaddyoff' || normalized === '/defaultaddyoff') return 'defaultaddyoff'
      return 'defaultaddy'
    }
+   if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
   return null
 }
 
