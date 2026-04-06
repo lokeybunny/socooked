@@ -4020,6 +4020,46 @@ Deno.serve(async (req) => {
     }
 
 
+    // ─── Handle /wheresshop command ───
+    if (action === 'wheresshop') {
+      try {
+        const { data: store } = await supabase.from('arbitrage_stores')
+          .select('store_name, address, contact_phone, website, store_number')
+          .eq('store_number', 1)
+          .maybeSingle()
+
+        const { count: totalStores } = await supabase.from('arbitrage_stores')
+          .select('id', { count: 'exact', head: true })
+
+        if (!store) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No stores found in CRM.' })
+          return new Response('ok')
+        }
+
+        const total = totalStores || 0
+        const lines = [
+          `🏪 <b>Store #${store.store_number}</b> of ${total}`,
+          `\n📛 <b>${store.store_name}</b>`,
+          `📍 ${store.address || 'No address'}`,
+        ]
+        if (store.contact_phone) lines.push(`📞 ${store.contact_phone}`)
+        if (store.website) lines.push(`🌐 ${store.website}`)
+
+        const buttons: any[] = []
+        if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'shop_page_2' }])
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: buttons },
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
     if (text.toLowerCase().startsWith('/shill') && !text.toLowerCase().startsWith('/shill2')) {
       const senderUsername = (message.from?.username || '').toLowerCase()
       if (senderUsername !== 'lokeybunny') {
