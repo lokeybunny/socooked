@@ -134,18 +134,18 @@ export default function WarrenLanding() {
               <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
           </button>
-          <div className="hidden sm:flex items-center gap-6">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-white hover:text-amber-400 text-xs tracking-[0.15em] uppercase transition-colors">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-white hover:text-amber-400 text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
               Crypto
             </button>
-            <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Videography
+            <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Video
             </Link>
-            <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Web Design
+            <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Web
             </Link>
-            <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Real Estate
+            <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Realty
             </a>
           </div>
           <div className="flex items-center gap-5">
