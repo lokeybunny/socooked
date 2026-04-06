@@ -4081,6 +4081,7 @@ Deno.serve(async (req) => {
 
         const buttons: any[] = []
         if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'shop_page_2' }])
+        if (store.address) buttons.push([{ text: '📍 Save as Default', callback_data: 'shop_save_1' }])
 
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
