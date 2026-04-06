@@ -126,37 +126,37 @@ export default function WarrenLanding() {
         style={{ backgroundColor: headerBg }}
         className="fixed top-0 inset-x-0 z-50 backdrop-blur-md border-b border-white/[0.04]"
       >
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3 cursor-pointer bg-transparent border-none outline-none">
-            <Cpu className="h-5 w-5 text-amber-400" />
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1.5 sm:gap-3 cursor-pointer bg-transparent border-none outline-none shrink-0">
+            <Cpu className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400" />
             <div className="flex flex-col leading-none">
-              <span className="text-amber-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
-              <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+              <span className="text-amber-400/60 font-light text-[8px] sm:text-[10px] tracking-[0.3em] uppercase">Warren</span>
+              <span className="text-white/80 font-medium text-sm sm:text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
           </button>
-          <div className="hidden sm:flex items-center gap-6">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-white hover:text-amber-400 text-xs tracking-[0.15em] uppercase transition-colors">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-white hover:text-amber-400 text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
               Crypto
             </button>
-            <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Videography
+            <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Video
             </Link>
-            <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Web Design
+            <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Web
             </Link>
-            <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              Real Estate
+            <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Realty
             </a>
           </div>
-          <div className="flex items-center gap-5">
-            <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white transition-colors" title="Login">
-              <Users className="h-5 w-5" />
+          <div className="flex items-center gap-2 sm:gap-5">
+            <button onClick={() => navigate('/auth')} className="hidden sm:block text-white/40 hover:text-white transition-colors" title="Login">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all"
+              className="px-3 sm:px-6 py-1.5 sm:py-2 text-[9px] sm:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all whitespace-nowrap"
             >
               Join Discord
             </a>
@@ -167,7 +167,7 @@ export default function WarrenLanding() {
       {/* ── Hero with Parallax ── */}
       <section className="relative min-h-screen flex items-end overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxHero})`, backgroundPosition: 'center 20%' }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
@@ -226,7 +226,7 @@ export default function WarrenLanding() {
       {/* ── Parallax: Meme Coin Ecosystem ── */}
       <section className="relative py-32 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxMemecoins})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
@@ -304,7 +304,7 @@ export default function WarrenLanding() {
       {/* ── Parallax: AI Command Center ── */}
       <section className="relative py-28 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxCommand})` }}
         />
         <div className="absolute inset-0 bg-black/60" />
@@ -409,7 +409,7 @@ export default function WarrenLanding() {
       {/* ── Parallax CTA: Deploy ── */}
       <section className="relative py-32 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxDeploy})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/50" />
