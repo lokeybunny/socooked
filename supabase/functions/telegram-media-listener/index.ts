@@ -2483,6 +2483,49 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Shop browser next/prev callbacks ───
+      if (cbData.startsWith('shop_page_')) {
+        const pageNum = parseInt(cbData.replace('shop_page_', ''))
+        if (!isNaN(pageNum)) {
+          const { data: store } = await supabase.from('arbitrage_stores')
+            .select('store_name, address, contact_phone, website, store_number')
+            .eq('store_number', pageNum)
+            .maybeSingle()
+
+          const { count: totalStores } = await supabase.from('arbitrage_stores')
+            .select('id', { count: 'exact', head: true })
+
+          if (!store) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: `❌ Store #${pageNum} not found.` })
+            return new Response('ok')
+          }
+
+          const total = totalStores || 0
+          const lines = [
+            `🏪 <b>Store #${store.store_number}</b> of ${total}`,
+            `\n📛 <b>${store.store_name}</b>`,
+            `📍 ${store.address || 'No address'}`,
+          ]
+          if (store.contact_phone) lines.push(`📞 ${store.contact_phone}`)
+          if (store.website) lines.push(`🌐 ${store.website}`)
+
+          const buttons: any[] = []
+          const row: any[] = []
+          if (pageNum > 1) row.push({ text: '⬅️ Previous', callback_data: `shop_page_${pageNum - 1}` })
+          if (pageNum < total) row.push({ text: 'Next ➡️', callback_data: `shop_page_${pageNum + 1}` })
+          if (row.length) buttons.push(row)
+
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: lines.join('\n'),
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons },
+          })
+        }
+        return new Response('ok')
+      }
+
       // ─── SMM Generate AI callback ───
       if (cbData === 'smm_gen_yes' || cbData === 'smm_gen_no') {
         if (cbData === 'smm_gen_no') {
