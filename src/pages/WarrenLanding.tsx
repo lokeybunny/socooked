@@ -148,15 +148,15 @@ export default function WarrenLanding() {
               Realty
             </a>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2 sm:gap-5">
             <button onClick={() => navigate('/auth')} className="text-white/40 hover:text-white transition-colors" title="Login">
-              <Users className="h-5 w-5" />
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all"
+              className="px-3 sm:px-6 py-1.5 sm:py-2 text-[9px] sm:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all whitespace-nowrap"
             >
               Join Discord
             </a>
