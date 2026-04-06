@@ -97,6 +97,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'fig', description: '🔇 Toggle auto-shill & CRM notifications on/off' },
     { command: 'defaultaddy', description: '📍 Set default arbitrage address' },
     { command: 'defaultaddyoff', description: '📍 Disable default arbitrage address' },
+    { command: 'wheresshop', description: '🏪 Browse all pawn shop locations' },
     { command: 'shill', description: '🏠 HOME — Shill video to Home communities' },
     { command: 'shill2', description: '✈️ AWAY — Shill video to Away community' },
   ]
