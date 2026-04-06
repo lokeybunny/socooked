@@ -19,13 +19,15 @@ interface Stats {
   arbPurchasedCount: number;
   arbPurchasedSpread: number;
   arbListedSpread: number;
+  arbSoldCount: number;
+  arbSoldSpread: number;
 }
 
 const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, arbPurchasedCount: 0, arbPurchasedSpread: 0, arbListedSpread: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, arbPurchasedCount: 0, arbPurchasedSpread: 0, arbListedSpread: 0, arbSoldCount: 0, arbSoldSpread: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -156,7 +158,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, arbPurchasedRes, arbListedRes] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, arbPurchasedRes, arbListedRes, arbSoldRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
@@ -166,6 +168,7 @@ export default function Dashboard() {
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
         supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'purchased'),
         supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'listed'),
+        supabase.from('arbitrage_items').select('asking_price, wiggle_room_price, meta').eq('status', 'sold'),
       ]);
 
       const allComms = comms.data || [];
@@ -181,6 +184,13 @@ export default function Dashboard() {
       const arbPurchasedSpread = arbPurchased.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
       const arbListed = arbListedRes.data || [];
       const arbListedSpread = arbListed.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
+      const arbSold = arbSoldRes.data || [];
+      const arbSoldCount = arbSold.length;
+      const arbSoldSpread = arbSold.reduce((sum, i) => {
+        const salePriceMeta = (i.meta as any)?.sale_price;
+        const salePrice = salePriceMeta ? Number(salePriceMeta) : (i.wiggle_room_price || 0);
+        return sum + (salePrice - (i.asking_price || 0));
+      }, 0);
 
       // Actual lead conversion: monthly/active customers where ALL invoices are paid
       const allInvoices = invoicesRes.data || [];
@@ -210,12 +220,14 @@ export default function Dashboard() {
         prospectEmailedCount,
         monthlyCount,
         clientCount,
-        actualTotalCustomers: convertedIds.size + arbPurchasedCount,
+        actualTotalCustomers: convertedIds.size + arbPurchasedCount + arbSoldCount,
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
         arbPurchasedCount,
         arbPurchasedSpread,
         arbListedSpread,
+        arbSoldCount,
+        arbSoldSpread,
       });
 
       setRecentCustomers(rc.data || []);
@@ -226,10 +238,10 @@ export default function Dashboard() {
 
   const metricCards = [
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
-    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly + ${stats.arbPurchasedCount} arb purchased`, icon: Users, color: 'text-emerald-500' },
+    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly + ${stats.arbPurchasedCount} arb purchased + ${stats.arbSoldCount} arb sold`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
-    { label: 'Potential Lead Conversion + Crypto', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250 + stats.arbListedSpread + cryptoHoldingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects × $250 + $${stats.arbListedSpread.toLocaleString()} arb + $${cryptoHoldingUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} crypto`, icon: TrendingUp, color: 'text-green-500' },
-    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350 + stats.arbPurchasedSpread).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} clients × $350 + $${stats.arbPurchasedSpread.toLocaleString()} arb profit`, icon: CircleCheckBig, color: 'text-emerald-500' },
+    { label: 'Potential Lead Conversion + Crypto', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250 + stats.arbListedSpread + cryptoHoldingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects × $250 + $${stats.arbListedSpread.toLocaleString()} listed arb + $${cryptoHoldingUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} crypto`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350 + stats.arbSoldSpread).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} clients × $350 + $${stats.arbSoldSpread.toLocaleString()} arb sold profit`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
 
