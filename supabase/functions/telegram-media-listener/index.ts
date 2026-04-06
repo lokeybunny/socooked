@@ -4245,6 +4245,54 @@ Deno.serve(async (req) => {
     }
 
 
+    // ─── Handle /wheresvideo command ───
+    if (action === 'wheresvideo') {
+      try {
+        const { data: prospects } = await supabase.from('videography_prospects')
+          .select('id, business_name, address, phone, pipeline_stage')
+          .not('pipeline_stage', 'eq', 'dead')
+          .order('created_at', { ascending: true })
+          .limit(50)
+
+        if (!prospects || prospects.length === 0) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No videography prospects found.' })
+          return new Response('ok')
+        }
+
+        // Show first prospect
+        const p = prospects[0]
+        const total = prospects.length
+        const cityState = p.address ? p.address.split(',').slice(-2).join(',').trim() : 'No address'
+        const lines = [
+          `📹 <b>Prospect 1</b> of ${total}`,
+          `\n🏢 <b>${p.business_name}</b>`,
+          `📍 ${p.address || 'No address'}`,
+        ]
+        if (p.phone) lines.push(`📞 <a href="tel:${p.phone}">${p.phone}</a>`)
+        lines.push(`📊 Stage: <b>${p.pipeline_stage}</b>`)
+
+        const buttons: any[] = []
+        // Action buttons
+        buttons.push([
+          { text: '✅ Interested', callback_data: `vid_interested_${p.id}_0` },
+          { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_0` },
+          { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_0` },
+        ])
+        // Navigation
+        if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'vid_page_1' }])
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: buttons },
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
     // ─── Handle /wheresshop command ───
     if (action === 'wheresshop') {
       try {
