@@ -248,15 +248,21 @@ export default function Crypto() {
           chunks.push(addresses.slice(i, i + CHUNK_SIZE));
         }
 
+        // Fetch all chunks in parallel
+        const chunkResults = await Promise.all(
+          chunks.map(async (chunk) => {
+            const { data, error } = await supabase.functions.invoke("crypto-wallets", {
+              body: { wallets: chunk, token_mint: TOKEN_ADDRESS },
+            });
+            if (error) throw error;
+            const parsed = typeof data === "string" ? JSON.parse(data) : data;
+            return parsed;
+          }),
+        );
+
         let allBalances: WalletBalance[] = [];
         let lastTotals: WalletTotals | null = null;
-
-        for (let ci = 0; ci < chunks.length; ci++) {
-          const { data, error } = await supabase.functions.invoke("crypto-wallets", {
-            body: { wallets: chunks[ci], token_mint: TOKEN_ADDRESS },
-          });
-          if (error) throw error;
-          const parsed = typeof data === "string" ? JSON.parse(data) : data;
+        for (const parsed of chunkResults) {
           const chunkBalances: WalletBalance[] = Array.isArray(parsed?.wallets) ? parsed.wallets : [];
           allBalances = allBalances.concat(chunkBalances);
           lastTotals = parsed?.totals || null;
