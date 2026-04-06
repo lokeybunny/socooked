@@ -2791,6 +2791,14 @@ Deno.serve(async (req) => {
 
         const name = prospect?.business_name || 'Prospect'
 
+        // Log activity for in-app notification
+        await supabase.from('activity_log').insert({
+          entity_type: 'videography_prospect',
+          entity_id: pid,
+          action: newStage === 'dead' ? 'marked_not_interested' : newStage === 'callback' ? 'marked_callback' : 'marked_interested',
+          meta: { name, message: `${emoji} ${name} → ${label}` },
+        })
+
         // Re-fetch remaining prospects (excluding dead) and show the next one
         const { data: remaining } = await supabase.from('videography_prospects')
           .select('id, business_name, address, phone, pipeline_stage')
