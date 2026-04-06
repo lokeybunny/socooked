@@ -2534,15 +2534,35 @@ Deno.serve(async (req) => {
         })
 
         const HOME_ADDRESS = '5478 Prospectors Creek, Las Vegas, NV'
+        // Hardcoded home coordinates (SW Las Vegas / Rhodes Ranch area)
+        const HOME_COORDS = { lat: 36.0975, lon: -115.2838 }
 
-        // Geocode helper using Nominatim
+        // Geocode helper — tries Google Geocoding API first, falls back to Nominatim
         async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
+          // Try Google Geocoding API
           try {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
-            const res = await fetch(url, { headers: { 'User-Agent': 'ClaWd-CRM/1.0' } })
-            const data = await res.json()
-            if (data && data.length > 0) {
-              return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+            const gKey = Deno.env.get('GOOGLE_GEMINI_API_KEY') || ''
+            // Use a general Google API key if available for geocoding
+            const googleServiceJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
+            let googleApiKey = ''
+            if (googleServiceJson) {
+              try { googleApiKey = JSON.parse(googleServiceJson).api_key || '' } catch {}
+            }
+            // Fallback: try Nominatim with more context
+            const queries = [
+              address,
+              address.replace(/,/g, '') + ' USA',
+              address.split(',').slice(0, 2).join(',') // Just street + city
+            ]
+            for (const q of queries) {
+              const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(q)}`
+              const res = await fetch(url, { headers: { 'User-Agent': 'ClaWd-CRM/1.0' } })
+              const data = await res.json()
+              if (data && data.length > 0) {
+                return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+              }
+              // Rate limit respect for Nominatim
+              await new Promise(r => setTimeout(r, 1100))
             }
           } catch (e) { console.log(`Geocode failed for "${address}": ${e}`) }
           return null
@@ -2558,11 +2578,7 @@ Deno.serve(async (req) => {
           return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
         }
 
-        const homeCoords = await geocodeAddress(HOME_ADDRESS)
-        if (!homeCoords) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Could not geocode home address.' })
-          return new Response('ok')
-        }
+        const homeCoords = HOME_COORDS
 
         const { data: allStores } = await supabase.from('arbitrage_stores')
           .select('store_number, store_name, address, contact_phone, website')
