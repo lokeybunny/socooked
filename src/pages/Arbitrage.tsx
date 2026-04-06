@@ -1351,6 +1351,7 @@ export default function Arbitrage() {
           onDelete={handleDelete}
           onRefresh={() => { fetchAll(); setViewItem(null); }}
         />
+        <UploadWizardModal open={uploadWizardOpen} onClose={() => setUploadWizardOpen(false)} onComplete={fetchAll} />
         <StoreModal open={storeModalOpen} onClose={() => setStoreModalOpen(false)} store={editStore} onSaved={fetchAll} />
       </div>
     </AuthLayoutGate>
