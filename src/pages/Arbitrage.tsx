@@ -603,6 +603,205 @@ function ItemDetailModal({ item, stores, open, onClose, onUpdate, onDelete, onRe
   );
 }
 
+/* ─── Upload Wizard Modal ─── */
+function UploadWizardModal({ open, onClose, onComplete }: { open: boolean; onClose: () => void; onComplete: () => void }) {
+  const [step, setStep] = useState<'photo' | 'prices' | 'processing' | 'done'>('photo');
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [askingPrice, setAskingPrice] = useState('');
+  const [wigglePrice, setWigglePrice] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setStep('photo'); setFile(null); setPreview(null);
+      setAskingPrice(''); setWigglePrice('');
+      setProcessing(false); setResult(null);
+    }
+  }, [open]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+    setStep('prices');
+  };
+
+  const handleProcess = async () => {
+    if (!file) return;
+    setStep('processing');
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (askingPrice) formData.append('asking_price', askingPrice);
+      if (wigglePrice) formData.append('wiggle_room_price', wigglePrice);
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/arbitrage-upload`, {
+        method: 'POST',
+        headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Upload failed');
+      setResult(data);
+      setStep('done');
+    } catch (e: any) {
+      toast.error(e.message || 'Upload failed');
+      setStep('prices');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDone = () => {
+    onComplete();
+    onClose();
+  };
+
+  const handleAnother = () => {
+    setStep('photo'); setFile(null); setPreview(null);
+    setAskingPrice(''); setWigglePrice('');
+    setResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const profit = result?.profit;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !processing) onClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Upload className="h-5 w-5 text-amber-500" />
+            {step === 'photo' && 'Upload Item Photo'}
+            {step === 'prices' && 'Set Prices'}
+            {step === 'processing' && 'Processing...'}
+            {step === 'done' && 'Item Saved!'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === 'photo' && (
+          <div className="space-y-4">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+            >
+              <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Click to select a photo</p>
+              <p className="text-xs text-muted-foreground/60">or drag & drop</p>
+            </div>
+          </div>
+        )}
+
+        {step === 'prices' && (
+          <div className="space-y-4">
+            {preview && (
+              <img src={preview} alt="Preview" className="w-full h-48 object-contain rounded-lg bg-muted/30" />
+            )}
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs font-medium">Asking Price (shop's price)</Label>
+                <div className="relative mt-1">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-8" placeholder="e.g. 150" value={askingPrice} onChange={e => setAskingPrice(e.target.value)} type="number" min="0" step="0.01" autoFocus />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs font-medium">List Price (your resale price)</Label>
+                <div className="relative mt-1">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-8" placeholder="e.g. 300" value={wigglePrice} onChange={e => setWigglePrice(e.target.value)} type="number" min="0" step="0.01" />
+                </div>
+              </div>
+              {askingPrice && wigglePrice && (
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <span className="text-muted-foreground">Profit:</span>
+                  <span className={cn(parseFloat(wigglePrice) - parseFloat(askingPrice) >= 0 ? "text-emerald-500" : "text-destructive")}>
+                    ${(parseFloat(wigglePrice) - parseFloat(askingPrice)).toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setStep('photo')}>Back</Button>
+              <Button size="sm" onClick={handleProcess}>
+                <Zap className="h-3.5 w-3.5 mr-1" /> Process & Save
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'processing' && (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+            <div className="text-center space-y-1">
+              <p className="text-sm font-medium">Processing your item...</p>
+              <p className="text-xs text-muted-foreground">Uploading photo, removing background & price tags</p>
+            </div>
+          </div>
+        )}
+
+        {step === 'done' && result && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {result.original_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">Original</p>
+                  <img src={result.original_url} alt="Original" className="rounded-lg w-full h-36 object-contain bg-muted/30" />
+                </div>
+              )}
+              {result.nobg_url && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground font-medium">White BG</p>
+                  <img src={result.nobg_url} alt="No BG" className="rounded-lg w-full h-36 object-contain bg-muted/30" />
+                </div>
+              )}
+            </div>
+            <div className="border rounded-lg p-3 space-y-1.5 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">SKU:</span>
+                <span className="font-mono font-bold">{result.sku}</span>
+              </div>
+              {result.address && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs">{result.address}</span>
+                </div>
+              )}
+              {askingPrice && <div className="flex items-center gap-2 text-xs"><span className="text-muted-foreground">Ask:</span> <span className="font-medium">${askingPrice}</span></div>}
+              {wigglePrice && <div className="flex items-center gap-2 text-xs"><span className="text-muted-foreground">List:</span> <span className="font-medium">${wigglePrice}</span></div>}
+              {profit != null && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Profit:</span>
+                  <span className={cn("font-bold", profit >= 0 ? "text-emerald-500" : "text-destructive")}>${profit.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">BG Removal:</span>
+                <span>{result.nobg_url ? '✅ Done' : '⚠️ Skipped'}</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={handleAnother}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Another
+              </Button>
+              <Button size="sm" onClick={handleDone}>Done</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ─── Main Arbitrage Page ─── */
 export default function Arbitrage() {
   const [items, setItems] = useState<ArbItem[]>([]);
@@ -625,6 +824,7 @@ export default function Arbitrage() {
   const [defaultAddyEnabled, setDefaultAddyEnabled] = useState(false);
   const [defaultAddyInput, setDefaultAddyInput] = useState('');
   const [defaultAddySaving, setDefaultAddySaving] = useState(false);
+  const [uploadWizardOpen, setUploadWizardOpen] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -888,6 +1088,9 @@ export default function Arbitrage() {
               <Label htmlFor="bg-toggle" className="text-xs cursor-pointer select-none whitespace-nowrap">Auto BG Remove</Label>
               <Switch id="bg-toggle" checked={autoBgRemoval} onCheckedChange={handleToggleBgRemoval} disabled={bgToggleLoading} />
             </div>
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setUploadWizardOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1" /> Upload
+            </Button>
             <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", loading && "animate-spin")} /> Refresh
             </Button>
@@ -1148,6 +1351,7 @@ export default function Arbitrage() {
           onDelete={handleDelete}
           onRefresh={() => { fetchAll(); setViewItem(null); }}
         />
+        <UploadWizardModal open={uploadWizardOpen} onClose={() => setUploadWizardOpen(false)} onComplete={fetchAll} />
         <StoreModal open={storeModalOpen} onClose={() => setStoreModalOpen(false)} store={editStore} onSaved={fetchAll} />
       </div>
     </AuthLayoutGate>
