@@ -2534,41 +2534,35 @@ Deno.serve(async (req) => {
         })
 
         const HOME_ADDRESS = '5478 Prospectors Creek, Las Vegas, NV'
-        // Hardcoded home coordinates (SW Las Vegas / Rhodes Ranch area)
         const HOME_COORDS = { lat: 36.0975, lon: -115.2838 }
-
-        // Geocode helper — tries Google Geocoding API first, falls back to Nominatim
-        async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
-          // Try Google Geocoding API
-          try {
-            const gKey = Deno.env.get('GOOGLE_GEMINI_API_KEY') || ''
-            // Use a general Google API key if available for geocoding
-            const googleServiceJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
-            let googleApiKey = ''
-            if (googleServiceJson) {
-              try { googleApiKey = JSON.parse(googleServiceJson).api_key || '' } catch {}
-            }
-            // Fallback: try Nominatim with more context
-            const queries = [
-              address,
-              address.replace(/,/g, '') + ' USA',
-              address.split(',').slice(0, 2).join(',') // Just street + city
-            ]
-            for (const q of queries) {
-              const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(q)}`
-              const res = await fetch(url, { headers: { 'User-Agent': 'ClaWd-CRM/1.0' } })
-              const data = await res.json()
-              if (data && data.length > 0) {
-                return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
-              }
-              // Rate limit respect for Nominatim
-              await new Promise(r => setTimeout(r, 1100))
-            }
-          } catch (e) { console.log(`Geocode failed for "${address}": ${e}`) }
-          return null
+        const ZIP_COORDS: Record<string, { lat: number; lon: number }> = {
+          '89101': { lat: 36.1715, lon: -115.1398 },
+          '89102': { lat: 36.1456, lon: -115.1843 },
+          '89103': { lat: 36.1146, lon: -115.2237 },
+          '89104': { lat: 36.1517, lon: -115.1096 },
+          '89106': { lat: 36.1811, lon: -115.1634 },
+          '89107': { lat: 36.1674, lon: -115.2219 },
+          '89108': { lat: 36.2023, lon: -115.2235 },
+          '89110': { lat: 36.1739, lon: -115.0613 },
+          '89113': { lat: 36.0675, lon: -115.2615 },
+          '89115': { lat: 36.2115, lon: -115.0616 },
+          '89117': { lat: 36.1445, lon: -115.2796 },
+          '89119': { lat: 36.0835, lon: -115.1468 },
+          '89121': { lat: 36.1218, lon: -115.0901 },
+          '89128': { lat: 36.1964, lon: -115.2673 },
+          '89129': { lat: 36.2356, lon: -115.2899 },
+          '89130': { lat: 36.2609, lon: -115.2278 },
+          '89141': { lat: 35.9994, lon: -115.2063 },
+          '89146': { lat: 36.1438, lon: -115.2257 },
+          '89178': { lat: 36.0113, lon: -115.2972 },
         }
 
-        // Haversine distance in miles
+        const extractZip = (address?: string | null) => address?.match(/\b(\d{5})(?:-\d{4})?\b/)?.[1] ?? null
+        const getApproxCoords = (address?: string | null) => {
+          const zip = extractZip(address)
+          return zip ? ZIP_COORDS[zip] ?? null : null
+        }
+
         function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
           const toRad = (d: number) => d * Math.PI / 180
           const R = 3958.8
@@ -2589,24 +2583,20 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        // Geocode all stores with addresses
-        const storesWithDist: { store_number: number; distance: number }[] = []
-        for (const s of allStores) {
-          if (!s.address) continue
-          const coords = await geocodeAddress(s.address)
-          if (coords) {
-            const dist = haversineMiles(homeCoords.lat, homeCoords.lon, coords.lat, coords.lon)
-            storesWithDist.push({ store_number: s.store_number, distance: dist })
+        const storesWithDist = allStores.map((s, index) => {
+          const coords = getApproxCoords(s.address)
+          const distanceLabel = coords
+            ? String(Math.round(haversineMiles(homeCoords.lat, homeCoords.lon, coords.lat, coords.lon) * 10) / 10)
+            : 'Distance unavailable'
+
+          return {
+            store_number: s.store_number,
+            sortDistance: coords ? Number(distanceLabel) : 10000 + index,
+            distanceLabel,
           }
-        }
+        })
 
-        if (storesWithDist.length === 0) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ No stores could be geocoded.' })
-          return new Response('ok')
-        }
-
-        // Sort closest to farthest
-        storesWithDist.sort((a, b) => a.distance - b.distance)
+        storesWithDist.sort((a, b) => a.sortDistance - b.sortDistance)
         const routeOrder = storesWithDist.map(s => s.store_number)
         const routeDistances: Record<number, number> = {}
         storesWithDist.forEach(s => { routeDistances[s.store_number] = Math.round(s.distance * 10) / 10 })
