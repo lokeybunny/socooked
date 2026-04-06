@@ -184,6 +184,13 @@ export default function Dashboard() {
       const arbPurchasedSpread = arbPurchased.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
       const arbListed = arbListedRes.data || [];
       const arbListedSpread = arbListed.reduce((sum, i) => sum + ((i.wiggle_room_price || 0) - (i.asking_price || 0)), 0);
+      const arbSold = arbSoldRes.data || [];
+      const arbSoldCount = arbSold.length;
+      const arbSoldSpread = arbSold.reduce((sum, i) => {
+        const salePriceMeta = (i.meta as any)?.sale_price;
+        const salePrice = salePriceMeta ? Number(salePriceMeta) : (i.wiggle_room_price || 0);
+        return sum + (salePrice - (i.asking_price || 0));
+      }, 0);
 
       // Actual lead conversion: monthly/active customers where ALL invoices are paid
       const allInvoices = invoicesRes.data || [];
@@ -213,12 +220,14 @@ export default function Dashboard() {
         prospectEmailedCount,
         monthlyCount,
         clientCount,
-        actualTotalCustomers: convertedIds.size + arbPurchasedCount,
+        actualTotalCustomers: convertedIds.size + arbPurchasedCount + arbSoldCount,
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
         arbPurchasedCount,
         arbPurchasedSpread,
         arbListedSpread,
+        arbSoldCount,
+        arbSoldSpread,
       });
 
       setRecentCustomers(rc.data || []);
