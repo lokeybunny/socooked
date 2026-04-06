@@ -42,6 +42,7 @@ const statusStyles: Record<string, string> = {
   'in-progress': 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
   cancelled: 'bg-red-500/15 text-red-600 dark:text-red-400',
   confirmed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  contacted: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
 };
 
 const statusLabels: Record<string, string> = {
