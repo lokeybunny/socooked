@@ -3376,7 +3376,7 @@ Deno.serve(async (req) => {
         await tgPost(TG_TOKEN, 'editMessageText', {
           chat_id: cbChatId,
           message_id: cbq.message.message_id,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${blurStatus}${locationInfo}${nextPrompt}`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo}${nextPrompt}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
