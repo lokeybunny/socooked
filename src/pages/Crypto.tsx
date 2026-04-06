@@ -311,6 +311,20 @@ export default function Crypto() {
     walletTotalsRef.current = walletTotals;
   }, [walletTotals]);
 
+  /* ── load cache instantly on mount ── */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached.tokenMint === TOKEN_ADDRESS && Array.isArray(cached.wallets)) {
+          setWalletBalances(cached.wallets);
+          setWalletTotals(cached.totals || null);
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchChart();
     fetchWallets();
