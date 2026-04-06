@@ -60,6 +60,8 @@ export default function VideographyHub() {
   const [manualForm, setManualForm] = useState({ business_name: '', phone: '', address: '', website: '' });
   const [csvText, setCsvText] = useState('');
   const [importing, setImporting] = useState(false);
+  const [pocEditId, setPocEditId] = useState<string | null>(null);
+  const [pocName, setPocName] = useState('');
   const [viewTab, setViewTab] = useState<'pipeline' | 'calendar'>('pipeline');
 
   // Calendar state
