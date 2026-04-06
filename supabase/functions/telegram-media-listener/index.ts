@@ -2754,17 +2754,15 @@ Deno.serve(async (req) => {
       // ─── Videography prospect action callbacks ───
       if (cbData.startsWith('vid_interested_') || cbData.startsWith('vid_dead_') || cbData.startsWith('vid_callback_')) {
         const parts = cbData.split('_')
-        // vid_interested_UUID_pageIdx or vid_dead_UUID_pageIdx or vid_callback_UUID_pageIdx
-        const action_type = parts[1] // interested, dead, or callback
-        const prospectId = parts.slice(2, -1).join('_') // UUID (may contain hyphens parsed as underscores... use proper split)
+        const action_type = parts[1]
         
-        // Extract prospect ID (UUID between action and last segment)
-        const idMatch = cbData.match(/vid_(?:interested|dead|callback)_([a-f0-9-]+)_\d+$/)
+        const idMatch = cbData.match(/vid_(?:interested|dead|callback)_([a-f0-9-]+)_(\d+)$/)
         if (!idMatch) {
           await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Invalid prospect reference.' })
           return new Response('ok')
         }
         const pid = idMatch[1]
+        const currentIdx = parseInt(idMatch[2])
         
         let newStage = 'contacted'
         let emoji = '✅'
@@ -2792,11 +2790,54 @@ Deno.serve(async (req) => {
         await supabase.from('videography_prospects').update(updateData).eq('id', pid)
 
         const name = prospect?.business_name || 'Prospect'
+
+        // Re-fetch remaining prospects (excluding dead) and show the next one
+        const { data: remaining } = await supabase.from('videography_prospects')
+          .select('id, business_name, address, phone, pipeline_stage')
+          .not('pipeline_stage', 'eq', 'dead')
+          .order('created_at', { ascending: true })
+          .limit(50)
+
+        // Filter out the one we just actioned (it may still appear if stage isn't dead)
+        const filtered = (remaining || []).filter((r: any) => r.id !== pid)
+
+        if (filtered.length === 0) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: `${emoji} <b>${name}</b> → <b>${label}</b>\n\n✅ No more prospects to review!`,
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+
+        // Show next prospect (index 0 of remaining list)
+        const nextIdx = 0
+        const next = filtered[nextIdx]
+        const total = filtered.length
+        const lines = [
+          `${emoji} <b>${name}</b> → <b>${label}</b>\n`,
+          `📹 <b>Prospect 1</b> of ${total}`,
+          `\n🏢 <b>${next.business_name}</b>`,
+          `📍 ${next.address || 'No address'}`,
+        ]
+        if (next.phone) lines.push(`📞 <a href="tel:${next.phone}">${next.phone}</a>`)
+        lines.push(`📊 Stage: <b>${next.pipeline_stage}</b>`)
+
+        const buttons: any[] = []
+        buttons.push([
+          { text: '✅ Interested', callback_data: `vid_interested_${next.id}_${nextIdx}` },
+          { text: '❌ Not Interested', callback_data: `vid_dead_${next.id}_${nextIdx}` },
+          { text: '📞 Call Back', callback_data: `vid_callback_${next.id}_${nextIdx}` },
+        ])
+        if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'vid_page_1' }])
+
         await tgPost(TG_TOKEN, 'editMessageText', {
           chat_id: cbChatId,
           message_id: cbq.message.message_id,
-          text: `${emoji} <b>${name}</b> moved to <b>${label}</b>`,
+          text: lines.join('\n'),
           parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: buttons },
         })
         return new Response('ok')
       }
