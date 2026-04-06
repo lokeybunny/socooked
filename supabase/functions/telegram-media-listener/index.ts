@@ -4849,6 +4849,31 @@ Deno.serve(async (req) => {
       const media = extractMedia(message)
       let imageUrl: string | undefined
 
+      // ─── Vid POC session handler ───
+      if (sessionType === 'vid_poc_session') {
+        if (text && text.trim()) {
+          const pocName = text.trim()
+          const prospectId = sp.prospect_id
+          
+          await supabase.from('videography_prospects').update({ contact_name: pocName }).eq('id', prospectId)
+          
+          // Clean up session
+          await supabase.from('webhook_events').delete().eq('id', session.id)
+
+          const { data: prospect } = await supabase.from('videography_prospects')
+            .select('business_name').eq('id', prospectId).maybeSingle()
+
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `👤 POC set for <b>${prospect?.business_name || 'prospect'}</b>: <b>${pocName}</b>`,
+            parse_mode: 'HTML',
+          })
+        } else {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Please type a name for the point of contact.' })
+        }
+        return new Response('ok')
+      }
+
       // ─── Shill session handler ───
       if (sessionType === 'shill_session') {
        if (sp.step === 'caption' && text) {
