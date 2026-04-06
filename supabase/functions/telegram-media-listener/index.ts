@@ -3357,8 +3357,7 @@ Deno.serve(async (req) => {
           },
         })
 
-        const bgStatus = nobgUrl ? '✅ White BG' : '⚠️ White BG skipped'
-        const blurStatus = blurUrl ? ' • ✅ Blur BG' : ' • ⚠️ Blur BG skipped'
+        const bgStatus = nobgUrl ? '✅ White BG + price tags removed' : '⚠️ Background removal skipped'
         let locationInfo = ''
         if (gpsAddress && matchedStore) {
           locationInfo = `\n📍 <b>Location detected!</b> Auto-assigned to <b>${matchedStore.store_name}</b>`
