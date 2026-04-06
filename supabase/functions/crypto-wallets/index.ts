@@ -70,17 +70,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Sequential with 100ms gap, rotating RPCs
-    const results: { wallet: string; balance: number; rawAmount: string; decimals: number }[] = [];
-    for (let i = 0; i < wallets.length; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 100));
-      const { balance, decimals } = await fetchTokenBalance(wallets[i], tokenMint);
-      results.push({
-        wallet: wallets[i], balance,
+    // Parallel fetch all wallets (RPCs handle rate limits internally)
+    const balancePromises = wallets.map(async (w: string) => {
+      const { balance, decimals } = await fetchTokenBalance(w, tokenMint);
+      return {
+        wallet: w, balance,
         rawAmount: String(Math.round(balance * Math.pow(10, decimals))),
         decimals,
-      });
-    }
+      };
+    });
+    const results = await Promise.all(balancePromises);
 
     // Token price from DexScreener
     let tokenPrice = 0, priceNative = 0, marketCap = 0;

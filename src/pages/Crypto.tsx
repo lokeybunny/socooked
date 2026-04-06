@@ -226,7 +226,7 @@ export default function Crypto() {
   );
 
   /* ── fetch on-chain balances (chunked to avoid edge-function timeouts) ── */
-  const CHUNK_SIZE = 5;
+  const CHUNK_SIZE = 10;
   const fetchBalances = useCallback(
     async (silent = false) => {
       if (!wallets.length) {
