@@ -190,6 +190,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
      return 'defaultaddy'
    }
    if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
+   if (normalized === 'wheresvideo' || normalized === '/wheresvideo') return 'wheresvideo'
   return null
 }
 
