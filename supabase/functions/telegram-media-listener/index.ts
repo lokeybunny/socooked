@@ -98,6 +98,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'defaultaddy', description: '📍 Set default arbitrage address' },
     { command: 'defaultaddyoff', description: '📍 Disable default arbitrage address' },
     { command: 'wheresshop', description: '🏪 Browse all pawn shop locations' },
+    { command: 'wheresvideo', description: '📹 Browse videography prospects' },
     { command: 'shill', description: '🏠 HOME — Shill video to Home communities' },
     { command: 'shill2', description: '✈️ AWAY — Shill video to Away community' },
   ]
@@ -157,7 +158,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -189,6 +190,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
      return 'defaultaddy'
    }
    if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
+   if (normalized === 'wheresvideo' || normalized === '/wheresvideo') return 'wheresvideo'
   return null
 }
 
@@ -2749,6 +2751,103 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Videography prospect action callbacks ───
+      if (cbData.startsWith('vid_interested_') || cbData.startsWith('vid_dead_') || cbData.startsWith('vid_callback_')) {
+        const parts = cbData.split('_')
+        // vid_interested_UUID_pageIdx or vid_dead_UUID_pageIdx or vid_callback_UUID_pageIdx
+        const action_type = parts[1] // interested, dead, or callback
+        const prospectId = parts.slice(2, -1).join('_') // UUID (may contain hyphens parsed as underscores... use proper split)
+        
+        // Extract prospect ID (UUID between action and last segment)
+        const idMatch = cbData.match(/vid_(?:interested|dead|callback)_([a-f0-9-]+)_\d+$/)
+        if (!idMatch) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Invalid prospect reference.' })
+          return new Response('ok')
+        }
+        const pid = idMatch[1]
+        
+        let newStage = 'contacted'
+        let emoji = '✅'
+        let label = 'Contacted (Interested)'
+        if (action_type === 'dead') {
+          newStage = 'dead'
+          emoji = '💀'
+          label = 'Dead (Not Interested)'
+        } else if (action_type === 'callback') {
+          newStage = 'callback'
+          emoji = '📞'
+          label = 'Call Back'
+        }
+
+        const updateData: any = { pipeline_stage: newStage, last_contacted_at: new Date().toISOString() }
+        if (newStage === 'callback') {
+          updateData.next_followup_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        } else if (newStage === 'contacted') {
+          updateData.next_followup_at = new Date(Date.now() + 7 * 86400000).toISOString()
+        }
+        
+        const { data: prospect } = await supabase.from('videography_prospects')
+          .select('business_name').eq('id', pid).maybeSingle()
+        
+        await supabase.from('videography_prospects').update(updateData).eq('id', pid)
+
+        const name = prospect?.business_name || 'Prospect'
+        await tgPost(TG_TOKEN, 'editMessageText', {
+          chat_id: cbChatId,
+          message_id: cbq.message.message_id,
+          text: `${emoji} <b>${name}</b> moved to <b>${label}</b>`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      // ─── Videography prospect pagination callbacks ───
+      if (cbData.startsWith('vid_page_')) {
+        const pageIdx = parseInt(cbData.replace('vid_page_', ''))
+        if (!isNaN(pageIdx)) {
+          const { data: prospects } = await supabase.from('videography_prospects')
+            .select('id, business_name, address, phone, pipeline_stage')
+            .not('pipeline_stage', 'eq', 'dead')
+            .order('created_at', { ascending: true })
+            .limit(50)
+
+          if (!prospects || pageIdx >= prospects.length) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: `❌ Prospect #${pageIdx + 1} not found.` })
+            return new Response('ok')
+          }
+
+          const total = prospects.length
+          const p = prospects[pageIdx]
+          const lines = [
+            `📹 <b>Prospect ${pageIdx + 1}</b> of ${total}`,
+            `\n🏢 <b>${p.business_name}</b>`,
+            `📍 ${p.address || 'No address'}`,
+          ]
+          if (p.phone) lines.push(`📞 <a href="tel:${p.phone}">${p.phone}</a>`)
+          lines.push(`📊 Stage: <b>${p.pipeline_stage}</b>`)
+
+          const buttons: any[] = []
+          buttons.push([
+            { text: '✅ Interested', callback_data: `vid_interested_${p.id}_${pageIdx}` },
+            { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_${pageIdx}` },
+            { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_${pageIdx}` },
+          ])
+          const navRow: any[] = []
+          if (pageIdx > 0) navRow.push({ text: '⬅️ Previous', callback_data: `vid_page_${pageIdx - 1}` })
+          if (pageIdx < total - 1) navRow.push({ text: 'Next ➡️', callback_data: `vid_page_${pageIdx + 1}` })
+          if (navRow.length) buttons.push(navRow)
+
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: lines.join('\n'),
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons },
+          })
+        }
+        return new Response('ok')
+      }
+
       // ─── SMM Generate AI callback ───
       if (cbData === 'smm_gen_yes' || cbData === 'smm_gen_no') {
         if (cbData === 'smm_gen_no') {
@@ -4242,6 +4341,54 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+
+    // ─── Handle /wheresvideo command ───
+    if (action === 'wheresvideo') {
+      try {
+        const { data: prospects } = await supabase.from('videography_prospects')
+          .select('id, business_name, address, phone, pipeline_stage')
+          .not('pipeline_stage', 'eq', 'dead')
+          .order('created_at', { ascending: true })
+          .limit(50)
+
+        if (!prospects || prospects.length === 0) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No videography prospects found.' })
+          return new Response('ok')
+        }
+
+        // Show first prospect
+        const p = prospects[0]
+        const total = prospects.length
+        const cityState = p.address ? p.address.split(',').slice(-2).join(',').trim() : 'No address'
+        const lines = [
+          `📹 <b>Prospect 1</b> of ${total}`,
+          `\n🏢 <b>${p.business_name}</b>`,
+          `📍 ${p.address || 'No address'}`,
+        ]
+        if (p.phone) lines.push(`📞 <a href="tel:${p.phone}">${p.phone}</a>`)
+        lines.push(`📊 Stage: <b>${p.pipeline_stage}</b>`)
+
+        const buttons: any[] = []
+        // Action buttons
+        buttons.push([
+          { text: '✅ Interested', callback_data: `vid_interested_${p.id}_0` },
+          { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_0` },
+          { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_0` },
+        ])
+        // Navigation
+        if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'vid_page_1' }])
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: buttons },
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
 
     // ─── Handle /wheresshop command ───
     if (action === 'wheresshop') {
