@@ -43,6 +43,7 @@ const statusStyles: Record<string, string> = {
   cancelled: 'bg-red-500/15 text-red-600 dark:text-red-400',
   confirmed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   contacted: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
+  callback: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
 };
 
 const statusLabels: Record<string, string> = {
