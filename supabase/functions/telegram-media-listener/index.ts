@@ -6044,8 +6044,7 @@ Deno.serve(async (req) => {
           },
         })
 
-        const bgStatus = nobgUrl ? '✅ White BG' : '⚠️ White BG skipped'
-        const blurStatus2 = blurUrl2 ? ' • ✅ Blur BG' : ' • ⚠️ Blur BG skipped'
+        const bgStatus = nobgUrl ? '✅ White BG + price tags removed' : '⚠️ Background removal skipped'
         let locationInfo2 = ''
         if (defaultAddress2 && defaultMatchedStore2) {
           locationInfo2 = `\n📍 <b>Default address used!</b> Auto-assigned to <b>${defaultMatchedStore2.store_name}</b>`
