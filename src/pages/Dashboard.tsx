@@ -158,7 +158,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, arbPurchasedRes, arbListedRes] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, arbPurchasedRes, arbListedRes, arbSoldRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
