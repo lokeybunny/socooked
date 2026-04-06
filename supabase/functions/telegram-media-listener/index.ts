@@ -6198,7 +6198,8 @@ Deno.serve(async (req) => {
           },
         })
 
-        const bgStatus = nobgUrl ? '✅ Background removed' : '⚠️ Background removal skipped'
+        const bgStatus = nobgUrl ? '✅ White BG' : '⚠️ White BG skipped'
+        const blurStatus2 = blurUrl2 ? ' • ✅ Blur BG' : ' • ⚠️ Blur BG skipped'
         let locationInfo2 = ''
         if (defaultAddress2 && defaultMatchedStore2) {
           locationInfo2 = `\n📍 <b>Default address used!</b> Auto-assigned to <b>${defaultMatchedStore2.store_name}</b>`
@@ -6212,7 +6213,7 @@ Deno.serve(async (req) => {
 
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo2}${nextPrompt2}`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${blurStatus2}${locationInfo2}${nextPrompt2}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
