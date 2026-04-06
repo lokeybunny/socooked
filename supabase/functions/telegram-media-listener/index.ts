@@ -97,6 +97,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'fig', description: '🔇 Toggle auto-shill & CRM notifications on/off' },
     { command: 'defaultaddy', description: '📍 Set default arbitrage address' },
     { command: 'defaultaddyoff', description: '📍 Disable default arbitrage address' },
+    { command: 'wheresshop', description: '🏪 Browse all pawn shop locations' },
     { command: 'shill', description: '🏠 HOME — Shill video to Home communities' },
     { command: 'shill2', description: '✈️ AWAY — Shill video to Away community' },
   ]
@@ -156,7 +157,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -187,6 +188,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
      if (normalized === 'defaultaddyoff' || normalized === '/defaultaddyoff') return 'defaultaddyoff'
      return 'defaultaddy'
    }
+   if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
   return null
 }
 
@@ -2481,6 +2483,49 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Shop browser next/prev callbacks ───
+      if (cbData.startsWith('shop_page_')) {
+        const pageNum = parseInt(cbData.replace('shop_page_', ''))
+        if (!isNaN(pageNum)) {
+          const { data: store } = await supabase.from('arbitrage_stores')
+            .select('store_name, address, contact_phone, website, store_number')
+            .eq('store_number', pageNum)
+            .maybeSingle()
+
+          const { count: totalStores } = await supabase.from('arbitrage_stores')
+            .select('id', { count: 'exact', head: true })
+
+          if (!store) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: `❌ Store #${pageNum} not found.` })
+            return new Response('ok')
+          }
+
+          const total = totalStores || 0
+          const lines = [
+            `🏪 <b>Store #${store.store_number}</b> of ${total}`,
+            `\n📛 <b>${store.store_name}</b>`,
+            `📍 ${store.address || 'No address'}`,
+          ]
+          if (store.contact_phone) lines.push(`📞 ${store.contact_phone}`)
+          if (store.website) lines.push(`🌐 ${store.website}`)
+
+          const buttons: any[] = []
+          const row: any[] = []
+          if (pageNum > 1) row.push({ text: '⬅️ Previous', callback_data: `shop_page_${pageNum - 1}` })
+          if (pageNum < total) row.push({ text: 'Next ➡️', callback_data: `shop_page_${pageNum + 1}` })
+          if (row.length) buttons.push(row)
+
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: lines.join('\n'),
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons },
+          })
+        }
+        return new Response('ok')
+      }
+
       // ─── SMM Generate AI callback ───
       if (cbData === 'smm_gen_yes' || cbData === 'smm_gen_no') {
         if (cbData === 'smm_gen_no') {
@@ -3974,6 +4019,46 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+
+    // ─── Handle /wheresshop command ───
+    if (action === 'wheresshop') {
+      try {
+        const { data: store } = await supabase.from('arbitrage_stores')
+          .select('store_name, address, contact_phone, website, store_number')
+          .eq('store_number', 1)
+          .maybeSingle()
+
+        const { count: totalStores } = await supabase.from('arbitrage_stores')
+          .select('id', { count: 'exact', head: true })
+
+        if (!store) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No stores found in CRM.' })
+          return new Response('ok')
+        }
+
+        const total = totalStores || 0
+        const lines = [
+          `🏪 <b>Store #${store.store_number}</b> of ${total}`,
+          `\n📛 <b>${store.store_name}</b>`,
+          `📍 ${store.address || 'No address'}`,
+        ]
+        if (store.contact_phone) lines.push(`📞 ${store.contact_phone}`)
+        if (store.website) lines.push(`🌐 ${store.website}`)
+
+        const buttons: any[] = []
+        if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'shop_page_2' }])
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: buttons },
+        })
+      } catch (e: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed: ${e.message}` })
+      }
+      return new Response('ok')
+    }
 
     if (text.toLowerCase().startsWith('/shill') && !text.toLowerCase().startsWith('/shill2')) {
       const senderUsername = (message.from?.username || '').toLowerCase()
