@@ -2598,8 +2598,8 @@ Deno.serve(async (req) => {
 
         storesWithDist.sort((a, b) => a.sortDistance - b.sortDistance)
         const routeOrder = storesWithDist.map(s => s.store_number)
-        const routeDistances: Record<number, number> = {}
-        storesWithDist.forEach(s => { routeDistances[s.store_number] = Math.round(s.distance * 10) / 10 })
+        const routeDistances: Record<number, string> = {}
+        storesWithDist.forEach(s => { routeDistances[s.store_number] = s.distanceLabel })
 
         // Cache route in site_configs
         await supabase.from('site_configs').upsert({
@@ -2612,7 +2612,7 @@ Deno.serve(async (req) => {
         // Show first store in route
         const firstNum = routeOrder[0]
         const firstStore = allStores.find(s => s.store_number === firstNum)!
-        const firstDist = routeDistances[firstNum]
+        const firstDist = routeDistances[firstNum] ?? 'Distance unavailable'
         const total = routeOrder.length
 
         const lines = [
@@ -2621,7 +2621,7 @@ Deno.serve(async (req) => {
           `\n🏪 <b>Stop #1</b> of ${total} (Store #${firstStore.store_number})`,
           `📛 <b>${firstStore.store_name}</b>`,
           `📍 ${firstStore.address || 'No address'}`,
-          `📏 ${firstDist} mi away`,
+          `📏 ${firstDist}`,
         ]
         if (firstStore.contact_phone) lines.push(`📞 ${firstStore.contact_phone}`)
         if (firstStore.website) lines.push(`🌐 ${firstStore.website}`)
@@ -2653,7 +2653,7 @@ Deno.serve(async (req) => {
             .maybeSingle()
 
           const route = (routeCache?.content as any)?.route as number[] | undefined
-          const distances = (routeCache?.content as any)?.distances as Record<string, number> | undefined
+          const distances = (routeCache?.content as any)?.distances as Record<string, string> | undefined
           const home = (routeCache?.content as any)?.home as string || ''
 
           if (!route || routeIdx < 0 || routeIdx >= route.length) {
@@ -2673,14 +2673,14 @@ Deno.serve(async (req) => {
           }
 
           const total = route.length
-          const dist = distances?.[String(storeNum)] ?? '?'
+          const dist = distances?.[String(storeNum)] ?? 'Distance unavailable'
           const lines = [
             `🗺 <b>Route Mode</b> — Stop #${routeIdx + 1} of ${total}`,
             `📍 From: ${home}`,
             `\n🏪 <b>Store #${store.store_number}</b>`,
             `📛 <b>${store.store_name}</b>`,
             `📍 ${store.address || 'No address'}`,
-            `📏 ${dist} mi away`,
+            `📏 ${dist}`,
           ]
           if (store.contact_phone) lines.push(`📞 ${store.contact_phone}`)
           if (store.website) lines.push(`🌐 ${store.website}`)
