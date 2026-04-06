@@ -2483,6 +2483,39 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Shop browser save-as-default callback ───
+      if (cbData.startsWith('shop_save_')) {
+        const saveNum = parseInt(cbData.replace('shop_save_', ''))
+        if (!isNaN(saveNum)) {
+          const { data: store } = await supabase.from('arbitrage_stores')
+            .select('store_name, address')
+            .eq('store_number', saveNum)
+            .maybeSingle()
+
+          if (store?.address) {
+            await supabase.from('site_configs').upsert({
+              site_id: 'arbitrage',
+              section: 'default-address',
+              content: { enabled: true, address: store.address },
+              is_published: true,
+            }, { onConflict: 'site_id,section' })
+
+            await tgPost(TG_TOKEN, 'answerCallbackQuery', {
+              callback_query_id: cbq.id,
+              text: `✅ Default address set to: ${store.address}`,
+              show_alert: true,
+            })
+          } else {
+            await tgPost(TG_TOKEN, 'answerCallbackQuery', {
+              callback_query_id: cbq.id,
+              text: '❌ This store has no address to save.',
+              show_alert: true,
+            })
+          }
+        }
+        return new Response('ok')
+      }
+
       // ─── Shop browser next/prev callbacks ───
       if (cbData.startsWith('shop_page_')) {
         const pageNum = parseInt(cbData.replace('shop_page_', ''))
@@ -2510,10 +2543,11 @@ Deno.serve(async (req) => {
           if (store.website) lines.push(`🌐 ${store.website}`)
 
           const buttons: any[] = []
-          const row: any[] = []
-          if (pageNum > 1) row.push({ text: '⬅️ Previous', callback_data: `shop_page_${pageNum - 1}` })
-          if (pageNum < total) row.push({ text: 'Next ➡️', callback_data: `shop_page_${pageNum + 1}` })
-          if (row.length) buttons.push(row)
+          const navRow: any[] = []
+          if (pageNum > 1) navRow.push({ text: '⬅️ Previous', callback_data: `shop_page_${pageNum - 1}` })
+          if (pageNum < total) navRow.push({ text: 'Next ➡️', callback_data: `shop_page_${pageNum + 1}` })
+          if (navRow.length) buttons.push(navRow)
+          if (store.address) buttons.push([{ text: '📍 Save as Default', callback_data: `shop_save_${pageNum}` }])
 
           await tgPost(TG_TOKEN, 'editMessageText', {
             chat_id: cbChatId,
@@ -4047,6 +4081,7 @@ Deno.serve(async (req) => {
 
         const buttons: any[] = []
         if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'shop_page_2' }])
+        if (store.address) buttons.push([{ text: '📍 Save as Default', callback_data: 'shop_save_1' }])
 
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
