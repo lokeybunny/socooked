@@ -1,0 +1,1 @@
+ALTER TABLE public.arbitrage_items ADD COLUMN IF NOT EXISTS blur_image_url text;

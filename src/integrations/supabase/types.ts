@@ -179,6 +179,7 @@ export type Database = {
       arbitrage_items: {
         Row: {
           asking_price: number | null
+          blur_image_url: string | null
           condition_notes: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -198,6 +199,7 @@ export type Database = {
         }
         Insert: {
           asking_price?: number | null
+          blur_image_url?: string | null
           condition_notes?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -217,6 +219,7 @@ export type Database = {
         }
         Update: {
           asking_price?: number | null
+          blur_image_url?: string | null
           condition_notes?: string | null
           contact_name?: string | null
           contact_phone?: string | null
