@@ -2882,7 +2882,10 @@ Deno.serve(async (req) => {
           buttons.push([
             { text: '✅ Interested', callback_data: `vid_interested_${p.id}_${pageIdx}` },
             { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_${pageIdx}` },
+          ])
+          buttons.push([
             { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_${pageIdx}` },
+            { text: '👤 POC', callback_data: `vid_poc_${p.id}_${pageIdx}` },
           ])
           const navRow: any[] = []
           if (pageIdx > 0) navRow.push({ text: '⬅️ Previous', callback_data: `vid_page_${pageIdx - 1}` })
