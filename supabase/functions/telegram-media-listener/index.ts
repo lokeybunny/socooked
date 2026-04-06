@@ -3201,7 +3201,7 @@ Deno.serve(async (req) => {
                   role: 'user',
                   content: [
                     { type: 'image_url', image_url: { url: originalUrl } },
-                    { type: 'text', text: 'Remove the background from this image completely. Replace the background with a clean solid white background (#FFFFFF). Keep only the main subject/item centered on the white background. Do not use transparency.' },
+                    { type: 'text', text: 'Remove the background from this image completely. Replace the background with a clean solid white background (#FFFFFF). Keep only the main subject/item centered on the white background. Do not use transparency. IMPORTANT: Also remove any visible price tags, price stickers, price labels, barcode stickers, or any sticker showing a dollar amount from the item. Cleanly erase them so the item looks natural without any pricing visible.' },
                   ],
                 }],
                 modalities: ['image', 'text'],
