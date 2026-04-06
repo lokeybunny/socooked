@@ -552,12 +552,38 @@ export default function VideographyHub() {
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => markContacted(p)}>
                       <CheckCircle2 className="h-3 w-3 mr-1" /> Contacted
                     </Button>
-                    {['contacted', 'meeting_set'].includes(p.pipeline_stage) && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setPocEditId(pocEditId === p.id ? null : p.id); setPocName(p.contact_name || ''); }}>
+                      <User className="h-3 w-3 mr-1" /> POC
+                    </Button>
+                    {['contacted', 'callback', 'meeting_set'].includes(p.pipeline_stage) && (
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => advanceStage(p)}>
                         <ChevronRight className="h-3 w-3" /> Next
                       </Button>
                     )}
                   </div>
+                  {pocEditId === p.id && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Input
+                        value={pocName}
+                        onChange={e => setPocName(e.target.value)}
+                        placeholder="Point of contact name"
+                        className="h-7 text-xs flex-1"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && pocName.trim()) {
+                            updateProspect(p.id, { contact_name: pocName.trim() });
+                            setPocEditId(null);
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <Button size="sm" className="h-7 text-xs" onClick={() => {
+                        if (pocName.trim()) {
+                          updateProspect(p.id, { contact_name: pocName.trim() });
+                          setPocEditId(null);
+                        }
+                      }}>Save</Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
