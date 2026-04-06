@@ -3268,6 +3268,87 @@ Deno.serve(async (req) => {
           await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
         }
 
+        // ─── 2nd processing: Blurred background + price tag removal ───
+        let blurUrl: string | null = null
+        try {
+          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+          if (LOVABLE_API_KEY) {
+            const blurRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'google/gemini-3-pro-image-preview',
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'image_url', image_url: { url: originalUrl } },
+                    { type: 'text', text: 'Keep the main subject/item in sharp focus. Blur the background behind the item using a natural bokeh/depth-of-field effect — do NOT remove or replace the background, just blur it. CRITICAL INSTRUCTION: If there are ANY price tags, price stickers, price labels, barcode stickers, handwritten prices, or any marking showing a dollar amount or price on the item, you MUST completely remove them and reconstruct the surface underneath so it looks like the sticker/tag was never there. Do NOT replace them with new text or numbers — leave the area completely clean and natural. The final image must have ZERO visible pricing of any kind.' },
+                  ],
+                }],
+                modalities: ['image', 'text'],
+              }),
+            })
+
+            if (blurRes.ok) {
+              const blurData = await blurRes.json()
+              const blurChoice = blurData.choices?.[0]?.message
+              let blurBase64: string | null = null
+
+              if (blurChoice?.images && Array.isArray(blurChoice.images)) {
+                for (const img of blurChoice.images) {
+                  if (img.type === 'image_url' && img.image_url?.url) {
+                    if (img.image_url.url.startsWith('data:')) {
+                      blurBase64 = img.image_url.url
+                    } else {
+                      blurUrl = img.image_url.url
+                    }
+                    break
+                  }
+                }
+              }
+              if (!blurUrl && !blurBase64 && Array.isArray(blurChoice?.content)) {
+                for (const part of blurChoice.content) {
+                  if (part.type === 'image_url' && part.image_url?.url) {
+                    if (part.image_url.url.startsWith('data:')) {
+                      blurBase64 = part.image_url.url
+                    } else {
+                      blurUrl = part.image_url.url
+                    }
+                    break
+                  }
+                }
+              }
+
+              if (blurBase64 && !blurUrl) {
+                const match = blurBase64.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/)
+                if (match) {
+                  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+                  const raw = match[2]
+                  const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
+                  const blurPath = `arbitrage/${Date.now()}_blur.${ext}`
+                  const { error: blurUpErr } = await supabase.storage
+                    .from('content-uploads')
+                    .upload(blurPath, bytes, { contentType: `image/${match[1]}`, upsert: true })
+                  if (!blurUpErr) {
+                    const { data: blurPub } = supabase.storage.from('content-uploads').getPublicUrl(blurPath)
+                    blurUrl = blurPub?.publicUrl || null
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[arbitrage] blur bg error:', e)
+        }
+
+        // Update with blur URL
+        if (arbItem?.id && blurUrl) {
+          await supabase.from('arbitrage_items').update({ blur_image_url: blurUrl }).eq('id', arbItem.id)
+        }
+
         // ─── EXIF GPS extraction & store auto-matching ───
         let gpsAddress: string | null = null
         let matchedStore: { id: string; store_name: string; address: string | null } | null = null
