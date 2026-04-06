@@ -126,7 +126,7 @@ export default function WarrenLanding() {
         style={{ backgroundColor: headerBg }}
         className="fixed top-0 inset-x-0 z-50 backdrop-blur-md border-b border-white/[0.04]"
       >
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3 cursor-pointer bg-transparent border-none outline-none">
             <Cpu className="h-5 w-5 text-amber-400" />
             <div className="flex flex-col leading-none">
