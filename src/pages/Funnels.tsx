@@ -61,6 +61,7 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
   webdesign: [
     { value: 'lead', label: 'Prospect' },
+    { value: 'contacted', label: 'Contacted' },
     { value: 'ai_complete', label: 'AI Complete' },
     { value: 'agreement_sent', label: 'Agreement Sent' },
     { value: 'closed', label: 'Closed' },
