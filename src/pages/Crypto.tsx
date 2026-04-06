@@ -226,7 +226,7 @@ export default function Crypto() {
   );
 
   /* ── fetch on-chain balances (chunked to avoid edge-function timeouts) ── */
-  const CHUNK_SIZE = 5;
+  const CHUNK_SIZE = 10;
   const fetchBalances = useCallback(
     async (silent = false) => {
       if (!wallets.length) {
@@ -248,15 +248,21 @@ export default function Crypto() {
           chunks.push(addresses.slice(i, i + CHUNK_SIZE));
         }
 
+        // Fetch all chunks in parallel
+        const chunkResults = await Promise.all(
+          chunks.map(async (chunk) => {
+            const { data, error } = await supabase.functions.invoke("crypto-wallets", {
+              body: { wallets: chunk, token_mint: TOKEN_ADDRESS },
+            });
+            if (error) throw error;
+            const parsed = typeof data === "string" ? JSON.parse(data) : data;
+            return parsed;
+          }),
+        );
+
         let allBalances: WalletBalance[] = [];
         let lastTotals: WalletTotals | null = null;
-
-        for (let ci = 0; ci < chunks.length; ci++) {
-          const { data, error } = await supabase.functions.invoke("crypto-wallets", {
-            body: { wallets: chunks[ci], token_mint: TOKEN_ADDRESS },
-          });
-          if (error) throw error;
-          const parsed = typeof data === "string" ? JSON.parse(data) : data;
+        for (const parsed of chunkResults) {
           const chunkBalances: WalletBalance[] = Array.isArray(parsed?.wallets) ? parsed.wallets : [];
           allBalances = allBalances.concat(chunkBalances);
           lastTotals = parsed?.totals || null;
@@ -304,6 +310,20 @@ export default function Crypto() {
   useEffect(() => {
     walletTotalsRef.current = walletTotals;
   }, [walletTotals]);
+
+  /* ── load cache instantly on mount ── */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached.tokenMint === TOKEN_ADDRESS && Array.isArray(cached.wallets)) {
+          setWalletBalances(cached.wallets);
+          setWalletTotals(cached.totals || null);
+        }
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetchChart();
