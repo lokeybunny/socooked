@@ -167,7 +167,7 @@ export default function WarrenLanding() {
       {/* ── Hero with Parallax ── */}
       <section className="relative min-h-screen flex items-end overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center bg-fixed supports-[background-attachment:fixed]:bg-fixed bg-scroll"
           style={{ backgroundImage: `url(${parallaxHero})`, backgroundPosition: 'center 20%' }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
