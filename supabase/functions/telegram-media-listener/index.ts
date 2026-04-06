@@ -2751,6 +2751,38 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Videography POC callback — start session to capture name ───
+      if (cbData.startsWith('vid_poc_')) {
+        const idMatch = cbData.match(/vid_poc_([a-f0-9-]+)_(\d+)$/)
+        if (!idMatch) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Invalid prospect reference.' })
+          return new Response('ok')
+        }
+        const pid = idMatch[1]
+
+        const { data: prospect } = await supabase.from('videography_prospects')
+          .select('business_name, contact_name').eq('id', pid).maybeSingle()
+
+        // Create a session so the next text message is captured as the POC name
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'vid_poc_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'vid_poc_session',
+          payload: { chat_id: cbChatId, prospect_id: pid, created: Date.now() },
+        })
+
+        const current = prospect?.contact_name ? `\nCurrent POC: <b>${prospect.contact_name}</b>` : ''
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: cbChatId,
+          text: `👤 <b>Set Point of Contact for ${prospect?.business_name || 'prospect'}</b>${current}\n\nType the contact name now:`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
       // ─── Videography prospect action callbacks ───
       if (cbData.startsWith('vid_interested_') || cbData.startsWith('vid_dead_') || cbData.startsWith('vid_callback_')) {
         const parts = cbData.split('_')
