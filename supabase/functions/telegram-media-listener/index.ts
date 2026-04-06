@@ -2502,9 +2502,19 @@ Deno.serve(async (req) => {
 
             await tgPost(TG_TOKEN, 'answerCallbackQuery', {
               callback_query_id: cbq.id,
-              text: `✅ Default address set to: ${store.address}`,
+              text: `✅ Default address saved!`,
               show_alert: true,
             })
+
+            // Send a visible confirmation message to the chat
+            const chatId = cbq.message?.chat?.id
+            if (chatId) {
+              await tgPost(TG_TOKEN, 'sendMessage', {
+                chat_id: chatId,
+                text: `📍 *Default Address Updated*\n\n🏪 *${store.store_name}*\n📫 ${store.address}\n\nAll new items will use this address automatically.`,
+                parse_mode: 'Markdown',
+              })
+            }
           } else {
             await tgPost(TG_TOKEN, 'answerCallbackQuery', {
               callback_query_id: cbq.id,
