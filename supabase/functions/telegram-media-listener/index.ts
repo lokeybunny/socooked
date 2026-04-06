@@ -3268,86 +3268,6 @@ Deno.serve(async (req) => {
           await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
         }
 
-        // ─── 2nd processing: Blurred background + price tag removal ───
-        let blurUrl: string | null = null
-        try {
-          const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-          if (LOVABLE_API_KEY) {
-            const blurRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-3-pro-image-preview',
-                messages: [{
-                  role: 'user',
-                  content: [
-                    { type: 'image_url', image_url: { url: originalUrl } },
-                    { type: 'text', text: 'Keep the main subject/item in sharp focus. Blur the background behind the item using a natural bokeh/depth-of-field effect — do NOT remove or replace the background, just blur it. CRITICAL INSTRUCTION: If there are ANY price tags, price stickers, price labels, barcode stickers, handwritten prices, or any marking showing a dollar amount or price on the item, you MUST completely remove them and reconstruct the surface underneath so it looks like the sticker/tag was never there. Do NOT replace them with new text or numbers — leave the area completely clean and natural. The final image must have ZERO visible pricing of any kind.' },
-                  ],
-                }],
-                modalities: ['image', 'text'],
-              }),
-            })
-
-            if (blurRes.ok) {
-              const blurData = await blurRes.json()
-              const blurChoice = blurData.choices?.[0]?.message
-              let blurBase64: string | null = null
-
-              if (blurChoice?.images && Array.isArray(blurChoice.images)) {
-                for (const img of blurChoice.images) {
-                  if (img.type === 'image_url' && img.image_url?.url) {
-                    if (img.image_url.url.startsWith('data:')) {
-                      blurBase64 = img.image_url.url
-                    } else {
-                      blurUrl = img.image_url.url
-                    }
-                    break
-                  }
-                }
-              }
-              if (!blurUrl && !blurBase64 && Array.isArray(blurChoice?.content)) {
-                for (const part of blurChoice.content) {
-                  if (part.type === 'image_url' && part.image_url?.url) {
-                    if (part.image_url.url.startsWith('data:')) {
-                      blurBase64 = part.image_url.url
-                    } else {
-                      blurUrl = part.image_url.url
-                    }
-                    break
-                  }
-                }
-              }
-
-              if (blurBase64 && !blurUrl) {
-                const match = blurBase64.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/)
-                if (match) {
-                  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
-                  const raw = match[2]
-                  const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
-                  const blurPath = `arbitrage/${Date.now()}_blur.${ext}`
-                  const { error: blurUpErr } = await supabase.storage
-                    .from('content-uploads')
-                    .upload(blurPath, bytes, { contentType: `image/${match[1]}`, upsert: true })
-                  if (!blurUpErr) {
-                    const { data: blurPub } = supabase.storage.from('content-uploads').getPublicUrl(blurPath)
-                    blurUrl = blurPub?.publicUrl || null
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.error('[arbitrage] blur bg error:', e)
-        }
-
-        // Update with blur URL
-        if (arbItem?.id && blurUrl) {
-          await supabase.from('arbitrage_items').update({ blur_image_url: blurUrl }).eq('id', arbItem.id)
-        }
 
         // ─── EXIF GPS extraction & store auto-matching ───
         let gpsAddress: string | null = null
@@ -3437,8 +3357,7 @@ Deno.serve(async (req) => {
           },
         })
 
-        const bgStatus = nobgUrl ? '✅ White BG' : '⚠️ White BG skipped'
-        const blurStatus = blurUrl ? ' • ✅ Blur BG' : ' • ⚠️ Blur BG skipped'
+        const bgStatus = nobgUrl ? '✅ White BG + price tags removed' : '⚠️ Background removal skipped'
         let locationInfo = ''
         if (gpsAddress && matchedStore) {
           locationInfo = `\n📍 <b>Location detected!</b> Auto-assigned to <b>${matchedStore.store_name}</b>`
@@ -3457,7 +3376,7 @@ Deno.serve(async (req) => {
         await tgPost(TG_TOKEN, 'editMessageText', {
           chat_id: cbChatId,
           message_id: cbq.message.message_id,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${blurStatus}${locationInfo}${nextPrompt}`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo}${nextPrompt}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
@@ -5817,6 +5736,8 @@ Deno.serve(async (req) => {
         .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
         .filter('payload->>chat_id', 'eq', String(chatId))
         .limit(1)
+      
+      console.log(`[arbitrage-debug] media=${media.type} arbAwait=${arbAwait?.length || 0} chatId=${chatId}`)
 
       // Clean up any stale add_photos sessions from old code
       await supabase.from('webhook_events')
@@ -6069,79 +5990,6 @@ Deno.serve(async (req) => {
           await supabase.from('arbitrage_items').update({ nobg_image_url: nobgUrl }).eq('id', arbItem.id)
         }
 
-        // ─── 2nd processing: Blurred background + price tag removal ───
-        let blurUrl2: string | null = null
-        try {
-          const LOVABLE_API_KEY2 = Deno.env.get('LOVABLE_API_KEY')
-          if (LOVABLE_API_KEY2) {
-            const blurRes2 = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${LOVABLE_API_KEY2}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'google/gemini-3-pro-image-preview',
-                messages: [{
-                  role: 'user',
-                  content: [
-                    { type: 'image_url', image_url: { url: originalUrl } },
-                    { type: 'text', text: 'Keep the main subject/item in sharp focus. Blur the background behind the item using a natural bokeh/depth-of-field effect — do NOT remove or replace the background, just blur it. CRITICAL INSTRUCTION: If there are ANY price tags, price stickers, price labels, barcode stickers, handwritten prices, or any marking showing a dollar amount or price on the item, you MUST completely remove them and reconstruct the surface underneath so it looks like the sticker/tag was never there. Do NOT replace them with new text or numbers — leave the area completely clean and natural. The final image must have ZERO visible pricing of any kind.' },
-                  ],
-                }],
-                modalities: ['image', 'text'],
-              }),
-            })
-
-            if (blurRes2.ok) {
-              const blurData2 = await blurRes2.json()
-              const blurChoice2 = blurData2.choices?.[0]?.message
-              let blurBase64_2: string | null = null
-
-              if (blurChoice2?.images && Array.isArray(blurChoice2.images)) {
-                for (const img of blurChoice2.images) {
-                  if (img.type === 'image_url' && img.image_url?.url) {
-                    if (img.image_url.url.startsWith('data:')) blurBase64_2 = img.image_url.url
-                    else blurUrl2 = img.image_url.url
-                    break
-                  }
-                }
-              }
-              if (!blurUrl2 && !blurBase64_2 && Array.isArray(blurChoice2?.content)) {
-                for (const part of blurChoice2.content) {
-                  if (part.type === 'image_url' && part.image_url?.url) {
-                    if (part.image_url.url.startsWith('data:')) blurBase64_2 = part.image_url.url
-                    else blurUrl2 = part.image_url.url
-                    break
-                  }
-                }
-              }
-
-              if (blurBase64_2 && !blurUrl2) {
-                const match = blurBase64_2.match(/^data:image\/(png|jpeg|jpg|gif);base64,(.+)$/)
-                if (match) {
-                  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
-                  const raw = match[2]
-                  const bytes = Uint8Array.from(atob(raw), c => c.charCodeAt(0))
-                  const blurPath2 = `arbitrage/${Date.now()}_blur.${ext}`
-                  const { error: blurUpErr2 } = await supabase.storage
-                    .from('content-uploads')
-                    .upload(blurPath2, bytes, { contentType: `image/${match[1]}`, upsert: true })
-                  if (!blurUpErr2) {
-                    const { data: blurPub2 } = supabase.storage.from('content-uploads').getPublicUrl(blurPath2)
-                    blurUrl2 = blurPub2?.publicUrl || null
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.error('[arbitrage] blur bg error:', e)
-        }
-
-        if (blurUrl2) {
-          await supabase.from('arbitrage_items').update({ blur_image_url: blurUrl2 }).eq('id', arbItem.id)
-        }
 
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
@@ -6198,8 +6046,7 @@ Deno.serve(async (req) => {
           },
         })
 
-        const bgStatus = nobgUrl ? '✅ White BG' : '⚠️ White BG skipped'
-        const blurStatus2 = blurUrl2 ? ' • ✅ Blur BG' : ' • ⚠️ Blur BG skipped'
+        const bgStatus = nobgUrl ? '✅ White BG + price tags removed' : '⚠️ Background removal skipped'
         let locationInfo2 = ''
         if (defaultAddress2 && defaultMatchedStore2) {
           locationInfo2 = `\n📍 <b>Default address used!</b> Auto-assigned to <b>${defaultMatchedStore2.store_name}</b>`
@@ -6213,7 +6060,7 @@ Deno.serve(async (req) => {
 
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${blurStatus2}${locationInfo2}${nextPrompt2}`,
+          text: `🏪 <b>Arbitrage item saved!</b>\n📸 Original photo uploaded\n${bgStatus}${locationInfo2}${nextPrompt2}`,
           parse_mode: 'HTML',
         })
         return new Response('ok')
