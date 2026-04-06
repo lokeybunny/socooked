@@ -29,15 +29,21 @@ serve(async (req) => {
       });
     }
 
+    // Separate callback vs normal followups for different messaging
+    const callbackProspects = overdue.filter((p: any) => p.pipeline_stage === 'callback');
+    const normalProspects = overdue.filter((p: any) => p.pipeline_stage !== 'callback');
+
     // Create activity_log entries for in-app notifications
     const logEntries = overdue.map((p: any) => ({
       entity_type: "videography_prospect",
       entity_id: p.id,
-      action: "followup_due",
+      action: p.pipeline_stage === 'callback' ? 'callback_due' : 'followup_due',
       meta: {
         name: p.business_name,
         contact: p.contact_name || "No contact set",
-        message: `📹 Follow up with ${p.business_name}${p.contact_name ? ` (${p.contact_name})` : ""} — ${p.phone || "no phone"}`,
+        message: p.pipeline_stage === 'callback'
+          ? `📞 CALLBACK: ${p.business_name}${p.contact_name ? ` (${p.contact_name})` : ""} — ${p.phone || "no phone"}`
+          : `📹 Follow up with ${p.business_name}${p.contact_name ? ` (${p.contact_name})` : ""} — ${p.phone || "no phone"}`,
       },
     }));
 
@@ -48,11 +54,23 @@ serve(async (req) => {
     const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
 
     if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-      const lines = overdue.map((p: any, i: number) =>
-        `${i + 1}. <b>${p.business_name}</b>${p.contact_name ? ` — ${p.contact_name}` : ""}${p.phone ? ` | ${p.phone}` : ""}`
-      );
+      const sections: string[] = [];
+      
+      if (callbackProspects.length > 0) {
+        const cbLines = callbackProspects.map((p: any, i: number) =>
+          `${i + 1}. <b>${p.business_name}</b>${p.contact_name ? ` — ${p.contact_name}` : ""}${p.phone ? ` | ${p.phone}` : ""}`
+        );
+        sections.push(`📞 <b>CALLBACKS DUE (${callbackProspects.length})</b>\n${cbLines.join("\n")}`);
+      }
 
-      const text = `📹 <b>Videography Followup Reminder</b>\n\n${lines.join("\n")}\n\n${overdue.length} business${overdue.length > 1 ? "es" : ""} need followup today.`;
+      if (normalProspects.length > 0) {
+        const normLines = normalProspects.map((p: any, i: number) =>
+          `${i + 1}. <b>${p.business_name}</b>${p.contact_name ? ` — ${p.contact_name}` : ""}${p.phone ? ` | ${p.phone}` : ""}`
+        );
+        sections.push(`📹 <b>FOLLOWUPS DUE (${normalProspects.length})</b>\n${normLines.join("\n")}`);
+      }
+
+      const text = `📹 <b>Videography Reminder</b>\n\n${sections.join("\n\n")}`;
 
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
         method: "POST",
@@ -65,11 +83,12 @@ serve(async (req) => {
       });
     }
 
-    // Bump next_followup_at by 7 days so they don't fire again until next week
+    // Bump next_followup_at: 24h for callbacks, 7 days for normal
     for (const p of overdue) {
+      const bumpMs = (p as any).pipeline_stage === 'callback' ? 24 * 60 * 60 * 1000 : 7 * 86400000;
       await sb.from("videography_prospects").update({
-        next_followup_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-      }).eq("id", p.id);
+        next_followup_at: new Date(Date.now() + bumpMs).toISOString(),
+      }).eq("id", (p as any).id);
     }
 
     console.log(`[videography-followup] Sent ${overdue.length} reminders`);
