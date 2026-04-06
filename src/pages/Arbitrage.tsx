@@ -1088,6 +1088,9 @@ export default function Arbitrage() {
               <Label htmlFor="bg-toggle" className="text-xs cursor-pointer select-none whitespace-nowrap">Auto BG Remove</Label>
               <Switch id="bg-toggle" checked={autoBgRemoval} onCheckedChange={handleToggleBgRemoval} disabled={bgToggleLoading} />
             </div>
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setUploadWizardOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1" /> Upload
+            </Button>
             <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", loading && "animate-spin")} /> Refresh
             </Button>
