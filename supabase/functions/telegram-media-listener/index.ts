@@ -4428,7 +4428,10 @@ Deno.serve(async (req) => {
         buttons.push([
           { text: '✅ Interested', callback_data: `vid_interested_${p.id}_0` },
           { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_0` },
+        ])
+        buttons.push([
           { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_0` },
+          { text: '👤 POC', callback_data: `vid_poc_${p.id}_0` },
         ])
         // Navigation
         if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'vid_page_1' }])
