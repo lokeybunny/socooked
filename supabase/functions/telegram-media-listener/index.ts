@@ -5736,6 +5736,8 @@ Deno.serve(async (req) => {
         .eq('source', 'telegram').eq('event_type', 'arbitrage_awaiting_photo')
         .filter('payload->>chat_id', 'eq', String(chatId))
         .limit(1)
+      
+      console.log(`[arbitrage-debug] media=${media.type} arbAwait=${arbAwait?.length || 0} chatId=${chatId}`)
 
       // Clean up any stale add_photos sessions from old code
       await supabase.from('webhook_events')
