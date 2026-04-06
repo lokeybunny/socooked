@@ -58,6 +58,7 @@ const statusLabels: Record<string, string> = {
   docs_generated: 'Docs Generated',
   sent_for_signature: 'Sent for Signature',
   'in-progress': 'In Progress',
+  callback: 'Call Back',
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
