@@ -2484,6 +2484,7 @@ Deno.serve(async (req) => {
       }
 
       // ─── Shop browser save-as-default callback ───
+      // ─── Shop save-as-default callback ───
       if (cbData.startsWith('shop_save_')) {
         const saveNum = parseInt(cbData.replace('shop_save_', ''))
         if (!isNaN(saveNum)) {
@@ -2506,7 +2507,6 @@ Deno.serve(async (req) => {
               show_alert: true,
             })
 
-            // Send a visible confirmation message to the chat
             const chatId = cbq.message?.chat?.id
             if (chatId) {
               await tgPost(TG_TOKEN, 'sendMessage', {
@@ -2522,6 +2522,178 @@ Deno.serve(async (req) => {
               show_alert: true,
             })
           }
+        }
+        return new Response('ok')
+      }
+
+      // ─── Shop Route: geocode all stores, sort by distance, cache route ───
+      if (cbData === 'shop_route_start') {
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', {
+          callback_query_id: cbq.id,
+          text: '🗺 Calculating route… please wait',
+        })
+
+        const HOME_ADDRESS = '5478 Prospectors Creek, Las Vegas, NV'
+
+        // Geocode helper using Nominatim
+        async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
+          try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`
+            const res = await fetch(url, { headers: { 'User-Agent': 'ClaWd-CRM/1.0' } })
+            const data = await res.json()
+            if (data && data.length > 0) {
+              return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+            }
+          } catch (e) { console.log(`Geocode failed for "${address}": ${e}`) }
+          return null
+        }
+
+        // Haversine distance in miles
+        function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+          const toRad = (d: number) => d * Math.PI / 180
+          const R = 3958.8
+          const dLat = toRad(lat2 - lat1)
+          const dLon = toRad(lon2 - lon1)
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        }
+
+        const homeCoords = await geocodeAddress(HOME_ADDRESS)
+        if (!homeCoords) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Could not geocode home address.' })
+          return new Response('ok')
+        }
+
+        const { data: allStores } = await supabase.from('arbitrage_stores')
+          .select('store_number, store_name, address, contact_phone, website')
+          .order('store_number')
+
+        if (!allStores || allStores.length === 0) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ No stores found.' })
+          return new Response('ok')
+        }
+
+        // Geocode all stores with addresses
+        const storesWithDist: { store_number: number; distance: number }[] = []
+        for (const s of allStores) {
+          if (!s.address) continue
+          const coords = await geocodeAddress(s.address)
+          if (coords) {
+            const dist = haversineMiles(homeCoords.lat, homeCoords.lon, coords.lat, coords.lon)
+            storesWithDist.push({ store_number: s.store_number, distance: dist })
+          }
+        }
+
+        if (storesWithDist.length === 0) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ No stores could be geocoded.' })
+          return new Response('ok')
+        }
+
+        // Sort closest to farthest
+        storesWithDist.sort((a, b) => a.distance - b.distance)
+        const routeOrder = storesWithDist.map(s => s.store_number)
+        const routeDistances: Record<number, number> = {}
+        storesWithDist.forEach(s => { routeDistances[s.store_number] = Math.round(s.distance * 10) / 10 })
+
+        // Cache route in site_configs
+        await supabase.from('site_configs').upsert({
+          site_id: 'arbitrage',
+          section: 'route-cache',
+          content: { route: routeOrder, distances: routeDistances, home: HOME_ADDRESS },
+          is_published: false,
+        }, { onConflict: 'site_id,section' })
+
+        // Show first store in route
+        const firstNum = routeOrder[0]
+        const firstStore = allStores.find(s => s.store_number === firstNum)!
+        const firstDist = routeDistances[firstNum]
+        const total = routeOrder.length
+
+        const lines = [
+          `🗺 <b>Route Mode</b> — Closest to Farthest`,
+          `📍 From: ${HOME_ADDRESS}`,
+          `\n🏪 <b>Stop #1</b> of ${total} (Store #${firstStore.store_number})`,
+          `📛 <b>${firstStore.store_name}</b>`,
+          `📍 ${firstStore.address || 'No address'}`,
+          `📏 ${firstDist} mi away`,
+        ]
+        if (firstStore.contact_phone) lines.push(`📞 ${firstStore.contact_phone}`)
+        if (firstStore.website) lines.push(`🌐 ${firstStore.website}`)
+
+        const buttons: any[] = []
+        if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'shop_rt_1' }])
+        if (firstStore.address) buttons.push([{ text: '📍 Save as Default', callback_data: `shop_save_${firstNum}` }])
+        buttons.push([{ text: '🔙 Normal Browse', callback_data: 'shop_page_1' }])
+
+        await tgPost(TG_TOKEN, 'editMessageText', {
+          chat_id: cbChatId,
+          message_id: cbq.message.message_id,
+          text: lines.join('\n'),
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: buttons },
+        })
+        return new Response('ok')
+      }
+
+      // ─── Shop Route navigation (shop_rt_INDEX) ───
+      if (cbData.startsWith('shop_rt_')) {
+        const routeIdx = parseInt(cbData.replace('shop_rt_', ''))
+        if (!isNaN(routeIdx)) {
+          // Load cached route
+          const { data: routeCache } = await supabase.from('site_configs')
+            .select('content')
+            .eq('site_id', 'arbitrage')
+            .eq('section', 'route-cache')
+            .maybeSingle()
+
+          const route = (routeCache?.content as any)?.route as number[] | undefined
+          const distances = (routeCache?.content as any)?.distances as Record<string, number> | undefined
+          const home = (routeCache?.content as any)?.home as string || ''
+
+          if (!route || routeIdx < 0 || routeIdx >= route.length) {
+            await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cbq.id, text: '❌ Route data not found. Press Route again.', show_alert: true })
+            return new Response('ok')
+          }
+
+          const storeNum = route[routeIdx]
+          const { data: store } = await supabase.from('arbitrage_stores')
+            .select('store_name, address, contact_phone, website, store_number')
+            .eq('store_number', storeNum)
+            .maybeSingle()
+
+          if (!store) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: `❌ Store #${storeNum} not found.` })
+            return new Response('ok')
+          }
+
+          const total = route.length
+          const dist = distances?.[String(storeNum)] ?? '?'
+          const lines = [
+            `🗺 <b>Route Mode</b> — Stop #${routeIdx + 1} of ${total}`,
+            `📍 From: ${home}`,
+            `\n🏪 <b>Store #${store.store_number}</b>`,
+            `📛 <b>${store.store_name}</b>`,
+            `📍 ${store.address || 'No address'}`,
+            `📏 ${dist} mi away`,
+          ]
+          if (store.contact_phone) lines.push(`📞 ${store.contact_phone}`)
+          if (store.website) lines.push(`🌐 ${store.website}`)
+
+          const buttons: any[] = []
+          const navRow: any[] = []
+          if (routeIdx > 0) navRow.push({ text: '⬅️ Previous', callback_data: `shop_rt_${routeIdx - 1}` })
+          if (routeIdx < total - 1) navRow.push({ text: 'Next ➡️', callback_data: `shop_rt_${routeIdx + 1}` })
+          if (navRow.length) buttons.push(navRow)
+          if (store.address) buttons.push([{ text: '📍 Save as Default', callback_data: `shop_save_${storeNum}` }])
+          buttons.push([{ text: '🔙 Normal Browse', callback_data: 'shop_page_1' }])
+
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: lines.join('\n'),
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: buttons },
+          })
         }
         return new Response('ok')
       }
@@ -2558,6 +2730,7 @@ Deno.serve(async (req) => {
           if (pageNum < total) navRow.push({ text: 'Next ➡️', callback_data: `shop_page_${pageNum + 1}` })
           if (navRow.length) buttons.push(navRow)
           if (store.address) buttons.push([{ text: '📍 Save as Default', callback_data: `shop_save_${pageNum}` }])
+          buttons.push([{ text: '🗺 Route', callback_data: 'shop_route_start' }])
 
           await tgPost(TG_TOKEN, 'editMessageText', {
             chat_id: cbChatId,
@@ -4092,6 +4265,7 @@ Deno.serve(async (req) => {
         const buttons: any[] = []
         if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'shop_page_2' }])
         if (store.address) buttons.push([{ text: '📍 Save as Default', callback_data: 'shop_save_1' }])
+        buttons.push([{ text: '🗺 Route', callback_data: 'shop_route_start' }])
 
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
