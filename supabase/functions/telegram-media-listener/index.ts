@@ -5745,7 +5745,8 @@ Deno.serve(async (req) => {
 
       // If there's any active arbitrage session (any step), silently append extra photos
       // This handles batch uploads where user sends 3-4 photos at once
-      if (media.type === 'image') {
+      // BUT only if we're NOT in arbitrage_awaiting_photo mode (which means we want a NEW item)
+      if (media.type === 'image' && (!arbAwait || arbAwait.length === 0)) {
         const { data: anyArbSession } = await supabase.from('webhook_events')
           .select('id, payload')
           .eq('source', 'telegram').eq('event_type', 'arbitrage_session')
