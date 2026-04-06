@@ -19,6 +19,7 @@ import { formatDistanceToNow, isPast, format, startOfMonth, endOfMonth, eachDayO
 const STAGES = [
   { key: 'new', label: 'New', color: 'bg-muted text-muted-foreground' },
   { key: 'contacted', label: 'Contacted', color: 'bg-blue-500/20 text-blue-400' },
+  { key: 'callback', label: 'Call Back', color: 'bg-orange-500/20 text-orange-400' },
   { key: 'meeting_set', label: 'Meeting Set', color: 'bg-purple-500/20 text-purple-400' },
   { key: 'agreement_sent', label: 'Agreement Sent', color: 'bg-yellow-500/20 text-yellow-400' },
   { key: 'contracted', label: 'Contracted', color: 'bg-green-500/20 text-green-400' },

@@ -69,6 +69,8 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
   ],
   videography: [
     { value: 'lead', label: 'Prospect' },
+    { value: 'contacted', label: 'Contacted' },
+    { value: 'callback', label: 'Call Back' },
     { value: 'scheduled', label: 'Scheduled' },
     { value: 'agreement_sent', label: 'Agreement Sent' },
     { value: 'closed', label: 'Closed' },
