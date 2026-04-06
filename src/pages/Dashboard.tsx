@@ -166,6 +166,7 @@ export default function Dashboard() {
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
         supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'purchased'),
         supabase.from('arbitrage_items').select('asking_price, wiggle_room_price').eq('status', 'listed'),
+        supabase.from('arbitrage_items').select('asking_price, wiggle_room_price, meta').eq('status', 'sold'),
       ]);
 
       const allComms = comms.data || [];
