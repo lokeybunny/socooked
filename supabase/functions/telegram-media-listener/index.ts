@@ -2751,6 +2751,38 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Videography POC callback — start session to capture name ───
+      if (cbData.startsWith('vid_poc_')) {
+        const idMatch = cbData.match(/vid_poc_([a-f0-9-]+)_(\d+)$/)
+        if (!idMatch) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Invalid prospect reference.' })
+          return new Response('ok')
+        }
+        const pid = idMatch[1]
+
+        const { data: prospect } = await supabase.from('videography_prospects')
+          .select('business_name, contact_name').eq('id', pid).maybeSingle()
+
+        // Create a session so the next text message is captured as the POC name
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'vid_poc_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'vid_poc_session',
+          payload: { chat_id: cbChatId, prospect_id: pid, created: Date.now() },
+        })
+
+        const current = prospect?.contact_name ? `\nCurrent POC: <b>${prospect.contact_name}</b>` : ''
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: cbChatId,
+          text: `👤 <b>Set Point of Contact for ${prospect?.business_name || 'prospect'}</b>${current}\n\nType the contact name now:`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
       // ─── Videography prospect action callbacks ───
       if (cbData.startsWith('vid_interested_') || cbData.startsWith('vid_dead_') || cbData.startsWith('vid_callback_')) {
         const parts = cbData.split('_')
@@ -2836,7 +2868,10 @@ Deno.serve(async (req) => {
         buttons.push([
           { text: '✅ Interested', callback_data: `vid_interested_${next.id}_${nextIdx}` },
           { text: '❌ Not Interested', callback_data: `vid_dead_${next.id}_${nextIdx}` },
+        ])
+        buttons.push([
           { text: '📞 Call Back', callback_data: `vid_callback_${next.id}_${nextIdx}` },
+          { text: '👤 POC', callback_data: `vid_poc_${next.id}_${nextIdx}` },
         ])
         if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'vid_page_1' }])
 
@@ -2879,7 +2914,10 @@ Deno.serve(async (req) => {
           buttons.push([
             { text: '✅ Interested', callback_data: `vid_interested_${p.id}_${pageIdx}` },
             { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_${pageIdx}` },
+          ])
+          buttons.push([
             { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_${pageIdx}` },
+            { text: '👤 POC', callback_data: `vid_poc_${p.id}_${pageIdx}` },
           ])
           const navRow: any[] = []
           if (pageIdx > 0) navRow.push({ text: '⬅️ Previous', callback_data: `vid_page_${pageIdx - 1}` })
@@ -4175,8 +4213,8 @@ Deno.serve(async (req) => {
     const action = resolvePersistentAction(text)
 
     // Session types we track for cleanup and workflow continuation
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'arbitrage_session', 'arbitrage_awaiting_photo']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'arbitrage_session', 'arbitrage_awaiting_photo', 'vid_poc_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'vid_poc_session']
 
     // ─── If this is a reply-to-message and no button/command matched, stay silent ───
     // Allow active workflows (especially arbitrage) to continue when the user replies directly to the bot prompt.
@@ -4422,7 +4460,10 @@ Deno.serve(async (req) => {
         buttons.push([
           { text: '✅ Interested', callback_data: `vid_interested_${p.id}_0` },
           { text: '❌ Not Interested', callback_data: `vid_dead_${p.id}_0` },
+        ])
+        buttons.push([
           { text: '📞 Call Back', callback_data: `vid_callback_${p.id}_0` },
+          { text: '👤 POC', callback_data: `vid_poc_${p.id}_0` },
         ])
         // Navigation
         if (total > 1) buttons.push([{ text: 'Next ➡️', callback_data: 'vid_page_1' }])
@@ -4807,6 +4848,31 @@ Deno.serve(async (req) => {
       // Check for media in the message
       const media = extractMedia(message)
       let imageUrl: string | undefined
+
+      // ─── Vid POC session handler ───
+      if (sessionType === 'vid_poc_session') {
+        if (text && text.trim()) {
+          const pocName = text.trim()
+          const prospectId = sp.prospect_id
+          
+          await supabase.from('videography_prospects').update({ contact_name: pocName }).eq('id', prospectId)
+          
+          // Clean up session
+          await supabase.from('webhook_events').delete().eq('id', session.id)
+
+          const { data: prospect } = await supabase.from('videography_prospects')
+            .select('business_name').eq('id', prospectId).maybeSingle()
+
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `👤 POC set for <b>${prospect?.business_name || 'prospect'}</b>: <b>${pocName}</b>`,
+            parse_mode: 'HTML',
+          })
+        } else {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Please type a name for the point of contact.' })
+        }
+        return new Response('ok')
+      }
 
       // ─── Shill session handler ───
       if (sessionType === 'shill_session') {
