@@ -293,6 +293,7 @@ export type Database = {
           meta: Json
           notes: string | null
           store_name: string
+          store_number: number
           updated_at: string
           website: string | null
         }
@@ -306,6 +307,7 @@ export type Database = {
           meta?: Json
           notes?: string | null
           store_name: string
+          store_number?: number
           updated_at?: string
           website?: string | null
         }
@@ -319,6 +321,7 @@ export type Database = {
           meta?: Json
           notes?: string | null
           store_name?: string
+          store_number?: number
           updated_at?: string
           website?: string | null
         }
