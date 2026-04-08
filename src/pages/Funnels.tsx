@@ -468,6 +468,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
   const isConnected = lead.remind_status === 'connected';
   const isReminding = lead.remind_status === 'active';
+  const isExpired = lead.remind_status === 'expired';
 
   return (
     <div className={cn(
