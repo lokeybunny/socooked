@@ -468,9 +468,10 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
-  const isConnected = lead.remind_status === 'connected';
-  const isReminding = lead.remind_status === 'active';
-  const isExpired = lead.remind_status === 'expired';
+  const isHappy = !!lead.happy;
+  const isConnected = lead.remind_status === 'connected' || isHappy;
+  const isReminding = !isHappy && lead.remind_status === 'active';
+  const isExpired = !isHappy && lead.remind_status === 'expired';
 
   return (
     <div className={cn(
