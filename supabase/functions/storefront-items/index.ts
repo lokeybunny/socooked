@@ -20,18 +20,27 @@ serve(async (req) => {
     const url = new URL(req.url);
     const itemId = url.searchParams.get("id");
 
-    let query = supabase
-      .from("arbitrage_items")
-      .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
-      .eq("status", "listed");
+    let data: unknown;
+    let error: unknown;
 
     if (itemId) {
-      query = query.eq("id", itemId).maybeSingle();
+      const res = await supabase
+        .from("arbitrage_items")
+        .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
+        .eq("status", "listed")
+        .eq("id", itemId)
+        .maybeSingle();
+      data = res.data;
+      error = res.error;
     } else {
-      query = query.order("created_at", { ascending: false });
+      const res = await supabase
+        .from("arbitrage_items")
+        .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
+        .eq("status", "listed")
+        .order("created_at", { ascending: false });
+      data = res.data;
+      error = res.error;
     }
-
-    const { data, error } = await query;
 
     if (error) {
       throw error;
