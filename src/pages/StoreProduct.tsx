@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+
 import { ChevronRight, Package, MapPin, Shield, Truck, Eye, ArrowLeft, Phone, MessageSquare } from "lucide-react";
 import logoImg from "@/assets/vivalapawn-logo.png";
 
@@ -33,13 +33,22 @@ export default function StoreProduct() {
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const { data } = await supabase
-        .from("arbitrage_items")
-        .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
-        .eq("id", id)
-        .eq("status", "listed")
-        .maybeSingle();
-      setItem(data as StoreItem | null);
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/storefront-items?id=${id}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+          }
+        );
+        const data = await res.json();
+        setItem(data && data.id ? (data as StoreItem) : null);
+      } catch {
+        setItem(null);
+      }
       setLoading(false);
     })();
   }, [id]);

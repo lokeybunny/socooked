@@ -17,11 +17,30 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data, error } = await supabase
-      .from("arbitrage_items")
-      .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, condition_notes, pawn_shop_address")
-      .eq("status", "listed")
-      .order("created_at", { ascending: false });
+    const url = new URL(req.url);
+    const itemId = url.searchParams.get("id");
+
+    let data: unknown;
+    let error: unknown;
+
+    if (itemId) {
+      const res = await supabase
+        .from("arbitrage_items")
+        .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
+        .eq("status", "listed")
+        .eq("id", itemId)
+        .maybeSingle();
+      data = res.data;
+      error = res.error;
+    } else {
+      const res = await supabase
+        .from("arbitrage_items")
+        .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
+        .eq("status", "listed")
+        .order("created_at", { ascending: false });
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       throw error;
