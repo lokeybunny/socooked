@@ -63,7 +63,7 @@ export default function Store() {
 
   const scrollToProducts = () => {
     requestAnimationFrame(() => {
-      document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+      scrollToProducts();
     });
   };
 
@@ -133,7 +133,7 @@ export default function Store() {
               </div>
             )}
             {CATEGORIES.slice(1).map((cat) => (
-              <button key={cat.key} onClick={() => { setActiveCategory(cat.key); document.getElementById("products")?.scrollIntoView({ behavior: "smooth" }); }} className="hidden lg:flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors">
+              <button key={cat.key} onClick={() => { setActiveCategory(cat.key); scrollToProducts(); }} className="hidden lg:flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors">
                 <cat.icon className="h-4 w-4" />
                 {cat.label}
               </button>
@@ -155,7 +155,7 @@ export default function Store() {
             Premium instruments, authentic jewelry, designer pieces & camera gear — inspected, authenticated, and ready for you.
           </p>
           <div className="mt-8 flex gap-4 flex-wrap">
-            <button onClick={() => { setActiveCategory("all"); document.getElementById("products")?.scrollIntoView({ behavior: "smooth" }); }} className="bg-white text-neutral-900 px-8 py-3.5 rounded-lg text-sm font-semibold hover:bg-neutral-100 transition-colors flex items-center gap-2">
+            <button onClick={() => { setActiveCategory("all"); scrollToProducts(); }} className="bg-white text-neutral-900 px-8 py-3.5 rounded-lg text-sm font-semibold hover:bg-neutral-100 transition-colors flex items-center gap-2">
               Shop Now <ArrowRight className="h-4 w-4" />
             </button>
             <a href="sms:+14244651253" className="border border-white/30 text-white px-8 py-3.5 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">
@@ -171,7 +171,7 @@ export default function Store() {
           {CATEGORIES.slice(1).map((cat) => (
             <button
               key={cat.key}
-              onClick={() => { setActiveCategory(cat.key); document.getElementById("products")?.scrollIntoView({ behavior: "smooth" }); }}
+              onClick={() => { setActiveCategory(cat.key); scrollToProducts(); }}
               className="group relative h-56 rounded-xl overflow-hidden shadow-xl"
             >
               {cat.image ? (
