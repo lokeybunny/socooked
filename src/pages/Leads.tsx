@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
-const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '', ai_website: '' };
+const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '', ai_website: '', job_value: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
@@ -543,7 +543,7 @@ export default function Leads() {
       notes: form.notes || null, category: form.category || 'other',
       instagram_handle: form.instagram_handle || null,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null, job_value: form.job_value ? form.job_value : null },
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
     if (form.ai_website) {
@@ -671,6 +671,7 @@ export default function Leads() {
       instagram_handle: lead.instagram_handle || '',
       portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
       ai_website: (meta.ai_website as string) || '',
+      job_value: (meta.job_value as string) || '',
     });
     setEditing(true);
   };
@@ -922,6 +923,7 @@ warren@stu25.com</p>`;
         <Input value={form.instagram_handle} onChange={e => setForm({ ...form, instagram_handle: e.target.value })} placeholder="@username (optional)" />
       </div>
       <div className="space-y-2"><Label>Tags</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Comma-separated, e.g. VIP, Referral" /></div>
+      <div className="space-y-2"><Label>Value of Job ($)</Label><Input type="number" value={form.job_value} onChange={e => setForm({ ...form, job_value: e.target.value })} placeholder="Default: $250" /></div>
       <div className="space-y-2"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
       <div className="space-y-2">
         <Label>Category</Label>
