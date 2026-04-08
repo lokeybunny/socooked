@@ -554,6 +554,17 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Phone className="h-3 w-3" /> Call
           </a>
         )}
+        {/* Happy checkbox — web design leads only */}
+        {lead.funnel === 'webdesign' && (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            <Checkbox
+              checked={isHappy}
+              onCheckedChange={(checked) => onHappyToggle(!!checked)}
+              className="h-3.5 w-3.5"
+            />
+            <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
+          </label>
+        )}
         {/* Remind button — only for webdesign leads with a phone */}
         {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
           <Button
