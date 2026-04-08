@@ -164,6 +164,7 @@ const App = () => (
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
                 <Route path="/client-dashboard" element={<ClientDashboard />} />
                 <Route path="/store" element={<Store />} />
+                <Route path="/store/:id" element={<StoreProduct />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
