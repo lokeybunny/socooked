@@ -4327,6 +4327,65 @@ export type Database = {
         }
         Relationships: []
       }
+      vapi_remind_queue: {
+        Row: {
+          attempts: number
+          business_name: string | null
+          connected_at: string | null
+          created_at: string
+          customer_id: string
+          full_name: string
+          id: string
+          last_call_id: string | null
+          last_call_result: string | null
+          max_attempts: number
+          next_call_at: string
+          phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          business_name?: string | null
+          connected_at?: string | null
+          created_at?: string
+          customer_id: string
+          full_name: string
+          id?: string
+          last_call_id?: string | null
+          last_call_result?: string | null
+          max_attempts?: number
+          next_call_at: string
+          phone: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          business_name?: string | null
+          connected_at?: string | null
+          created_at?: string
+          customer_id?: string
+          full_name?: string
+          id?: string
+          last_call_id?: string | null
+          last_call_result?: string | null
+          max_attempts?: number
+          next_call_at?: string
+          phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vapi_remind_queue_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videography_prospects: {
         Row: {
           address: string | null
