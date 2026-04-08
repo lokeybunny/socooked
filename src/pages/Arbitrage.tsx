@@ -1113,9 +1113,24 @@ export default function Arbitrage() {
               value={defaultAddyInput}
               onChange={(e) => setDefaultAddyInput(e.target.value)}
             />
-            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={handleSaveDefaultAddress} disabled={defaultAddySaving}>
-              {defaultAddySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-            </Button>
+             <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={handleSaveDefaultAddress} disabled={defaultAddySaving}>
+               {defaultAddySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+             </Button>
+             <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={() => {
+               const attachedAddresses = new Set(
+                 items
+                   .filter(i => i.pawn_shop_address && i.status !== 'passed')
+                   .map(i => (i.pawn_shop_address || '').trim().toLowerCase())
+               );
+               const unattached = stores
+                 .filter(s => s.address && s.address.trim())
+                 .filter(s => !attachedAddresses.has(s.address!.trim().toLowerCase()))
+                 .map(s => ({ storeName: s.store_name, address: s.address! }));
+               setUnattachedAddresses(unattached);
+               setUnattachedOpen(true);
+             }}>
+               <Search className="h-3 w-3 mr-1" /> Find
+             </Button>
           </div>
         </div>
 
