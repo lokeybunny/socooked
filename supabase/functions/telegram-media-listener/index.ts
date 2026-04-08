@@ -4282,7 +4282,28 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    if (action === 'start') {
+    // ─── Handle Checkup command ───
+    if (action === 'checkup') {
+      // Clear any existing checkup session
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'checkup_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create checkup session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'checkup_session',
+        payload: { chat_id: chatId, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🔎 <b>Item Checkup</b>\n\nWhat listed item would you like to check?\n\n<i>Type the product name (or part of it) and I\'ll look it up.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
         text: '🤖 <b>CLAWDbot Command Center</b>\n\nTap a button or type a command. I\'m ready to help with invoices, customers, emails, social media, and more.\n\n<i>Tip: Type naturally — "Send Bryan an email about the project update" — and I\'ll handle the rest.</i>',
