@@ -223,6 +223,61 @@ serve(async (req) => {
 
         callsMade++;
         console.log(`[remind] 📞 Called ${firstName} (${customerNumber}), call_id: ${vapiData.id}`);
+
+        // ─── Send follow-up email via Gmail API ───
+        try {
+          // Look up customer email
+          const { data: custData } = await sb
+            .from("customers")
+            .select("email")
+            .eq("id", item.customer_id)
+            .maybeSingle();
+
+          const custEmail = custData?.email;
+          if (custEmail) {
+            const emailSubject = `Following Up - Web Design Services`;
+            const emailBody = `
+              <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;">
+                <p>Hi ${firstName},</p>
+                <p>
+                  I just gave you a call in regards to web design services and wanted to touch base.
+                  I'd love to find a good time to follow up and chat about how we can help your business grow online.
+                </p>
+                <p>
+                  Could you let me know a good time to connect and the best contact number to reach you at?
+                </p>
+                <p>Looking forward to hearing from you!</p>
+              </div>
+            `;
+
+            const gmailRes = await fetch(
+              `${SUPABASE_URL}/functions/v1/gmail-api?action=send`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                  apikey: SUPABASE_SERVICE_ROLE_KEY,
+                },
+                body: JSON.stringify({
+                  to: custEmail,
+                  subject: emailSubject,
+                  body: emailBody,
+                }),
+              }
+            );
+            const gmailData = await gmailRes.json();
+            if (gmailRes.ok) {
+              console.log(`[remind] 📧 Follow-up email sent to ${custEmail} for ${item.full_name}`);
+            } else {
+              console.error(`[remind] Email send failed for ${item.full_name}:`, gmailData);
+            }
+          } else {
+            console.log(`[remind] No email on file for ${item.full_name}, skipping follow-up email`);
+          }
+        } catch (emailErr) {
+          console.error(`[remind] Email error for ${item.full_name}:`, emailErr);
+        }
       } catch (err) {
         console.error(`[remind] Call error for ${item.full_name}:`, err);
       }
