@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, Guitar, Gem, Shirt, Package, ArrowRight, Camera, ArrowLeft, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -21,7 +20,7 @@ interface StoreItem {
   original_image_url: string | null;
   condition_notes: string | null;
   pawn_shop_address: string | null;
-  meta: Record<string, unknown>;
+  meta?: Record<string, unknown>;
 }
 
 /* ── Excluded keywords (wheelchairs, mobility scooters, power chairs) ── */
@@ -43,7 +42,6 @@ function isExcluded(item: StoreItem): boolean {
 /* Categorize into exactly ONE category (highest priority match wins) */
 function categorizeItem(item: StoreItem): string[] {
   const text = `${item.item_name} ${item.condition_notes || ""}`.toLowerCase();
-  // Also exclude skateboard-like items from jewelry
   const prioritized = CATEGORIES.slice(1)
     .filter(cat => cat.keywords.some((kw) => text.includes(kw)))
     .sort((a, b) => a.priority - b.priority);
@@ -69,16 +67,51 @@ export default function Store() {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
     (async () => {
-      const { data } = await supabase
-        .from("arbitrage_items")
-        .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, condition_notes, pawn_shop_address, meta")
-        .eq("status", "listed")
-        .order("created_at", { ascending: false });
-      // Filter out excluded items
-      setItems(((data as StoreItem[]) || []).filter(i => !isExcluded(i)));
-      setLoading(false);
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/storefront-items`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to load storefront items (${response.status})`);
+        }
+
+        const data = await response.json();
+        const nextItems = Array.isArray(data) ? (data as StoreItem[]) : [];
+
+        if (isActive) {
+          setItems(nextItems.filter((item) => !isExcluded(item)));
+        }
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          console.error("Failed to load storefront items", error);
+          if (isActive) {
+            setItems([]);
+          }
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
     })();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -148,7 +181,7 @@ export default function Store() {
                   >
                     <cat.icon className="h-5 w-5 text-neutral-400" />
                     {cat.label}
-                    <span className="ml-auto text-xs text-neutral-400">{categoryCounts[cat.key] || 0}</span>
+                    <span className="ml-auto text-xs text-neutral-400">{loading ? "—" : categoryCounts[cat.key] || 0}</span>
                   </button>
                 ))}
               </nav>
@@ -202,7 +235,13 @@ export default function Store() {
                 </div>
                 <p className="text-white/60 text-sm">{cat.desc}</p>
                 <p className="text-amber-400 text-xs mt-2 font-semibold tracking-wider uppercase flex items-center gap-1">
-                  Shop {categoryCounts[cat.key] || 0} items <ArrowRight className="h-3 w-3" />
+                  {loading ? (
+                    "Loading items…"
+                  ) : (
+                    <>
+                      Shop {categoryCounts[cat.key] || 0} items <ArrowRight className="h-3 w-3" />
+                    </>
+                  )}
                 </p>
               </div>
             </button>
@@ -225,7 +264,7 @@ export default function Store() {
                   <button key={cat.key} onClick={() => setActiveCategory(cat.key)} className={`relative flex items-center gap-2 py-3.5 text-sm font-medium whitespace-nowrap transition-colors ${active ? "text-neutral-900" : "text-neutral-400 hover:text-neutral-700"}`}>
                     <cat.icon className="h-4 w-4" />
                     {cat.label}
-                    <span className="text-[10px] text-neutral-400">({categoryCounts[cat.key] || 0})</span>
+                    <span className="text-[10px] text-neutral-400">{loading ? "(—)" : `(${categoryCounts[cat.key] || 0})`}</span>
                     {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-neutral-900 rounded-full" />}
                   </button>
                 );
@@ -246,7 +285,7 @@ export default function Store() {
             <button onClick={() => setActiveCategory(null)} className="hover:text-neutral-600 transition-colors">Home</button>
             <ChevronRight className="h-3 w-3" />
             <span className="text-neutral-600">{CATEGORIES.find((c) => c.key === activeCategory)?.label}</span>
-            <span className="ml-auto">{filtered.length} results</span>
+            <span className="ml-auto">{loading ? "Loading…" : `${filtered.length} results`}</span>
           </div>
 
           {/* Grid */}
