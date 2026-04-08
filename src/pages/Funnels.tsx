@@ -576,7 +576,17 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
           </label>
         )}
-        {/* Remind button — only for webdesign leads with a phone */}
+        {/* Dead checkbox — web design leads only */}
+        {lead.funnel === 'webdesign' && (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            <Checkbox
+              checked={isDead}
+              onCheckedChange={(checked) => onDeadToggle(!!checked)}
+              className="h-3.5 w-3.5"
+            />
+            <span className={cn(isDead && "text-red-600 font-medium")}>Dead</span>
+          </label>
+        )}
         {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
           <Button
             variant={isReminding ? "outline" : "ghost"}
