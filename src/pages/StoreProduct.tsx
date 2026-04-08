@@ -162,17 +162,17 @@ export default function StoreProduct() {
 
             {showCashApp && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCashApp(false)}>
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mx-4 max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-100 shrink-0">
                     <h3 className="text-lg font-bold">Choose Payment Method</h3>
                     <button onClick={() => setShowCashApp(false)} className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none">&times;</button>
                   </div>
-                  <div className="grid md:grid-cols-2">
-                    <div className="p-6 text-center border-r border-neutral-100">
-                      <p className="text-sm font-bold mb-3">💸 Pay with CashApp</p>
+                  <div className="grid md:grid-cols-[2fr_1fr] flex-1 min-h-0">
+                    <div className="p-4 flex flex-col border-r border-neutral-100">
+                      <p className="text-sm font-bold mb-2 text-center">💸 Pay with CashApp</p>
                       <iframe
                         src="https://cash.app/$itswarr"
-                        className="w-full h-[420px] rounded-lg border border-neutral-200"
+                        className="w-full flex-1 min-h-[500px] rounded-lg border border-neutral-200"
                         title="CashApp Payment"
                       />
                     </div>
@@ -185,7 +185,7 @@ export default function StoreProduct() {
                       </div>
                     </div>
                   </div>
-                  <div className="p-3 bg-neutral-50 text-center border-t border-neutral-100">
+                  <div className="p-3 bg-neutral-50 text-center border-t border-neutral-100 shrink-0">
                     <p className="text-xs text-neutral-500">Include item name "<strong>{item.item_name}</strong>" in payment note</p>
                   </div>
                 </div>
