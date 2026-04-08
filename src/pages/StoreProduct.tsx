@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ChevronRight, Package, MapPin, Shield, Truck, Eye, ArrowLeft } from "lucide-react";
+import { ChevronRight, Package, MapPin, Shield, Truck, Eye, ArrowLeft, Phone, MessageSquare } from "lucide-react";
 
 interface StoreItem {
   id: string;
@@ -27,7 +27,7 @@ export default function StoreProduct() {
   const { id } = useParams<{ id: string }>();
   const [item, setItem] = useState<StoreItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeImg, setActiveImg] = useState(0);
+  const [showCashApp, setShowCashApp] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -42,14 +42,6 @@ export default function StoreProduct() {
       setLoading(false);
     })();
   }, [id]);
-
-  const getImages = (i: StoreItem) => {
-    const imgs: string[] = [];
-    if (i.nobg_image_url) imgs.push(i.nobg_image_url);
-    if (i.original_image_url) imgs.push(i.original_image_url);
-    if (i.extra_images) imgs.push(...i.extra_images.filter(Boolean));
-    return imgs;
-  };
 
   if (loading) {
     return (
@@ -71,8 +63,8 @@ export default function StoreProduct() {
     );
   }
 
-  const imgs = getImages(item);
-  const currentImg = imgs[activeImg] || item.nobg_image_url || item.original_image_url;
+  // Only use the primary/featured image
+  const currentImg = item.nobg_image_url || item.original_image_url;
   const price = item.wiggle_room_price ?? item.asking_price;
 
   return (
@@ -82,7 +74,7 @@ export default function StoreProduct() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-2 text-[11px] tracking-widest uppercase">
           <span>Free Local Pickup · Las Vegas</span>
           <span className="hidden sm:block">Every Item Authenticated</span>
-          <a href="mailto:warren@stu25.com" className="hover:text-neutral-300 transition-colors">Contact Us</a>
+          <a href="tel:+14244651253" className="hover:text-neutral-300 transition-colors">📞 (424) 465-1253</a>
         </div>
       </div>
 
@@ -90,8 +82,8 @@ export default function StoreProduct() {
       <header className="border-b border-neutral-100 bg-white">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" className="block">
-            <h1 className="text-2xl font-bold tracking-tight">The&nbsp;Collection</h1>
-            <p className="text-[10px] tracking-[0.25em] uppercase text-neutral-400 mt-0.5">Music · Luxury · Rare Finds</p>
+            <h1 className="text-2xl font-bold tracking-tight">VivaLaPawn</h1>
+            <p className="text-[10px] tracking-[0.25em] uppercase text-neutral-400 mt-0.5">Music · Jewelry · Designer · Camera</p>
           </Link>
           <Link to="/store" className="text-sm text-neutral-500 hover:text-neutral-900 flex items-center gap-1 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Store
@@ -111,49 +103,14 @@ export default function StoreProduct() {
       {/* Product */}
       <main className="mx-auto max-w-7xl px-6 py-8">
         <div className="grid lg:grid-cols-[1fr_1fr] gap-12">
-          {/* Left: Image gallery */}
-          <div className="flex gap-4">
-            {/* Thumbnails */}
-            {imgs.length > 1 && (
-              <div className="flex flex-col gap-2 shrink-0">
-                {imgs.map((src, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImg(i)}
-                    className={`h-16 w-16 rounded-lg overflow-hidden border-2 transition-all ${
-                      i === activeImg ? "border-neutral-900 shadow-md" : "border-neutral-200 opacity-50 hover:opacity-100"
-                    }`}
-                  >
-                    <img src={src} alt="" className="h-full w-full object-contain bg-white p-1" />
-                  </button>
-                ))}
-              </div>
+          {/* Left: Single featured image */}
+          <div className="relative bg-neutral-50 rounded-xl flex items-center justify-center min-h-[400px] lg:min-h-[500px]">
+            {currentImg ? (
+              <img src={currentImg} alt={item.item_name} className="max-h-[70vh] max-w-full object-contain p-6" />
+            ) : (
+              <Package className="h-20 w-20 text-neutral-200" />
             )}
-            {/* Main image */}
-            <div className="relative flex-1 bg-neutral-50 rounded-xl flex items-center justify-center min-h-[400px] lg:min-h-[500px]">
-              {currentImg ? (
-                <img src={currentImg} alt={item.item_name} className="max-h-[70vh] max-w-full object-contain p-6" />
-              ) : (
-                <Package className="h-20 w-20 text-neutral-200" />
-              )}
-              {imgs.length > 1 && (
-                <>
-                  <button onClick={() => setActiveImg((p) => (p - 1 + imgs.length) % imgs.length)} className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-md transition-colors">
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button onClick={() => setActiveImg((p) => (p + 1) % imgs.length)} className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white rounded-full p-2 shadow-md transition-colors">
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </>
-              )}
-              {imgs.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                  {imgs.map((_, i) => (
-                    <button key={i} onClick={() => setActiveImg(i)} className={`h-2 rounded-full transition-all ${i === activeImg ? "w-6 bg-neutral-900" : "w-2 bg-neutral-300"}`} />
-                  ))}
-                </div>
-              )}
-            </div>
+            <span className="absolute top-4 left-4 bg-neutral-900 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">Used</span>
           </div>
 
           {/* Right: Details */}
@@ -169,9 +126,12 @@ export default function StoreProduct() {
               </p>
             )}
 
-            <div className="mt-3 flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
-              <span className="text-sm text-green-600 font-semibold">In Stock — Ready for Pickup</span>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+                <span className="text-sm text-green-600 font-semibold">In Stock — Ready for Pickup</span>
+              </div>
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Used — Great Condition</span>
             </div>
 
             {/* Trust badges */}
@@ -192,66 +152,69 @@ export default function StoreProduct() {
               ))}
             </div>
 
-            {/* Payment Methods */}
-            <div className="mt-8 border-t border-neutral-100 pt-6">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-4">Payment Methods</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-200 bg-white">
-                  <span className="text-2xl">🤝</span>
-                  <div>
-                    <p className="text-sm font-semibold">Meet in Person</p>
-                    <p className="text-xs text-neutral-500">Inspect the item and pay with cash in Las Vegas</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-200 bg-white">
-                  <span className="text-2xl">💜</span>
-                  <div>
-                    <p className="text-sm font-semibold">Zelle</p>
-                    <p className="text-xs text-neutral-500">Send directly to warren@stu25.com</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-neutral-200 bg-white">
-                  <span className="text-2xl">💚</span>
-                  <div>
-                    <p className="text-sm font-semibold">CashApp</p>
-                    <p className="text-xs text-neutral-500">Send via CashApp for instant payment</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* CTA */}
-            <a
-              href={`mailto:warren@stu25.com?subject=I want to buy: ${encodeURIComponent(item.item_name)}${item.sku ? ` (${item.sku})` : ""}${price ? ` — $${price}` : ""}`}
+            {/* Buy This Item — CashApp or Zelle */}
+            <button
+              onClick={() => setShowCashApp(true)}
               className="mt-8 inline-flex items-center justify-center rounded-xl bg-neutral-900 px-8 py-4 text-base font-bold text-white hover:bg-neutral-700 transition-colors w-full"
             >
               Buy This Item
-            </a>
+            </button>
 
-            <a
-              href={`mailto:warren@stu25.com?subject=Inquiry: ${encodeURIComponent(item.item_name)}${item.sku ? ` (${item.sku})` : ""}`}
-              className="mt-3 inline-flex items-center justify-center rounded-xl border-2 border-neutral-200 px-8 py-3.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors w-full"
-            >
-              Ask a Question
-            </a>
-
-            {/* Condition & Location */}
-            {(item.condition_notes || item.pawn_shop_address) && (
-              <div className="mt-8 border-t border-neutral-100 pt-6 space-y-4">
-                {item.condition_notes && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Condition Notes</p>
-                    <p className="text-sm text-neutral-600 leading-relaxed">{item.condition_notes}</p>
+            {showCashApp && (
+              <div className="mt-4 border border-neutral-200 rounded-xl overflow-hidden">
+                <div className="flex border-b border-neutral-100">
+                  <div className="flex-1 p-4 text-center border-r border-neutral-100">
+                    <p className="text-sm font-bold mb-2">💸 Pay with CashApp</p>
+                    <iframe
+                      src="https://cash.app/$itswarr"
+                      className="w-full h-[400px] rounded-lg border border-neutral-200"
+                      title="CashApp Payment"
+                    />
                   </div>
-                )}
-                {item.pawn_shop_address && (
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Pickup Location</p>
-                    <p className="text-sm text-neutral-600 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-neutral-400" /> {item.pawn_shop_address}</p>
+                  <div className="flex-1 p-4 text-center flex flex-col items-center justify-center">
+                    <p className="text-sm font-bold mb-3">💜 Pay with Zelle</p>
+                    <div className="bg-neutral-50 rounded-lg p-6 border border-neutral-200">
+                      <p className="text-xs text-neutral-500 mb-1">Send payment to:</p>
+                      <p className="text-lg font-bold text-neutral-900">me@cozyhomestudio.com</p>
+                      <p className="text-xs text-neutral-400 mt-2">Use your bank's Zelle feature</p>
+                    </div>
                   </div>
-                )}
+                </div>
+                <div className="p-3 bg-neutral-50 text-center">
+                  <p className="text-xs text-neutral-500">Include item name "<strong>{item.item_name}</strong>" in payment note</p>
+                </div>
               </div>
             )}
+
+            {/* Contact for inquiries */}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <a
+                href="sms:+14244651253"
+                className="inline-flex items-center justify-center rounded-xl border-2 border-neutral-200 px-4 py-3.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors gap-2"
+              >
+                <MessageSquare className="h-4 w-4" /> Text Us (Preferred)
+              </a>
+              <a
+                href="tel:+14244651253"
+                className="inline-flex items-center justify-center rounded-xl border-2 border-neutral-200 px-4 py-3.5 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors gap-2"
+              >
+                <Phone className="h-4 w-4" /> Call (424) 465-1253
+              </a>
+            </div>
+
+            {/* Condition & Location */}
+            <div className="mt-8 border-t border-neutral-100 pt-6 space-y-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Condition</p>
+                <p className="text-sm text-neutral-600 leading-relaxed">{item.condition_notes || "Used — in great condition. Inspected and authenticated."}</p>
+              </div>
+              {item.pawn_shop_address && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Pickup Location</p>
+                  <p className="text-sm text-neutral-600 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-neutral-400" /> {item.pawn_shop_address}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
@@ -260,12 +223,13 @@ export default function StoreProduct() {
       <footer className="border-t border-neutral-200 bg-neutral-900 text-white mt-16">
         <div className="mx-auto max-w-7xl px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
           <div>
-            <p className="font-bold text-lg">The Collection</p>
+            <p className="font-bold text-lg">VivaLaPawn</p>
             <p className="text-neutral-500 text-xs mt-1">Las Vegas, NV · © {new Date().getFullYear()}</p>
           </div>
           <div className="flex gap-6 text-neutral-400 text-xs">
             <Link to="/store" className="hover:text-white transition-colors">All Items</Link>
-            <a href="mailto:warren@stu25.com" className="hover:text-white transition-colors">Contact</a>
+            <a href="tel:+14244651253" className="hover:text-white transition-colors">📞 (424) 465-1253</a>
+            <a href="sms:+14244651253" className="hover:text-white transition-colors">💬 Text Us</a>
           </div>
         </div>
       </footer>
