@@ -116,8 +116,7 @@ export default function Store() {
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
-            <h1 className="text-2xl font-bold tracking-tight">VivaLaPawn</h1>
-            <p className="text-[10px] tracking-[0.25em] uppercase text-neutral-400 mt-0.5">Music · Jewelry · Designer · Camera</p>
+            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
             {showProducts && (
