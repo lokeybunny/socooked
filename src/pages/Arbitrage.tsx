@@ -1386,9 +1386,28 @@ export default function Arbitrage() {
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">{unattachedAddresses.length} store address{unattachedAddresses.length !== 1 ? 'es' : ''} with no listed products</p>
                 {unattachedAddresses.map((ua, i) => (
-                  <div key={i} className="border rounded-md p-2.5 space-y-0.5 bg-muted/30">
-                    <p className="text-sm font-medium text-foreground">{ua.storeName}</p>
-                    <p className="text-xs text-muted-foreground">{ua.address}</p>
+                  <div key={i} className="border rounded-md p-2.5 bg-muted/30 flex items-center justify-between gap-2">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">{ua.storeName}</p>
+                      <p className="text-xs text-muted-foreground">{ua.address}</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={async () => {
+                      setDefaultAddyInput(ua.address);
+                      setDefaultAddySaving(true);
+                      await supabase.from('site_configs').upsert({
+                        site_id: 'arbitrage',
+                        section: 'default-address',
+                        content: { enabled: true, address: ua.address },
+                        is_published: true,
+                      }, { onConflict: 'site_id,section' });
+                      setDefaultAddress(ua.address);
+                      setDefaultAddyEnabled(true);
+                      setDefaultAddySaving(false);
+                      setUnattachedOpen(false);
+                      toast.success(`Default address set: ${ua.address}`);
+                    }}>
+                      <MapPin className="h-3 w-3 mr-1" /> Attach
+                    </Button>
                   </div>
                 ))}
               </div>
