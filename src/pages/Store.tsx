@@ -123,12 +123,19 @@ export default function Store() {
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between md:justify-center relative">
+          {/* Spacer for symmetry on mobile */}
+          <div className="w-10 md:hidden" />
+
+          <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
+            <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
+          </Link>
+
           {/* Mobile menu */}
           <Sheet>
-            <SheetTrigger className="md:hidden p-2 -ml-2">
+            <SheetTrigger className="md:hidden p-2 -mr-2">
               <Menu className="h-6 w-6 text-neutral-700" />
             </SheetTrigger>
-            <SheetContent side="left" className="bg-white w-72">
+            <SheetContent side="right" className="bg-white w-72">
               <SheetHeader>
                 <SheetTitle className="text-left text-sm tracking-widest uppercase text-neutral-500">Categories</SheetTitle>
               </SheetHeader>
@@ -147,13 +154,6 @@ export default function Store() {
               </nav>
             </SheetContent>
           </Sheet>
-
-          <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
-            <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
-          </Link>
-
-          {/* Spacer for symmetry on mobile */}
-          <div className="w-10 md:hidden" />
         </div>
       </header>
 
