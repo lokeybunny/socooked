@@ -21,6 +21,7 @@ interface Stats {
   arbListedSpread: number;
   arbSoldCount: number;
   arbSoldSpread: number;
+  prospectTotalValue: number;
 }
 
 const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
