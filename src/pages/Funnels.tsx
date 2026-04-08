@@ -52,6 +52,7 @@ interface FunnelLead {
   remind_status?: 'active' | 'connected' | 'expired' | 'paused' | null;
   remind_attempts?: number | null;
   remind_connected_at?: string | null;
+  remind_created_at?: string | null;
 }
 
 const PAGE_SIZE = 30;
