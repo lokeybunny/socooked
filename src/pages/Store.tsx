@@ -62,9 +62,9 @@ export default function Store() {
   const [search, setSearch] = useState("");
 
   const scrollToProducts = () => {
-    requestAnimationFrame(() => {
-      scrollToProducts();
-    });
+    setTimeout(() => {
+      document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+    }, 80);
   };
 
   useEffect(() => {
