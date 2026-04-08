@@ -17,11 +17,21 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data, error } = await supabase
+    const url = new URL(req.url);
+    const itemId = url.searchParams.get("id");
+
+    let query = supabase
       .from("arbitrage_items")
-      .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, condition_notes, pawn_shop_address")
-      .eq("status", "listed")
-      .order("created_at", { ascending: false });
+      .select("id, item_name, sku, asking_price, wiggle_room_price, nobg_image_url, original_image_url, extra_images, condition_notes, pawn_shop_address, meta")
+      .eq("status", "listed");
+
+    if (itemId) {
+      query = query.eq("id", itemId).maybeSingle();
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
