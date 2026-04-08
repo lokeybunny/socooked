@@ -5566,7 +5566,7 @@ Deno.serve(async (req) => {
       // Regex-style search: find listed items matching the search term
       const { data: matchedItems, error: searchErr } = await supabase
         .from('arbitrage_items')
-        .select('id, item_name, asking_price, wiggle_room_price, pawn_shop_address, sku, status')
+        .select('id, item_name, asking_price, wiggle_room_price, pawn_shop_address, sku, status, store_id')
         .eq('status', 'listed')
         .ilike('item_name', `%${searchTerm}%`)
         .order('created_at', { ascending: false })
@@ -5582,6 +5582,19 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // Fetch store names for matched items
+      const storeIds = [...new Set(matchedItems.map((i: any) => i.store_id).filter(Boolean))]
+      let storeMap: Record<string, string> = {}
+      if (storeIds.length > 0) {
+        const { data: stores } = await supabase
+          .from('arbitrage_stores')
+          .select('id, store_name')
+          .in('id', storeIds)
+        if (stores) {
+          for (const s of stores) storeMap[s.id] = s.store_name
+        }
+      }
+
       // Build results
       const lines = matchedItems.map((item: any) => {
         const pawnPrice = item.asking_price || 0
@@ -5589,8 +5602,10 @@ Deno.serve(async (req) => {
         const spread = listPrice - pawnPrice
         const spreadPct = pawnPrice > 0 ? ((spread / pawnPrice) * 100).toFixed(0) : '∞'
         const spreadEmoji = spread > 0 ? '🟢' : spread === 0 ? '🟡' : '🔴'
+        const storeName = item.store_id && storeMap[item.store_id] ? storeMap[item.store_id] : (item.pawn_shop_address || 'Unknown')
         return [
           `📦 <b>${item.item_name}</b>${item.sku ? ` (${item.sku})` : ''}`,
+          `   📍 Store: <b>${storeName}</b>`,
           `   🏪 Pawn: <b>$${pawnPrice}</b>  →  💲 Listed: <b>$${listPrice}</b>`,
           `   ${spreadEmoji} Spread: <b>$${spread}</b> (${spreadPct}%)`,
         ].join('\n')
