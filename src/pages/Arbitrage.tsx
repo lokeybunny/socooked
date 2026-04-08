@@ -1370,6 +1370,31 @@ export default function Arbitrage() {
         />
         <UploadWizardModal open={uploadWizardOpen} onClose={() => setUploadWizardOpen(false)} onComplete={fetchAll} />
         <StoreModal open={storeModalOpen} onClose={() => setStoreModalOpen(false)} store={editStore} onSaved={fetchAll} />
+
+        {/* Unattached Addresses Popup */}
+        <Dialog open={unattachedOpen} onOpenChange={setUnattachedOpen}>
+          <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <MapPin className="h-4 w-4" />
+                Unattached Store Addresses
+              </DialogTitle>
+            </DialogHeader>
+            {unattachedAddresses.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">All store addresses are attached to products.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">{unattachedAddresses.length} store address{unattachedAddresses.length !== 1 ? 'es' : ''} with no listed products</p>
+                {unattachedAddresses.map((ua, i) => (
+                  <div key={i} className="border rounded-md p-2.5 space-y-0.5 bg-muted/30">
+                    <p className="text-sm font-medium text-foreground">{ua.storeName}</p>
+                    <p className="text-xs text-muted-foreground">{ua.address}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthLayoutGate>
   );
