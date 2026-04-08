@@ -236,6 +236,7 @@ export default function Dashboard() {
         arbListedSpread,
         arbSoldCount,
         arbSoldSpread,
+        prospectTotalValue,
       });
 
       setRecentCustomers(rc.data || []);
