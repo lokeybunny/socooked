@@ -506,8 +506,13 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             </Badge>
           )}
           {isReminding && (
-            <Badge variant="outline" className="text-[10px] gap-1 text-orange-500 border-orange-500/30 animate-pulse">
+            <Badge variant="outline" className="text-[10px] gap-1 text-yellow-500 border-yellow-500/30 animate-pulse bg-yellow-500/10">
               <BellRing className="h-2.5 w-2.5" /> Reminding ({lead.remind_attempts || 0})
+            </Badge>
+          )}
+          {isExpired && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-red-500 border-red-500/30 bg-red-500/10">
+              <BellRing className="h-2.5 w-2.5" /> Failed
             </Badge>
           )}
           {hasAI && (
