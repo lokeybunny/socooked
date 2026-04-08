@@ -6,7 +6,7 @@ import {
   Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
-  FileText, Mic, Copy, Sparkles, UserPlus
+  FileText, Mic, Copy, Sparkles, UserPlus, BellRing, Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,10 @@ interface FunnelLead {
   drafted_at?: string | null;
   // source table
   _table: 'customers' | 'lw_landing_leads';
+  // remind campaign
+  remind_status?: 'active' | 'connected' | 'expired' | 'paused' | null;
+  remind_attempts?: number | null;
+  remind_connected_at?: string | null;
 }
 
 const PAGE_SIZE = 30;
@@ -449,10 +453,11 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
+  onRemind: () => void;
 }) {
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
@@ -460,9 +465,26 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: 
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
+  const isConnected = lead.remind_status === 'connected';
+  const isReminding = lead.remind_status === 'active';
 
   return (
-    <div className={cn("border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card", isDrafted && "opacity-60 border-dashed")}>
+    <div className={cn(
+      "border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card",
+      isDrafted && "opacity-60 border-dashed",
+      isConnected && "ring-2 ring-green-500 border-green-500/50",
+    )}>
+      {isConnected && (
+        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
+          <Zap className="h-3.5 w-3.5 text-green-500" />
+          <span className="text-xs font-bold text-green-600">AI CONNECTED</span>
+          {lead.remind_connected_at && (
+            <span className="text-[10px] text-green-600/70 ml-auto">
+              {formatDistanceToNow(new Date(lead.remind_connected_at), { addSuffix: true })}
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className={cn("p-1.5 rounded-md shrink-0", cfg.bgColor)}>
@@ -477,6 +499,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: 
           {isDrafted && (
             <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-500/30">
               <EyeOff className="h-2.5 w-2.5 mr-0.5" /> {draftHoursLeft}h left
+            </Badge>
+          )}
+          {isReminding && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-orange-500 border-orange-500/30 animate-pulse">
+              <BellRing className="h-2.5 w-2.5" /> Reminding ({lead.remind_attempts || 0})
             </Badge>
           )}
           {hasAI && (
@@ -515,6 +542,18 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: 
             <Phone className="h-3 w-3" /> Call
           </a>
         )}
+        {/* Remind button — only for webdesign leads with a phone */}
+        {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
+          <Button
+            variant={isReminding ? "outline" : "ghost"}
+            size="sm"
+            className={cn("h-7 text-xs", isReminding && "text-orange-500 border-orange-500/30")}
+            onClick={onRemind}
+          >
+            <BellRing className="h-3 w-3 mr-1" />
+            {isReminding ? 'Stop Remind' : 'Remind'}
+          </Button>
+        )}
         {isDrafted ? (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-yellow-600 ml-auto" onClick={onUndraft}>
             <Eye className="h-3 w-3 mr-1" /> Undraft
@@ -544,38 +583,23 @@ export default function Funnels() {
     setLoading(true);
     try {
       // Web Design from customers (only funnel sources)
-      const { data: custLeads } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('source', 'webdesign-landing')
-        .order('created_at', { ascending: false })
-        .limit(500);
+      const [{ data: custLeads }, { data: vidLeads }, { data: reLeads }, { data: remindRows }] = await Promise.all([
+        supabase.from('customers').select('*').eq('source', 'webdesign-landing').order('created_at', { ascending: false }).limit(500),
+        supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
+        supabase.from('lw_landing_leads').select('*').not('landing_page_id', 'is', null).neq('full_name', 'Property Owner').neq('phone', 'N/A').order('created_at', { ascending: false }).limit(500),
+        supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at').in('status', ['active', 'connected']),
+      ]);
 
-      // Videography from customers
-      const { data: vidLeads } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('source', 'videography-landing')
-        .order('created_at', { ascending: false })
-        .limit(500);
-
-      // Real Estate from lw_landing_leads (only manually submitted via funnel form)
-      const { data: reLeads } = await supabase
-        .from('lw_landing_leads')
-        .select('*')
-        .not('landing_page_id', 'is', null)
-        .neq('full_name', 'Property Owner')
-        .neq('phone', 'N/A')
-        .order('created_at', { ascending: false })
-        .limit(500);
+      // Build remind lookup by customer_id
+      const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null }>();
+      (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at }));
 
       const combined: FunnelLead[] = [];
-
-
 
       (custLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
+        const remind = remindMap.get(c.id);
         combined.push({
           id: c.id, funnel: 'webdesign' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
@@ -589,6 +613,9 @@ export default function Funnels() {
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
+          remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
+          remind_attempts: remind?.attempts || null,
+          remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
         });
       });
 
@@ -601,12 +628,8 @@ export default function Funnels() {
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
-          vapi_call_status: null,
-          vapi_call_id: null,
-          ai_notes: null,
-          vapi_recording_url: null,
-          vapi_transcript: null,
-          vapi_summary: null,
+          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
+          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
@@ -629,7 +652,6 @@ export default function Funnels() {
 
       combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      // Auto-expire drafts older than 72 hours (remove from view only)
       const now = new Date();
       const visible = combined.filter((l) => {
         if (!l.drafted_at) return true;
@@ -679,6 +701,39 @@ export default function Funnels() {
     }
     const stageLabel = PIPELINE_STAGES[lead.funnel]?.find(s => s.value === newStatus)?.label || newStatus;
     toast.success(`${lead.full_name} → ${stageLabel}`);
+  };
+
+  const handleRemind = async (lead: FunnelLead) => {
+    if (!lead.phone || lead._table !== 'customers') return;
+
+    // If already reminding, cancel it
+    if (lead.remind_status === 'active') {
+      const { error } = await supabase.functions.invoke('vapi-remind-check', {
+        body: { action: 'cancel', customer_id: lead.id },
+      });
+      if (error) { toast.error('Failed to cancel remind'); return; }
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: null, remind_attempts: null } : l));
+      toast.success(`Remind campaign stopped for ${lead.full_name}`);
+      return;
+    }
+
+    // Enqueue new remind campaign
+    const { data, error } = await supabase.functions.invoke('vapi-remind-check', {
+      body: {
+        action: 'enqueue',
+        customer_id: lead.id,
+        phone: lead.phone,
+        full_name: lead.full_name,
+        business_name: lead.company || '',
+      },
+    });
+    if (error) { toast.error('Failed to start remind'); return; }
+    if (data?.error) {
+      toast.error(data.error);
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: 'active' as const, remind_attempts: 0 } : l));
+    toast.success(`🔔 Remind campaign started for ${lead.full_name} — calls every 4hrs (9am-5pm PST) for 5 days`);
   };
 
   const filtered = useMemo(() => {
@@ -825,6 +880,7 @@ export default function Funnels() {
                 onDraft={() => handleDraft(lead)}
                 onUndraft={() => handleUndraft(lead)}
                 onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
+                onRemind={() => handleRemind(lead)}
               />
             ))}
           </div>
