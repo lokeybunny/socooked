@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Search, ChevronRight, Guitar, Gem, Shirt, Package, ArrowRight, Camera, ArrowLeft } from "lucide-react";
+import { Search, ChevronRight, Guitar, Gem, Shirt, Package, ArrowRight, Camera, ArrowLeft, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import heroImg from "@/assets/store-hero.jpg";
 import catMusic from "@/assets/cat-music.jpg";
 import catJewelry from "@/assets/cat-jewelry.jpg";
@@ -121,10 +122,38 @@ export default function Store() {
 
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-center">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between md:justify-center relative">
+          {/* Mobile menu */}
+          <Sheet>
+            <SheetTrigger className="md:hidden p-2 -ml-2">
+              <Menu className="h-6 w-6 text-neutral-700" />
+            </SheetTrigger>
+            <SheetContent side="left" className="bg-white w-72">
+              <SheetHeader>
+                <SheetTitle className="text-left text-sm tracking-widest uppercase text-neutral-500">Categories</SheetTitle>
+              </SheetHeader>
+              <nav className="mt-6 flex flex-col gap-1">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.key}
+                    onClick={() => { setActiveCategory(cat.key); scrollToProducts(); }}
+                    className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors text-left ${activeCategory === cat.key ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"}`}
+                  >
+                    <cat.icon className="h-5 w-5 text-neutral-400" />
+                    {cat.label}
+                    <span className="ml-auto text-xs text-neutral-400">{categoryCounts[cat.key] || 0}</span>
+                  </button>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
+
           <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
             <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
           </Link>
+
+          {/* Spacer for symmetry on mobile */}
+          <div className="w-10 md:hidden" />
         </div>
       </header>
 
