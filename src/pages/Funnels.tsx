@@ -880,6 +880,7 @@ export default function Funnels() {
                 onDraft={() => handleDraft(lead)}
                 onUndraft={() => handleUndraft(lead)}
                 onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
+                onRemind={() => handleRemind(lead)}
               />
             ))}
           </div>
