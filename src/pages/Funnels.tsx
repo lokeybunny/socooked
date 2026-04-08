@@ -53,6 +53,7 @@ interface FunnelLead {
   remind_attempts?: number | null;
   remind_connected_at?: string | null;
   remind_created_at?: string | null;
+  happy?: boolean;
 }
 
 const PAGE_SIZE = 30;
