@@ -52,6 +52,7 @@ interface FunnelLead {
   remind_status?: 'active' | 'connected' | 'expired' | 'paused' | null;
   remind_attempts?: number | null;
   remind_connected_at?: string | null;
+  remind_created_at?: string | null;
 }
 
 const PAGE_SIZE = 30;
@@ -467,12 +468,15 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
   const isConnected = lead.remind_status === 'connected';
   const isReminding = lead.remind_status === 'active';
+  const isExpired = lead.remind_status === 'expired';
 
   return (
     <div className={cn(
       "border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card",
       isDrafted && "opacity-60 border-dashed",
       isConnected && "ring-2 ring-green-500 border-green-500/50",
+      isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
+      isExpired && "ring-2 ring-red-500 border-red-500/50",
     )}>
       {isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
@@ -502,8 +506,13 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             </Badge>
           )}
           {isReminding && (
-            <Badge variant="outline" className="text-[10px] gap-1 text-orange-500 border-orange-500/30 animate-pulse">
+            <Badge variant="outline" className="text-[10px] gap-1 text-yellow-500 border-yellow-500/30 animate-pulse bg-yellow-500/10">
               <BellRing className="h-2.5 w-2.5" /> Reminding ({lead.remind_attempts || 0})
+            </Badge>
+          )}
+          {isExpired && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-red-500 border-red-500/30 bg-red-500/10">
+              <BellRing className="h-2.5 w-2.5" /> Failed
             </Badge>
           )}
           {hasAI && (
@@ -547,7 +556,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           <Button
             variant={isReminding ? "outline" : "ghost"}
             size="sm"
-            className={cn("h-7 text-xs", isReminding && "text-orange-500 border-orange-500/30")}
+            className={cn("h-7 text-xs", isReminding && "text-yellow-500 border-yellow-500/30")}
             onClick={onRemind}
           >
             <BellRing className="h-3 w-3 mr-1" />
@@ -587,12 +596,12 @@ export default function Funnels() {
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('lw_landing_leads').select('*').not('landing_page_id', 'is', null).neq('full_name', 'Property Owner').neq('phone', 'N/A').order('created_at', { ascending: false }).limit(500),
-        supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at').in('status', ['active', 'connected']),
+        supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
       ]);
 
       // Build remind lookup by customer_id
-      const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null }>();
-      (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at }));
+      const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null; created_at: string | null }>();
+      (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at, created_at: r.created_at }));
 
       const combined: FunnelLead[] = [];
 
@@ -616,6 +625,7 @@ export default function Funnels() {
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
+          remind_created_at: remind?.created_at || null,
         });
       });
 
