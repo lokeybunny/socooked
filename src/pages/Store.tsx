@@ -25,11 +25,11 @@ interface StoreItem {
 const EXCLUDED_KEYWORDS = ["wheelchair", "wheel chair", "mobility scooter", "power chair", "mobile scooter", "powerchair", "electric scooter", "mobility aid"];
 
 const CATEGORIES = [
-  { key: "all", label: "All Items", icon: Package, keywords: [] as string[], image: "", desc: "" },
-  { key: "music", label: "Music & Instruments", icon: Guitar, image: catMusic, desc: "Guitars, amps, pedals & more", keywords: ["guitar","fender","gibson","amp","amplifier","pedal","bass guitar","drum","keyboard","piano","mic","microphone","speaker","audio","vinyl","record","turntable","saxophone","trumpet","violin","ukulele","banjo","mandolin","harmonica","synth","midi","monitor","headphone","music","instrument"] },
-  { key: "jewelry", label: "Jewelry", icon: Gem, image: catJewelry, desc: "Necklaces, pendants, gold & diamonds", keywords: ["necklace","pendant","gold","diamond","ring","chain","earring","platinum","carat","jewel","gem","brooch","karat","14k","18k","24k","10k"] },
-  { key: "designer", label: "Designer & Luxury", icon: Shirt, image: catDesigner, desc: "Louis Vuitton, Versace, Balenciaga & more", keywords: ["louis vuitton","gucci","prada","chanel","hermes","versace","burberry","dior","balenciaga","fendi","supreme","off-white","yeezy","jordan","nike","designer","luxury","handbag","purse","wallet","belt","sunglasses","shoe","sneaker","boot","lv"] },
-  { key: "camera", label: "Camera & Gear", icon: Camera, image: "", desc: "Cameras, lenses, accessories & gear", keywords: ["camera","canon","nikon","sony","lens","tripod","gopro","dslr","mirrorless","flash","photography","camcorder","film camera","fuji","olympus","panasonic","lumix","sigma","tamron","ring light","stabilizer","gimbal","sd card","memory card"] },
+  { key: "all", label: "All Items", icon: Package, keywords: [] as string[], image: "", desc: "", priority: 0 },
+  { key: "music", label: "Music & Instruments", icon: Guitar, image: catMusic, desc: "Guitars, amps, pedals & more", priority: 1, keywords: ["guitar","fender","gibson","amp","amplifier","pedal","bass guitar","drum","keyboard","piano","mic","microphone","speaker","audio","vinyl","record","turntable","saxophone","trumpet","violin","ukulele","banjo","mandolin","harmonica","synth","midi","headphone","music","instrument"] },
+  { key: "designer", label: "Designer & Luxury", icon: Shirt, image: catDesigner, desc: "Louis Vuitton, Versace, Balenciaga & more", priority: 2, keywords: ["louis vuitton","gucci","prada","chanel","hermes","versace","burberry","dior","balenciaga","fendi","supreme","off-white","yeezy","jordan","nike","designer","luxury","handbag","purse","wallet","belt","sunglasses","shoe","sneaker","boot","lv"] },
+  { key: "camera", label: "Camera & Gear", icon: Camera, image: "", desc: "Cameras, lenses, accessories & gear", priority: 3, keywords: ["camera","canon","nikon","sony","lens","tripod","gopro","dslr","mirrorless","flash","photography","camcorder","film camera","fuji","olympus","panasonic","lumix","sigma","tamron","ring light","stabilizer","gimbal","sd card","memory card"] },
+  { key: "jewelry", label: "Jewelry", icon: Gem, image: catJewelry, desc: "Necklaces, pendants, gold & diamonds", priority: 4, keywords: ["necklace","pendant","gold","diamond","chain","earring","platinum","carat","jewel","gem","brooch","karat","14k","18k","24k","10k","jewelry","jewellery"] },
 ];
 
 function isExcluded(item: StoreItem): boolean {
@@ -37,13 +37,14 @@ function isExcluded(item: StoreItem): boolean {
   return EXCLUDED_KEYWORDS.some((kw) => text.includes(kw));
 }
 
+/* Categorize into exactly ONE category (highest priority match wins) */
 function categorizeItem(item: StoreItem): string[] {
   const text = `${item.item_name} ${item.condition_notes || ""}`.toLowerCase();
-  const matched: string[] = [];
-  for (const cat of CATEGORIES.slice(1)) {
-    if (cat.keywords.some((kw) => text.includes(kw))) matched.push(cat.key);
-  }
-  return matched.length ? matched : ["all"];
+  // Also exclude skateboard-like items from jewelry
+  const prioritized = CATEGORIES.slice(1)
+    .filter(cat => cat.keywords.some((kw) => text.includes(kw)))
+    .sort((a, b) => a.priority - b.priority);
+  return prioritized.length ? [prioritized[0].key] : ["all"];
 }
 
 const fmtPrice = (price: number) => {
