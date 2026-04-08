@@ -55,6 +55,7 @@ interface FunnelLead {
   remind_connected_at?: string | null;
   remind_created_at?: string | null;
   happy?: boolean;
+  dead?: boolean;
 }
 
 const PAGE_SIZE = 30;
