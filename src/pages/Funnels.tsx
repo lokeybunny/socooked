@@ -703,6 +703,39 @@ export default function Funnels() {
     toast.success(`${lead.full_name} → ${stageLabel}`);
   };
 
+  const handleRemind = async (lead: FunnelLead) => {
+    if (!lead.phone || lead._table !== 'customers') return;
+
+    // If already reminding, cancel it
+    if (lead.remind_status === 'active') {
+      const { error } = await supabase.functions.invoke('vapi-remind-check', {
+        body: { action: 'cancel', customer_id: lead.id },
+      });
+      if (error) { toast.error('Failed to cancel remind'); return; }
+      setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: null, remind_attempts: null } : l));
+      toast.success(`Remind campaign stopped for ${lead.full_name}`);
+      return;
+    }
+
+    // Enqueue new remind campaign
+    const { data, error } = await supabase.functions.invoke('vapi-remind-check', {
+      body: {
+        action: 'enqueue',
+        customer_id: lead.id,
+        phone: lead.phone,
+        full_name: lead.full_name,
+        business_name: lead.company || '',
+      },
+    });
+    if (error) { toast.error('Failed to start remind'); return; }
+    if (data?.error) {
+      toast.error(data.error);
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: 'active' as const, remind_attempts: 0 } : l));
+    toast.success(`🔔 Remind campaign started for ${lead.full_name} — calls every 4hrs (9am-5pm PST) for 5 days`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
