@@ -453,10 +453,11 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
+  onRemind: () => void;
 }) {
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
@@ -464,9 +465,26 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: 
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
+  const isConnected = lead.remind_status === 'connected';
+  const isReminding = lead.remind_status === 'active';
 
   return (
-    <div className={cn("border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card", isDrafted && "opacity-60 border-dashed")}>
+    <div className={cn(
+      "border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card",
+      isDrafted && "opacity-60 border-dashed",
+      isConnected && "ring-2 ring-green-500 border-green-500/50",
+    )}>
+      {isConnected && (
+        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
+          <Zap className="h-3.5 w-3.5 text-green-500" />
+          <span className="text-xs font-bold text-green-600">AI CONNECTED</span>
+          {lead.remind_connected_at && (
+            <span className="text-[10px] text-green-600/70 ml-auto">
+              {formatDistanceToNow(new Date(lead.remind_connected_at), { addSuffix: true })}
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className={cn("p-1.5 rounded-md shrink-0", cfg.bgColor)}>
@@ -481,6 +499,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: 
           {isDrafted && (
             <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-500/30">
               <EyeOff className="h-2.5 w-2.5 mr-0.5" /> {draftHoursLeft}h left
+            </Badge>
+          )}
+          {isReminding && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-orange-500 border-orange-500/30 animate-pulse">
+              <BellRing className="h-2.5 w-2.5" /> Reminding ({lead.remind_attempts || 0})
             </Badge>
           )}
           {hasAI && (
@@ -518,6 +541,18 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange }: 
           <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
             <Phone className="h-3 w-3" /> Call
           </a>
+        )}
+        {/* Remind button — only for webdesign leads with a phone */}
+        {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
+          <Button
+            variant={isReminding ? "outline" : "ghost"}
+            size="sm"
+            className={cn("h-7 text-xs", isReminding && "text-orange-500 border-orange-500/30")}
+            onClick={onRemind}
+          >
+            <BellRing className="h-3 w-3 mr-1" />
+            {isReminding ? 'Stop Remind' : 'Remind'}
+          </Button>
         )}
         {isDrafted ? (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-yellow-600 ml-auto" onClick={onUndraft}>
