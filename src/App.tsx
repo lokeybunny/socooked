@@ -65,6 +65,7 @@ const Terms = lazyWithRetry(() => import("./pages/Terms"), "page-terms");
 const Stream = lazyWithRetry(() => import("./pages/Stream"), "page-stream");
 const ClientDashboard = lazyWithRetry(() => import("./pages/ClientDashboard"), "page-client-dashboard");
 const Crypto = lazyWithRetry(() => import("./pages/Crypto"), "page-crypto");
+const Store = lazyWithRetry(() => import("./pages/Store"), "page-store");
 
 const queryClient = new QueryClient({
   defaultOptions: {
