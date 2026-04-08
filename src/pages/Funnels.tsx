@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type FunnelType = 'all' | 'webdesign' | 'videography' | 'realestate';
 
@@ -53,6 +54,7 @@ interface FunnelLead {
   remind_attempts?: number | null;
   remind_connected_at?: string | null;
   remind_created_at?: string | null;
+  happy?: boolean;
 }
 
 const PAGE_SIZE = 30;
@@ -454,11 +456,12 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
   onRemind: () => void;
+  onHappyToggle: (checked: boolean) => void;
 }) {
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
@@ -466,9 +469,10 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
-  const isConnected = lead.remind_status === 'connected';
-  const isReminding = lead.remind_status === 'active';
-  const isExpired = lead.remind_status === 'expired';
+  const isHappy = !!lead.happy;
+  const isConnected = lead.remind_status === 'connected' || isHappy;
+  const isReminding = !isHappy && lead.remind_status === 'active';
+  const isExpired = !isHappy && lead.remind_status === 'expired';
 
   return (
     <div className={cn(
@@ -481,8 +485,8 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
       {isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
           <Zap className="h-3.5 w-3.5 text-green-500" />
-          <span className="text-xs font-bold text-green-600">AI CONNECTED</span>
-          {lead.remind_connected_at && (
+          <span className="text-xs font-bold text-green-600">{isHappy ? 'WORK BEGAN ✅' : 'AI CONNECTED'}</span>
+          {!isHappy && lead.remind_connected_at && (
             <span className="text-[10px] text-green-600/70 ml-auto">
               {formatDistanceToNow(new Date(lead.remind_connected_at), { addSuffix: true })}
             </span>
@@ -550,6 +554,17 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
             <Phone className="h-3 w-3" /> Call
           </a>
+        )}
+        {/* Happy checkbox — web design leads only */}
+        {lead.funnel === 'webdesign' && (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            <Checkbox
+              checked={isHappy}
+              onCheckedChange={(checked) => onHappyToggle(!!checked)}
+              className="h-3.5 w-3.5"
+            />
+            <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
+          </label>
         )}
         {/* Remind button — only for webdesign leads with a phone */}
         {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
@@ -626,6 +641,7 @@ export default function Funnels() {
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
           remind_created_at: remind?.created_at || null,
+          happy: !!(meta.happy),
         });
       });
 
@@ -744,6 +760,16 @@ export default function Funnels() {
     }
     setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: 'active' as const, remind_attempts: 0 } : l));
     toast.success(`🔔 Remind campaign started for ${lead.full_name} — calls every 4hrs (9am-5pm PST) for 5 days`);
+  };
+
+  const handleHappyToggle = async (lead: FunnelLead, checked: boolean) => {
+    if (lead._table !== 'customers') return;
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, happy: checked } : l));
+    const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
+    const meta = { ...((existing?.meta as Record<string, unknown>) || {}), happy: checked };
+    const { error } = await supabase.from('customers').update({ meta }).eq('id', lead.id);
+    if (error) { toast.error(error.message); fetchLeads(); return; }
+    toast.success(checked ? `✅ ${lead.full_name} marked happy — work began` : `${lead.full_name} unmarked`);
   };
 
   const filtered = useMemo(() => {
@@ -891,6 +917,7 @@ export default function Funnels() {
                 onUndraft={() => handleUndraft(lead)}
                 onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
                 onRemind={() => handleRemind(lead)}
+                onHappyToggle={(checked) => handleHappyToggle(lead, checked)}
               />
             ))}
           </div>
