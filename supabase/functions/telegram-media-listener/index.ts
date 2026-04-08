@@ -60,7 +60,7 @@ const PAGE_2_KEYBOARD = {
 
 const PAGE_3_KEYBOARD = {
   keyboard: [
-    [{ text: '🏪 Arbitrage' }],
+    [{ text: '🏪 Arbitrage' }, { text: '🔎 Checkup' }],
     [{ text: '⬅️ Back 2' }],
   ],
   resize_keyboard: true,
@@ -158,7 +158,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'checkup' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -191,6 +191,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
    }
    if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
    if (normalized === 'wheresvideo' || normalized === '/wheresvideo') return 'wheresvideo'
+   if (normalized === 'checkup' || normalized === '/checkup') return 'checkup'
   return null
 }
 
@@ -4281,6 +4282,27 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle Checkup command ───
+    if (action === 'checkup') {
+      // Clear any existing checkup session
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'checkup_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create checkup session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'checkup_session',
+        payload: { chat_id: chatId, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🔎 <b>Item Checkup</b>\n\nWhat listed item would you like to check?\n\n<i>Type the product name (or part of it) and I\'ll look it up.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
     if (action === 'start') {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
@@ -5526,6 +5548,64 @@ Deno.serve(async (req) => {
         const mod = sessionType.replace('_session', '') as any
         await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
       }
+      return new Response('ok')
+    }
+
+    // ─── Handle checkup session (price lookup) ───
+    const { data: checkupSessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'checkup_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .order('created_at', { ascending: false }).limit(1)
+
+    if (checkupSessions && checkupSessions.length > 0 && text) {
+      // Clean up session
+      await supabase.from('webhook_events').delete().eq('id', checkupSessions[0].id)
+
+      const searchTerm = text.trim()
+      // Regex-style search: find listed items matching the search term
+      const { data: matchedItems, error: searchErr } = await supabase
+        .from('arbitrage_items')
+        .select('id, item_name, asking_price, wiggle_room_price, pawn_shop_address, sku, status')
+        .eq('status', 'listed')
+        .ilike('item_name', `%${searchTerm}%`)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (searchErr || !matchedItems || matchedItems.length === 0) {
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `🔎 <b>No listed items found matching:</b> "${searchTerm}"\n\n<i>Try a different keyword or check spelling.</i>`,
+          parse_mode: 'HTML',
+          reply_markup: PAGE_3_KEYBOARD,
+        })
+        return new Response('ok')
+      }
+
+      // Build results
+      const lines = matchedItems.map((item: any) => {
+        const pawnPrice = item.asking_price || 0
+        const listPrice = item.wiggle_room_price || 0
+        const spread = listPrice - pawnPrice
+        const spreadPct = pawnPrice > 0 ? ((spread / pawnPrice) * 100).toFixed(0) : '∞'
+        const spreadEmoji = spread > 0 ? '🟢' : spread === 0 ? '🟡' : '🔴'
+        return [
+          `📦 <b>${item.item_name}</b>${item.sku ? ` (${item.sku})` : ''}`,
+          `   🏪 Pawn: <b>$${pawnPrice}</b>  →  💲 Listed: <b>$${listPrice}</b>`,
+          `   ${spreadEmoji} Spread: <b>$${spread}</b> (${spreadPct}%)`,
+        ].join('\n')
+      })
+
+      const header = matchedItems.length === 1
+        ? `🔎 <b>Checkup Result</b>`
+        : `🔎 <b>${matchedItems.length} items found for "${searchTerm}"</b>`
+
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `${header}\n\n${lines.join('\n\n')}`,
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
       return new Response('ok')
     }
 
