@@ -907,6 +907,7 @@ export default function Funnels() {
                 onUndraft={() => handleUndraft(lead)}
                 onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
                 onRemind={() => handleRemind(lead)}
+                onHappyToggle={(checked) => handleHappyToggle(lead, checked)}
               />
             ))}
           </div>
