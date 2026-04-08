@@ -116,10 +116,20 @@ function EmailModal({ lead, open, onClose }: { lead: FunnelLead | null; open: bo
     if (!subject.trim() || !body.trim()) { toast.error('Subject and body required'); return; }
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('email-command', {
-        body: { action: 'send', to: lead.email, subject, body, html: body.replace(/\n/g, '<br/>') },
-      });
-      if (error) throw error;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-api?action=send`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ to: lead.email, subject, body: body.replace(/\n/g, '<br/>') }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'Send failed');
       toast.success(`Email sent to ${lead.email}`);
       onClose();
     } catch (err: any) {
