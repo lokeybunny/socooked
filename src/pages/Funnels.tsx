@@ -592,8 +592,8 @@ export default function Funnels() {
       ]);
 
       // Build remind lookup by customer_id
-      const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null }>();
-      (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at }));
+      const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null; created_at: string | null }>();
+      (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at, created_at: r.created_at }));
 
       const combined: FunnelLead[] = [];
 
