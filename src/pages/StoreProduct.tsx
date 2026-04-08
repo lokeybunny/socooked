@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, Package, MapPin, Shield, Truck, Eye, ArrowLeft, Phone, MessageSquare } from "lucide-react";
+import logoImg from "@/assets/vivalapawn-logo.png";
 
 interface StoreItem {
   id: string;
@@ -82,8 +83,7 @@ export default function StoreProduct() {
       <header className="border-b border-neutral-100 bg-white">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" className="block">
-            <h1 className="text-2xl font-bold tracking-tight">VivaLaPawn</h1>
-            <p className="text-[10px] tracking-[0.25em] uppercase text-neutral-400 mt-0.5">Music · Jewelry · Designer · Camera</p>
+            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
           </Link>
           <Link to="/store" className="text-sm text-neutral-500 hover:text-neutral-900 flex items-center gap-1 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Store
@@ -229,7 +229,7 @@ export default function StoreProduct() {
       <footer className="border-t border-neutral-200 bg-neutral-900 text-white mt-16">
         <div className="mx-auto max-w-7xl px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
           <div>
-            <p className="font-bold text-lg">VivaLaPawn</p>
+            <img src={logoImg} alt="VivaLaPawn" className="h-10 w-auto brightness-0 invert mb-1" />
             <p className="text-neutral-500 text-xs mt-1">Las Vegas, NV · © {new Date().getFullYear()}</p>
           </div>
           <div className="flex gap-6 text-neutral-400 text-xs">

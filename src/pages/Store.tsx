@@ -7,6 +7,7 @@ import heroImg from "@/assets/store-hero.jpg";
 import catMusic from "@/assets/cat-music.jpg";
 import catJewelry from "@/assets/cat-jewelry.jpg";
 import catDesigner from "@/assets/cat-designer.jpg";
+import logoImg from "@/assets/vivalapawn-logo.png";
 
 interface StoreItem {
   id: string;
@@ -115,8 +116,7 @@ export default function Store() {
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
-            <h1 className="text-2xl font-bold tracking-tight">VivaLaPawn</h1>
-            <p className="text-[10px] tracking-[0.25em] uppercase text-neutral-400 mt-0.5">Music · Jewelry · Designer · Camera</p>
+            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
             {showProducts && (
@@ -282,7 +282,7 @@ export default function Store() {
       <footer className="border-t border-neutral-200 bg-neutral-900 text-white">
         <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
           <div>
-            <h4 className="font-bold text-lg mb-4">VivaLaPawn</h4>
+            <img src={logoImg} alt="VivaLaPawn" className="h-10 w-auto brightness-0 invert mb-2" />
             <p className="text-neutral-400 text-xs leading-relaxed">Curated premium music gear, jewelry, designer goods & camera gear. Every item inspected and authenticated.</p>
           </div>
           <div>
