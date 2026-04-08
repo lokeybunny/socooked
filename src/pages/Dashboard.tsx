@@ -173,8 +173,15 @@ export default function Dashboard() {
 
       const allComms = comms.data || [];
       const today = new Date().toISOString().slice(0, 10);
-      const prospectCount = prospectsRes.count || 0;
-      const prospectEmailedCount = prospectEmailedRes.count || 0;
+      const prospectsList = prospectsRes.data || [];
+      const prospectEmailedList = prospectEmailedRes.data || [];
+      const prospectCount = prospectsList.length;
+      const prospectEmailedCount = prospectEmailedList.length;
+      const prospectTotalValue = [...prospectsList, ...prospectEmailedList].reduce((sum, c) => {
+        const meta = c.meta && typeof c.meta === 'object' ? c.meta as Record<string, unknown> : {};
+        const val = meta.job_value ? Number(meta.job_value) : 250;
+        return sum + (isNaN(val) ? 250 : val);
+      }, 0);
       const monthlyCount = monthlyRes.count || 0;
       const clientCount = clientRes.count || 0;
 
