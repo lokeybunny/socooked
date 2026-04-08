@@ -162,6 +162,7 @@ const App = () => (
                 <Route path="/crypto" element={<WarrenOnlyGate><AuthLayoutGate><Crypto /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
                 <Route path="/client-dashboard" element={<ClientDashboard />} />
+                <Route path="/store" element={<Store />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
