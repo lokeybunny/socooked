@@ -48,6 +48,10 @@ interface FunnelLead {
   drafted_at?: string | null;
   // source table
   _table: 'customers' | 'lw_landing_leads';
+  // remind campaign
+  remind_status?: 'active' | 'connected' | 'expired' | 'paused' | null;
+  remind_attempts?: number | null;
+  remind_connected_at?: string | null;
 }
 
 const PAGE_SIZE = 30;
