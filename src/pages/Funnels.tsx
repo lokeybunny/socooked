@@ -628,6 +628,7 @@ export default function Funnels() {
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
           remind_created_at: remind?.created_at || null,
+          happy: !!(meta.happy),
         });
       });
 
