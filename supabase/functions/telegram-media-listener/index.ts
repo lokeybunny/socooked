@@ -4303,7 +4303,7 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-
+    if (action === 'start') {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
         text: '🤖 <b>CLAWDbot Command Center</b>\n\nTap a button or type a command. I\'m ready to help with invoices, customers, emails, social media, and more.\n\n<i>Tip: Type naturally — "Send Bryan an email about the project update" — and I\'ll handle the rest.</i>',
