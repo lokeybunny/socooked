@@ -7,6 +7,7 @@ import heroImg from "@/assets/store-hero.jpg";
 import catMusic from "@/assets/cat-music.jpg";
 import catJewelry from "@/assets/cat-jewelry.jpg";
 import catDesigner from "@/assets/cat-designer.jpg";
+import catCamera from "@/assets/cat-camera.jpg";
 import logoImg from "@/assets/vivalapawn-logo.png";
 
 interface StoreItem {
@@ -29,7 +30,7 @@ const CATEGORIES = [
   { key: "all", label: "All Items", icon: Package, keywords: [] as string[], image: "", desc: "", priority: 0 },
   { key: "music", label: "Music & Instruments", icon: Guitar, image: catMusic, desc: "Guitars, amps, pedals & more", priority: 1, keywords: ["guitar","fender","gibson","amp","amplifier","pedal","bass guitar","drum","keyboard","piano","mic","microphone","speaker","audio","vinyl","record","turntable","saxophone","trumpet","violin","ukulele","banjo","mandolin","harmonica","synth","midi","headphone","music","instrument"] },
   { key: "designer", label: "Designer & Luxury", icon: Shirt, image: catDesigner, desc: "Louis Vuitton, Versace, Balenciaga & more", priority: 2, keywords: ["louis vuitton","gucci","prada","chanel","hermes","versace","burberry","dior","balenciaga","fendi","supreme","off-white","yeezy","jordan","nike","designer","luxury","handbag","purse","wallet","belt","sunglasses","shoe","sneaker","boot","lv"] },
-  { key: "camera", label: "Camera & Gear", icon: Camera, image: "", desc: "Cameras, lenses, accessories & gear", priority: 3, keywords: ["camera","canon","nikon","sony","lens","tripod","gopro","dslr","mirrorless","flash","photography","camcorder","film camera","fuji","olympus","panasonic","lumix","sigma","tamron","ring light","stabilizer","gimbal","sd card","memory card"] },
+  { key: "camera", label: "Camera & Gear", icon: Camera, image: catCamera, desc: "Cameras, lenses, accessories & gear", priority: 3, keywords: ["camera","canon","nikon","sony","lens","tripod","gopro","dslr","mirrorless","flash","photography","camcorder","film camera","fuji","olympus","panasonic","lumix","sigma","tamron","ring light","stabilizer","gimbal","sd card","memory card"] },
   { key: "jewelry", label: "Jewelry", icon: Gem, image: catJewelry, desc: "Necklaces, pendants, gold & diamonds", priority: 4, keywords: ["necklace","pendant","gold","diamond","chain","earring","platinum","carat","jewel","gem","brooch","karat","14k","18k","24k","10k","jewelry","jewellery"] },
 ];
 
@@ -116,7 +117,7 @@ export default function Store() {
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
-            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
+            <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
             {showProducts && (

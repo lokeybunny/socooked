@@ -83,7 +83,7 @@ export default function StoreProduct() {
       <header className="border-b border-neutral-100 bg-white">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" className="block">
-            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
+            <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
           </Link>
           <Link to="/store" className="text-sm text-neutral-500 hover:text-neutral-900 flex items-center gap-1 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Store
@@ -214,12 +214,6 @@ export default function StoreProduct() {
                 <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Condition</p>
                 <p className="text-sm text-neutral-600 leading-relaxed">{item.condition_notes || "Used — in great condition. Inspected and authenticated."}</p>
               </div>
-              {item.pawn_shop_address && (
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Pickup Location</p>
-                  <p className="text-sm text-neutral-600 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-neutral-400" /> {item.pawn_shop_address}</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
