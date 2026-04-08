@@ -191,6 +191,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
    }
    if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
    if (normalized === 'wheresvideo' || normalized === '/wheresvideo') return 'wheresvideo'
+   if (normalized === 'checkup' || normalized === '/checkup') return 'checkup'
   return null
 }
 
