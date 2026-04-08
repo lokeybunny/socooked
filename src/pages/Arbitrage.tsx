@@ -823,8 +823,10 @@ export default function Arbitrage() {
   const [defaultAddress, setDefaultAddress] = useState('');
   const [defaultAddyEnabled, setDefaultAddyEnabled] = useState(false);
   const [defaultAddyInput, setDefaultAddyInput] = useState('');
-  const [defaultAddySaving, setDefaultAddySaving] = useState(false);
-  const [uploadWizardOpen, setUploadWizardOpen] = useState(false);
+   const [defaultAddySaving, setDefaultAddySaving] = useState(false);
+   const [uploadWizardOpen, setUploadWizardOpen] = useState(false);
+   const [unattachedOpen, setUnattachedOpen] = useState(false);
+   const [unattachedAddresses, setUnattachedAddresses] = useState<{storeName: string; address: string}[]>([]);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -1111,9 +1113,24 @@ export default function Arbitrage() {
               value={defaultAddyInput}
               onChange={(e) => setDefaultAddyInput(e.target.value)}
             />
-            <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={handleSaveDefaultAddress} disabled={defaultAddySaving}>
-              {defaultAddySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-            </Button>
+             <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={handleSaveDefaultAddress} disabled={defaultAddySaving}>
+               {defaultAddySaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+             </Button>
+             <Button size="sm" variant="outline" className="h-8 text-xs shrink-0" onClick={() => {
+               const attachedAddresses = new Set(
+                 items
+                   .filter(i => i.pawn_shop_address && i.status !== 'passed')
+                   .map(i => (i.pawn_shop_address || '').trim().toLowerCase())
+               );
+               const unattached = stores
+                 .filter(s => s.address && s.address.trim())
+                 .filter(s => !attachedAddresses.has(s.address!.trim().toLowerCase()))
+                 .map(s => ({ storeName: s.store_name, address: s.address! }));
+               setUnattachedAddresses(unattached);
+               setUnattachedOpen(true);
+             }}>
+               <Search className="h-3 w-3 mr-1" /> Find
+             </Button>
           </div>
         </div>
 
@@ -1353,6 +1370,31 @@ export default function Arbitrage() {
         />
         <UploadWizardModal open={uploadWizardOpen} onClose={() => setUploadWizardOpen(false)} onComplete={fetchAll} />
         <StoreModal open={storeModalOpen} onClose={() => setStoreModalOpen(false)} store={editStore} onSaved={fetchAll} />
+
+        {/* Unattached Addresses Popup */}
+        <Dialog open={unattachedOpen} onOpenChange={setUnattachedOpen}>
+          <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <MapPin className="h-4 w-4" />
+                Unattached Store Addresses
+              </DialogTitle>
+            </DialogHeader>
+            {unattachedAddresses.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">All store addresses are attached to products.</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">{unattachedAddresses.length} store address{unattachedAddresses.length !== 1 ? 'es' : ''} with no listed products</p>
+                {unattachedAddresses.map((ua, i) => (
+                  <div key={i} className="border rounded-md p-2.5 space-y-0.5 bg-muted/30">
+                    <p className="text-sm font-medium text-foreground">{ua.storeName}</p>
+                    <p className="text-xs text-muted-foreground">{ua.address}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthLayoutGate>
   );
