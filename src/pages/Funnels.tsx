@@ -762,6 +762,16 @@ export default function Funnels() {
     toast.success(`🔔 Remind campaign started for ${lead.full_name} — calls every 4hrs (9am-5pm PST) for 5 days`);
   };
 
+  const handleHappyToggle = async (lead: FunnelLead, checked: boolean) => {
+    if (lead._table !== 'customers') return;
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, happy: checked } : l));
+    const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
+    const meta = { ...((existing?.meta as Record<string, unknown>) || {}), happy: checked };
+    const { error } = await supabase.from('customers').update({ meta }).eq('id', lead.id);
+    if (error) { toast.error(error.message); fetchLeads(); return; }
+    toast.success(checked ? `✅ ${lead.full_name} marked happy — work began` : `${lead.full_name} unmarked`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
