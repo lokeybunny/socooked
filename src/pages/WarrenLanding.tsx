@@ -147,6 +147,9 @@ export default function WarrenLanding() {
             <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
               Realty
             </a>
+            <Link to="/store" onClick={() => window.scrollTo(0, 0)} className="text-amber-400/70 hover:text-amber-300 text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+              Store
+            </Link>
           </div>
           <div className="flex items-center gap-2 sm:gap-5">
             <button onClick={() => navigate('/auth')} className="hidden sm:block text-white/40 hover:text-white transition-colors" title="Login">
