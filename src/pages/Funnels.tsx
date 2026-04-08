@@ -556,7 +556,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           <Button
             variant={isReminding ? "outline" : "ghost"}
             size="sm"
-            className={cn("h-7 text-xs", isReminding && "text-orange-500 border-orange-500/30")}
+            className={cn("h-7 text-xs", isReminding && "text-yellow-500 border-yellow-500/30")}
             onClick={onRemind}
           >
             <BellRing className="h-3 w-3 mr-1" />
