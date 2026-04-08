@@ -83,8 +83,7 @@ export default function StoreProduct() {
       <header className="border-b border-neutral-100 bg-white">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" className="block">
-            <h1 className="text-2xl font-bold tracking-tight">VivaLaPawn</h1>
-            <p className="text-[10px] tracking-[0.25em] uppercase text-neutral-400 mt-0.5">Music · Jewelry · Designer · Camera</p>
+            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
           </Link>
           <Link to="/store" className="text-sm text-neutral-500 hover:text-neutral-900 flex items-center gap-1 transition-colors">
             <ArrowLeft className="h-4 w-4" /> Back to Store
