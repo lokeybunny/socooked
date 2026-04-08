@@ -823,8 +823,10 @@ export default function Arbitrage() {
   const [defaultAddress, setDefaultAddress] = useState('');
   const [defaultAddyEnabled, setDefaultAddyEnabled] = useState(false);
   const [defaultAddyInput, setDefaultAddyInput] = useState('');
-  const [defaultAddySaving, setDefaultAddySaving] = useState(false);
-  const [uploadWizardOpen, setUploadWizardOpen] = useState(false);
+   const [defaultAddySaving, setDefaultAddySaving] = useState(false);
+   const [uploadWizardOpen, setUploadWizardOpen] = useState(false);
+   const [unattachedOpen, setUnattachedOpen] = useState(false);
+   const [unattachedAddresses, setUnattachedAddresses] = useState<{storeName: string; address: string}[]>([]);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const fetchAll = useCallback(async () => {
     setLoading(true);
