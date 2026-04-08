@@ -486,7 +486,13 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
       !isDead && isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
       !isDead && !isConnected && !isReminding && isExpired && "ring-2 ring-red-500 border-red-500/50",
     )}>
-      {isConnected && (
+      {isDead && (
+        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-red-500/10">
+          <Zap className="h-3.5 w-3.5 text-red-500" />
+          <span className="text-xs font-bold text-red-600">DEAD LEAD ☠️</span>
+        </div>
+      )}
+      {!isDead && isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
           <Zap className="h-3.5 w-3.5 text-green-500" />
           <span className="text-xs font-bold text-green-600">{isHappy ? 'WORK BEGAN ✅' : 'AI CONNECTED'}</span>
