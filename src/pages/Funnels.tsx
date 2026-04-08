@@ -475,6 +475,8 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
       "border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card",
       isDrafted && "opacity-60 border-dashed",
       isConnected && "ring-2 ring-green-500 border-green-500/50",
+      isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
+      isExpired && "ring-2 ring-red-500 border-red-500/50",
     )}>
       {isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
