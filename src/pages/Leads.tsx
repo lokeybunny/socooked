@@ -923,6 +923,7 @@ warren@stu25.com</p>`;
         <Input value={form.instagram_handle} onChange={e => setForm({ ...form, instagram_handle: e.target.value })} placeholder="@username (optional)" />
       </div>
       <div className="space-y-2"><Label>Tags</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Comma-separated, e.g. VIP, Referral" /></div>
+      <div className="space-y-2"><Label>Value of Job ($)</Label><Input type="number" value={form.job_value} onChange={e => setForm({ ...form, job_value: e.target.value })} placeholder="Default: $250" /></div>
       <div className="space-y-2"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
       <div className="space-y-2">
         <Label>Category</Label>
