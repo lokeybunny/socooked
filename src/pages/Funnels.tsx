@@ -484,8 +484,8 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
       {isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
           <Zap className="h-3.5 w-3.5 text-green-500" />
-          <span className="text-xs font-bold text-green-600">AI CONNECTED</span>
-          {lead.remind_connected_at && (
+          <span className="text-xs font-bold text-green-600">{isHappy ? 'WORK BEGAN ✅' : 'AI CONNECTED'}</span>
+          {!isHappy && lead.remind_connected_at && (
             <span className="text-[10px] text-green-600/70 ml-auto">
               {formatDistanceToNow(new Date(lead.remind_connected_at), { addSuffix: true })}
             </span>
