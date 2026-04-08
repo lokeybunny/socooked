@@ -167,14 +167,21 @@ export default function StoreProduct() {
                     <h3 className="text-lg font-bold">Choose Payment Method</h3>
                     <button onClick={() => setShowCashApp(false)} className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none">&times;</button>
                   </div>
-                  <div className="grid md:grid-cols-[2fr_1fr] flex-1 min-h-0">
-                    <div className="p-4 flex flex-col border-r border-neutral-100">
-                      <p className="text-sm font-bold mb-2 text-center">💸 Pay with CashApp</p>
-                      <iframe
-                        src="https://cash.app/$itswarr"
-                        className="w-full flex-1 min-h-[500px] rounded-lg border border-neutral-200"
-                        title="CashApp Payment"
-                      />
+                  <div className="grid md:grid-cols-2 flex-1 min-h-0">
+                    <div className="p-6 text-center flex flex-col items-center justify-center border-r border-neutral-100">
+                      <p className="text-sm font-bold mb-4">💸 Pay with CashApp</p>
+                      <div className="bg-neutral-50 rounded-lg p-6 border border-neutral-200 mb-4">
+                        <p className="text-xs text-neutral-500 mb-1">CashApp tag:</p>
+                        <p className="text-lg font-bold text-neutral-900">$itswarr</p>
+                      </div>
+                      <a
+                        href="https://cash.app/$itswarr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-[#00D632] text-white px-6 py-3 rounded-lg text-sm font-bold hover:bg-[#00c02e] transition-colors"
+                      >
+                        Open CashApp →
+                      </a>
                     </div>
                     <div className="p-6 text-center flex flex-col items-center justify-center">
                       <p className="text-sm font-bold mb-4">💜 Pay with Zelle</p>
