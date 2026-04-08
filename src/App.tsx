@@ -65,6 +65,7 @@ const Terms = lazyWithRetry(() => import("./pages/Terms"), "page-terms");
 const Stream = lazyWithRetry(() => import("./pages/Stream"), "page-stream");
 const ClientDashboard = lazyWithRetry(() => import("./pages/ClientDashboard"), "page-client-dashboard");
 const Crypto = lazyWithRetry(() => import("./pages/Crypto"), "page-crypto");
+const Store = lazyWithRetry(() => import("./pages/Store"), "page-store");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -161,6 +162,7 @@ const App = () => (
                 <Route path="/crypto" element={<WarrenOnlyGate><AuthLayoutGate><Crypto /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/client-login" element={<Navigate to="/auth" replace />} />
                 <Route path="/client-dashboard" element={<ClientDashboard />} />
+                <Route path="/store" element={<Store />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
