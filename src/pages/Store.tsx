@@ -282,7 +282,7 @@ export default function Store() {
       <footer className="border-t border-neutral-200 bg-neutral-900 text-white">
         <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
           <div>
-            <h4 className="font-bold text-lg mb-4">VivaLaPawn</h4>
+            <img src={logoImg} alt="VivaLaPawn" className="h-10 w-auto brightness-0 invert mb-2" />
             <p className="text-neutral-400 text-xs leading-relaxed">Curated premium music gear, jewelry, designer goods & camera gear. Every item inspected and authenticated.</p>
           </div>
           <div>
