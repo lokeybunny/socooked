@@ -229,7 +229,7 @@ export default function StoreProduct() {
       <footer className="border-t border-neutral-200 bg-neutral-900 text-white mt-16">
         <div className="mx-auto max-w-7xl px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
           <div>
-            <p className="font-bold text-lg">VivaLaPawn</p>
+            <img src={logoImg} alt="VivaLaPawn" className="h-10 w-auto brightness-0 invert mb-1" />
             <p className="text-neutral-500 text-xs mt-1">Las Vegas, NV · © {new Date().getFullYear()}</p>
           </div>
           <div className="flex gap-6 text-neutral-400 text-xs">
