@@ -793,6 +793,17 @@ export default function Funnels() {
     toast.success(checked ? `✅ ${lead.full_name} marked happy — work began` : `${lead.full_name} unmarked`);
   };
 
+  const handleDeadToggle = async (lead: FunnelLead, checked: boolean) => {
+    if (lead._table !== 'customers') return;
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, dead: checked, happy: checked ? false : l.happy } : l));
+    const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
+    const meta = { ...((existing?.meta as Record<string, unknown>) || {}), dead: checked };
+    if (checked) (meta as any).happy = false;
+    const { error } = await supabase.from('customers').update({ meta }).eq('id', lead.id);
+    if (error) { toast.error(error.message); fetchLeads(); return; }
+    toast.success(checked ? `☠️ ${lead.full_name} marked dead` : `${lead.full_name} revived`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
