@@ -60,7 +60,7 @@ const PAGE_2_KEYBOARD = {
 
 const PAGE_3_KEYBOARD = {
   keyboard: [
-    [{ text: '🏪 Arbitrage' }],
+    [{ text: '🏪 Arbitrage' }, { text: '🔎 Checkup' }],
     [{ text: '⬅️ Back 2' }],
   ],
   resize_keyboard: true,
