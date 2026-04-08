@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, Package, MapPin, Shield, Truck, Eye, ArrowLeft, Phone, MessageSquare } from "lucide-react";
+import logoImg from "@/assets/vivalapawn-logo.png";
 
 interface StoreItem {
   id: string;
