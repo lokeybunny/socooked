@@ -22,7 +22,7 @@ interface StoreItem {
 }
 
 /* ── Excluded keywords (wheelchairs, mobility scooters, power chairs) ── */
-const EXCLUDED_KEYWORDS = ["wheelchair", "wheel chair", "mobility scooter", "power chair", "mobile scooter", "powerchair", "electric scooter", "mobility aid"];
+const EXCLUDED_KEYWORDS = ["wheelchair", "wheel chair", "mobility scooter", "power chair", "mobile scooter", "powerchair", "electric scooter", "mobility aid", "skateboard"];
 
 const CATEGORIES = [
   { key: "all", label: "All Items", icon: Package, keywords: [] as string[], image: "", desc: "", priority: 0 },
