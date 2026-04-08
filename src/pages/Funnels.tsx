@@ -472,17 +472,19 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const stages = PIPELINE_STAGES[lead.funnel] || [];
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
   const isHappy = !!lead.happy;
-  const isConnected = lead.remind_status === 'connected' || isHappy;
-  const isReminding = !isHappy && lead.remind_status === 'active';
-  const isExpired = !isHappy && lead.remind_status === 'expired';
+  const isDead = !!lead.dead;
+  const isConnected = (lead.remind_status === 'connected' || isHappy) && !isDead;
+  const isReminding = !isHappy && !isDead && lead.remind_status === 'active';
+  const isExpired = !isHappy && !isDead && lead.remind_status === 'expired';
 
   return (
     <div className={cn(
       "border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card",
       isDrafted && "opacity-60 border-dashed",
-      isConnected && "ring-2 ring-green-500 border-green-500/50",
-      isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
-      isExpired && "ring-2 ring-red-500 border-red-500/50",
+      isDead && "ring-2 ring-red-500 border-red-500/50",
+      !isDead && isConnected && "ring-2 ring-green-500 border-green-500/50",
+      !isDead && isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
+      !isDead && !isConnected && !isReminding && isExpired && "ring-2 ring-red-500 border-red-500/50",
     )}>
       {isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
