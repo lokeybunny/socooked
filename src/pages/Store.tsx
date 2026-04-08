@@ -116,7 +116,7 @@ export default function Store() {
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
-            <img src={logoImg} alt="VivaLaPawn" className="h-12 w-auto" />
+            <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
           </Link>
           <div className="flex items-center gap-6">
             {showProducts && (

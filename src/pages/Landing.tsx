@@ -180,6 +180,9 @@ export default function Landing() {
             <Link to="/sell/home" className="hidden sm:block text-emerald-500/70 hover:text-emerald-400 text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
               Real Estate
             </Link>
+            <Link to="/store" className="hidden sm:block text-amber-500/70 hover:text-amber-400 text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
+              Store
+            </Link>
             <button
               onClick={() => navigate('/auth')}
               className="text-muted-foreground/50 hover:text-foreground transition-colors duration-300"

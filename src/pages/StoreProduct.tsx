@@ -214,12 +214,6 @@ export default function StoreProduct() {
                 <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Condition</p>
                 <p className="text-sm text-neutral-600 leading-relaxed">{item.condition_notes || "Used — in great condition. Inspected and authenticated."}</p>
               </div>
-              {item.pawn_shop_address && (
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Pickup Location</p>
-                  <p className="text-sm text-neutral-600 flex items-center gap-1.5"><MapPin className="h-4 w-4 text-neutral-400" /> {item.pawn_shop_address}</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
