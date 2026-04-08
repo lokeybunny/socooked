@@ -61,6 +61,12 @@ export default function Store() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
+  const scrollToProducts = () => {
+    requestAnimationFrame(() => {
+      document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+    });
+  };
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase
