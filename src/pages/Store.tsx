@@ -7,6 +7,7 @@ import heroImg from "@/assets/store-hero.jpg";
 import catMusic from "@/assets/cat-music.jpg";
 import catJewelry from "@/assets/cat-jewelry.jpg";
 import catDesigner from "@/assets/cat-designer.jpg";
+import logoImg from "@/assets/vivalapawn-logo.png";
 
 interface StoreItem {
   id: string;
