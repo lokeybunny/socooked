@@ -106,8 +106,8 @@ function EmailModal({ lead, open, onClose }: { lead: FunnelLead | null; open: bo
   useEffect(() => {
     if (lead && open) {
       const funnelLabel = FUNNEL_CONFIG[lead.funnel]?.label || lead.funnel;
-      setSubject(`Re: Your ${funnelLabel} Inquiry — Warren Guru`);
-      setBody(`Hi ${lead.full_name.split(' ')[0]},\n\nThank you for reaching out! `);
+      setSubject(`Re: Your ${funnelLabel} Inquiry`);
+      setBody(`Hi ${lead.full_name.split(' ')[0]},\n\nHow can I get a hold of you? Also, what's a good time?\n\nweb designer.`);
     }
   }, [lead, open]);
 
