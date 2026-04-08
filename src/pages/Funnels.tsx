@@ -55,6 +55,7 @@ interface FunnelLead {
   remind_connected_at?: string | null;
   remind_created_at?: string | null;
   happy?: boolean;
+  dead?: boolean;
 }
 
 const PAGE_SIZE = 30;
@@ -456,12 +457,13 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
   onRemind: () => void;
   onHappyToggle: (checked: boolean) => void;
+  onDeadToggle: (checked: boolean) => void;
 }) {
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
@@ -470,19 +472,27 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const stages = PIPELINE_STAGES[lead.funnel] || [];
   const currentStageLabel = stages.find(s => s.value === lead.status)?.label || lead.status;
   const isHappy = !!lead.happy;
-  const isConnected = lead.remind_status === 'connected' || isHappy;
-  const isReminding = !isHappy && lead.remind_status === 'active';
-  const isExpired = !isHappy && lead.remind_status === 'expired';
+  const isDead = !!lead.dead;
+  const isConnected = (lead.remind_status === 'connected' || isHappy) && !isDead;
+  const isReminding = !isHappy && !isDead && lead.remind_status === 'active';
+  const isExpired = !isHappy && !isDead && lead.remind_status === 'expired';
 
   return (
     <div className={cn(
       "border rounded-lg p-4 hover:border-primary/30 transition-colors bg-card",
       isDrafted && "opacity-60 border-dashed",
-      isConnected && "ring-2 ring-green-500 border-green-500/50",
-      isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
-      isExpired && "ring-2 ring-red-500 border-red-500/50",
+      isDead && "ring-2 ring-red-500 border-red-500/50",
+      !isDead && isConnected && "ring-2 ring-green-500 border-green-500/50",
+      !isDead && isReminding && "ring-2 ring-yellow-500 border-yellow-500/50",
+      !isDead && !isConnected && !isReminding && isExpired && "ring-2 ring-red-500 border-red-500/50",
     )}>
-      {isConnected && (
+      {isDead && (
+        <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-red-500/10">
+          <Zap className="h-3.5 w-3.5 text-red-500" />
+          <span className="text-xs font-bold text-red-600">DEAD LEAD ☠️</span>
+        </div>
+      )}
+      {!isDead && isConnected && (
         <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-md bg-green-500/10">
           <Zap className="h-3.5 w-3.5 text-green-500" />
           <span className="text-xs font-bold text-green-600">{isHappy ? 'WORK BEGAN ✅' : 'AI CONNECTED'}</span>
@@ -566,7 +576,17 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
           </label>
         )}
-        {/* Remind button — only for webdesign leads with a phone */}
+        {/* Dead checkbox — web design leads only */}
+        {lead.funnel === 'webdesign' && (
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
+            <Checkbox
+              checked={isDead}
+              onCheckedChange={(checked) => onDeadToggle(!!checked)}
+              className="h-3.5 w-3.5"
+            />
+            <span className={cn(isDead && "text-red-600 font-medium")}>Dead</span>
+          </label>
+        )}
         {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
           <Button
             variant={isReminding ? "outline" : "ghost"}
@@ -642,6 +662,7 @@ export default function Funnels() {
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
           remind_created_at: remind?.created_at || null,
           happy: !!(meta.happy),
+          dead: !!(meta.dead),
         });
       });
 
@@ -770,6 +791,17 @@ export default function Funnels() {
     const { error } = await supabase.from('customers').update({ meta }).eq('id', lead.id);
     if (error) { toast.error(error.message); fetchLeads(); return; }
     toast.success(checked ? `✅ ${lead.full_name} marked happy — work began` : `${lead.full_name} unmarked`);
+  };
+
+  const handleDeadToggle = async (lead: FunnelLead, checked: boolean) => {
+    if (lead._table !== 'customers') return;
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, dead: checked, happy: checked ? false : l.happy } : l));
+    const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
+    const meta = { ...((existing?.meta as Record<string, unknown>) || {}), dead: checked };
+    if (checked) (meta as any).happy = false;
+    const { error } = await supabase.from('customers').update({ meta }).eq('id', lead.id);
+    if (error) { toast.error(error.message); fetchLeads(); return; }
+    toast.success(checked ? `☠️ ${lead.full_name} marked dead` : `${lead.full_name} revived`);
   };
 
   const filtered = useMemo(() => {
@@ -918,6 +950,7 @@ export default function Funnels() {
                 onStageChange={(newStatus) => handleStageChange(lead, newStatus)}
                 onRemind={() => handleRemind(lead)}
                 onHappyToggle={(checked) => handleHappyToggle(lead, checked)}
+                onDeadToggle={(checked) => handleDeadToggle(lead, checked)}
               />
             ))}
           </div>
