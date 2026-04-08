@@ -121,24 +121,10 @@ export default function Store() {
 
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/95 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-center">
           <Link to="/store" onClick={() => setActiveCategory(null)} className="block">
             <img src={logoImg} alt="VivaLaPawn" className="h-36 w-auto" />
           </Link>
-          <div className="flex items-center gap-6">
-            {showProducts && (
-              <div className="relative hidden sm:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items…" className="pl-10 w-72 h-10 text-sm border-neutral-200 rounded-full bg-neutral-50 focus:bg-white" />
-              </div>
-            )}
-            {CATEGORIES.slice(1).map((cat) => (
-              <button key={cat.key} onClick={() => { setActiveCategory(cat.key); scrollToProducts(); }} className="hidden lg:flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors">
-                <cat.icon className="h-4 w-4" />
-                {cat.label}
-              </button>
-            ))}
-          </div>
         </div>
       </header>
 
