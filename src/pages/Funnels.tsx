@@ -583,38 +583,23 @@ export default function Funnels() {
     setLoading(true);
     try {
       // Web Design from customers (only funnel sources)
-      const { data: custLeads } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('source', 'webdesign-landing')
-        .order('created_at', { ascending: false })
-        .limit(500);
+      const [{ data: custLeads }, { data: vidLeads }, { data: reLeads }, { data: remindRows }] = await Promise.all([
+        supabase.from('customers').select('*').eq('source', 'webdesign-landing').order('created_at', { ascending: false }).limit(500),
+        supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
+        supabase.from('lw_landing_leads').select('*').not('landing_page_id', 'is', null).neq('full_name', 'Property Owner').neq('phone', 'N/A').order('created_at', { ascending: false }).limit(500),
+        supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at').in('status', ['active', 'connected']),
+      ]);
 
-      // Videography from customers
-      const { data: vidLeads } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('source', 'videography-landing')
-        .order('created_at', { ascending: false })
-        .limit(500);
-
-      // Real Estate from lw_landing_leads (only manually submitted via funnel form)
-      const { data: reLeads } = await supabase
-        .from('lw_landing_leads')
-        .select('*')
-        .not('landing_page_id', 'is', null)
-        .neq('full_name', 'Property Owner')
-        .neq('phone', 'N/A')
-        .order('created_at', { ascending: false })
-        .limit(500);
+      // Build remind lookup by customer_id
+      const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null }>();
+      (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at }));
 
       const combined: FunnelLead[] = [];
-
-
 
       (custLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
+        const remind = remindMap.get(c.id);
         combined.push({
           id: c.id, funnel: 'webdesign' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
@@ -628,6 +613,9 @@ export default function Funnels() {
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
+          remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
+          remind_attempts: remind?.attempts || null,
+          remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
         });
       });
 
@@ -640,12 +628,8 @@ export default function Funnels() {
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
-          vapi_call_status: null,
-          vapi_call_id: null,
-          ai_notes: null,
-          vapi_recording_url: null,
-          vapi_transcript: null,
-          vapi_summary: null,
+          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
+          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
@@ -668,7 +652,6 @@ export default function Funnels() {
 
       combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      // Auto-expire drafts older than 72 hours (remove from view only)
       const now = new Date();
       const visible = combined.filter((l) => {
         if (!l.drafted_at) return true;
