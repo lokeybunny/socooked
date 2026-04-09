@@ -467,14 +467,17 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
   onRemind: () => void;
   onHappyToggle: (checked: boolean) => void;
   onDeadToggle: (checked: boolean) => void;
+  onPhoneEdit: (newPhone: string) => void;
 }) {
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(lead.phone || '');
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
   const isDrafted = !!lead.drafted_at;
