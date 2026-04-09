@@ -573,7 +573,25 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Mail className="h-3 w-3 mr-1" /> Reply
           </Button>
         )}
-        {lead.phone && lead.phone !== 'N/A' && (
+        {lead.funnel === 'webdesign' && !editingPhone && (
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPhoneInput(lead.phone || ''); setEditingPhone(true); }}>
+            <Phone className="h-3 w-3 mr-1" /> {lead.phone && lead.phone !== 'N/A' ? lead.phone : 'Add Phone'}
+          </Button>
+        )}
+        {lead.funnel === 'webdesign' && editingPhone && (
+          <div className="flex items-center gap-1">
+            <Input
+              value={phoneInput}
+              onChange={e => setPhoneInput(e.target.value)}
+              className="h-7 text-xs w-32"
+              placeholder="(555) 000-0000"
+              autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') { onPhoneEdit(phoneInput); setEditingPhone(false); } if (e.key === 'Escape') setEditingPhone(false); }}
+            />
+            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => { onPhoneEdit(phoneInput); setEditingPhone(false); }}>Save</Button>
+          </div>
+        )}
+        {lead.funnel !== 'webdesign' && lead.phone && lead.phone !== 'N/A' && (
           <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
             <Phone className="h-3 w-3" /> Call
           </a>
@@ -964,6 +982,13 @@ export default function Funnels() {
                 onRemind={() => handleRemind(lead)}
                 onHappyToggle={(checked) => handleHappyToggle(lead, checked)}
                 onDeadToggle={(checked) => handleDeadToggle(lead, checked)}
+                onPhoneEdit={async (newPhone) => {
+                  if (!newPhone.trim()) return;
+                  const { error } = await supabase.from('customers').update({ phone: newPhone.trim() }).eq('id', lead.id);
+                  if (error) { toast.error('Failed to update phone'); return; }
+                  setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, phone: newPhone.trim() } : l));
+                  toast.success('Phone updated');
+                }}
               />
             ))}
           </div>
