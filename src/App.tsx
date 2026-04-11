@@ -167,6 +167,7 @@ const App = () => (
                 <Route path="/store" element={<Store />} />
                 <Route path="/shop" element={<Navigate to="/store" replace />} />
                 <Route path="/store/:id" element={<StoreProduct />} />
+                <Route path="/ai-gen" element={<WarrenOnlyGate><AuthLayoutGate><AIGen /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
