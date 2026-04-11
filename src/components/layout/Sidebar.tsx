@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -58,6 +58,7 @@ const navEntries: NavEntry[] = [
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
   
   { to: '/crypto', icon: Target, label: 'Crypto', green: true },
+  { to: '/ai-gen', icon: Film, label: 'AI Gen', divider: 'Studio', highlight: true },
 ];
 
 export function Sidebar() {

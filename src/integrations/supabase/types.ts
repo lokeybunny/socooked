@@ -1456,6 +1456,93 @@ export type Database = {
           },
         ]
       }
+      generation_jobs: {
+        Row: {
+          backend_logs: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          input_audio_url: string | null
+          input_image_url: string | null
+          negative_prompt: string | null
+          output_thumbnail_url: string | null
+          output_video_url: string | null
+          progress: number
+          prompt: string
+          settings_json: Json
+          status: string
+          task_type: string
+          updated_at: string
+          user_id: string
+          worker_job_id: string | null
+        }
+        Insert: {
+          backend_logs?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_audio_url?: string | null
+          input_image_url?: string | null
+          negative_prompt?: string | null
+          output_thumbnail_url?: string | null
+          output_video_url?: string | null
+          progress?: number
+          prompt: string
+          settings_json?: Json
+          status?: string
+          task_type?: string
+          updated_at?: string
+          user_id: string
+          worker_job_id?: string | null
+        }
+        Update: {
+          backend_logs?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_audio_url?: string | null
+          input_image_url?: string | null
+          negative_prompt?: string | null
+          output_thumbnail_url?: string | null
+          output_video_url?: string | null
+          progress?: number
+          prompt?: string
+          settings_json?: Json
+          status?: string
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+          worker_job_id?: string | null
+        }
+        Relationships: []
+      }
+      generation_presets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          preset_json: Json
+          task_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          preset_json?: Json
+          task_type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          preset_json?: Json
+          task_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       guru_subscriptions: {
         Row: {
           amount_cents: number
@@ -4113,6 +4200,36 @@ export type Database = {
           zillow_url?: string | null
           zip?: string | null
           zpid?: string | null
+        }
+        Relationships: []
+      }
+      studio_settings: {
+        Row: {
+          backend_config_json: Json
+          branding_json: Json
+          created_at: string
+          default_presets_json: Json
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backend_config_json?: Json
+          branding_json?: Json
+          created_at?: string
+          default_presets_json?: Json
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backend_config_json?: Json
+          branding_json?: Json
+          created_at?: string
+          default_presets_json?: Json
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
