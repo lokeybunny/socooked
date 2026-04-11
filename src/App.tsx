@@ -160,7 +160,8 @@ const App = () => (
                 <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography" element={<VideographyLanding />} />
-                <Route path="/webdesign" element={<WebDesignLanding />} />
+                <Route path="/web" element={<WebDesignLanding />} />
+                <Route path="/webdesign" element={<Navigate to="/web" replace />} />
                 <Route path="/liquidate" element={<Liquidate />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/stream" element={<Stream />} />
