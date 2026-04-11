@@ -6,8 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 /* ─── Configurable course price (cents) ─── */
-const COURSE_PRICE_CENTS = 9900; // $99.00 — change this to adjust pricing
-const COURSE_PRICE_DISPLAY = `$${(COURSE_PRICE_CENTS / 100).toFixed(0)}`;
+const COURSE_PRICE_CENTS = 29900; // $299.00 — change this to adjust pricing
+const COURSE_PRICE_DISPLAY = `$${(COURSE_PRICE_CENTS / 100).toFixed(2)}`;
 
 type FunnelStep = 'capture' | 'payment' | 'success';
 
@@ -110,7 +110,7 @@ export default function CourseFunnel() {
                   <Sparkles className="h-6 w-6 text-emerald-400" />
                 </div>
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-2">
-                  AI Filmmaking Master Course
+                  AI Filmmaking 2 Hour Master Course
                 </h1>
                 <p className="text-sm text-white/40">
                   2-hour step-by-step system · {COURSE_PRICE_DISPLAY}
@@ -181,7 +181,7 @@ export default function CourseFunnel() {
 
               <div className="p-4 rounded-xl bg-white/5 border border-white/10 mb-6">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-white/60">AI Filmmaking Master Course</span>
+                  <span className="text-white/60">AI Filmmaking 2 Hour Master Course</span>
                   <span className="text-emerald-400 font-semibold">{COURSE_PRICE_DISPLAY}</span>
                 </div>
               </div>
