@@ -86,6 +86,9 @@ export default function AIDirector() {
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
+            <Link to="/web" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Web
+            </Link>
             <button onClick={scrollToFunnel} className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Course
             </button>
