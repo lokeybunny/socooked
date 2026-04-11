@@ -70,14 +70,6 @@ export default function AIDirector() {
               Course
             </button>
             <a
-              href="https://vimeo.com/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors"
-            >
-              Vimeo
-            </a>
-            <a
               href="https://discord.gg/warrenguru"
               target="_blank"
               rel="noopener noreferrer"
