@@ -69,6 +69,7 @@ const Store = lazyWithRetry(() => import("./pages/Store"), "page-store");
 const StoreProduct = lazyWithRetry(() => import("./pages/StoreProduct"), "page-store-product");
 const AIGen = lazyWithRetry(() => import("./pages/AIGen"), "page-ai-gen");
 const AIDirector = lazyWithRetry(() => import("./pages/AIDirector"), "page-ai-director");
+const CourseFunnel = lazyWithRetry(() => import("./pages/CourseFunnel"), "page-course-funnel");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -171,6 +172,8 @@ const App = () => (
                 <Route path="/store/:id" element={<StoreProduct />} />
                 <Route path="/ai-gen" element={<WarrenOnlyGate><AuthLayoutGate><AIGen /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/ai" element={<Navigate to="/" replace />} />
+                <Route path="/course" element={<CourseFunnel />} />
+                <Route path="/course/success" element={<CourseFunnel />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
