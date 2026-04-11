@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   ArrowRight, Zap, Globe, BarChart3, Brain,
   ChevronDown, Shield, Clock, Users, TrendingUp, Cpu, Rocket,
-  Code, Layers, Newspaper, Bot, Coins, Radio
+  Code, Layers, Newspaper, Bot, Coins, Radio, MessageCircle, DoorOpen
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion, useScroll, useTransform } from 'framer-motion';
