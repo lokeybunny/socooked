@@ -40,9 +40,7 @@ const coursePoints = [
 
 export default function AIDirector() {
   const [activeVideo, setActiveVideo] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', email: '' });
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  
   const courseRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
