@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // Default price: $99 (9900 cents) — easily adjustable
     const priceCents = amount_cents && Number.isInteger(amount_cents) && amount_cents > 0
       ? amount_cents
-      : 9900;
+      : 29900;
 
     // Get Square location
     const locRes = await fetch(`${SQUARE_BASE}/locations`, {
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     const linkBody: Record<string, unknown> = {
       idempotency_key: crypto.randomUUID(),
       quick_pay: {
-        name: `AI Filmmaking Master Course — $${priceDollars}`,
+        name: `AI Filmmaking 2 Hour Master Course — $${priceDollars}`,
         price_money: {
           amount: priceCents,
           currency: "USD",
