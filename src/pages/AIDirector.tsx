@@ -335,7 +335,7 @@ export default function AIDirector() {
                   to="/course"
                   className="w-full py-3 rounded-xl bg-emerald-500 text-black font-medium text-sm tracking-wide hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
                 >
-                  Start Course — $99
+                  Start Course — $299
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <p className="text-[10px] text-white/20 text-center">Secure checkout · Instant access after payment</p>

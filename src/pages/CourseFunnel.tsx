@@ -232,10 +232,10 @@ export default function CourseFunnel() {
                   Join the Discord Community
                 </a>
                 <Link
-                  to="/"
+                  to="/course/login"
                   className="w-full py-3 rounded-xl border border-white/10 text-white/70 text-sm hover:border-emerald-500/30 hover:text-white transition-all flex items-center justify-center gap-2"
                 >
-                  Back to Home
+                  Access Your Course →
                 </Link>
               </div>
 
