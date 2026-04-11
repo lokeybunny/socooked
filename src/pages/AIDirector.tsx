@@ -48,6 +48,7 @@ export default function AIDirector() {
   const navigate = useNavigate();
 
   const scrollToFunnel = () => courseRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const goToCourse = () => navigate('/course');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
