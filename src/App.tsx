@@ -68,6 +68,7 @@ const Crypto = lazyWithRetry(() => import("./pages/Crypto"), "page-crypto");
 const Store = lazyWithRetry(() => import("./pages/Store"), "page-store");
 const StoreProduct = lazyWithRetry(() => import("./pages/StoreProduct"), "page-store-product");
 const AIGen = lazyWithRetry(() => import("./pages/AIGen"), "page-ai-gen");
+const AIDirector = lazyWithRetry(() => import("./pages/AIDirector"), "page-ai-director");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -168,6 +169,7 @@ const App = () => (
                 <Route path="/shop" element={<Navigate to="/store" replace />} />
                 <Route path="/store/:id" element={<StoreProduct />} />
                 <Route path="/ai-gen" element={<WarrenOnlyGate><AuthLayoutGate><AIGen /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/ai" element={<AIDirector />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
