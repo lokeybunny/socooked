@@ -69,6 +69,7 @@ const Store = lazyWithRetry(() => import("./pages/Store"), "page-store");
 const StoreProduct = lazyWithRetry(() => import("./pages/StoreProduct"), "page-store-product");
 const AIGen = lazyWithRetry(() => import("./pages/AIGen"), "page-ai-gen");
 const AIDirector = lazyWithRetry(() => import("./pages/AIDirector"), "page-ai-director");
+const CourseFunnel = lazyWithRetry(() => import("./pages/CourseFunnel"), "page-course-funnel");
 
 const queryClient = new QueryClient({
   defaultOptions: {
