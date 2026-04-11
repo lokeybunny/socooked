@@ -154,13 +154,13 @@ export default function AIDirector() {
                 Join Discord
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
               </a>
-              <button
-                onClick={scrollToFunnel}
+              <Link
+                to="/course"
                 className="group flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/70 text-sm tracking-wide hover:border-emerald-500/30 hover:text-white transition-all"
               >
                 Start Course
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-              </button>
+              </Link>
             </div>
           </div>
 
