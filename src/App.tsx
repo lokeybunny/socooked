@@ -103,7 +103,8 @@ const App = () => (
           <BrowserRouter>
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
-                <Route path="/" element={<WarrenLanding />} />
+                <Route path="/" element={<AIDirector />} />
+                <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/dash" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
@@ -169,7 +170,7 @@ const App = () => (
                 <Route path="/shop" element={<Navigate to="/store" replace />} />
                 <Route path="/store/:id" element={<StoreProduct />} />
                 <Route path="/ai-gen" element={<WarrenOnlyGate><AuthLayoutGate><AIGen /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/ai" element={<AIDirector />} />
+                <Route path="/ai" element={<Navigate to="/" replace />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

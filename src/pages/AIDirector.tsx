@@ -85,21 +85,17 @@ export default function AIDirector() {
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
-            <Link to="/videography" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors">
-              Video
-            </Link>
-            <Link to="/webdesign" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors">
-              Web
-            </Link>
-            <Link to="/sell/home" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-500/70 hover:text-emerald-400 transition-colors">
-              Realty
-            </Link>
-            <Link to="/store" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-amber-500/70 hover:text-amber-400 transition-colors">
-              Store
-            </Link>
             <button onClick={scrollToFunnel} className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Course
             </button>
+            <a
+              href="https://vimeo.com/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors"
+            >
+              Vimeo
+            </a>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
