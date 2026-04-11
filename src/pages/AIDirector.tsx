@@ -176,7 +176,7 @@ export default function AIDirector() {
           >
             <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-[40px]" />
             <img
-              src={robotThumb}
+              src={warrenHero}
               alt="Warren Guru"
               className="relative w-full h-full object-cover rounded-full border-2 border-emerald-500/20 shadow-2xl shadow-emerald-500/10"
             />
