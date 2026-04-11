@@ -70,6 +70,8 @@ const StoreProduct = lazyWithRetry(() => import("./pages/StoreProduct"), "page-s
 const AIGen = lazyWithRetry(() => import("./pages/AIGen"), "page-ai-gen");
 const AIDirector = lazyWithRetry(() => import("./pages/AIDirector"), "page-ai-director");
 const CourseFunnel = lazyWithRetry(() => import("./pages/CourseFunnel"), "page-course-funnel");
+const CourseLogin = lazyWithRetry(() => import("./pages/CourseLogin"), "page-course-login");
+const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-course-learn");
 
 const queryClient = new QueryClient({
   defaultOptions: {
