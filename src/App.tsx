@@ -177,6 +177,8 @@ const App = () => (
                 <Route path="/ai" element={<Navigate to="/" replace />} />
                 <Route path="/course" element={<CourseFunnel />} />
                 <Route path="/course/success" element={<CourseFunnel />} />
+                <Route path="/course/login" element={<CourseLogin />} />
+                <Route path="/course/learn" element={<CourseLearn />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
