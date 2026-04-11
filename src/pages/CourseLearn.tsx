@@ -5,6 +5,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Play, MessageCircle, LogOut } from 'lucide-react';
 
+function toEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    // Already an embed URL
+    if (u.pathname.startsWith('/embed/')) return url;
+    // youtube.com/watch?v=ID
+    const v = u.searchParams.get('v');
+    if (v) return `https://www.youtube.com/embed/${v}`;
+    // youtu.be/ID
+    if (u.hostname === 'youtu.be') return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+    // vimeo.com/ID
+    if (u.hostname.includes('vimeo.com') && /^\/\d+/.test(u.pathname))
+      return `https://player.vimeo.com/video${u.pathname}`;
+  } catch {}
+  return url;
+}
+
 export default function CourseLearn() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -79,7 +96,7 @@ export default function CourseLearn() {
                 {/* Video embed */}
                 <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                   <iframe
-                    src={lesson.video_url}
+                    src={toEmbedUrl(lesson.video_url)}
                     className="absolute inset-0 w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
