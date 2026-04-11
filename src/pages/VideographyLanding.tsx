@@ -132,7 +132,7 @@ export default function VideographyLanding() {
               Crypto
             </Link>
             <Link to="/videography" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400 transition-colors">
-              Videography
+              Video
             </Link>
             <Link to="/web" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Web
