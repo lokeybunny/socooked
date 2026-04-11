@@ -96,7 +96,7 @@ export default function CourseLearn() {
                 {/* Video embed */}
                 <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                   <iframe
-                    src={lesson.video_url}
+                    src={toEmbedUrl(lesson.video_url)}
                     className="absolute inset-0 w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
