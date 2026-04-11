@@ -330,53 +330,18 @@ export default function AIDirector() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              {submitted ? (
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="h-6 w-6 text-emerald-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">You're in!</h3>
-                  <p className="text-sm text-white/40">Check your inbox for access.</p>
-                  <a
-                    href="https://discord.gg/warrenguru"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 mt-4 text-sm text-emerald-400 hover:text-emerald-300 transition-colors"
-                  >
-                    Join Discord <ArrowRight className="h-3 w-3" />
-                  </a>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <h3 className="text-sm font-medium text-white/80 tracking-wider uppercase mb-4">Get Access</h3>
-                  <input
-                    type="text"
-                    placeholder="Your name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))}
-                    required
-                    maxLength={100}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-emerald-500/40 transition-colors"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Your email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
-                    required
-                    maxLength={255}
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-emerald-500/40 transition-colors"
-                  />
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-3 rounded-xl bg-emerald-500 text-black font-medium text-sm tracking-wide hover:bg-emerald-400 disabled:opacity-50 transition-all shadow-lg shadow-emerald-500/20"
-                  >
-                    {submitting ? 'Submitting…' : 'Get Access'}
-                  </button>
-                  <p className="text-[10px] text-white/20 text-center">No spam. Unsubscribe anytime.</p>
-                </form>
-              )}
+              <div className="space-y-4 text-center py-4">
+                <h3 className="text-sm font-medium text-white/80 tracking-wider uppercase mb-4">Get Access</h3>
+                <p className="text-sm text-white/40 mb-4">Enroll now and start creating AI films today.</p>
+                <Link
+                  to="/course"
+                  className="w-full py-3 rounded-xl bg-emerald-500 text-black font-medium text-sm tracking-wide hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                >
+                  Start Course — $99
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <p className="text-[10px] text-white/20 text-center">Secure checkout · Instant access after payment</p>
+              </div>
             </motion.div>
           </div>
         </div>
