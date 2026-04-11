@@ -1,8 +1,7 @@
-import { useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp, DoorOpen } from 'lucide-react';
-import warrenHero from '@/assets/landing/warren-guru-hero.jpg';
 import warrenHero from '@/assets/landing/warren-guru-hero.jpg';
 
 /* ─── Real Vimeo portfolio (scraped from vimeo.com/warrenguru) ─── */
