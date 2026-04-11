@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Building2, Globe, Zap, Code, Palette,
-  Smartphone, Search, Clock, Rocket, CheckCircle, Loader2
+  Smartphone, Search, Clock, Rocket, CheckCircle, Loader2, MessageCircle, DoorOpen
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion } from 'framer-motion';

@@ -128,12 +128,15 @@ export default function VideographyLanding() {
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
+            <Link to="/" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              AI
+            </Link>
             <Link to="/solana" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Crypto
             </Link>
-            <Link to="/videography" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400 transition-colors">
+            <span className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400">
               Video
-            </Link>
+            </span>
             <Link to="/web" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Web
             </Link>
