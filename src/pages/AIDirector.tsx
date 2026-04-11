@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp, DoorOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import robotThumb from '@/assets/landing/robot-thumbnail.jpg';
+import warrenHero from '@/assets/landing/warren-guru-hero.jpg';
 
 /* ─── Real Vimeo portfolio (scraped from vimeo.com/warrenguru) ─── */
 const vimeoVideos = [
@@ -176,7 +176,7 @@ export default function AIDirector() {
           >
             <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-[40px]" />
             <img
-              src={robotThumb}
+              src={warrenHero}
               alt="Warren Guru"
               className="relative w-full h-full object-cover rounded-full border-2 border-emerald-500/20 shadow-2xl shadow-emerald-500/10"
             />
