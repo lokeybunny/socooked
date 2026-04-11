@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp } from 'lucide-react';
+import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp, DoorOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -44,6 +44,7 @@ export default function AIDirector() {
   const [submitted, setSubmitted] = useState(false);
   const courseRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const scrollToFunnel = () => courseRef.current?.scrollIntoView({ behavior: 'smooth' });
 
@@ -77,23 +78,27 @@ export default function AIDirector() {
     <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
       {/* ─── Sticky header ─── */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-3 sm:px-6 py-3 md:py-4">
           <Link to="/" className="flex flex-col leading-none">
-            <span className="text-[9px] tracking-[0.3em] uppercase text-emerald-400/70">Warren</span>
-            <span className="text-sm font-light tracking-[0.15em] uppercase text-white/80">GURU</span>
+            <span className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.25em] uppercase text-emerald-400/70">Warren</span>
+            <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
+            <Link to="/videography" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors">
+              Video
+            </Link>
+            <Link to="/webdesign" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors">
+              Web
+            </Link>
+            <Link to="/sell/home" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-500/70 hover:text-emerald-400 transition-colors">
+              Realty
+            </Link>
+            <Link to="/store" className="hidden sm:block text-[10px] sm:text-xs tracking-[0.15em] uppercase text-amber-500/70 hover:text-amber-400 transition-colors">
+              Store
+            </Link>
             <button onClick={scrollToFunnel} className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Course
             </button>
-            <a
-              href="https://vimeo.com/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-white transition-colors"
-            >
-              Vimeo
-            </a>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
@@ -101,8 +106,14 @@ export default function AIDirector() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs tracking-wider uppercase hover:bg-emerald-500/20 transition-all"
             >
               <MessageCircle className="h-3 w-3" />
-              Discord
+              <span className="hidden sm:inline">Discord</span>
             </a>
+            <button
+              onClick={() => navigate('/auth')}
+              className="text-white/40 hover:text-white transition-colors"
+            >
+              <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
           </nav>
         </div>
       </header>
@@ -178,7 +189,7 @@ export default function AIDirector() {
           </motion.div>
 
           <div className="relative">
-            <button onClick={() => scrollCarousel(-1)} className="absolute -left-2 sm:-left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all">
+            <button onClick={() => scrollCarousel(-1)} className="absolute -left-2 sm:-left-4 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all shadow-lg shadow-emerald-500/10">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div ref={scrollRef} className="flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 px-2">
@@ -207,7 +218,7 @@ export default function AIDirector() {
                 </motion.div>
               ))}
             </div>
-            <button onClick={() => scrollCarousel(1)} className="absolute -right-2 sm:-right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all">
+            <button onClick={() => scrollCarousel(1)} className="absolute -right-2 sm:-right-4 top-1/2 -translate-y-1/2 z-10 p-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 transition-all shadow-lg shadow-emerald-500/10">
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
