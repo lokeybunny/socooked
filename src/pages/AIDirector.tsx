@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp, DoorOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import robotThumb from '@/assets/landing/robot-thumbnail.jpg';
 
 /* ─── Real Vimeo portfolio (scraped from vimeo.com/warrenguru) ─── */
 const vimeoVideos = [
@@ -128,40 +129,58 @@ export default function AIDirector() {
         </div>
 
         <motion.div
-          className="relative z-10 text-center max-w-3xl"
+          className="relative z-10 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-14 max-w-5xl w-full"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
         >
-          <p className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-emerald-400/60 mb-4">
-            AI Film Director
-          </p>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-4">
-            AI Films. Real Emotion.
-            <br />
-            <span className="text-emerald-400">Directed by Warren Guru.</span>
-          </h1>
-          <p className="text-sm sm:text-base text-white/40 font-light max-w-lg mx-auto mb-8">
-            Turn ideas into cinematic AI experiences.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a
-              href="https://discord.gg/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-500 text-black font-medium text-sm tracking-wide hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
-            >
-              Join Discord
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-            </a>
-            <button
-              onClick={scrollToFunnel}
-              className="group flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/70 text-sm tracking-wide hover:border-emerald-500/30 hover:text-white transition-all"
-            >
-              Start Course
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-            </button>
+          {/* Text */}
+          <div className="text-center md:text-left flex-1">
+            <p className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-emerald-400/60 mb-4">
+              AI Film Director
+            </p>
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-4">
+              AI Films. Real Emotion.
+              <br />
+              <span className="text-emerald-400">Directed by Warren Guru.</span>
+            </h1>
+            <p className="text-sm sm:text-base text-white/40 font-light max-w-lg mx-auto md:mx-0 mb-8">
+              Turn ideas into cinematic AI experiences.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center md:items-start justify-center md:justify-start gap-3">
+              <a
+                href="https://discord.gg/warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-500 text-black font-medium text-sm tracking-wide hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+              >
+                Join Discord
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+              <button
+                onClick={scrollToFunnel}
+                className="group flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-white/70 text-sm tracking-wide hover:border-emerald-500/30 hover:text-white transition-all"
+              >
+                Start Course
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
           </div>
+
+          {/* Hero image — Warren Guru */}
+          <motion.div
+            className="relative w-48 h-48 sm:w-64 sm:h-64 md:w-72 md:h-72 flex-shrink-0"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.3, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <div className="absolute inset-0 rounded-full bg-emerald-500/10 blur-[40px]" />
+            <img
+              src={robotThumb}
+              alt="Warren Guru"
+              className="relative w-full h-full object-cover rounded-full border-2 border-emerald-500/20 shadow-2xl shadow-emerald-500/10"
+            />
+          </motion.div>
         </motion.div>
 
         {/* Scroll indicator */}
