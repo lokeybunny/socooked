@@ -48,27 +48,8 @@ export default function AIDirector() {
   const scrollToFunnel = () => courseRef.current?.scrollIntoView({ behavior: 'smooth' });
   const goToCourse = () => navigate('/course');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim()) return;
-    setSubmitting(true);
-    try {
-      const { error } = await supabase.from('customers').insert({
-        full_name: formData.name.trim(),
-        email: formData.email.trim(),
-        source: 'ai-director-landing',
-        status: 'lead',
-        tags: ['ai-course'],
-      });
-      if (error) throw error;
-      setSubmitted(true);
-      toast({ title: 'You\'re in!', description: 'Check your inbox for course access.' });
-    } catch {
-      toast({ title: 'Something went wrong', description: 'Please try again.', variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
+
 
   const scrollCarousel = (dir: number) => {
     scrollRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' });
