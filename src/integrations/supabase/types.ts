@@ -1160,6 +1160,45 @@ export type Database = {
           },
         ]
       }
+      course_lessons: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_label: string | null
+          id: string
+          is_published: boolean
+          position: number
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_label?: string | null
+          id?: string
+          is_published?: boolean
+          position?: number
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_label?: string | null
+          id?: string
+          is_published?: boolean
+          position?: number
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string
+        }
+        Relationships: []
+      }
       crypto_wallets: {
         Row: {
           created_at: string
