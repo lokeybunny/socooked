@@ -5,14 +5,21 @@ import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, Chevron
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
-/* ─── Vimeo showcase data (replace IDs with real ones) ─── */
+/* ─── Real Vimeo portfolio (scraped from vimeo.com/warrenguru) ─── */
 const vimeoVideos = [
-  { id: '1091155498', title: 'Cinematic AI Film', desc: 'AI-directed short film' },
-  { id: '1091158498', title: 'Brand Story', desc: 'Luxury brand narrative' },
-  { id: '1091160000', title: 'Music Visual', desc: 'AI music video concept' },
-  { id: '1091162000', title: 'Product Launch', desc: 'Cinematic product reveal' },
-  { id: '1091164000', title: 'Documentary Style', desc: 'AI documentary piece' },
-  { id: '1091166000', title: 'Motion Art', desc: 'Abstract AI art film' },
+  { id: '1017380772', title: 'Warren.Guru 2024 AI Reel', desc: 'AI showreel highlights' },
+  { id: '1124090177', title: 'Charlie Kirk AI Film Debate', desc: 'Left vs Right AI film' },
+  { id: '1027580910', title: 'In the Stars Band – Fire It Up', desc: 'Official music video' },
+  { id: '1026842462', title: 'Chris – In My Bag', desc: 'Official music video' },
+  { id: '1025830281', title: 'BRISKO – 21', desc: 'Official music video' },
+  { id: '1023518370', title: 'Chewy – Get Ready', desc: 'Official music video' },
+  { id: '1023140143', title: 'Philip Walker – Invading Privacy', desc: 'Official music video' },
+  { id: '1022376392', title: 'Michael – Cruisin', desc: 'Official music video' },
+  { id: '1021447352', title: 'John-Isaac – Games No More', desc: 'Official music video' },
+  { id: '1021218734', title: 'Mr Rabbit Loc – Personal Mission', desc: 'Official music video' },
+  { id: '1013167830', title: 'SAHIL | Theatrical Trailer', desc: 'Short film trailer' },
+  { id: '1016678063', title: 'South Park – Kenny meets Crypto', desc: 'Parody short film' },
+  { id: '1009273384', title: 'Dead Pool on Solana', desc: 'Short film' },
 ];
 
 const authorityCards = [
