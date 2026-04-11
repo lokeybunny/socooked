@@ -140,27 +140,42 @@ export default function WebDesignLanding() {
 
   return (
     <div className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
-      {/* Header */}
-      <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-black/80 border-b border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link to="/" onClick={() => window.scrollTo(0, 0)} className="flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-cyan-400" />
-            <div className="flex flex-col leading-none">
-              <span className="text-cyan-400/60 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
-              <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
-            </div>
+      {/* Header (matches all pages) */}
+      <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-3 sm:px-6 py-3 md:py-4">
+          <Link to="/" className="flex flex-col leading-none">
+            <span className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.25em] uppercase text-emerald-400/70">Warren</span>
+            <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
-          <div className="hidden sm:flex items-center gap-6">
-            <Link to="/" className="text-white/40 hover:text-white text-xs tracking-[0.15em] uppercase transition-colors">
-              AI Film
+          <nav className="flex items-center gap-3 sm:gap-5">
+            <Link to="/" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              AI
             </Link>
-            <a href="#get-started" className="text-white hover:text-cyan-400 text-xs tracking-[0.15em] uppercase transition-colors">
-              Web Design
+            <Link to="/solana" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Crypto
+            </Link>
+            <Link to="/videography" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Video
+            </Link>
+            <span className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400">
+              Web
+            </span>
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs tracking-wider uppercase hover:bg-emerald-500/20 transition-all"
+            >
+              <MessageCircle className="h-3 w-3" />
+              <span className="hidden sm:inline">Discord</span>
             </a>
-          </div>
-          <a href="#get-started" className="px-6 py-2 text-xs tracking-[0.25em] uppercase bg-gradient-to-r from-cyan-500 to-teal-500 text-black rounded font-medium hover:from-cyan-400 hover:to-teal-400 transition-all">
-            Get Started
-          </a>
+            <button
+              onClick={() => navigate('/auth')}
+              className="text-white/40 hover:text-white transition-colors"
+            >
+              <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+          </nav>
         </div>
       </header>
 
