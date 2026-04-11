@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 import FinancialReports from '@/components/dashboard/FinancialReports';
 import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
+import CourseAdmin from '@/components/dashboard/CourseAdmin';
 
 interface Stats {
   customers: number;
@@ -301,6 +302,11 @@ export default function Dashboard() {
 
         {/* Financial Reports */}
         <FinancialReports />
+
+        {/* Course Management */}
+        <div className="glass-card p-6">
+          <CourseAdmin />
+        </div>
 
         {/* Recent Customers */}
         <div className="glass-card p-6">
