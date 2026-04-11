@@ -121,51 +121,41 @@ export default function WarrenLanding() {
 
   return (
     <div ref={containerRef} className="relative bg-black text-white min-h-screen selection:bg-amber-500/20">
-      {/* ── Sticky Header ── */}
-      <motion.header
-        style={{ backgroundColor: headerBg }}
-        className="fixed top-0 inset-x-0 z-50 backdrop-blur-md border-b border-white/[0.04]"
-      >
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1.5 sm:gap-3 cursor-pointer bg-transparent border-none outline-none shrink-0">
-            <Cpu className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400" />
-            <div className="flex flex-col leading-none">
-              <span className="text-amber-400/60 font-light text-[8px] sm:text-[10px] tracking-[0.3em] uppercase">Warren</span>
-              <span className="text-white/80 font-medium text-sm sm:text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
-            </div>
-          </button>
-          <div className="flex items-center gap-3 sm:gap-6">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-white hover:text-amber-400 text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+      {/* ── Sticky Header (matches /) ── */}
+      <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-3 sm:px-6 py-3 md:py-4">
+          <Link to="/" className="flex flex-col leading-none">
+            <span className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.25em] uppercase text-emerald-400/70">Warren</span>
+            <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
+          </Link>
+          <nav className="flex items-center gap-3 sm:gap-5">
+            <Link to="/solana" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400 transition-colors">
               Crypto
-            </button>
-            <Link to="/videography" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
-              Video
             </Link>
-            <Link to="/webdesign" onClick={() => window.scrollTo(0, 0)} className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
+            <Link to="/videography" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Videography
+            </Link>
+            <Link to="/web" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Web
             </Link>
-            <a href="https://warren.guru/sell/home" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
-              Realty
-            </a>
-            <Link to="/store" onClick={() => window.scrollTo(0, 0)} className="text-amber-400/70 hover:text-amber-300 text-[10px] sm:text-xs tracking-[0.1em] sm:tracking-[0.15em] uppercase transition-colors">
-              Store
-            </Link>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-5">
-            <button onClick={() => navigate('/auth')} className="hidden sm:block text-white/40 hover:text-white transition-colors" title="Login">
-              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
-            </button>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3 sm:px-6 py-1.5 sm:py-2 text-[9px] sm:text-xs tracking-[0.15em] sm:tracking-[0.25em] uppercase bg-gradient-to-r from-amber-500 to-orange-500 text-black rounded font-medium hover:from-amber-400 hover:to-orange-400 transition-all whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] sm:text-xs tracking-wider uppercase hover:bg-emerald-500/20 transition-all"
             >
-              Join Discord
+              <MessageCircle className="h-3 w-3" />
+              <span className="hidden sm:inline">Discord</span>
             </a>
-          </div>
+            <button
+              onClick={() => navigate('/auth')}
+              className="text-white/40 hover:text-white transition-colors"
+            >
+              <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+          </nav>
         </div>
-      </motion.header>
+      </header>
 
       {/* ── Hero with Parallax ── */}
       <section className="relative min-h-screen flex items-end overflow-hidden">
