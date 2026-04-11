@@ -66,9 +66,9 @@ export default function AIDirector() {
             <Link to="/web" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Web
             </Link>
-            <button onClick={scrollToFunnel} className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
-              Course
-            </button>
+            <Link to="/solana" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Crypto
+            </Link>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
