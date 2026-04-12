@@ -171,17 +171,17 @@ export default function VideographyLanding() {
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl px-6 pt-14">
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-emerald-400/70">Live Streaming Services</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-emerald-400/70">Las Vegas Live Streaming</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-            Stream Every
+            Las Vegas
             <br />
-            <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Moment. Live.</span>
+            <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Live Streaming.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            Professional live streaming for weddings, funerals, and events — so every guest can be there, no matter where they are.
+            Professional live streaming for weddings, funerals, and events across Las Vegas & Henderson — so every guest can be there, no matter where they are.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -222,10 +222,10 @@ export default function VideographyLanding() {
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.05]">
               <Radio className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-emerald-400/70">Professional Streaming</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-emerald-400/70">Las Vegas Streaming Pros</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Every Event Deserves <span className="text-emerald-400">To Be Shared.</span>
+              Vegas Events Deserve <span className="text-emerald-400">To Be Shared.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed">
               Whether it's a wedding, a celebration of life, or a corporate gala — our broadcast-quality streaming ensures no one misses a moment. Multi-camera, bonded internet, zero buffering.

@@ -191,17 +191,17 @@ export default function WebDesignLanding() {
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl px-6 pt-14">
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">AI-Powered Web Design</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-cyan-400/70">Las Vegas AI Web Design</span>
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-            Your Website.
+            Las Vegas Websites.
             <br />
             <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Built by AI.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
-            We create fast, beautiful, AI-generated websites for your business — custom designed, SEO-optimized, and live in under 48 hours.
+            We build fast, beautiful, AI-generated websites for Las Vegas businesses — custom designed, SEO-optimized, and live in under 48 hours.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -242,13 +242,13 @@ export default function WebDesignLanding() {
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
               <Code className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">AI Web Generation</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Vegas Web Design</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Professional Websites <span className="text-cyan-400">Without the Wait.</span>
+              Vegas Businesses <span className="text-cyan-400">Deserve Better Websites.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed">
-              Traditional web design takes weeks and costs thousands. Our AI builds your complete business website — with custom branding, responsive layout, and SEO — in under 48 hours.
+              Traditional web design takes weeks and costs thousands. Our AI builds your Las Vegas business website — with custom branding, responsive layout, and SEO — in under 48 hours.
             </p>
             <div className="space-y-3">
               {['Custom Branding & Color Palette', 'Mobile-Responsive Design', 'SEO-Optimized Copy & Meta Tags', 'Contact Forms & Lead Capture', 'Google Analytics Integration'].map((item, i) => (
@@ -322,7 +322,7 @@ export default function WebDesignLanding() {
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
               Get Your <span className="text-cyan-400">AI Website</span>
             </h2>
-            <p className="mt-4 text-sm text-white/30">Tell us about your business and we'll have your site ready in 48 hours.</p>
+            <p className="mt-4 text-sm text-white/30">Tell us about your Las Vegas business and we'll have your site ready in 48 hours.</p>
           </motion.div>
 
           {submitted ? (
