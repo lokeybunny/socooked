@@ -159,11 +159,14 @@ serve(async (req) => {
     const token = await getAccessToken(sa);
     const htmlBody = template.body(recipientName) + EMAIL_SIGNATURE;
 
-    // Build raw email
+    // Build raw email – RFC 2047 encode subject to prevent charset corruption
+    const subjectB64 = btoa(unescape(encodeURIComponent(template.subject)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(template.subject)))}?=`;
     const lines = [
       `From: Warren Thompson <${IMPERSONATE_EMAIL}>`,
       `To: ${recipientEmail}`,
-      `Subject: ${template.subject}`,
+      `Subject: ${encodedSubject}`,
       `Content-Type: text/html; charset=UTF-8`,
       `MIME-Version: 1.0`,
       "",
