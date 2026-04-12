@@ -324,6 +324,7 @@ export default function Landing() {
 
           {/* Layer 4: CTA — only render after scene is ready and user has scrolled */}
           <motion.div
+            id="get-started"
             className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
             style={{ 
               opacity: ctaOpacity, 

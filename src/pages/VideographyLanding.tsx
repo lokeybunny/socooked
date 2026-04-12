@@ -371,6 +371,7 @@ export default function VideographyLanding() {
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
+      <FloatingBookNow />
       <ScrollToTopButton />
     </div>
   );
