@@ -156,33 +156,82 @@ serve(async (req) => {
         });
       }
 
-      // Remove any existing check_availability tool, then re-add with correct server URL
+      // Remove managed tools, then re-add all CRM tools
+      const managedNames = ["check_availability", "find_contact", "create_or_update_lead", "create_tentative_booking"];
       const otherTools = (ast.model?.tools || []).filter(
-        (t: any) => t.function?.name !== "check_availability"
+        (t: any) => !managedNames.includes(t.function?.name)
       );
 
-      const newTool = {
-        type: "function",
-        function: {
-          name: "check_availability",
-          description: "Check if a specific date and time is available for booking a videography session. You MUST call this tool before confirming any appointment time. Blocked windows: 8:00-10:00 AM and 2:30-3:30 PM PST every day.",
-          parameters: {
-            type: "object",
-            properties: {
-              date: { type: "string", description: "The date to check in YYYY-MM-DD format, e.g. 2026-04-15" },
-              time: { type: "string", description: "The time to check, e.g. '8:40 AM' or '2:00 PM'" },
-            },
-            required: ["date", "time"],
+      const crmTools = [
+        {
+          type: "function",
+          function: {
+            name: "find_contact",
+            description: "Search CRM for an existing contact by phone number. Call this first when a caller provides their phone.",
+            parameters: { type: "object", properties: { phone: { type: "string", description: "Phone number to search" } }, required: ["phone"] },
           },
+          server: { url: webhookUrl },
         },
-        server: { url: webhookUrl },
-      };
+        {
+          type: "function",
+          function: {
+            name: "create_or_update_lead",
+            description: "Create a new lead or update an existing one in the CRM. Call after gathering the caller's info.",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Full name" },
+                phone: { type: "string", description: "Phone number" },
+                email: { type: "string", description: "Email address" },
+                service_type: { type: "string", enum: ["videography", "web"], description: "Service type" },
+                notes: { type: "string", description: "Notes from the conversation" },
+              },
+              required: ["name", "phone", "service_type"],
+            },
+          },
+          server: { url: webhookUrl },
+        },
+        {
+          type: "function",
+          function: {
+            name: "check_availability",
+            description: "Check if a specific date and time is available for booking. You MUST call this before confirming any appointment. Blocked windows: 8:00-10:00 AM and 2:30-3:30 PM PST daily.",
+            parameters: {
+              type: "object",
+              properties: {
+                date: { type: "string", description: "Date in YYYY-MM-DD format" },
+                time: { type: "string", description: "Time like '11:00 AM' or '2:00 PM'" },
+              },
+              required: ["date", "time"],
+            },
+          },
+          server: { url: webhookUrl },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_tentative_booking",
+            description: "Create a tentative booking hold after confirming availability. This is NOT a final confirmation.",
+            parameters: {
+              type: "object",
+              properties: {
+                contact_id: { type: "string", description: "CRM contact ID from find_contact or create_or_update_lead" },
+                date: { type: "string", description: "Date in YYYY-MM-DD format" },
+                time: { type: "string", description: "Time like '11:00 AM'" },
+                service_type: { type: "string", enum: ["videography", "web"], description: "Service type" },
+              },
+              required: ["contact_id", "date", "time", "service_type"],
+            },
+          },
+          server: { url: webhookUrl },
+        },
+      ];
 
       const patchRes = await fetch(`https://api.vapi.ai/assistant/${aid}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: { ...ast.model, tools: [...otherTools, newTool] },
+          model: { ...ast.model, tools: [...otherTools, ...crmTools] },
           serverUrl: webhookUrl,
         }),
       });
