@@ -9,6 +9,7 @@ import {
   DoorOpen, Wifi, Radio
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
+import FloatingBookNow from '@/components/landing/FloatingBookNow';
 import { motion } from 'framer-motion';
 
 import heroImg from '@/assets/landing/parallax-videography-hero.jpg';
