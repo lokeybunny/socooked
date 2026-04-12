@@ -46,6 +46,7 @@ interface FunnelLead {
   motivation?: string | null;
   asking_price?: number | null;
   lead_score?: number | null;
+  is_inbound?: boolean;
   // draft
   drafted_at?: string | null;
   // source table
@@ -559,6 +560,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
               <Bot className="h-2.5 w-2.5" /> AI
             </Badge>
           )}
+          {lead.vapi_call_id && (
+            <Badge variant="outline" className={cn("text-[10px] gap-1", lead.is_inbound ? "text-green-600 border-green-500/30 bg-green-500/10" : "text-orange-600 border-orange-500/30 bg-orange-500/10")}>
+              {lead.is_inbound ? '📥 Inbound' : '📤 Outbound'}
+            </Badge>
+          )}
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
@@ -698,6 +704,7 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
+          is_inbound: isDirectInbound,
           drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
@@ -726,6 +733,7 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
+          is_inbound: isDirectInbound,
           drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           happy: !!(meta.happy),
           dead: !!(meta.dead),
