@@ -8,10 +8,27 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const PayMe = () => {
+  const [searchParams] = useSearchParams();
+  const paid = searchParams.get("paid") === "true";
   const [amount, setAmount] = useState("");
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+
+  if (paid) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center p-4">
+        <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl p-8 shadow-2xl text-center max-w-md">
+          <CheckCircle2 className="h-16 w-16 text-green-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-white mb-2">Payment Received!</h1>
+          <p className="text-zinc-400">Thank you for your payment. Warren has been notified.</p>
+          <button onClick={() => window.location.href = "/payme"} className="mt-6 text-amber-400 hover:text-amber-300 text-sm underline">
+            Make another payment
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const presets = [25, 50, 100, 250, 500, 1000];
 
