@@ -682,6 +682,7 @@ export default function Funnels() {
         const tags = c.tags as string[] || [];
         const remind = remindMap.get(c.id);
         const isLive = ['in_call', 'calling'].includes((meta.vapi_call_status as string) || '');
+        const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
           id: c.id, funnel: 'webdesign' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
@@ -695,7 +696,7 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
-          drafted_at: isLive ? null : ((meta.funnel_drafted_at as string) || null),
+          drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
@@ -709,6 +710,7 @@ export default function Funnels() {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
         const isLive = ['in_call', 'calling'].includes((meta.vapi_call_status as string) || '');
+        const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
           id: c.id, funnel: 'videography' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
@@ -722,7 +724,7 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
-          drafted_at: isLive ? null : ((meta.funnel_drafted_at as string) || null),
+          drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           happy: !!(meta.happy),
           dead: !!(meta.dead),
         });
