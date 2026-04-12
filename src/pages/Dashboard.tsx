@@ -204,6 +204,10 @@ export default function Dashboard() {
       let paidConvertedCount = 0;
       invoicesByCustomer.forEach((allPaid) => { if (allPaid) paidConvertedCount++; });
 
+      const aiCourseRows = aiCourseRes.data || [];
+      const aiCourseCount = aiCourseRows.length;
+      const aiCourseRevenue = aiCourseCount * 299;
+
       setStats({
         customers: prospectCount,
         prospectCount,
@@ -214,6 +218,8 @@ export default function Dashboard() {
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
         prospectTotalValue,
+        aiCourseRevenue,
+        aiCourseCount,
       });
 
       setRecentCustomers(rc.data || []);
