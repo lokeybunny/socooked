@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,12 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
-  Phone, Globe, MapPin, User, Clock, Send, CheckCircle2,
-  Search, Filter, ExternalLink, Copy, FileSignature, Bell,
-  ChevronRight, Building2, CalendarClock, CalendarDays,
-  Plus, Upload, ChevronLeft, Pencil, Trash2,
+  Phone, MapPin, User, Clock, CheckCircle2,
+  Search, Bell, ChevronRight, Building2, CalendarClock, CalendarDays,
+  ChevronLeft, Pencil, Trash2, Mail, Video,
 } from 'lucide-react';
 import { formatDistanceToNow, isPast, format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const STAGES = [
   { key: 'new', label: 'New', color: 'bg-muted text-muted-foreground' },
@@ -27,41 +27,70 @@ const STAGES = [
   { key: 'dead', label: 'Dead', color: 'bg-red-500/20 text-red-400' },
 ];
 
-type Prospect = {
+/* ─── Map CRM customer status → pipeline stage ─── */
+const STATUS_TO_STAGE: Record<string, string> = {
+  lead: 'new',
+  prospect: 'contacted',
+  contacted: 'contacted',
+  callback: 'callback',
+  ai_complete: 'meeting_set',
+  agreement_sent: 'agreement_sent',
+  scheduled: 'contracted',
+  closed: 'active',
+  dead: 'dead',
+};
+
+type Lead = {
   id: string;
-  business_name: string;
+  full_name: string;
   phone: string | null;
-  address: string | null;
-  website: string | null;
-  contact_name: string | null;
-  contact_role: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
-  pipeline_stage: string;
-  agreement_doc_id: string | null;
+  email: string | null;
+  status: string;
   notes: string | null;
-  next_followup_at: string | null;
-  last_contacted_at: string | null;
+  tags: string[];
   meta: any;
   created_at: string;
   updated_at: string;
+  pipeline_stage: string;
+  event_type: string | null;
+  callback_at: string | null;
 };
 
+function mapCustomer(c: any): Lead {
+  const meta = c.meta || {};
+  const noteLines = (c.notes || '').split('\n');
+  const eventLine = noteLines.find((l: string) => l.startsWith('Event:'));
+  return {
+    id: c.id,
+    full_name: c.full_name,
+    phone: c.phone,
+    email: c.email,
+    status: c.status,
+    notes: c.notes,
+    tags: c.tags || [],
+    meta,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    pipeline_stage: STATUS_TO_STAGE[c.status] || 'new',
+    event_type: eventLine ? eventLine.replace('Event:', '').trim() : null,
+    callback_at: meta.callback_at || null,
+  };
+}
+
+/* ─── Blocked time slots (PST) shown on calendar ─── */
+const BLOCKED_SLOTS = [
+  { label: '🔒 Blocked', startH: 8, startM: 0, endH: 10, endM: 0 },
+  { label: '🔒 Blocked', startH: 14, startM: 30, endH: 15, endM: 30 },
+];
+
 export default function VideographyHub() {
-  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
-  const [selected, setSelected] = useState<Prospect | null>(null);
+  const [selected, setSelected] = useState<Lead | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: '', role: '', email: '', phone: '' });
   const [notesText, setNotesText] = useState('');
-  const [addMode, setAddMode] = useState<'closed' | 'manual' | 'csv'>('closed');
-  const [manualForm, setManualForm] = useState({ business_name: '', phone: '', address: '', website: '' });
-  const [csvText, setCsvText] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [pocEditId, setPocEditId] = useState<string | null>(null);
-  const [pocName, setPocName] = useState('');
   const [viewTab, setViewTab] = useState<'pipeline' | 'calendar'>('pipeline');
 
   // Calendar state
@@ -71,19 +100,20 @@ export default function VideographyHub() {
   const [editingEvent, setEditingEvent] = useState<any | null>(null);
   const [eventForm, setEventForm] = useState({ title: '', date: '', start: '', end: '' });
 
+  /* ─── Load video funnel leads from customers table ─── */
   const load = useCallback(async () => {
     const { data } = await supabase
-      .from('videography_prospects')
+      .from('customers')
       .select('*')
-      .order('pipeline_stage', { ascending: true })
-      .order('next_followup_at', { ascending: true });
-    if (data) setProspects(data as Prospect[]);
+      .eq('source', 'videography-landing')
+      .order('created_at', { ascending: false });
+    if (data) setLeads(data.map(mapCustomer));
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  // Calendar data
+  /* ─── Calendar data ─── */
   const loadCalEvents = useCallback(async () => {
     setCalLoading(true);
     const monthStart = startOfMonth(calMonth);
@@ -93,9 +123,30 @@ export default function VideographyHub() {
       .select('*')
       .gte('start_time', monthStart.toISOString())
       .lte('start_time', monthEnd.toISOString())
-      .or('category.eq.videography,title.ilike.%videography%,title.ilike.%funeral%,title.ilike.%livestream%')
+      .or('category.eq.videography,title.ilike.%videography%')
       .order('start_time', { ascending: true });
-    setCalEvents(data || []);
+
+    // Generate synthetic blocked-slot events for every day in the month
+    const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    const blockedEvents = days.flatMap(day =>
+      BLOCKED_SLOTS.map((slot, si) => {
+        const st = new Date(day);
+        st.setHours(slot.startH, slot.startM, 0, 0);
+        const et = new Date(day);
+        et.setHours(slot.endH, slot.endM, 0, 0);
+        return {
+          id: `blocked-${format(day, 'yyyy-MM-dd')}-${si}`,
+          title: slot.label,
+          start_time: st.toISOString(),
+          end_time: et.toISOString(),
+          category: 'blocked',
+          color: '#6b7280',
+          _isBlocked: true,
+        };
+      })
+    );
+
+    setCalEvents([...(data || []), ...blockedEvents]);
     setCalLoading(false);
   }, [calMonth]);
 
@@ -144,45 +195,35 @@ export default function VideographyHub() {
     loadCalEvents();
   };
 
-  const updateProspect = async (id: string, updates: Partial<Prospect>) => {
-    const { error } = await supabase.from('videography_prospects').update(updates).eq('id', id);
+  /* ─── CRM updates (customers table) ─── */
+  const updateLead = async (id: string, updates: Record<string, any>) => {
+    const { error } = await supabase.from('customers').update(updates).eq('id', id);
     if (error) { toast.error('Update failed'); return; }
     toast.success('Updated');
     load();
   };
 
-  const markContacted = async (p: Prospect) => {
-    await updateProspect(p.id, {
-      pipeline_stage: p.pipeline_stage === 'new' ? 'contacted' : p.pipeline_stage,
-      last_contacted_at: new Date().toISOString(),
-      next_followup_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-    });
+  const markContacted = async (p: Lead) => {
+    const meta = { ...(p.meta || {}), last_contacted_at: new Date().toISOString(), callback_at: new Date(Date.now() + 7 * 86400000).toISOString() };
+    await updateLead(p.id, { status: p.status === 'lead' ? 'contacted' : p.status, meta });
   };
 
-  const advanceStage = async (p: Prospect) => {
-    const order = STAGES.map(s => s.key);
-    const idx = order.indexOf(p.pipeline_stage);
-    if (idx < order.length - 2) { // don't advance past 'active'
-      await updateProspect(p.id, { pipeline_stage: order[idx + 1] });
-    }
-  };
-
-  const saveContact = async () => {
-    if (!selected) return;
-    await updateProspect(selected.id, {
-      contact_name: contactForm.name || null,
-      contact_role: contactForm.role || null,
-      contact_email: contactForm.email || null,
-      contact_phone: contactForm.phone || null,
-      pipeline_stage: selected.pipeline_stage === 'new' ? 'contacted' : selected.pipeline_stage,
-      next_followup_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-    });
-    setEditOpen(false);
+  const advanceStage = async (p: Lead) => {
+    const stageToStatus: Record<string, string> = {
+      new: 'contacted',
+      contacted: 'callback',
+      callback: 'ai_complete',
+      meeting_set: 'agreement_sent',
+      agreement_sent: 'scheduled',
+      contracted: 'closed',
+    };
+    const nextStatus = stageToStatus[p.pipeline_stage];
+    if (nextStatus) await updateLead(p.id, { status: nextStatus });
   };
 
   const saveNotes = async () => {
     if (!selected) return;
-    await updateProspect(selected.id, { notes: notesText });
+    await updateLead(selected.id, { notes: notesText });
   };
 
   const copyPhone = (phone: string) => {
@@ -190,156 +231,29 @@ export default function VideographyHub() {
     toast.success('Phone copied');
   };
 
-  const sendAgreement = async (p: Prospect) => {
-    if (!p.contact_email && !p.contact_name) {
-      toast.error('Set a contact first before sending agreement');
-      return;
-    }
-    // Create a customer record + trigger agreement flow
-    const { data: cust, error: custErr } = await supabase.from('customers').insert({
-      full_name: p.contact_name || p.business_name,
-      email: p.contact_email,
-      phone: p.contact_phone || p.phone,
-      company: p.business_name,
-      source: 'videography-outreach',
-      category: 'videography',
-      status: 'lead',
-      meta: { videography_prospect_id: p.id },
-    }).select('id').single();
-
-    if (custErr || !cust) { toast.error('Failed to create contact record'); return; }
-
-    // Invoke the wholesale-agreement edge function for videography
-    const { error: fnErr } = await supabase.functions.invoke('wholesale-agreement', {
-      body: {
-        action: 'draft',
-        customer_id: cust.id,
-        agreement_type: 'videography_service',
-        seller_name: p.contact_name || p.business_name,
-        seller_email: p.contact_email,
-        property_address: p.address,
-        meta: { business_name: p.business_name, prospect_id: p.id },
-      },
-    });
-
-    if (fnErr) {
-      toast.error('Agreement generation failed — will be available soon');
-    } else {
-      toast.success('Agreement drafted — check Documents');
-    }
-
-    await updateProspect(p.id, {
-      pipeline_stage: 'agreement_sent',
-      agreement_doc_id: cust.id,
-    });
-  };
-
-  const addManual = async () => {
-    if (!manualForm.business_name.trim()) { toast.error('Business name is required'); return; }
-    const { error } = await supabase.from('videography_prospects').insert({
-      business_name: manualForm.business_name.trim(),
-      phone: manualForm.phone.trim() || null,
-      address: manualForm.address.trim() || null,
-      website: manualForm.website.trim() || null,
-      pipeline_stage: 'new',
-    });
-    if (error) { toast.error('Failed to add'); return; }
-    toast.success('Prospect added');
-    setManualForm({ business_name: '', phone: '', address: '', website: '' });
-    setAddMode('closed');
-    load();
-  };
-
-  const importCsv = async () => {
-    const lines = csvText.trim().split('\n').filter(l => l.trim());
-    if (lines.length === 0) { toast.error('Paste CSV content first'); return; }
-
-    // Detect header row
-    const firstLine = lines[0].toLowerCase();
-    const hasHeader = firstLine.includes('business') || firstLine.includes('name') || firstLine.includes('phone') || firstLine.includes('address');
-    const dataLines = hasHeader ? lines.slice(1) : lines;
-
-    // Parse CSV respecting quoted fields
-    const parseCsvLine = (line: string): string[] => {
-      const result: string[] = [];
-      let current = '';
-      let inQuotes = false;
-      for (const ch of line) {
-        if (ch === '"') { inQuotes = !inQuotes; continue; }
-        if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
-        current += ch;
-      }
-      result.push(current.trim());
-      return result;
-    };
-
-    // Detect column indices from header
-    let nameIdx = 0, phoneIdx = 1, addressIdx = 2, websiteIdx = 3;
-    if (hasHeader) {
-      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
-      const find = (keywords: string[]) => headers.findIndex(h => keywords.some(k => h.includes(k)));
-      const ni = find(['business', 'name', 'company']);
-      const pi = find(['phone', 'tel', 'number']);
-      const ai = find(['address', 'location', 'street']);
-      const wi = find(['website', 'url', 'site']);
-      if (ni >= 0) nameIdx = ni;
-      if (pi >= 0) phoneIdx = pi;
-      if (ai >= 0) addressIdx = ai;
-      if (wi >= 0) websiteIdx = wi;
-    }
-
-    const rows = dataLines.map(line => {
-      const cols = parseCsvLine(line);
-      return {
-        business_name: cols[nameIdx] || '',
-        phone: cols[phoneIdx] || null,
-        address: cols[addressIdx] || null,
-        website: cols[websiteIdx] || null,
-        pipeline_stage: 'new' as const,
-      };
-    }).filter(r => r.business_name.trim());
-
-    if (rows.length === 0) { toast.error('No valid rows found'); return; }
-
-    setImporting(true);
-    const { error } = await supabase.from('videography_prospects').insert(rows);
-    setImporting(false);
-
-    if (error) { toast.error('Import failed: ' + error.message); return; }
-    toast.success(`Imported ${rows.length} prospects`);
-    setCsvText('');
-    setAddMode('closed');
-    load();
-  };
-
-  const filtered = prospects.filter(p => {
+  /* ─── Filtering ─── */
+  const filtered = leads.filter(p => {
     if (stageFilter !== 'all' && p.pipeline_stage !== stageFilter) return false;
     if (search) {
       const s = search.toLowerCase();
-      return p.business_name.toLowerCase().includes(s) ||
-        (p.address || '').toLowerCase().includes(s) ||
-        (p.contact_name || '').toLowerCase().includes(s);
+      return p.full_name.toLowerCase().includes(s) ||
+        (p.phone || '').toLowerCase().includes(s) ||
+        (p.email || '').toLowerCase().includes(s);
     }
     return true;
   });
 
   const stageCounts = STAGES.reduce((acc, s) => {
-    acc[s.key] = prospects.filter(p => p.pipeline_stage === s.key).length;
+    acc[s.key] = leads.filter(p => p.pipeline_stage === s.key).length;
     return acc;
   }, {} as Record<string, number>);
 
-  const overdueCount = prospects.filter(p =>
-    p.next_followup_at && isPast(new Date(p.next_followup_at)) && !['dead', 'active'].includes(p.pipeline_stage)
+  const overdueCount = leads.filter(p =>
+    p.callback_at && isPast(new Date(p.callback_at)) && !['dead', 'active'].includes(p.pipeline_stage)
   ).length;
 
-  const openDetail = (p: Prospect) => {
+  const openDetail = (p: Lead) => {
     setSelected(p);
-    setContactForm({
-      name: p.contact_name || '',
-      role: p.contact_role || '',
-      email: p.contact_email || '',
-      phone: p.contact_phone || '',
-    });
     setNotesText(p.notes || '');
     setEditOpen(true);
   };
@@ -358,11 +272,11 @@ export default function VideographyHub() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            Videography Outreach
+            <Video className="h-6 w-6 text-primary" />
+            Video Pipeline
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Build funeral livestream contracts across Las Vegas
+            Leads from /video funnel — Las Vegas videography & streaming
           </p>
         </div>
         {overdueCount > 0 && (
@@ -376,12 +290,6 @@ export default function VideographyHub() {
           </Button>
           <Button size="sm" variant={viewTab === 'calendar' ? 'default' : 'outline'} onClick={() => setViewTab('calendar')}>
             <CalendarDays className="h-3.5 w-3.5 mr-1" /> Calendar
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAddMode('manual')}>
-            <Plus className="h-3.5 w-3.5 mr-1" /> Add
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAddMode('csv')}>
-            <Upload className="h-3.5 w-3.5 mr-1" /> Import CSV
           </Button>
         </div>
       </div>
@@ -413,15 +321,22 @@ export default function VideographyHub() {
                 <div key={day.toISOString()} className={`bg-card min-h-[90px] p-1.5 ${!isSameMonth(day, calMonth) ? 'opacity-30' : ''}`}>
                   <p className={`text-xs mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-bold'}`}>{format(day, 'd')}</p>
                   <div className="space-y-0.5">
-                    {dayEvents.map(ev => (
-                      <button
-                        key={ev.id}
-                        onClick={() => openEventEdit(ev)}
-                        className="w-full text-left text-[10px] font-semibold px-1.5 py-0.5 rounded truncate bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-                      >
-                        {format(new Date(ev.start_time), 'h:mm a')} {ev.title?.replace(/\[.*?\]\s*/g, '')}
-                      </button>
-                    ))}
+                    {dayEvents.map(ev => {
+                      const isBlocked = (ev as any)._isBlocked;
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={() => !isBlocked && openEventEdit(ev)}
+                          className={`w-full text-left text-[10px] font-semibold px-1.5 py-0.5 rounded truncate transition-colors ${
+                            isBlocked
+                              ? 'bg-muted text-muted-foreground cursor-default opacity-60'
+                              : 'bg-purple-600 text-white hover:bg-purple-700'
+                          }`}
+                        >
+                          {format(new Date(ev.start_time), 'h:mm a')} {ev.title?.replace(/\[.*?\]\s*/g, '')}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -431,11 +346,11 @@ export default function VideographyHub() {
           {/* Upcoming list */}
           <div className="space-y-2">
             <h4 className="text-sm font-semibold text-muted-foreground">Upcoming Bookings</h4>
-            {calEvents.filter(e => new Date(e.start_time) >= new Date()).length === 0 && (
+            {calEvents.filter(e => new Date(e.start_time) >= new Date() && !(e as any)._isBlocked).length === 0 && (
               <p className="text-xs text-muted-foreground">No upcoming videography bookings this month.</p>
             )}
             {calEvents
-              .filter(e => new Date(e.start_time) >= new Date())
+              .filter(e => new Date(e.start_time) >= new Date() && !(e as any)._isBlocked)
               .map(ev => (
                 <Card key={ev.id} className="cursor-pointer hover:border-primary/50" onClick={() => openEventEdit(ev)}>
                   <CardContent className="p-3 flex items-center justify-between">
@@ -462,7 +377,7 @@ export default function VideographyHub() {
           size="sm" variant={stageFilter === 'all' ? 'default' : 'outline'}
           onClick={() => setStageFilter('all')}
         >
-          All ({prospects.length})
+          All ({leads.length})
         </Button>
         {STAGES.map(s => (
           <Button
@@ -479,28 +394,29 @@ export default function VideographyHub() {
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search businesses..."
+          placeholder="Search leads..."
           className="pl-9"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      {/* Prospect Cards */}
+      {/* Lead Cards */}
       <div className="grid gap-3">
         {filtered.map(p => {
           const stage = STAGES.find(s => s.key === p.pipeline_stage) || STAGES[0];
-          const isOverdue = p.next_followup_at && isPast(new Date(p.next_followup_at)) && !['dead', 'active'].includes(p.pipeline_stage);
+          const isOverdue = p.callback_at && isPast(new Date(p.callback_at)) && !['dead', 'active'].includes(p.pipeline_stage);
 
           return (
             <Card key={p.id} className={`cursor-pointer hover:border-primary/50 transition-colors ${isOverdue ? 'border-destructive/50' : ''}`}>
               <CardContent className="p-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                  {/* Left: Business info */}
+                  {/* Left: Lead info */}
                   <div className="flex-1 min-w-0 space-y-1" onClick={() => openDetail(p)}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm truncate">{p.business_name}</span>
+                      <span className="font-semibold text-sm truncate">{p.full_name}</span>
                       <Badge className={`text-[10px] ${stage.color}`}>{stage.label}</Badge>
+                      {p.event_type && <Badge variant="outline" className="text-[10px]">{p.event_type}</Badge>}
                       {isOverdue && <Badge variant="destructive" className="text-[10px]">Overdue</Badge>}
                     </div>
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -509,23 +425,21 @@ export default function VideographyHub() {
                           <Phone className="h-3 w-3" /> {p.phone}
                         </span>
                       )}
-                      {p.address && (
-                        <span className="flex items-center gap-1 truncate max-w-[250px]">
-                          <MapPin className="h-3 w-3" /> {p.address}
-                        </span>
-                      )}
-                      {p.contact_name && (
-                        <span className="flex items-center gap-1 text-primary">
-                          <User className="h-3 w-3" /> {p.contact_name} {p.contact_role ? `(${p.contact_role})` : ''}
+                      {p.email && (
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {p.email}
                         </span>
                       )}
                     </div>
-                    {p.next_followup_at && (
+                    {p.callback_at && (
                       <div className={`text-[10px] flex items-center gap-1 ${isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
                         <CalendarClock className="h-3 w-3" />
-                        Follow up {formatDistanceToNow(new Date(p.next_followup_at), { addSuffix: true })}
+                        Follow up {formatDistanceToNow(new Date(p.callback_at), { addSuffix: true })}
                       </div>
                     )}
+                    <div className="text-[10px] text-muted-foreground">
+                      Submitted {formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}
+                    </div>
                   </div>
 
                   {/* Right: Actions */}
@@ -533,7 +447,7 @@ export default function VideographyHub() {
                     {p.phone && (
                       <>
                         <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => copyPhone(p.phone!)}>
-                          <Copy className="h-3 w-3 mr-1" /> Copy
+                          Copy
                         </Button>
                         <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
                           <a href={`tel:${p.phone}`}>
@@ -542,18 +456,8 @@ export default function VideographyHub() {
                         </Button>
                       </>
                     )}
-                    {p.website && (
-                      <Button size="sm" variant="outline" className="h-7 text-xs" asChild>
-                        <a href={p.website} target="_blank" rel="noopener noreferrer">
-                          <Globe className="h-3 w-3" />
-                        </a>
-                      </Button>
-                    )}
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => markContacted(p)}>
                       <CheckCircle2 className="h-3 w-3 mr-1" /> Contacted
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setPocEditId(pocEditId === p.id ? null : p.id); setPocName(p.contact_name || ''); }}>
-                      <User className="h-3 w-3 mr-1" /> POC
                     </Button>
                     {['contacted', 'callback', 'meeting_set'].includes(p.pipeline_stage) && (
                       <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => advanceStage(p)}>
@@ -561,29 +465,6 @@ export default function VideographyHub() {
                       </Button>
                     )}
                   </div>
-                  {pocEditId === p.id && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <Input
-                        value={pocName}
-                        onChange={e => setPocName(e.target.value)}
-                        placeholder="Point of contact name"
-                        className="h-7 text-xs flex-1"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && pocName.trim()) {
-                            updateProspect(p.id, { contact_name: pocName.trim() });
-                            setPocEditId(null);
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <Button size="sm" className="h-7 text-xs" onClick={() => {
-                        if (pocName.trim()) {
-                          updateProspect(p.id, { contact_name: pocName.trim() });
-                          setPocEditId(null);
-                        }
-                      }}>Save</Button>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -592,7 +473,7 @@ export default function VideographyHub() {
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            No prospects found
+            No video funnel leads found
           </div>
         )}
       </div>
@@ -624,19 +505,19 @@ export default function VideographyHub() {
         </DialogContent>
       </Dialog>
 
-      {/* Detail / Edit Modal */}
+      {/* Detail Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              {selected?.business_name}
+              <Video className="h-5 w-5" />
+              {selected?.full_name}
             </DialogTitle>
           </DialogHeader>
 
           {selected && (
             <div className="space-y-5">
-              {/* Business Info */}
+              {/* Lead Info */}
               <div className="space-y-2 text-sm">
                 {selected.phone && (
                   <div className="flex items-center gap-2">
@@ -645,16 +526,16 @@ export default function VideographyHub() {
                     <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => copyPhone(selected.phone!)}>Copy</Button>
                   </div>
                 )}
-                {selected.address && (
+                {selected.email && (
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>{selected.address}</span>
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span>{selected.email}</span>
                   </div>
                 )}
-                {selected.website && (
+                {selected.event_type && (
                   <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                    <a href={selected.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{selected.website}</a>
+                    <Video className="h-4 w-4 text-muted-foreground" />
+                    <span>Event: {selected.event_type}</span>
                   </div>
                 )}
               </div>
@@ -665,7 +546,12 @@ export default function VideographyHub() {
                 <Select
                   value={selected.pipeline_stage}
                   onValueChange={v => {
-                    updateProspect(selected.id, { pipeline_stage: v });
+                    const stageToStatus: Record<string, string> = {
+                      new: 'lead', contacted: 'contacted', callback: 'callback',
+                      meeting_set: 'ai_complete', agreement_sent: 'agreement_sent',
+                      contracted: 'scheduled', active: 'closed', dead: 'dead',
+                    };
+                    updateLead(selected.id, { status: stageToStatus[v] || v });
                     setSelected({ ...selected, pipeline_stage: v });
                   }}
                 >
@@ -676,21 +562,13 @@ export default function VideographyHub() {
                 </Select>
               </div>
 
-              {/* Point of Contact */}
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <User className="h-3 w-3" /> Point of Contact
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input placeholder="Name" className="h-8 text-xs" value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} />
-                  <Input placeholder="Role/Title" className="h-8 text-xs" value={contactForm.role} onChange={e => setContactForm(f => ({ ...f, role: e.target.value }))} />
-                  <Input placeholder="Email" className="h-8 text-xs" value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} />
-                  <Input placeholder="Direct Phone" className="h-8 text-xs" value={contactForm.phone} onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))} />
+              {/* Vapi AI info */}
+              {selected.meta?.vapi_ai_notes && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">AI Call Notes</label>
+                  <p className="text-xs bg-muted p-3 rounded-lg whitespace-pre-wrap">{selected.meta.vapi_ai_notes}</p>
                 </div>
-                <Button size="sm" className="h-7 text-xs" onClick={saveContact}>
-                  <CheckCircle2 className="h-3 w-3 mr-1" /> Save Contact
-                </Button>
-              </div>
+              )}
 
               {/* Notes */}
               <div className="space-y-2">
@@ -709,55 +587,13 @@ export default function VideographyHub() {
                 <Button size="sm" className="h-8 text-xs" onClick={() => markContacted(selected)}>
                   <Phone className="h-3 w-3 mr-1" /> Mark Contacted
                 </Button>
-                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => sendAgreement(selected)}>
-                  <FileSignature className="h-3 w-3 mr-1" /> Send Agreement
-                </Button>
                 <Button
                   size="sm" variant="outline" className="h-8 text-xs"
-                  onClick={() => updateProspect(selected.id, { pipeline_stage: 'dead' })}
+                  onClick={() => updateLead(selected.id, { status: 'dead' })}
                 >
                   Not Interested
                 </Button>
               </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add / Import Modal */}
-      <Dialog open={addMode !== 'closed'} onOpenChange={open => { if (!open) setAddMode('closed'); }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{addMode === 'csv' ? 'Import CSV' : 'Add Prospect'}</DialogTitle>
-          </DialogHeader>
-
-          {addMode === 'manual' && (
-            <div className="space-y-3">
-              <Input placeholder="Business Name *" value={manualForm.business_name} onChange={e => setManualForm(f => ({ ...f, business_name: e.target.value }))} />
-              <Input placeholder="Phone" value={manualForm.phone} onChange={e => setManualForm(f => ({ ...f, phone: e.target.value }))} />
-              <Input placeholder="Address" value={manualForm.address} onChange={e => setManualForm(f => ({ ...f, address: e.target.value }))} />
-              <Input placeholder="Website" value={manualForm.website} onChange={e => setManualForm(f => ({ ...f, website: e.target.value }))} />
-              <Button className="w-full" onClick={addManual}>
-                <Plus className="h-4 w-4 mr-1" /> Add Prospect
-              </Button>
-            </div>
-          )}
-
-          {addMode === 'csv' && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Paste CSV content below. Expected columns: <span className="font-medium">Business Name, Phone, Address, Website</span>.
-                Header row is auto-detected.
-              </p>
-              <Textarea
-                className="min-h-[200px] font-mono text-xs"
-                placeholder={'Business Name,Phone,Address,Website\nAcme Mortuary,(702) 555-1234,"123 Main St, Las Vegas, NV",https://acme.com'}
-                value={csvText}
-                onChange={e => setCsvText(e.target.value)}
-              />
-              <Button className="w-full" onClick={importCsv} disabled={importing}>
-                {importing ? 'Importing…' : `Import ${csvText.trim().split('\n').filter(l => l.trim()).length > 1 ? csvText.trim().split('\n').filter(l => l.trim()).length - 1 : 0} rows`}
-              </Button>
             </div>
           )}
         </DialogContent>
