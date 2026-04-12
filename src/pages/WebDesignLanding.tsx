@@ -198,9 +198,9 @@ export default function WebDesignLanding() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-            Las Vegas Websites.
+            Warren Guru
             <br />
-            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Built by AI.</span>
+            <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Las Vegas Web Design.</span>
           </h1>
 
           <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
