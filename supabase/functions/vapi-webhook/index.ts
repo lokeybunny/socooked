@@ -7,6 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── Gmail helpers ───
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const IMPERSONATE_EMAIL = "warren@stu25.com";
@@ -22,12 +23,9 @@ async function getGmailAccessToken(sa: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
   const payload = base64url(new TextEncoder().encode(JSON.stringify({
-    iss: sa.client_email,
-    sub: IMPERSONATE_EMAIL,
+    iss: sa.client_email, sub: IMPERSONATE_EMAIL,
     scope: "https://www.googleapis.com/auth/gmail.modify",
-    aud: GOOGLE_TOKEN_URL,
-    iat: now,
-    exp: now + 3600,
+    aud: GOOGLE_TOKEN_URL, iat: now, exp: now + 3600,
   })));
   const signingInput = `${header}.${payload}`;
   const pemBody = sa.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, "");
@@ -35,10 +33,8 @@ async function getGmailAccessToken(sa: any): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey("pkcs8", keyData, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const sig = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, new TextEncoder().encode(signingInput)));
   const jwt = `${signingInput}.${base64url(sig)}`;
-
   const res = await fetch(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
   const json = await res.json();
@@ -47,111 +43,73 @@ async function getGmailAccessToken(sa: any): Promise<string> {
 }
 
 function rfc2047Base64(str: string): string {
-  const encoded = btoa(unescape(encodeURIComponent(str)));
-  return `=?UTF-8?B?${encoded}?=`;
+  return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(str)))}?=`;
 }
 
-async function sendGmailNotification(
-  recipientEmail: string,
-  subject: string,
-  htmlBody: string,
-) {
+async function sendGmailNotification(recipientEmail: string, subject: string, htmlBody: string) {
   const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
   if (!saJson) { console.error("No GOOGLE_SERVICE_ACCOUNT_JSON"); return; }
   const sa = JSON.parse(saJson);
   const accessToken = await getGmailAccessToken(sa);
-
   const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
   const rawMessage = [
-    `From: Warren Guru <${IMPERSONATE_EMAIL}>`,
-    `To: ${recipientEmail}`,
-    `Subject: ${rfc2047Base64(subject)}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    ``,
-    `--${boundary}`,
-    `Content-Type: text/plain; charset=UTF-8`,
-    ``,
-    htmlBody.replace(/<[^>]+>/g, ""),
-    ``,
-    `--${boundary}`,
-    `Content-Type: text/html; charset=UTF-8`,
-    ``,
-    htmlBody,
-    ``,
-    `--${boundary}--`,
+    `From: Warren Guru <${IMPERSONATE_EMAIL}>`, `To: ${recipientEmail}`,
+    `Subject: ${rfc2047Base64(subject)}`, `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`, ``,
+    `--${boundary}`, `Content-Type: text/plain; charset=UTF-8`, ``,
+    htmlBody.replace(/<[^>]+>/g, ""), ``, `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`, ``, htmlBody, ``, `--${boundary}--`,
   ].join("\r\n");
-
-  const encoded = btoa(unescape(encodeURIComponent(rawMessage)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
+  const encoded = btoa(unescape(encodeURIComponent(rawMessage))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const res = await fetch(`${GMAIL_API}/users/me/messages/send`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ raw: encoded }),
   });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("Gmail send failed:", res.status, errText);
-  } else {
-    console.log("Lead notification email sent to", recipientEmail);
-  }
-}
-
-function buildLeadEmailHtml(lead: any, landingPage: any, aiConnected: boolean): string {
-  const accentColor = landingPage?.accent_color || "#10b981";
-  const clientName = landingPage?.client_name || "Your Brand";
-
-  const aiSection = aiConnected && lead.ai_notes
-    ? `
-      <div style="background:#f0fdf4;border-left:4px solid ${accentColor};padding:16px;margin:16px 0;border-radius:4px;">
-        <h3 style="margin:0 0 8px;color:#065f46;font-size:16px;">✅ AI Agent Call Notes</h3>
-        <pre style="margin:0;white-space:pre-wrap;font-family:inherit;color:#1f2937;font-size:14px;line-height:1.6;">${escapeHtml(lead.ai_notes)}</pre>
-      </div>`
-    : `
-      <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;margin:16px 0;border-radius:4px;">
-        <h3 style="margin:0 0 8px;color:#92400e;font-size:16px;">⚠️ AI Agent Did Not Connect</h3>
-        <p style="margin:0;color:#78350f;font-size:14px;">The AI voice agent was unable to reach this seller. Please follow up manually as soon as possible.</p>
-      </div>`;
-
-  return `
-<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
-  <div style="max-width:600px;margin:24px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-    <div style="background:#000;padding:24px 32px;">
-      <h1 style="margin:0;color:#fff;font-size:22px;">🏠 New Seller Lead — ${escapeHtml(clientName)}</h1>
-    </div>
-    <div style="padding:24px 32px;">
-      <h2 style="margin:0 0 16px;color:#111827;font-size:18px;">Lead Details</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        <tr><td style="padding:8px 0;color:#6b7280;width:140px;">Name</td><td style="padding:8px 0;color:#111827;font-weight:600;">${escapeHtml(lead.full_name)}</td></tr>
-        <tr><td style="padding:8px 0;color:#6b7280;">Phone</td><td style="padding:8px 0;color:#111827;font-weight:600;">${escapeHtml(lead.phone)}</td></tr>
-        <tr><td style="padding:8px 0;color:#6b7280;">Property Address</td><td style="padding:8px 0;color:#111827;font-weight:600;">${escapeHtml(lead.property_address)}</td></tr>
-        ${lead.email ? `<tr><td style="padding:8px 0;color:#6b7280;">Email</td><td style="padding:8px 0;color:#111827;">${escapeHtml(lead.email)}</td></tr>` : ""}
-        ${lead.asking_price ? `<tr><td style="padding:8px 0;color:#6b7280;">Asking Price</td><td style="padding:8px 0;color:#111827;">$${Number(lead.asking_price).toLocaleString()}</td></tr>` : ""}
-        ${lead.motivation ? `<tr><td style="padding:8px 0;color:#6b7280;">Motivation</td><td style="padding:8px 0;color:#111827;">${escapeHtml(lead.motivation)}</td></tr>` : ""}
-        ${lead.timeline ? `<tr><td style="padding:8px 0;color:#6b7280;">Timeline</td><td style="padding:8px 0;color:#111827;">${escapeHtml(lead.timeline)}</td></tr>` : ""}
-        ${lead.property_condition ? `<tr><td style="padding:8px 0;color:#6b7280;">Condition</td><td style="padding:8px 0;color:#111827;">${escapeHtml(lead.property_condition)}</td></tr>` : ""}
-        ${lead.lead_score ? `<tr><td style="padding:8px 0;color:#6b7280;">Lead Score</td><td style="padding:8px 0;color:#111827;font-weight:600;">${lead.lead_score}/100</td></tr>` : ""}
-      </table>
-
-      ${aiSection}
-
-      <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;">
-        <p style="margin:0;color:#9ca3af;font-size:12px;">Submitted at ${new Date(lead.created_at).toLocaleString("en-US", { timeZone: "America/New_York" })} ET</p>
-        <p style="margin:4px 0 0;color:#9ca3af;font-size:12px;">Powered by Warren Guru — Automated Wholesale Pipeline</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
+  if (!res.ok) { console.error("Gmail send failed:", res.status, await res.text()); }
+  else { console.log("Email sent to", recipientEmail); }
 }
 
 function escapeHtml(str: string): string {
   if (!str) return "";
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ─── Phone normalization ───
+function normalizePhone(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+  return digits;
+}
+
+// ─── Assistant IDs ───
+const WEB_INBOUND_ID = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
+const VIDEO_INBOUND_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
+const WEB_OUTBOUND_ID = "dc35680f-8763-4702-84d7-e3df267ddaf9";
+const VIDEO_OUTBOUND_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
+
+// ─── Blocked time slots (PST) ───
+const BLOCKED_SLOTS = [
+  { startH: 8, startM: 0, endH: 10, endM: 0, label: "8:00 AM - 10:00 AM PST" },
+  { startH: 14, startM: 30, endH: 15, endM: 30, label: "2:30 PM - 3:30 PM PST" },
+];
+
+function parseTime(timeStr: string): { hour: number; min: number } {
+  const tMatch = timeStr.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?/i);
+  if (!tMatch) return { hour: 0, min: 0 };
+  let hour = parseInt(tMatch[1]);
+  const min = tMatch[2] ? parseInt(tMatch[2]) : 0;
+  const period = (tMatch[3] || "").replace(/\./g, "").toLowerCase();
+  if (period === "pm" && hour < 12) hour += 12;
+  if (period === "am" && hour === 12) hour = 0;
+  return { hour, min };
+}
+
+function getAssistantFunnel(assistantId: string): { source: string; category: string; tag: string; label: string } | null {
+  if (assistantId === WEB_INBOUND_ID || assistantId === WEB_OUTBOUND_ID)
+    return { source: "webdesign-landing", category: "web_design", tag: "web", label: "Web Design" };
+  if (assistantId === VIDEO_INBOUND_ID || assistantId === VIDEO_OUTBOUND_ID)
+    return { source: "videography-landing", category: "videography", tag: "video", label: "Videography" };
+  return null;
 }
 
 serve(async (req) => {
@@ -164,11 +122,14 @@ serve(async (req) => {
 
     const payload = await req.json();
     const { message } = payload;
+    const messageType = message?.type;
 
-    console.log("Vapi webhook event:", message?.type, "call:", message?.call?.id);
+    console.log("Vapi webhook event:", messageType, "call:", message?.call?.id);
 
-    // ─── Handle function-call: check_availability ───
-    if (message?.type === "function-call" || message?.type === "tool-calls") {
+    // ════════════════════════════════════════════
+    // PART 1: REAL-TIME TOOL CALLS (during call)
+    // ════════════════════════════════════════════
+    if (messageType === "function-call" || messageType === "tool-calls") {
       const toolCall = message?.toolCallList?.[0]
         || message?.toolWithToolCallList?.[0]?.toolCall
         || message?.toolCalls?.[0]
@@ -179,57 +140,195 @@ serve(async (req) => {
       const toolCallId = toolCall?.id;
       const fnName = functionCall?.name;
       const rawParams = functionCall?.parameters || functionCall?.arguments;
-      console.log("[vapi-webhook] Function call:", fnName, JSON.stringify(rawParams));
+      const params = typeof rawParams === "string" ? JSON.parse(rawParams) : (rawParams || {});
+      
+      const callAssistantId = message?.call?.assistantId || message?.call?.assistant?.id || "";
+      
+      console.log("[vapi-webhook] Tool call:", fnName, JSON.stringify(params));
 
-      if (fnName === "check_availability") {
-        const params = typeof rawParams === "string"
-          ? JSON.parse(rawParams)
-          : (rawParams || {});
-        const requestedDate = params.date; // e.g. "2026-04-15"
-        const requestedTime = params.time; // e.g. "8:40 AM" or "08:40"
+      const respond = (result: any) => {
+        const body = messageType === "tool-calls"
+          ? { results: [{ name: fnName, toolCallId, result: JSON.stringify(result) }] }
+          : { result: JSON.stringify(result) };
+        return new Response(JSON.stringify(body), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      };
 
-        // Blocked slots in PST
-        const BLOCKED_SLOTS = [
-          { startH: 8, startM: 0, endH: 10, endM: 0, label: "8:00 AM - 10:00 AM" },
-          { startH: 14, startM: 30, endH: 15, endM: 30, label: "2:30 PM - 3:30 PM" },
-        ];
-
-        // Parse requested time to PST minutes
-        let reqHour = 0, reqMin = 0;
-        if (requestedTime) {
-          const tMatch = requestedTime.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?/i);
-          if (tMatch) {
-            reqHour = parseInt(tMatch[1]);
-            reqMin = tMatch[2] ? parseInt(tMatch[2]) : 0;
-            const period = (tMatch[3] || "").replace(/\./g, "").toLowerCase();
-            if (period === "pm" && reqHour < 12) reqHour += 12;
-            if (period === "am" && reqHour === 12) reqHour = 0;
-          }
+      // ──── TOOL: find_contact ────
+      if (fnName === "find_contact") {
+        const phone = normalizePhone(params.phone || "");
+        const email = (params.email || "").trim().toLowerCase();
+        
+        let contact = null;
+        
+        // Search by phone first
+        if (phone && phone.length >= 10) {
+          const { data } = await sb.from("customers").select("id, full_name, email, phone, status, source, notes, tags, meta")
+            .eq("phone", phone).order("created_at", { ascending: false }).limit(1).maybeSingle();
+          contact = data;
         }
+        
+        // Fallback: search by email
+        if (!contact && email) {
+          const { data } = await sb.from("customers").select("id, full_name, email, phone, status, source, notes, tags, meta")
+            .eq("email", email).order("created_at", { ascending: false }).limit(1).maybeSingle();
+          contact = data;
+        }
+        
+        if (contact) {
+          console.log(`[find_contact] Found: ${contact.full_name} (${contact.id})`);
+          return respond({
+            found: true,
+            contact_id: contact.id,
+            name: contact.full_name,
+            email: contact.email,
+            phone: contact.phone,
+            status: contact.status,
+            source: contact.source,
+            notes: contact.notes,
+          });
+        }
+        
+        console.log(`[find_contact] No match for phone=${phone} email=${email}`);
+        return respond({ found: false, contact_id: null });
+      }
 
+      // ──── TOOL: create_or_update_lead ────
+      if (fnName === "create_or_update_lead") {
+        const name = (params.name || params.full_name || "").trim();
+        const phone = normalizePhone(params.phone || "");
+        const email = (params.email || "").trim().toLowerCase();
+        const serviceType = (params.service_type || "").toLowerCase();
+        const notes = params.notes || "";
+        const callId = message?.call?.id || "";
+        
+        const funnel = getAssistantFunnel(callAssistantId);
+        const source = funnel?.source || (serviceType.includes("video") ? "videography-landing" : "webdesign-landing");
+        const funnelTag = funnel?.tag || (serviceType.includes("video") ? "video" : "web");
+        
+        // Search for existing contact by phone or email
+        let existing: any = null;
+        if (phone && phone.length >= 10) {
+          const { data } = await sb.from("customers").select("*")
+            .eq("phone", phone).order("created_at", { ascending: false }).limit(1).maybeSingle();
+          existing = data;
+        }
+        if (!existing && email) {
+          const { data } = await sb.from("customers").select("*")
+            .eq("email", email).order("created_at", { ascending: false }).limit(1).maybeSingle();
+          existing = data;
+        }
+        
+        const existingMeta = (existing?.meta as any) || {};
+        const existingTags = Array.isArray(existing?.tags) ? (existing.tags as string[]) : [];
+        const nextTags = Array.from(new Set([
+          ...existingTags, "vapi_inbound_call", funnelTag, "in_call",
+        ]));
+        const nextMeta = {
+          ...existingMeta,
+          vapi_call_id: callId,
+          vapi_call_status: "in_call",
+          vapi_assistant_id: callAssistantId,
+          vapi_direct_dial: true,
+          vapi_call_started_at: existingMeta.vapi_call_started_at || new Date().toISOString(),
+          vapi_inbound_notes: notes,
+          service_type: serviceType,
+          lead_source: "vapi_inbound_call",
+        };
+        
+        let contactId: string;
+        
+        if (existing) {
+          // Update existing contact
+          await sb.from("customers").update({
+            full_name: name || existing.full_name,
+            email: email || existing.email,
+            phone: phone || existing.phone,
+            source: existing.source || source,
+            tags: nextTags,
+            notes: existing.notes
+              ? `${existing.notes}\n\n--- Vapi Call Update ---\n${notes}`
+              : notes || `Inbound call via ${funnelTag} AI line.`,
+            meta: nextMeta,
+          }).eq("id", existing.id);
+          contactId = existing.id;
+          console.log(`[create_or_update_lead] Updated existing: ${contactId}`);
+        } else {
+          // Create new contact
+          const { data: newRow, error: insertError } = await sb.from("customers").insert({
+            full_name: name || `Caller (${phone || "Unknown"})`,
+            phone: phone || null,
+            email: email || null,
+            source,
+            category: funnel?.category || "web_design",
+            status: "lead",
+            notes: notes || `Inbound call via ${funnelTag} AI line.`,
+            tags: nextTags,
+            meta: nextMeta,
+          }).select("id").single();
+          
+          if (insertError) {
+            console.error("[create_or_update_lead] Insert error:", insertError);
+            return respond({ success: false, error: insertError.message });
+          }
+          contactId = newRow!.id;
+          console.log(`[create_or_update_lead] Created new: ${contactId}`);
+        }
+        
+        // Create/update deal in pipeline
+        const { data: existingDeal } = await sb.from("deals")
+          .select("id").eq("customer_id", contactId)
+          .eq("status", "open").limit(1).maybeSingle();
+        
+        if (!existingDeal) {
+          await sb.from("deals").insert({
+            title: `${name || "Caller"} — ${funnel?.label || "Inbound Call"}`,
+            customer_id: contactId,
+            category: funnel?.category || "web_design",
+            stage: "new",
+            status: "open",
+            pipeline: "default",
+            deal_value: 0,
+            probability: 25,
+            tags: [funnelTag, "vapi_inbound"],
+          });
+        }
+        
+        return respond({
+          success: true,
+          contact_id: contactId,
+          is_new: !existing,
+          name: name || existing?.full_name,
+        });
+      }
+
+      // ──── TOOL: check_availability ────
+      if (fnName === "check_availability") {
+        const requestedDate = params.date;
+        const requestedTime = params.time || "";
+        const { hour: reqHour, min: reqMin } = parseTime(requestedTime);
         const reqTimeMin = reqHour * 60 + reqMin;
-        const sessionDuration = 120; // 2 hours default
+        const sessionDuration = params.duration_minutes || 120;
         const reqEndMin = reqTimeMin + sessionDuration;
 
-        // Check against blocked slots
+        // Check blocked slots
         const blockedConflict = BLOCKED_SLOTS.find(slot => {
           const slotStart = slot.startH * 60 + slot.startM;
           const slotEnd = slot.endH * 60 + slot.endM;
           return reqTimeMin < slotEnd && reqEndMin > slotStart;
         });
 
-        // Check against existing calendar events for that date
+        // Check calendar events
         let calendarConflict = false;
         let calendarConflictInfo = "";
         if (requestedDate) {
-          // Convert requested PST time to UTC for DB query
-          const pstToUtcOffset = 7; // PST = UTC-7 (PDT), UTC-8 (PST)
-          const startUtc = new Date(`${requestedDate}T${String(reqHour).padStart(2,"0")}:${String(reqMin).padStart(2,"0")}:00`);
+          const pstToUtcOffset = 7;
+          const startUtc = new Date(`${requestedDate}T${String(reqHour).padStart(2, "0")}:${String(reqMin).padStart(2, "0")}:00`);
           startUtc.setHours(startUtc.getHours() + pstToUtcOffset);
           const endUtc = new Date(startUtc.getTime() + sessionDuration * 60 * 1000);
 
-          const { data: conflicts } = await sb
-            .from("calendar_events")
+          const { data: conflicts } = await sb.from("calendar_events")
             .select("id, title, start_time, end_time")
             .lt("start_time", endUtc.toISOString())
             .gt("end_time", startUtc.toISOString());
@@ -238,749 +337,651 @@ serve(async (req) => {
             calendarConflict = true;
             calendarConflictInfo = conflicts.map(c => c.title).join(", ");
           }
+
+          // Also check bookings table
+          const { data: bookingConflicts } = await sb.from("bookings")
+            .select("id, guest_name, start_time, end_time")
+            .eq("booking_date", requestedDate)
+            .neq("status", "cancelled")
+            .lt("start_time", endUtc.toISOString())
+            .gt("end_time", startUtc.toISOString());
+
+          if (bookingConflicts && bookingConflicts.length > 0) {
+            calendarConflict = true;
+            calendarConflictInfo += (calendarConflictInfo ? ", " : "") + bookingConflicts.map(b => b.guest_name).join(", ");
+          }
         }
 
         let resultMessage: string;
         let available = true;
+        let reason = "";
 
         if (blockedConflict) {
           available = false;
-          resultMessage = `That time is NOT available. The ${blockedConflict.label} PST window is blocked every day. Please suggest a different time outside of 8:00-10:00 AM and 2:30-3:30 PM PST.`;
+          reason = `blocked_window`;
+          resultMessage = `That time is NOT available. The ${blockedConflict.label} window is blocked every day. Please suggest a different time outside of 8:00-10:00 AM and 2:30-3:30 PM PST.`;
         } else if (calendarConflict) {
           available = false;
-          resultMessage = `That time is NOT available — there is already a booking at that time. Please suggest a different time.`;
+          reason = `existing_booking`;
+          resultMessage = `That time is NOT available — there is already a booking at that time (${calendarConflictInfo}). Please suggest a different time.`;
         } else {
           resultMessage = `That time is available! You can confirm the booking for ${requestedTime || "the requested time"} on ${requestedDate || "the requested date"}.`;
         }
 
-        console.log(`[vapi-webhook] Availability check: date=${requestedDate}, time=${requestedTime}, available=${available}`);
+        console.log(`[check_availability] date=${requestedDate} time=${requestedTime} available=${available} reason=${reason}`);
+        return respond({ available, message: resultMessage, reason });
+      }
 
-        // Respond in the format Vapi expects
-        const responsePayload = message?.type === "tool-calls"
-          ? {
-            results: [{
-              name: fnName,
-              toolCallId,
-              result: JSON.stringify({ available, message: resultMessage }),
-            }],
+      // ──── TOOL: create_tentative_booking ────
+      if (fnName === "create_tentative_booking") {
+        const contactId = params.contact_id;
+        const date = params.date;
+        const time = params.time || "10:00 AM";
+        const serviceType = (params.service_type || "").toLowerCase();
+        const notes = params.notes || "";
+        const { hour, min } = parseTime(time);
+        
+        const funnel = getAssistantFunnel(callAssistantId);
+        const isVideo = serviceType.includes("video") || funnel?.tag === "video";
+        const durationMinutes = params.duration_minutes || (isVideo ? 180 : 60);
+
+        // Build UTC time from PST
+        const pstToUtcOffset = 7;
+        const startUtc = new Date(`${date}T${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}:00`);
+        startUtc.setHours(startUtc.getHours() + pstToUtcOffset);
+        const endUtc = new Date(startUtc.getTime() + durationMinutes * 60 * 1000);
+
+        // Final availability check to prevent double booking
+        const { data: conflicts } = await sb.from("calendar_events")
+          .select("id").lt("start_time", endUtc.toISOString()).gt("end_time", startUtc.toISOString());
+        const hasConflict = !!(conflicts && conflicts.length > 0);
+
+        // Fetch contact info
+        let contactName = "Caller";
+        let contactPhone = "";
+        let contactEmail = "";
+        if (contactId) {
+          const { data: contact } = await sb.from("customers").select("full_name, phone, email").eq("id", contactId).single();
+          if (contact) {
+            contactName = contact.full_name;
+            contactPhone = contact.phone || "";
+            contactEmail = contact.email || "";
           }
-          : { result: JSON.stringify({ available, message: resultMessage }) };
-
-        return new Response(JSON.stringify(responsePayload), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Default: return empty result for unknown function calls
-      const defaultResponse = message?.type === "tool-calls"
-        ? {
-          results: [{
-            name: fnName || "unknown_function",
-            toolCallId,
-            result: JSON.stringify({ error: "Unknown function" }),
-          }],
-        }
-        : { result: JSON.stringify({ error: "Unknown function" }) };
-      return new Response(JSON.stringify(defaultResponse), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Handle end-of-call report
-    if (message?.type === "end-of-call-report") {
-      const callId = message.call?.id;
-      if (!callId) {
-        return new Response(JSON.stringify({ ok: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Find the lead by vapi_call_id — try lw_landing_leads first, then customers
-      const { data: lead } = await sb
-        .from("lw_landing_leads")
-        .select("*")
-        .eq("vapi_call_id", callId)
-        .single();
-
-      // Fallback: check customers table (videography/webdesign funnel leads)
-      let customerLead: any = null;
-      if (!lead) {
-        const { data: custRow } = await sb
-          .from("customers")
-          .select("*")
-          .filter("meta->>vapi_call_id", "eq", callId)
-          .single();
-        customerLead = custRow;
-      }
-
-      if (!lead && !customerLead) {
-        console.log("No lead found for call:", callId);
-        return new Response(JSON.stringify({ ok: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // If it's a customer-table lead, handle separately
-      if (customerLead) {
-        const transcript = message.transcript || "";
-        const summary = message.summary || "";
-        const recordingUrl = message.recordingUrl || null;
-        const endedReason = message.endedReason || "unknown";
-        let duration = message.call?.duration || message.duration || 0;
-        if (!duration && message.startedAt && message.endedAt) {
-          duration = (new Date(message.endedAt).getTime() - new Date(message.startedAt).getTime()) / 1000;
-        }
-        if (!duration && message.call?.startedAt && message.call?.endedAt) {
-          duration = (new Date(message.call.endedAt).getTime() - new Date(message.call.startedAt).getTime()) / 1000;
         }
 
-        const hasContent = !!(transcript?.trim() || summary?.trim());
-        const callFailed = !hasContent && ([
-          "assistant-error", "no-answer", "busy", "voicemail",
-          "machine-detected", "customer-did-not-answer", "customer-busy",
-          "silence-timed-out",
-        ].includes(endedReason) || duration < 15);
+        // Create tentative calendar event
+        const eventTitle = `${isVideo ? "📹" : "🌐"} ${hasConflict ? "⚠️ CONFLICT — " : ""}${isVideo ? "Videography" : "Web Design"}: ${contactName}`;
+        const { data: calEvent, error: calError } = await sb.from("calendar_events").insert({
+          title: eventTitle,
+          description: `TENTATIVE booking from AI call.\n\nClient: ${contactName}\nPhone: ${contactPhone}\nEmail: ${contactEmail}\nService: ${serviceType || (isVideo ? "Videography" : "Web Design")}\n\n${hasConflict ? "⚠️ CONFLICT: Another event exists at this time. Review needed." : "No conflicts."}\n\nNotes: ${notes}`,
+          start_time: startUtc.toISOString(),
+          end_time: endUtc.toISOString(),
+          category: isVideo ? "videography" : "web_design",
+          source: "vapi-ai",
+          source_id: message?.call?.id || null,
+          customer_id: contactId || null,
+          color: hasConflict ? "#ef4444" : (isVideo ? "#8b5cf6" : "#3b82f6"),
+          location: "TBD — confirm with client",
+        }).select("id").single();
 
-        const aiNotes = callFailed
-          ? `AI Agent could not connect.\n• Reason: ${endedReason.replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`
-          : buildAINotes(transcript, summary, endedReason, duration, recordingUrl);
+        if (calError) {
+          console.error("[create_tentative_booking] Error:", calError);
+          return respond({ success: false, error: calError.message });
+        }
 
-        const existingMeta = (customerLead.meta as any) || {};
-        await sb
-          .from("customers")
-          .update({
+        // Create booking record
+        await sb.from("bookings").insert({
+          booking_date: date,
+          start_time: startUtc.toISOString(),
+          end_time: endUtc.toISOString(),
+          guest_name: contactName,
+          guest_email: contactEmail || "unknown@vapi.ai",
+          guest_phone: contactPhone,
+          meeting_type: isVideo ? "videography" : "web_consultation",
+          duration_minutes: durationMinutes,
+          status: "tentative",
+          notes: `Tentative booking via AI call. Service: ${serviceType}. ${notes}`,
+        });
+
+        // Update customer meta with booking info
+        if (contactId) {
+          const { data: cust } = await sb.from("customers").select("meta").eq("id", contactId).single();
+          const existingMeta = (cust?.meta as any) || {};
+          await sb.from("customers").update({
             meta: {
               ...existingMeta,
+              tentative_booking_date: startUtc.toISOString(),
+              tentative_booking_conflict: hasConflict,
+              tentative_booking_service: serviceType,
+              tentative_booking_calendar_id: calEvent?.id,
+            },
+          }).eq("id", contactId);
+        }
+
+        // Link to existing deal
+        if (contactId) {
+          const { data: deal } = await sb.from("deals").select("id")
+            .eq("customer_id", contactId).eq("status", "open").limit(1).maybeSingle();
+          if (deal) {
+            await sb.from("deals").update({ stage: "proposal" }).eq("id", deal.id);
+          }
+        }
+
+        console.log(`[create_tentative_booking] Created for ${contactName} at ${startUtc.toISOString()}, conflict=${hasConflict}`);
+
+        // Conflict notifications
+        if (hasConflict) {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`, "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "" },
+              body: JSON.stringify({
+                entity_type: "booking", action: "conflict",
+                meta: { message: `⚠️ *BOOKING CONFLICT*\n\n${isVideo ? "📹" : "🌐"} Client: *${contactName}*\n📞 ${contactPhone || "N/A"}\n🕐 ${startUtc.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT\n\nReview in Calendar.` },
+              }),
+            });
+          } catch (e) { console.error("Conflict notification failed:", e); }
+        }
+
+        return respond({
+          success: true,
+          booking_id: calEvent?.id,
+          status: "tentative",
+          has_conflict: hasConflict,
+          date,
+          time,
+          message: hasConflict
+            ? `Tentative booking created but there IS a conflict. Warren will review and confirm.`
+            : `Tentative booking created for ${time} on ${date}. Warren will confirm shortly.`,
+        });
+      }
+
+      // Unknown tool — return graceful error
+      console.log("[vapi-webhook] Unknown tool:", fnName);
+      return respond({ error: `Unknown tool: ${fnName}` });
+    }
+
+    // ════════════════════════════════════════════
+    // PART 2: END-OF-CALL REPORT
+    // ════════════════════════════════════════════
+    if (messageType === "end-of-call-report") {
+      const callId = message.call?.id;
+      if (!callId) return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const transcript = message.transcript || "";
+      const summary = message.summary || "";
+      const recordingUrl = message.recordingUrl || null;
+      const endedReason = message.endedReason || "unknown";
+      const assistantId = message.call?.assistantId || message.call?.assistant?.id || "";
+      const customerPhone = normalizePhone(
+        message.call?.customer?.number || message.customer?.number || ""
+      );
+
+      let duration = message.call?.duration || message.duration || 0;
+      if (!duration && message.startedAt && message.endedAt)
+        duration = (new Date(message.endedAt).getTime() - new Date(message.startedAt).getTime()) / 1000;
+      if (!duration && message.call?.startedAt && message.call?.endedAt)
+        duration = (new Date(message.call.endedAt).getTime() - new Date(message.call.startedAt).getTime()) / 1000;
+
+      const hasContent = !!(transcript?.trim() || summary?.trim());
+      const callFailed = !hasContent && (["assistant-error", "no-answer", "busy", "voicemail", "machine-detected", "customer-did-not-answer", "customer-busy", "silence-timed-out"].includes(endedReason) || duration < 15);
+      const aiNotes = callFailed
+        ? `AI Agent could not connect.\n• Reason: ${endedReason.replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`
+        : buildAINotes(transcript, summary, endedReason, duration, recordingUrl);
+
+      // ─── Disposition analysis from transcript ───
+      const lcTranscript = (transcript + " " + summary).toLowerCase();
+      let disposition: "interested" | "not_interested" | "follow_up" | "booked" | "unknown" = "unknown";
+      let followUpRequired = false;
+      let nextActionDate: string | null = null;
+
+      if (!callFailed && hasContent) {
+        if (lcTranscript.match(/\b(not interested|no thanks|don't need|no need|wrong number|remove me)\b/))
+          disposition = "not_interested";
+        else if (lcTranscript.match(/\b(tentative|booked|scheduled|appointment|reserved)\b/))
+          disposition = "booked";
+        else if (lcTranscript.match(/\b(interested|sounds good|tell me more|like to|want to|need a|looking for|yes|sign me up)\b/))
+          disposition = "interested";
+        else if (lcTranscript.match(/\b(call (me )?back|follow up|later|tomorrow|next week|busy right now)\b/)) {
+          disposition = "follow_up";
+          followUpRequired = true;
+          // Try to extract next action date
+          if (lcTranscript.includes("tomorrow")) {
+            const t = new Date(); t.setDate(t.getDate() + 1);
+            nextActionDate = t.toISOString().split("T")[0];
+          } else if (lcTranscript.includes("next week")) {
+            const t = new Date(); t.setDate(t.getDate() + 7);
+            nextActionDate = t.toISOString().split("T")[0];
+          }
+        }
+        else disposition = "interested"; // default to interested if they talked
+      }
+
+      // ─── Map disposition to pipeline stage ───
+      const stageMap: Record<string, string> = {
+        interested: "prospect",
+        booked: "scheduled",
+        follow_up: "callback",
+        not_interested: "dead",
+        unknown: "lead",
+      };
+      const newStatus = callFailed ? "lead" : stageMap[disposition];
+
+      // ─── Find the lead: try lw_landing_leads first, then customers ───
+      const { data: llLead } = await sb.from("lw_landing_leads").select("*").eq("vapi_call_id", callId).single();
+
+      if (llLead) {
+        // Landing lead flow (existing logic preserved)
+        await handleLandingLeadEndOfCall(sb, llLead, {
+          transcript, summary, recordingUrl, endedReason, duration, callFailed, aiNotes,
+          SUPABASE_URL, callId,
+        });
+      }
+
+      // Always check customers table too (direct-dial leads)
+      const { data: custRow } = await sb.from("customers").select("*")
+        .filter("meta->>vapi_call_id", "eq", callId).maybeSingle();
+
+      // Also try by phone if no match by callId
+      let customerLead = custRow;
+      if (!customerLead && customerPhone) {
+        const funnel = getAssistantFunnel(assistantId);
+        if (funnel) {
+          const { data: byPhone } = await sb.from("customers").select("*")
+            .eq("source", funnel.source).eq("phone", customerPhone)
+            .order("created_at", { ascending: false }).limit(1).maybeSingle();
+          customerLead = byPhone;
+        }
+      }
+
+      if (customerLead) {
+        const existingMeta = (customerLead.meta as any) || {};
+        const existingTags = Array.isArray(customerLead.tags) ? (customerLead.tags as string[]) : [];
+        
+        // Remove "in_call" tag, add disposition tags
+        const nextTags = Array.from(new Set([
+          ...existingTags.filter(t => t !== "in_call"),
+          ...(disposition !== "unknown" ? [`disposition_${disposition}`] : []),
+          ...(followUpRequired ? ["follow_up_needed"] : []),
+        ]));
+
+        await sb.from("customers").update({
+          status: newStatus,
+          tags: nextTags,
+          notes: (customerLead.notes || "") + "\n\n--- AI Call Report ---\n" + aiNotes,
+          meta: {
+            ...existingMeta,
+            vapi_call_status: callFailed ? "no_answer" : "completed",
+            vapi_transcript: transcript,
+            vapi_summary: summary,
+            vapi_recording_url: recordingUrl,
+            vapi_ended_reason: endedReason,
+            vapi_duration_seconds: duration,
+            vapi_ai_notes: aiNotes,
+            vapi_disposition: disposition,
+            vapi_follow_up_required: followUpRequired,
+            vapi_next_action_date: nextActionDate,
+            vapi_last_contact: new Date().toISOString(),
+          },
+        }).eq("id", customerLead.id);
+
+        console.log(`[end-of-call] Updated customer ${customerLead.id}: status=${newStatus}, disposition=${disposition}`);
+
+        // Log to communications table for audit trail
+        await sb.from("communications").insert({
+          customer_id: customerLead.id,
+          type: "call",
+          direction: "inbound",
+          status: callFailed ? "failed" : "completed",
+          body: transcript || summary || aiNotes,
+          subject: `AI Call — ${disposition}`,
+          duration_seconds: Math.round(duration),
+          provider: "vapi",
+          external_id: callId,
+          metadata: {
+            assistant_id: assistantId,
+            disposition,
+            recording_url: recordingUrl,
+            ended_reason: endedReason,
+            follow_up_required: followUpRequired,
+            next_action_date: nextActionDate,
+          },
+        });
+
+        // ─── Videography: Auto-create tentative booking from transcript ───
+        const isVideography = customerLead.source === "videography-landing";
+        if (isVideography && !callFailed) {
+          try {
+            const scheduledDate = extractScheduleFromTranscript(transcript, summary);
+            if (scheduledDate) {
+              await createVideoBookingFromTranscript(sb, customerLead, scheduledDate, aiNotes, callId, existingMeta, SUPABASE_URL);
+            }
+          } catch (bookingErr) {
+            console.error("[end-of-call] Video booking creation failed:", bookingErr);
+          }
+        }
+      }
+
+      // If neither found, and we have a phone, create a new lead
+      if (!llLead && !customerLead && customerPhone) {
+        const funnel = getAssistantFunnel(assistantId);
+        if (funnel) {
+          const { error: insertError } = await sb.from("customers").insert({
+            full_name: `Caller (${customerPhone})`,
+            phone: customerPhone,
+            source: funnel.source,
+            category: funnel.category,
+            status: newStatus,
+            notes: aiNotes,
+            tags: ["vapi_inbound_call", funnel.tag, ...(disposition !== "unknown" ? [`disposition_${disposition}`] : [])],
+            meta: {
+              vapi_call_id: callId,
               vapi_call_status: callFailed ? "no_answer" : "completed",
+              vapi_assistant_id: assistantId,
               vapi_transcript: transcript,
               vapi_summary: summary,
               vapi_recording_url: recordingUrl,
               vapi_ended_reason: endedReason,
               vapi_duration_seconds: duration,
               vapi_ai_notes: aiNotes,
+              vapi_disposition: disposition,
+              vapi_follow_up_required: followUpRequired,
+              vapi_next_action_date: nextActionDate,
+              vapi_last_contact: new Date().toISOString(),
+              vapi_direct_dial: true,
             },
-            notes: (customerLead.notes || "") + "\n\n" + aiNotes,
-          })
-          .eq("id", customerLead.id);
-
-        console.log(`[vapi-webhook] Updated customer ${customerLead.id} with call results`);
-
-        // ─── Videography: Auto-create tentative calendar booking ───
-        const isVideography = customerLead.source === "videography-landing" ||
-          ((customerLead.tags as string[]) || []).includes("videography");
-        const assistantId = message.call?.assistantId || message.call?.assistant?.id || "";
-        const VIDEOGRAPHY_ASSISTANT_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
-
-        if (isVideography && !callFailed && (assistantId === VIDEOGRAPHY_ASSISTANT_ID || isVideography)) {
-          try {
-            const scheduledDate = extractScheduleFromTranscript(transcript, summary);
-            if (scheduledDate) {
-              // Check for conflicts with existing calendar events
-              const eventStart = new Date(scheduledDate);
-              const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000); // 2-hour block
-
-              // ── Check blocked time slots (PST): 8-10AM and 2:30-3:30PM ──
-              const pstOffset = -8; // PST is UTC-8 (ignore DST for simplicity)
-              const pstHour = (eventStart.getUTCHours() + pstOffset + 24) % 24;
-              const pstMin = eventStart.getUTCMinutes();
-              const pstTime = pstHour + pstMin / 60;
-              const endPstHour = (eventEnd.getUTCHours() + pstOffset + 24) % 24;
-              const endPstTime = endPstHour + eventEnd.getUTCMinutes() / 60;
-              const blockedSlots = [
-                { start: 8, end: 10, label: "8:00 AM - 10:00 AM PST" },
-                { start: 14.5, end: 15.5, label: "2:30 PM - 3:30 PM PST" },
-              ];
-              const hitsBlockedSlot = blockedSlots.some(slot =>
-                (pstTime < slot.end && endPstTime > slot.start)
-              );
-
-              const { data: conflicts } = await sb
-                .from("calendar_events")
-                .select("id, title, start_time, end_time")
-                .lt("start_time", eventEnd.toISOString())
-                .gt("end_time", eventStart.toISOString());
-
-              const hasConflict = (conflicts && conflicts.length > 0) || hitsBlockedSlot;
-              const conflictReason = hitsBlockedSlot
-                ? `Blocked time slot (${blockedSlots.find(s => pstTime < s.end && endPstTime > s.start)?.label || "blocked"})`
-                : "";
-
-              // Create tentative calendar event in videography-hub calendar
-              const eventTitle = `📹 ${hasConflict ? "⚠️ CONFLICT — " : ""}Videography: ${customerLead.full_name}`;
-              await sb.from("calendar_events").insert({
-                title: eventTitle,
-                description: `Tentative videography booking from AI call.\n\nClient: ${customerLead.full_name}\nPhone: ${customerLead.phone || "N/A"}\nEmail: ${customerLead.email || "N/A"}\n\n${hasConflict ? `⚠️ CONFLICT: ${hitsBlockedSlot ? conflictReason : "Another event exists at this time."}. Review needed.` : "No conflicts detected."}\n\nAI Notes:\n${aiNotes}`,
-                start_time: eventStart.toISOString(),
-                end_time: eventEnd.toISOString(),
-                category: "videography",
-                source: "vapi-ai",
-                source_id: callId,
-                customer_id: customerLead.id,
-                color: hasConflict ? "#ef4444" : "#8b5cf6",
-                location: "TBD — confirm with client",
-              });
-              console.log(`[vapi-webhook] Created tentative videography booking for ${customerLead.full_name} at ${eventStart.toISOString()}, conflict: ${hasConflict}, blockedSlot: ${hitsBlockedSlot}`);
-
-              // If conflict, send notifications
-              if (hasConflict) {
-                const conflictDetails = (conflicts || []).map(c =>
-                  `• ${c.title} (${new Date(c.start_time).toLocaleString("en-US", { timeZone: "America/Los_Angeles" })})`
-                ).join("\n");
-
-                // 1. Email notification
-                const conflictEmailHtml = `
-<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
-  <h2 style="color:#ef4444;">⚠️ Videography Booking Conflict</h2>
-  <p>A new tentative videography booking has been created from an AI call, but it <strong>conflicts</strong> with existing events.</p>
-  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:16px 0;">
-    <p style="margin:0;font-weight:600;">New Booking:</p>
-    <p style="margin:4px 0;">Client: ${escapeHtml(customerLead.full_name)}</p>
-    <p style="margin:4px 0;">Phone: ${escapeHtml(customerLead.phone || "N/A")}</p>
-    <p style="margin:4px 0;">Time: ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT</p>
-  </div>
-  <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin:16px 0;">
-    <p style="margin:0;font-weight:600;">Conflicting Events:</p>
-    <pre style="margin:8px 0 0;white-space:pre-wrap;font-family:inherit;">${escapeHtml(conflictDetails)}</pre>
-  </div>
-  <p>Please review and resolve in the <a href="https://socooked.lovable.app/calendar" style="color:#2563eb;">Calendar</a>.</p>
-</div>`;
-                try {
-                  await sendGmailNotification("warren@stu25.com", "⚠️ Videography Booking Conflict — " + customerLead.full_name, conflictEmailHtml);
-                } catch (e) { console.error("[vapi-webhook] Conflict email failed:", e); }
-
-                // 2. Telegram notification
-                try {
-                  await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
-                      "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
-                    },
-                    body: JSON.stringify({
-                      entity_type: "videography_booking",
-                      action: "conflict",
-                      meta: {
-                        message: `⚠️ *VIDEOGRAPHY BOOKING CONFLICT*\n\n📹 Client: *${customerLead.full_name}*\n📞 ${customerLead.phone || "N/A"}\n🕐 ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT\n\n❌ Conflicts with:\n${conflictDetails}\n\nReview in Calendar.`,
-                      },
-                    }),
-                  });
-                } catch (e) { console.error("[vapi-webhook] Conflict telegram failed:", e); }
-
-                // 3. CRM notification (activity_log)
-                await sb.from("activity_log").insert({
-                  entity_type: "videography_booking",
-                  entity_id: customerLead.id,
-                  action: "conflict",
-                  meta: {
-                    name: `Booking conflict: ${customerLead.full_name}`,
-                    message: `Tentative booking at ${eventStart.toISOString()} conflicts with ${conflicts?.length} existing event(s).`,
-                  },
-                });
-              }
-
-              // Update customer meta with booking info
-              await sb.from("customers").update({
-                meta: {
-                  ...existingMeta,
-                  vapi_call_status: "completed",
-                  vapi_transcript: transcript,
-                  vapi_summary: summary,
-                  vapi_recording_url: recordingUrl,
-                  vapi_ended_reason: endedReason,
-                  vapi_duration_seconds: duration,
-                  vapi_ai_notes: aiNotes,
-                  videography_tentative_date: eventStart.toISOString(),
-                  videography_booking_conflict: hasConflict,
-                },
-              }).eq("id", customerLead.id);
-            }
-          } catch (bookingErr) {
-            console.error("[vapi-webhook] Videography booking creation failed:", bookingErr);
-          }
-        }
-
-        return new Response(JSON.stringify({ ok: true }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Extract transcript and summary
-      const transcript = message.transcript || "";
-      const summary = message.summary || "";
-      const recordingUrl = message.recordingUrl || null;
-      const endedReason = message.endedReason || "unknown";
-      // Compute duration: prefer explicit field, fall back to timestamp diff
-      let duration = message.call?.duration || message.duration || 0;
-      if (!duration && message.startedAt && message.endedAt) {
-        duration = (new Date(message.endedAt).getTime() - new Date(message.startedAt).getTime()) / 1000;
-      }
-      if (!duration && message.call?.startedAt && message.call?.endedAt) {
-        duration = (new Date(message.call.endedAt).getTime() - new Date(message.call.startedAt).getTime()) / 1000;
-      }
-
-      // ─── Calculate call cost and deduct from credits ───
-      const costBreakdown = message.cost ?? message.costBreakdown?.total ?? 0;
-      const callCostCents = Math.round((typeof costBreakdown === 'number' ? costBreakdown : 0) * 100);
-
-      if (lead.landing_page_id && callCostCents > 0) {
-        // Fetch current balance
-        const { data: pageData } = await sb
-          .from("lw_landing_pages")
-          .select("vapi_credit_balance_cents, vapi_total_spent_cents, email, client_name")
-          .eq("id", lead.landing_page_id)
-          .single();
-
-        if (pageData) {
-          const newBalance = Math.max(0, (pageData.vapi_credit_balance_cents || 0) - callCostCents);
-          const newSpent = (pageData.vapi_total_spent_cents || 0) + callCostCents;
-
-          await sb
-            .from("lw_landing_pages")
-            .update({
-              vapi_credit_balance_cents: newBalance,
-              vapi_total_spent_cents: newSpent,
-            })
-            .eq("id", lead.landing_page_id);
-
-          console.log(`[vapi-webhook] Deducted ${callCostCents}¢ from page ${lead.landing_page_id}. Balance: ${newBalance}¢`);
-
-          // If credit exhausted, send notification email
-          if (newBalance <= 0 && pageData.email) {
-            const creditExhaustedHtml = `
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-  <h2 style="color: #dc2626;">⚠️ Phone Credits Exhausted</h2>
-  <p>Hi ${(pageData.client_name || 'there').split(' ')[0]},</p>
-  <p>Your <strong>$20.00</strong> phone credit balance has been fully used. As a result, <strong>new leads from your landing page will no longer receive automated AI callbacks</strong> until more credits are added.</p>
-  <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
-    <p style="margin: 0; font-weight: 600; color: #991b1b;">Total Spent: $${(newSpent / 100).toFixed(2)}</p>
-    <p style="margin: 4px 0 0; color: #991b1b;">Remaining Balance: $0.00</p>
-  </div>
-  <p>To continue receiving AI-powered callbacks for your leads, please reach out to Warren to add more credits to your account.</p>
-  <p>You can still view all your leads in your <a href="https://socooked.lovable.app/client-login" style="color: #2563eb;">Client Dashboard</a>.</p>
-  <br/>
-  <p>Best regards,</p>
-  <p><strong>Warren A Thompson</strong><br/>
-  STU25 — Web &amp; Social Media Services<br/>
-  <a href="mailto:warren@stu25.com">warren@stu25.com</a></p>
-</div>`;
-
-            try {
-              await sendGmailNotification(
-                pageData.email,
-                '⚠️ Phone Credits Exhausted — Action Required',
-                creditExhaustedHtml,
-              );
-              console.log(`[vapi-webhook] Credit exhaustion email sent to ${pageData.email}`);
-            } catch (emailErr) {
-              console.error("[vapi-webhook] Failed to send credit exhaustion email:", emailErr);
-            }
-          }
-        }
-      }
-
-      // Determine if AI actually connected with the seller
-      // If we have transcript or summary content, treat it as a connected call
-      // even when the duration is short or the ended reason is ambiguous.
-      const hasContent = !!(transcript?.trim() || summary?.trim());
-      const callFailed = !hasContent && ([
-        "assistant-error", "no-answer", "busy", "voicemail",
-        "machine-detected", "customer-did-not-answer", "customer-busy",
-        "silence-timed-out",
-      ].includes(endedReason) || duration < 15);
-
-      // Build AI notes from the conversation
-      const aiNotes = callFailed
-        ? `AI Agent could not connect.\n• Reason: ${endedReason.replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`
-        : buildAINotes(transcript, summary, endedReason, duration, recordingUrl);
-
-      // Track retry count from existing meta
-      const prevRetryCount = (lead.meta as any)?.vapi_retry_count ?? 0;
-
-      // Update lead with call results + retry count
-      const newRetryCount = callFailed ? prevRetryCount : prevRetryCount;
-      await sb
-        .from("lw_landing_leads")
-        .update({
-          vapi_call_status: callFailed ? "no_answer" : "completed",
-          ai_notes: aiNotes,
-          vapi_recording_url: recordingUrl,
-          meta: {
-            ...(lead.meta as any),
-            vapi_transcript: transcript,
-            vapi_summary: summary,
-            vapi_recording_url: recordingUrl,
-            vapi_ended_reason: endedReason,
-            vapi_duration_seconds: duration,
-            vapi_cost_cents: callCostCents,
-            vapi_retry_count: callFailed ? prevRetryCount + 1 : prevRetryCount,
-            vapi_last_retry_at: callFailed ? new Date().toISOString() : (lead.meta as any)?.vapi_last_retry_at,
-          },
-        })
-        .eq("id", lead.id);
-
-      // ─── Auto-retry: if call failed and we haven't retried twice yet, call again ───
-      // Retry immediately — Vapi will call back, and the next end-of-call-report
-      // will increment retry_count again. Max 2 retries (3 total attempts).
-      if (callFailed && prevRetryCount < 2) {
-        console.log(`[vapi-webhook] Call failed (${endedReason}), triggering retry #${prevRetryCount + 1} for lead ${lead.id}`);
-
-        try {
-          const retryRes = await fetch(`${SUPABASE_URL}/functions/v1/vapi-outbound`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
-              "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
-            },
-            body: JSON.stringify({
-              action: "trigger_call",
-              lead_id: lead.id,
-            }),
           });
-          const retryData = await retryRes.json();
-          console.log(`[vapi-webhook] Retry #${prevRetryCount + 1} result:`, retryData);
-        } catch (retryErr) {
-          console.error(`[vapi-webhook] Retry #${prevRetryCount + 1} failed:`, retryErr);
+          if (insertError) console.error("[end-of-call] New lead insert error:", insertError);
+          else console.log(`[end-of-call] Created new ${funnel.tag} lead from end-of-call for ${customerPhone}`);
         }
       }
 
-      console.log("Updated lead", lead.id, "with AI notes");
-
-      // --- Send email notification to landing page owner ---
-      // Only send email if call succeeded OR if all retries are exhausted (no more retries coming)
-      const willRetry = callFailed && prevRetryCount < 2;
-      if (lead.landing_page_id && !willRetry) {
-        const { data: landingPage } = await sb
-          .from("lw_landing_pages")
-          .select("client_name, email, phone, accent_color, slug")
-          .eq("id", lead.landing_page_id)
-          .single();
-
-        if (landingPage?.email) {
-          const updatedLead = { ...lead, ai_notes: aiNotes };
-          const retryNote = callFailed && prevRetryCount >= 2 ? ` (after ${prevRetryCount + 1} attempts)` : "";
-          const subject = callFailed
-            ? `🏠 New Lead: ${lead.full_name} — AI Agent Did Not Connect${retryNote}`
-            : `🏠 New Lead: ${lead.full_name} — AI Call Completed`;
-          const html = buildLeadEmailHtml(updatedLead, landingPage, !callFailed);
-
-          try {
-            await sendGmailNotification(landingPage.email, subject, html);
-          } catch (emailErr) {
-            console.error("Failed to send lead notification email:", emailErr);
-          }
-        } else {
-          console.log("No email on landing page for lead", lead.id);
-        }
-      }
+      return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Handle status updates
-    if (message?.type === "status-update") {
+    // ════════════════════════════════════════════
+    // PART 3: STATUS UPDATES (in-call tracking)
+    // ════════════════════════════════════════════
+    if (messageType === "status-update") {
       const call = message?.call || payload?.call || {};
-      const callId = call?.id || payload?.callId || payload?.call?.id || "";
-      const rawStatus = String(
-        message?.status || call?.status || payload?.status || payload?.call?.status || "",
-      ).trim().toLowerCase();
-      const assistantId = String(
-        call?.assistantId ||
-          call?.assistant?.id ||
-          message?.assistantId ||
-          message?.assistant?.id ||
-          payload?.assistantId ||
-          payload?.assistant?.id ||
-          "",
-      ).trim();
-      const customerPhone = (
-        [
-          call?.customer?.number,
-          call?.phoneNumber?.number,
-          typeof call?.phoneNumber === "string" ? call?.phoneNumber : "",
-          message?.customer?.number,
-          message?.customerNumber,
-          message?.phoneNumber?.number,
-          payload?.customer?.number,
-          payload?.customerNumber,
-          payload?.phoneNumber?.number,
-        ].find((value) => typeof value === "string" && value.trim().length > 0) || ""
-      ).trim();
+      const callId = call?.id || payload?.callId || "";
+      const rawStatus = String(message?.status || call?.status || payload?.status || "").trim().toLowerCase();
+      const assistantId = String(call?.assistantId || call?.assistant?.id || message?.assistantId || message?.assistant?.id || payload?.assistantId || "").trim();
+      const customerPhone = normalizePhone(
+        [call?.customer?.number, call?.phoneNumber?.number, typeof call?.phoneNumber === "string" ? call?.phoneNumber : "",
+         message?.customer?.number, message?.customerNumber, payload?.customer?.number, payload?.customerNumber]
+          .find((v) => typeof v === "string" && v.trim().length > 0) || ""
+      );
 
-      const normalizePhone = (value: string) => value.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
-      const normalizedPhone = normalizePhone(customerPhone);
-      const mapCallStatus = (value: string) => {
-        if (["in-progress", "in_progress", "active", "started", "ongoing"].includes(value)) return "in_call";
-        if (["queued", "ringing"].includes(value)) return "calling";
-        if (["ended", "completed"].includes(value)) return "completed";
-        if (["failed", "no-answer", "no_answer", "busy", "cancelled", "canceled"].includes(value)) return "no_answer";
-        return value || null;
+      const mapCallStatus = (v: string) => {
+        if (["in-progress", "in_progress", "active", "started", "ongoing"].includes(v)) return "in_call";
+        if (["queued", "ringing"].includes(v)) return "calling";
+        if (["ended", "completed"].includes(v)) return "completed";
+        if (["failed", "no-answer", "no_answer", "busy", "cancelled", "canceled"].includes(v)) return "no_answer";
+        return v || null;
       };
-
-      // ─── Assistant-to-funnel mapping ───
-      const WEB_ASSISTANT_ID = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
-      const VIDEO_ASSISTANT_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
       const mappedStatus = mapCallStatus(rawStatus);
 
       if (callId && mappedStatus) {
-        console.log(
-          `[vapi-webhook] Status update: call=${callId} rawStatus=${rawStatus} mappedStatus=${mappedStatus} assistant=${assistantId || "unknown"} phone=${customerPhone || "unknown"}`,
-        );
+        console.log(`[status-update] call=${callId} raw=${rawStatus} mapped=${mappedStatus} assistant=${assistantId} phone=${customerPhone}`);
 
-        // Try lw_landing_leads first
-        const { data: llLead } = await sb
-          .from("lw_landing_leads")
-          .update({ vapi_call_status: mappedStatus })
-          .eq("vapi_call_id", callId)
-          .select("id")
-          .maybeSingle();
+        // Update lw_landing_leads
+        await sb.from("lw_landing_leads").update({ vapi_call_status: mappedStatus }).eq("vapi_call_id", callId);
 
-        // Fallback to customers table
-        if (!llLead) {
-          const { data: custRow } = await sb
-            .from("customers")
-            .select("id, meta, source")
-            .filter("meta->>vapi_call_id", "eq", callId)
-            .maybeSingle();
+        // Update customers by call ID
+        const { data: custByCall } = await sb.from("customers").select("id, meta, source, tags, phone, full_name, notes")
+          .filter("meta->>vapi_call_id", "eq", callId).maybeSingle();
 
-          if (custRow) {
-            await sb.from("customers").update({
-              meta: {
-                ...((custRow.meta as any) || {}),
-                vapi_call_status: mappedStatus,
-                vapi_assistant_id: ((custRow.meta as any) || {}).vapi_assistant_id || assistantId || null,
-                vapi_raw_status: rawStatus,
-              },
-            }).eq("id", custRow.id);
-          }
+        if (custByCall) {
+          const em = (custByCall.meta as any) || {};
+          await sb.from("customers").update({
+            meta: { ...em, vapi_call_status: mappedStatus, vapi_assistant_id: em.vapi_assistant_id || assistantId, vapi_raw_status: rawStatus },
+          }).eq("id", custByCall.id);
         }
 
-        const isDirectInboundAssistant = assistantId === WEB_ASSISTANT_ID || assistantId === VIDEO_ASSISTANT_ID;
+        // Direct-dial lead creation/update
+        const funnel = getAssistantFunnel(assistantId);
+        if (funnel && (assistantId === WEB_INBOUND_ID || assistantId === VIDEO_INBOUND_ID)) {
+          let directLead = custByCall;
 
-        // ─── Direct-dial Vapi calls: route to the correct funnel and keep status live ───
-        if (isDirectInboundAssistant) {
-          const isWeb = assistantId === WEB_ASSISTANT_ID;
-          const funnelSource = isWeb ? "webdesign-landing" : "videography-landing";
-          const funnelCategory = isWeb ? "web_design" : "videography";
-          const funnelTag = isWeb ? "web_direct_call" : "video_direct_call";
-
-          let directLead: any = null;
-
-          const { data: existingByCall } = await sb
-            .from("customers")
-            .select("id, meta, tags, notes, phone, full_name, status")
-            .filter("meta->>vapi_call_id", "eq", callId)
-            .maybeSingle();
-          directLead = existingByCall;
-
-          if (!directLead && normalizedPhone) {
-            const { data: existingByPhone } = await sb
-              .from("customers")
-              .select("id, meta, tags, notes, phone, full_name, status")
-              .eq("source", funnelSource)
-              .eq("phone", normalizedPhone)
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            directLead = existingByPhone;
+          if (!directLead && customerPhone) {
+            const { data } = await sb.from("customers").select("id, meta, tags, notes, phone, full_name, status")
+              .eq("source", funnel.source).eq("phone", customerPhone)
+              .order("created_at", { ascending: false }).limit(1).maybeSingle();
+            directLead = data;
           }
 
-          const existingMeta = (directLead?.meta as any) || {};
-          const existingTags = Array.isArray(directLead?.tags) ? (directLead.tags as string[]) : [];
+          const em = (directLead?.meta as any) || {};
+          const et = Array.isArray(directLead?.tags) ? (directLead.tags as string[]) : [];
           const nextTags = Array.from(new Set([
-            ...existingTags,
-            funnelTag,
-            "vapi_direct",
+            ...et, `${funnel.tag}_direct_call`, "vapi_direct",
             ...(mappedStatus === "in_call" || mappedStatus === "calling" ? ["in_call"] : []),
           ]));
           const nextMeta = {
-            ...existingMeta,
-            vapi_call_id: callId,
-            vapi_call_status: mappedStatus,
-            vapi_assistant_id: assistantId,
-            vapi_direct_dial: true,
-            vapi_call_started_at: existingMeta.vapi_call_started_at || new Date().toISOString(),
+            ...em, vapi_call_id: callId, vapi_call_status: mappedStatus,
+            vapi_assistant_id: assistantId, vapi_direct_dial: true,
+            vapi_call_started_at: em.vapi_call_started_at || new Date().toISOString(),
             vapi_raw_status: rawStatus,
           };
 
           if (directLead) {
             await sb.from("customers").update({
-              phone: directLead.phone || normalizedPhone || null,
-              tags: nextTags,
-              notes: directLead.notes || `Direct inbound call via ${isWeb ? "web design" : "videography"} AI line.`,
-              meta: nextMeta,
+              phone: directLead.phone || customerPhone || null,
+              tags: nextTags, meta: nextMeta,
+              notes: directLead.notes || `Direct inbound call via ${funnel.label} AI line.`,
             }).eq("id", directLead.id);
-            console.log(`[vapi-webhook] Updated ${funnelCategory} direct-call lead ${directLead.id}`);
+            console.log(`[status-update] Updated ${funnel.tag} direct-call lead ${directLead.id}`);
           } else {
-            const { error: insertError } = await sb.from("customers").insert({
-              full_name: `Direct Caller (${normalizedPhone || "Unknown"})`,
-              phone: normalizedPhone || null,
-              source: funnelSource,
-              category: funnelCategory,
-              status: "lead",
-              notes: `Direct inbound call via ${isWeb ? "web design" : "videography"} AI line.`,
-              tags: nextTags,
-              meta: nextMeta,
+            const { error } = await sb.from("customers").insert({
+              full_name: `Direct Caller (${customerPhone || "Unknown"})`,
+              phone: customerPhone || null,
+              source: funnel.source, category: funnel.category, status: "lead",
+              notes: `Direct inbound call via ${funnel.label} AI line.`,
+              tags: nextTags, meta: nextMeta,
             });
-
-            if (insertError) {
-              console.error(`[vapi-webhook] Failed creating ${funnelCategory} direct-call lead:`, insertError);
-            } else {
-              console.log(`[vapi-webhook] Created ${funnelCategory} direct-call lead for ${normalizedPhone || "unknown"}`);
-            }
+            if (error) console.error(`[status-update] Insert error:`, error);
+            else console.log(`[status-update] Created ${funnel.tag} direct-call lead for ${customerPhone}`);
           }
         }
       }
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("vapi-webhook error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
 
-function buildAINotes(
-  transcript: string,
-  summary: string,
-  endedReason: string,
-  duration: number,
-  recordingUrl: string | null
-): string {
-  const lines: string[] = [];
-  lines.push("AI Notes:");
-  lines.push("");
+// ════════════════════════════════════════════
+// HELPER: Handle landing lead end-of-call (existing logic)
+// ════════════════════════════════════════════
+async function handleLandingLeadEndOfCall(
+  sb: any, lead: any,
+  opts: { transcript: string; summary: string; recordingUrl: string | null; endedReason: string; duration: number; callFailed: boolean; aiNotes: string; SUPABASE_URL: string; callId: string }
+) {
+  const { transcript, summary, recordingUrl, endedReason, duration, callFailed, aiNotes, SUPABASE_URL, callId } = opts;
 
-  if (summary) {
-    lines.push("• Call Summary: " + summary);
+  // Cost tracking
+  const costBreakdown = 0; // message.cost handled upstream
+  const callCostCents = 0;
+
+  const prevRetryCount = (lead.meta as any)?.vapi_retry_count ?? 0;
+
+  await sb.from("lw_landing_leads").update({
+    vapi_call_status: callFailed ? "no_answer" : "completed",
+    ai_notes: aiNotes,
+    vapi_recording_url: recordingUrl,
+    meta: {
+      ...(lead.meta as any),
+      vapi_transcript: transcript,
+      vapi_summary: summary,
+      vapi_recording_url: recordingUrl,
+      vapi_ended_reason: endedReason,
+      vapi_duration_seconds: duration,
+      vapi_retry_count: callFailed ? prevRetryCount + 1 : prevRetryCount,
+      vapi_last_retry_at: callFailed ? new Date().toISOString() : (lead.meta as any)?.vapi_last_retry_at,
+    },
+  }).eq("id", lead.id);
+
+  // Auto-retry for landing leads
+  if (callFailed && prevRetryCount < 2) {
+    console.log(`[landing-lead] Call failed (${endedReason}), retry #${prevRetryCount + 1}`);
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/vapi-outbound`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`, "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "" },
+        body: JSON.stringify({ action: "trigger_call", lead_id: lead.id }),
+      });
+    } catch (e) { console.error("Retry failed:", e); }
   }
 
+  // Email notification (only if not retrying)
+  const willRetry = callFailed && prevRetryCount < 2;
+  if (lead.landing_page_id && !willRetry) {
+    const { data: landingPage } = await sb.from("lw_landing_pages")
+      .select("client_name, email, phone, accent_color, slug").eq("id", lead.landing_page_id).single();
+
+    if (landingPage?.email) {
+      const updatedLead = { ...lead, ai_notes: aiNotes };
+      const subject = callFailed
+        ? `🏠 New Lead: ${lead.full_name} — AI Agent Did Not Connect`
+        : `🏠 New Lead: ${lead.full_name} — AI Call Completed`;
+      const html = buildLeadEmailHtml(updatedLead, landingPage, !callFailed);
+      try { await sendGmailNotification(landingPage.email, subject, html); }
+      catch (e) { console.error("Email failed:", e); }
+    }
+  }
+
+  console.log("Updated landing lead", lead.id);
+}
+
+// ════════════════════════════════════════════
+// HELPER: Create videography booking from transcript
+// ════════════════════════════════════════════
+async function createVideoBookingFromTranscript(
+  sb: any, customer: any, scheduledDate: string, aiNotes: string, callId: string, existingMeta: any, SUPABASE_URL: string
+) {
+  const eventStart = new Date(scheduledDate);
+  const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000);
+
+  // Check blocked slots
+  const pstOffset = -7;
+  const pstHour = (eventStart.getUTCHours() + pstOffset + 24) % 24;
+  const pstMin = eventStart.getUTCMinutes();
+  const pstTime = pstHour + pstMin / 60;
+  const endPstHour = (eventEnd.getUTCHours() + pstOffset + 24) % 24;
+  const endPstTime = endPstHour + eventEnd.getUTCMinutes() / 60;
+  const hitsBlockedSlot = BLOCKED_SLOTS.some(slot => {
+    const s = slot.startH + slot.startM / 60;
+    const e = slot.endH + slot.endM / 60;
+    return pstTime < e && endPstTime > s;
+  });
+
+  const { data: conflicts } = await sb.from("calendar_events").select("id, title, start_time, end_time")
+    .lt("start_time", eventEnd.toISOString()).gt("end_time", eventStart.toISOString());
+  const hasConflict = (conflicts && conflicts.length > 0) || hitsBlockedSlot;
+
+  const eventTitle = `📹 ${hasConflict ? "⚠️ CONFLICT — " : ""}Videography: ${customer.full_name}`;
+  await sb.from("calendar_events").insert({
+    title: eventTitle,
+    description: `Tentative videography booking from AI call.\n\nClient: ${customer.full_name}\nPhone: ${customer.phone || "N/A"}\nEmail: ${customer.email || "N/A"}\n\n${hasConflict ? "⚠️ CONFLICT. Review needed." : "No conflicts."}\n\nAI Notes:\n${aiNotes}`,
+    start_time: eventStart.toISOString(), end_time: eventEnd.toISOString(),
+    category: "videography", source: "vapi-ai", source_id: callId,
+    customer_id: customer.id, color: hasConflict ? "#ef4444" : "#8b5cf6",
+    location: "TBD — confirm with client",
+  });
+
+  // Update customer meta
+  await sb.from("customers").update({
+    meta: { ...existingMeta, videography_tentative_date: eventStart.toISOString(), videography_booking_conflict: hasConflict },
+  }).eq("id", customer.id);
+
+  console.log(`[video-booking] Created for ${customer.full_name}, conflict=${hasConflict}`);
+
+  if (hasConflict) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`, "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "" },
+        body: JSON.stringify({
+          entity_type: "videography_booking", action: "conflict",
+          meta: { message: `⚠️ *VIDEO BOOKING CONFLICT*\n📹 Client: *${customer.full_name}*\n📞 ${customer.phone || "N/A"}\n🕐 ${eventStart.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })} PT` },
+        }),
+      });
+    } catch (e) { console.error("Conflict notification failed:", e); }
+  }
+}
+
+// ════════════════════════════════════════════
+// HELPER: Build AI notes from transcript
+// ════════════════════════════════════════════
+function buildAINotes(transcript: string, summary: string, endedReason: string, duration: number, recordingUrl: string | null): string {
+  const lines: string[] = ["AI Notes:", ""];
+  if (summary) lines.push("• Call Summary: " + summary);
   lines.push(`• Call Duration: ${Math.round(duration)}s`);
   lines.push(`• Call Outcome: ${endedReason.replace(/-/g, " ")}`);
-
-  if (recordingUrl) {
-    lines.push(`• Recording: ${recordingUrl}`);
-  }
+  if (recordingUrl) lines.push(`• Recording: ${recordingUrl}`);
 
   if (transcript) {
-    // ─── Videography-specific extraction ───
     const lcTranscript = transcript.toLowerCase();
     const isVideographyCall = lcTranscript.includes("livestream") || lcTranscript.includes("live stream") ||
       lcTranscript.includes("vivian") || lcTranscript.includes("videography") ||
       lcTranscript.includes("funeral") || lcTranscript.includes("memorial") || lcTranscript.includes("graveside");
 
     if (isVideographyCall) {
-      // Extract service type
       const serviceTypes = ["funeral", "memorial", "graveside", "multiple locations", "celebration of life", "viewing", "wake", "repast"];
       const foundTypes = serviceTypes.filter(t => lcTranscript.includes(t));
       if (foundTypes.length) lines.push(`• Service Type: ${foundTypes.join(", ")}`);
-
-      // Extract duration mentioned
       const durMatch = transcript.match(/(?:about\s*)?(\w+)\s*hours?/i);
       if (durMatch) lines.push(`• Estimated Duration: ${durMatch[0].trim()}`);
-
-      // Extract address from transcript (look for patterns near "address" or "held" or "location")
       const addrMatch = transcript.match(/(?:address|held|location)[^.]*?(\d+\s+[\w\s]+(?:lane|street|drive|road|ave|avenue|blvd|boulevard|way|court|ct|pl|place|circle|cir|parkway|pkwy|trail|trl))/i);
       if (addrMatch) lines.push(`• Venue Address: ${addrMatch[1].trim()}`);
-
-      // Extract funeral home / org name
-      const orgMatch = transcript.match(/(?:funeral\s*home|organization)[^.]*?(?:is\s*|name\s*(?:is\s*)?)?([A-Z][\w\s]+?)(?:\.|$)/m);
-      if (orgMatch) lines.push(`• Organization: ${orgMatch[1].trim()}`);
-
-      // Extract contact name
       const contactMatch = transcript.match(/(?:this\s*is\s*(?:me,?\s*)?|my\s*name\s*is\s*|name\s*is\s*)([A-Z][a-z]+\s+[A-Z][a-z]+)/);
       if (contactMatch) lines.push(`• Contact Name: ${contactMatch[1].trim()}`);
-
-      // Recording requested?
-      if (lcTranscript.includes("recorded") || lcTranscript.includes("recording")) {
-        const wantsRecording = /(?:would you like|want).*record.*?\b(yes|sure|yeah|please|absolutely)/i.test(transcript) ||
-          /(?:yes|sure)\b.*record/i.test(transcript);
-        if (wantsRecording) lines.push(`• Recording Requested: Yes`);
-      }
-
-      // Private viewing link
-      if (lcTranscript.includes("private viewing link") || lcTranscript.includes("private link")) {
-        const wantsPrivate = /private\s*(?:viewing\s*)?link.*?\b(yes|sure|yeah|please)/i.test(transcript);
-        lines.push(`• Private Viewing Link: ${wantsPrivate ? "Yes" : "No"}`);
-      }
     } else {
-      // ─── Real estate extraction (existing) ───
       const conditionPatterns = [
         { pattern: /(?:major|significant)\s*repair/i, value: "Major repairs needed" },
         { pattern: /needs?\s*(?:some\s*)?work/i, value: "Needs work" },
-        { pattern: /(?:fair|okay|decent)\s*(?:condition|shape)/i, value: "Fair condition" },
         { pattern: /(?:good|great|excellent)\s*(?:condition|shape)/i, value: "Good condition" },
       ];
-      for (const { pattern, value } of conditionPatterns) {
-        if (pattern.test(transcript)) {
-          lines.push(`• Property Condition: ${value}`);
-          break;
-        }
-      }
-
+      for (const { pattern, value } of conditionPatterns) { if (pattern.test(transcript)) { lines.push(`• Property Condition: ${value}`); break; } }
       const timelinePatterns = [
-        { pattern: /asap|as\s*soon\s*as\s*possible|right\s*away|immediately/i, value: "ASAP" },
-        { pattern: /(?:1|one|two|2|three|3)\s*(?:to\s*(?:3|three))?\s*months?/i, value: "1-3 months" },
-        { pattern: /flexible|no\s*rush|whenever/i, value: "Flexible" },
-        { pattern: /just\s*(?:looking|exploring|curious)/i, value: "Just exploring" },
+        { pattern: /asap|as\s*soon\s*as\s*possible|immediately/i, value: "ASAP" },
+        { pattern: /(?:1|one|two|2|three|3)\s*months?/i, value: "1-3 months" },
+        { pattern: /flexible|no\s*rush/i, value: "Flexible" },
       ];
-      for (const { pattern, value } of timelinePatterns) {
-        if (pattern.test(transcript)) {
-          lines.push(`• Selling Timeline: ${value}`);
-          break;
-        }
-      }
-
+      for (const { pattern, value } of timelinePatterns) { if (pattern.test(transcript)) { lines.push(`• Selling Timeline: ${value}`); break; } }
       const motivationPatterns = [
-        { pattern: /downsize|downsizing/i, value: "Downsizing" },
-        { pattern: /relocat|moving/i, value: "Relocation" },
-        { pattern: /financ|behind\s*on\s*payment|foreclosure/i, value: "Financial hardship" },
-        { pattern: /inherit/i, value: "Inherited property" },
-        { pattern: /divorce|separat/i, value: "Divorce/Separation" },
+        { pattern: /downsize/i, value: "Downsizing" }, { pattern: /relocat|moving/i, value: "Relocation" },
+        { pattern: /financ|foreclosure/i, value: "Financial hardship" }, { pattern: /inherit/i, value: "Inherited" },
       ];
-      for (const { pattern, value } of motivationPatterns) {
-        if (pattern.test(transcript)) {
-          lines.push(`• Motivation: ${value}`);
-          break;
-        }
-      }
-
+      for (const { pattern, value } of motivationPatterns) { if (pattern.test(transcript)) { lines.push(`• Motivation: ${value}`); break; } }
       const priceMatch = transcript.match(/\$[\d,]+(?:\.\d{2})?|\b(\d{2,3})\s*(?:thousand|k)\b/i);
-      if (priceMatch) {
-        lines.push(`• Price Mentioned: ${priceMatch[0]}`);
-      }
+      if (priceMatch) lines.push(`• Price Mentioned: ${priceMatch[0]}`);
     }
 
     const emailMatch = transcript.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    if (emailMatch) {
-      lines.push(`• Email Captured: ${emailMatch[0]}`);
-    }
+    if (emailMatch) lines.push(`• Email Captured: ${emailMatch[0]}`);
   }
 
   return lines.join("\n");
 }
 
-/**
- * Extract a scheduled date/time from transcript and summary text.
- * Looks for common date patterns mentioned during the call.
- * Returns an ISO date string or null if no schedule found.
- */
+function buildLeadEmailHtml(lead: any, landingPage: any, aiConnected: boolean): string {
+  const accentColor = landingPage?.accent_color || "#10b981";
+  const clientName = landingPage?.client_name || "Your Brand";
+  const aiSection = aiConnected && lead.ai_notes
+    ? `<div style="background:#f0fdf4;border-left:4px solid ${accentColor};padding:16px;margin:16px 0;border-radius:4px;"><h3 style="margin:0 0 8px;color:#065f46;">✅ AI Call Notes</h3><pre style="margin:0;white-space:pre-wrap;font-family:inherit;color:#1f2937;font-size:14px;">${escapeHtml(lead.ai_notes)}</pre></div>`
+    : `<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;margin:16px 0;border-radius:4px;"><h3 style="margin:0 0 8px;color:#92400e;">⚠️ AI Did Not Connect</h3><p style="margin:0;color:#78350f;">Please follow up manually.</p></div>`;
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:24px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);"><div style="background:#000;padding:24px 32px;"><h1 style="margin:0;color:#fff;font-size:22px;">🏠 New Lead — ${escapeHtml(clientName)}</h1></div><div style="padding:24px 32px;"><table style="width:100%;border-collapse:collapse;font-size:14px;"><tr><td style="padding:8px 0;color:#6b7280;">Name</td><td style="padding:8px 0;font-weight:600;">${escapeHtml(lead.full_name)}</td></tr><tr><td style="padding:8px 0;color:#6b7280;">Phone</td><td style="padding:8px 0;font-weight:600;">${escapeHtml(lead.phone)}</td></tr>${lead.email ? `<tr><td style="padding:8px 0;color:#6b7280;">Email</td><td>${escapeHtml(lead.email)}</td></tr>` : ""}</table>${aiSection}</div></div></body></html>`;
+}
+
 function extractScheduleFromTranscript(transcript: string, summary: string): string | null {
   const text = `${summary}\n${transcript}`.toLowerCase();
-
-  // Pattern: explicit date like "January 15th", "March 3", "12/25", "2026-04-10"
   const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
   const monthAbbr = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
-
-  // Try "Month Day" pattern
-  const monthDayMatch = text.match(
-    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\b/
-  );
-
+  const monthDayMatch = text.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\b/);
   let dateStr: string | null = null;
 
   if (monthDayMatch) {
@@ -988,20 +989,17 @@ function extractScheduleFromTranscript(transcript: string, summary: string): str
     const day = parseInt(monthDayMatch[2]);
     const mIdx = months.indexOf(mName) !== -1 ? months.indexOf(mName) : monthAbbr.indexOf(mName);
     if (mIdx !== -1 && day >= 1 && day <= 31) {
-      const now = new Date();
-      let year = now.getFullYear();
+      const now = new Date(); let year = now.getFullYear();
       const candidate = new Date(year, mIdx, day);
       if (candidate < now) candidate.setFullYear(year + 1);
       dateStr = candidate.toISOString().split("T")[0];
     }
   }
 
-  // Try MM/DD or MM-DD pattern
   if (!dateStr) {
     const slashMatch = text.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
     if (slashMatch) {
-      const m = parseInt(slashMatch[1]);
-      const d = parseInt(slashMatch[2]);
+      const m = parseInt(slashMatch[1]), d = parseInt(slashMatch[2]);
       let y = slashMatch[3] ? parseInt(slashMatch[3]) : new Date().getFullYear();
       if (y < 100) y += 2000;
       if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
@@ -1012,47 +1010,36 @@ function extractScheduleFromTranscript(transcript: string, summary: string): str
     }
   }
 
-  // Try relative dates: "this saturday", "next monday", "tomorrow", etc.
   if (!dateStr) {
     const days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
     const relMatch = text.match(/\b(?:this|next)\s+(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
     if (relMatch) {
       const targetDay = days.indexOf(relMatch[1]);
-      const now = new Date();
-      const currentDay = now.getDay();
+      const now = new Date(); const currentDay = now.getDay();
       let daysAhead = targetDay - currentDay;
       if (daysAhead <= 0) daysAhead += 7;
       if (text.includes("next") && daysAhead <= 7) daysAhead += 7;
-      const target = new Date(now);
-      target.setDate(target.getDate() + daysAhead);
+      const target = new Date(now); target.setDate(target.getDate() + daysAhead);
       dateStr = target.toISOString().split("T")[0];
     }
   }
 
-  if (!dateStr) {
-    if (text.includes("tomorrow")) {
-      const t = new Date();
-      t.setDate(t.getDate() + 1);
-      dateStr = t.toISOString().split("T")[0];
-    }
+  if (!dateStr && text.includes("tomorrow")) {
+    const t = new Date(); t.setDate(t.getDate() + 1);
+    dateStr = t.toISOString().split("T")[0];
   }
 
   if (!dateStr) return null;
 
-  // Try to extract time
   const timeMatch = text.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b/);
-  let hours = 10; // default 10am
-  let minutes = 0;
+  let hours = 10, minutes = 0;
   if (timeMatch) {
-    hours = parseInt(timeMatch[1]);
-    minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+    hours = parseInt(timeMatch[1]); minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
     const period = timeMatch[3].replace(/\./g, "");
     if (period === "pm" && hours < 12) hours += 12;
     if (period === "am" && hours === 12) hours = 0;
   }
 
-  // Build date in Pacific time (approximate — set to UTC-7)
   const [y, m, d] = dateStr.split("-").map(Number);
-  const utcDate = new Date(Date.UTC(y, m - 1, d, hours + 7, minutes));
-  return utcDate.toISOString();
+  return new Date(Date.UTC(y, m - 1, d, hours + 7, minutes)).toISOString();
 }
