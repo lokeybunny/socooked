@@ -408,7 +408,7 @@ export default function AIDirector() {
 
       {/* ─── Floating Learn More ─── */}
       <motion.button
-        onClick={() => window.location.href = '/course'}
+        onClick={() => navigate('/course')}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 2, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
