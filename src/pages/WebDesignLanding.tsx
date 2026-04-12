@@ -213,7 +213,6 @@ export default function WebDesignLanding() {
               📞 (747) 494-9386
             </a>
           </div>
-          </div>
 
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
             <div className="text-center">
