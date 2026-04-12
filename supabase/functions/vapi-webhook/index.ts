@@ -678,17 +678,53 @@ serve(async (req) => {
 
     // Handle status updates
     if (message?.type === "status-update") {
-      const callId = message.call?.id;
-      const status = message.status;
-      const assistantId = message.call?.assistantId || message.call?.assistant?.id || "";
+      const call = message?.call || payload?.call || {};
+      const callId = call?.id || payload?.callId || payload?.call?.id || "";
+      const rawStatus = String(
+        message?.status || call?.status || payload?.status || payload?.call?.status || "",
+      ).trim().toLowerCase();
+      const assistantId = String(
+        call?.assistantId ||
+          call?.assistant?.id ||
+          message?.assistantId ||
+          message?.assistant?.id ||
+          payload?.assistantId ||
+          payload?.assistant?.id ||
+          "",
+      ).trim();
+      const customerPhone = (
+        [
+          call?.customer?.number,
+          call?.phoneNumber?.number,
+          typeof call?.phoneNumber === "string" ? call?.phoneNumber : "",
+          message?.customer?.number,
+          message?.customerNumber,
+          message?.phoneNumber?.number,
+          payload?.customer?.number,
+          payload?.customerNumber,
+          payload?.phoneNumber?.number,
+        ].find((value) => typeof value === "string" && value.trim().length > 0) || ""
+      ).trim();
+
+      const normalizePhone = (value: string) => value.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+      const normalizedPhone = normalizePhone(customerPhone);
+      const mapCallStatus = (value: string) => {
+        if (["in-progress", "in_progress", "active", "started", "ongoing"].includes(value)) return "in_call";
+        if (["queued", "ringing"].includes(value)) return "calling";
+        if (["ended", "completed"].includes(value)) return "completed";
+        if (["failed", "no-answer", "no_answer", "busy", "cancelled", "canceled"].includes(value)) return "no_answer";
+        return value || null;
+      };
 
       // ─── Assistant-to-funnel mapping ───
       const WEB_ASSISTANT_ID = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
       const VIDEO_ASSISTANT_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
+      const mappedStatus = mapCallStatus(rawStatus);
 
-      if (callId && status) {
-        // Determine mapped call status
-        const mappedStatus = status === "in-progress" ? "in_call" : status === "ended" ? "completed" : status;
+      if (callId && mappedStatus) {
+        console.log(
+          `[vapi-webhook] Status update: call=${callId} rawStatus=${rawStatus} mappedStatus=${mappedStatus} assistant=${assistantId || "unknown"} phone=${customerPhone || "unknown"}`,
+        );
 
         // Try lw_landing_leads first
         const { data: llLead } = await sb
@@ -711,47 +747,86 @@ serve(async (req) => {
               meta: {
                 ...((custRow.meta as any) || {}),
                 vapi_call_status: mappedStatus,
+                vapi_assistant_id: ((custRow.meta as any) || {}).vapi_assistant_id || assistantId || null,
+                vapi_raw_status: rawStatus,
               },
             }).eq("id", custRow.id);
           }
         }
 
-        // ─── Direct-dial Vapi calls: route to correct funnel as "IN CALL" ───
-        if (status === "in-progress" && (assistantId === WEB_ASSISTANT_ID || assistantId === VIDEO_ASSISTANT_ID)) {
-          const customerPhone = message.call?.customer?.number || "";
+        const isDirectInboundAssistant = assistantId === WEB_ASSISTANT_ID || assistantId === VIDEO_ASSISTANT_ID;
+
+        // ─── Direct-dial Vapi calls: route to the correct funnel and keep status live ───
+        if (isDirectInboundAssistant) {
           const isWeb = assistantId === WEB_ASSISTANT_ID;
           const funnelSource = isWeb ? "webdesign-landing" : "videography-landing";
           const funnelCategory = isWeb ? "web_design" : "videography";
           const funnelTag = isWeb ? "web_direct_call" : "video_direct_call";
 
-          console.log(`[vapi-webhook] Direct-dial IN CALL detected: assistant=${isWeb ? "web" : "video"}, phone=${customerPhone}, callId=${callId}`);
+          let directLead: any = null;
 
-          // Check if a customer already exists with this call ID
           const { data: existingByCall } = await sb
             .from("customers")
-            .select("id")
+            .select("id, meta, tags, notes, phone, full_name, status")
             .filter("meta->>vapi_call_id", "eq", callId)
             .maybeSingle();
+          directLead = existingByCall;
 
-          if (!existingByCall) {
-            // Create a new lead record for this direct call
-            const cleanPhone = customerPhone.replace(/^\+1/, "");
-            await sb.from("customers").insert({
-              full_name: `Direct Caller (${cleanPhone || "Unknown"})`,
-              phone: cleanPhone || null,
+          if (!directLead && normalizedPhone) {
+            const { data: existingByPhone } = await sb
+              .from("customers")
+              .select("id, meta, tags, notes, phone, full_name, status")
+              .eq("source", funnelSource)
+              .eq("phone", normalizedPhone)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            directLead = existingByPhone;
+          }
+
+          const existingMeta = (directLead?.meta as any) || {};
+          const existingTags = Array.isArray(directLead?.tags) ? (directLead.tags as string[]) : [];
+          const nextTags = Array.from(new Set([
+            ...existingTags,
+            funnelTag,
+            "vapi_direct",
+            ...(mappedStatus === "in_call" || mappedStatus === "calling" ? ["in_call"] : []),
+          ]));
+          const nextMeta = {
+            ...existingMeta,
+            vapi_call_id: callId,
+            vapi_call_status: mappedStatus,
+            vapi_assistant_id: assistantId,
+            vapi_direct_dial: true,
+            vapi_call_started_at: existingMeta.vapi_call_started_at || new Date().toISOString(),
+            vapi_raw_status: rawStatus,
+          };
+
+          if (directLead) {
+            await sb.from("customers").update({
+              phone: directLead.phone || normalizedPhone || null,
+              tags: nextTags,
+              notes: directLead.notes || `Direct inbound call via ${isWeb ? "web design" : "videography"} AI line.`,
+              meta: nextMeta,
+            }).eq("id", directLead.id);
+            console.log(`[vapi-webhook] Updated ${funnelCategory} direct-call lead ${directLead.id}`);
+          } else {
+            const { error: insertError } = await sb.from("customers").insert({
+              full_name: `Direct Caller (${normalizedPhone || "Unknown"})`,
+              phone: normalizedPhone || null,
               source: funnelSource,
               category: funnelCategory,
               status: "lead",
-              tags: [funnelTag, "in_call", "vapi_direct"],
-              meta: {
-                vapi_call_id: callId,
-                vapi_call_status: "in_call",
-                vapi_assistant_id: assistantId,
-                vapi_direct_dial: true,
-                vapi_call_started_at: new Date().toISOString(),
-              },
+              notes: `Direct inbound call via ${isWeb ? "web design" : "videography"} AI line.`,
+              tags: nextTags,
+              meta: nextMeta,
             });
-            console.log(`[vapi-webhook] Created ${funnelCategory} direct-call lead for ${cleanPhone}`);
+
+            if (insertError) {
+              console.error(`[vapi-webhook] Failed creating ${funnelCategory} direct-call lead:`, insertError);
+            } else {
+              console.log(`[vapi-webhook] Created ${funnelCategory} direct-call lead for ${normalizedPhone || "unknown"}`);
+            }
           }
         }
       }
