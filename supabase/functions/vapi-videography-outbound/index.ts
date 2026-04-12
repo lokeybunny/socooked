@@ -126,48 +126,64 @@ serve(async (req) => {
       });
     }
 
-    if (action === "setup_tools") {
+    if (action === "setup_tools" || action === "debug_assistant") {
       const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
       const aid = assistant_id || DEFAULT_ASSISTANT_ID;
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/vapi-webhook`;
 
       // GET current assistant
       const getRes = await fetch(`https://api.vapi.ai/assistant/${aid}`, {
         headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
       });
       const ast = await getRes.json();
-      const existingTools = ast.model?.tools || [];
-      const hasIt = existingTools.some((t: any) => t.function?.name === "check_availability");
 
-      if (hasIt) {
-        return new Response(JSON.stringify({ ok: true, message: "Tool already exists" }), {
+      if (action === "debug_assistant") {
+        return new Response(JSON.stringify({
+          id: ast.id,
+          name: ast.name,
+          serverUrl: ast.serverUrl,
+          model_provider: ast.model?.provider,
+          model_model: ast.model?.model,
+          tools: ast.model?.tools?.map((t: any) => ({
+            type: t.type,
+            name: t.function?.name,
+            serverUrl: t.server?.url,
+          })),
+          firstMessage: ast.firstMessage?.substring(0, 100),
+        }, null, 2), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Remove any existing check_availability tool, then re-add with correct server URL
+      const otherTools = (ast.model?.tools || []).filter(
+        (t: any) => t.function?.name !== "check_availability"
+      );
 
       const newTool = {
         type: "function",
         function: {
           name: "check_availability",
-          description: "Check if a specific date and time is available for booking a videography session. You MUST call this before confirming any appointment. Blocked: 8-10 AM and 2:30-3:30 PM PST daily.",
+          description: "Check if a specific date and time is available for booking a videography session. You MUST call this tool before confirming any appointment time. Blocked windows: 8:00-10:00 AM and 2:30-3:30 PM PST every day.",
           parameters: {
             type: "object",
             properties: {
-              date: { type: "string", description: "Date in YYYY-MM-DD format" },
-              time: { type: "string", description: "Time like '8:40 AM' or '2:00 PM'" },
+              date: { type: "string", description: "The date to check in YYYY-MM-DD format, e.g. 2026-04-15" },
+              time: { type: "string", description: "The time to check, e.g. '8:40 AM' or '2:00 PM'" },
             },
             required: ["date", "time"],
           },
         },
-        server: { url: `${SUPABASE_URL}/functions/v1/vapi-webhook` },
+        server: { url: webhookUrl },
       };
 
       const patchRes = await fetch(`https://api.vapi.ai/assistant/${aid}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: { ...ast.model, tools: [...existingTools, newTool] },
-          serverUrl: ast.serverUrl || `${SUPABASE_URL}/functions/v1/vapi-webhook`,
+          model: { ...ast.model, tools: [...otherTools, newTool] },
+          serverUrl: webhookUrl,
         }),
       });
       const patchData = await patchRes.json();
@@ -178,7 +194,12 @@ serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ ok: true, tools: patchData.model?.tools?.length }), {
+      return new Response(JSON.stringify({
+        ok: true,
+        tools: patchData.model?.tools?.length,
+        serverUrl: patchData.serverUrl,
+        toolServerUrls: patchData.model?.tools?.map((t: any) => ({ name: t.function?.name, url: t.server?.url })),
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
