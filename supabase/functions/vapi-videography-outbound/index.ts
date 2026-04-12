@@ -126,6 +126,63 @@ serve(async (req) => {
       });
     }
 
+    if (action === "setup_tools") {
+      const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const aid = assistant_id || DEFAULT_ASSISTANT_ID;
+
+      // GET current assistant
+      const getRes = await fetch(`https://api.vapi.ai/assistant/${aid}`, {
+        headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
+      });
+      const ast = await getRes.json();
+      const existingTools = ast.model?.tools || [];
+      const hasIt = existingTools.some((t: any) => t.function?.name === "check_availability");
+
+      if (hasIt) {
+        return new Response(JSON.stringify({ ok: true, message: "Tool already exists" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const newTool = {
+        type: "function",
+        function: {
+          name: "check_availability",
+          description: "Check if a specific date and time is available for booking a videography session. You MUST call this before confirming any appointment. Blocked: 8-10 AM and 2:30-3:30 PM PST daily.",
+          parameters: {
+            type: "object",
+            properties: {
+              date: { type: "string", description: "Date in YYYY-MM-DD format" },
+              time: { type: "string", description: "Time like '8:40 AM' or '2:00 PM'" },
+            },
+            required: ["date", "time"],
+          },
+        },
+        server: { url: `${SUPABASE_URL}/functions/v1/vapi-webhook` },
+      };
+
+      const patchRes = await fetch(`https://api.vapi.ai/assistant/${aid}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: { ...ast.model, tools: [...existingTools, newTool] },
+          serverUrl: ast.serverUrl || `${SUPABASE_URL}/functions/v1/vapi-webhook`,
+        }),
+      });
+      const patchData = await patchRes.json();
+
+      if (!patchRes.ok) {
+        return new Response(JSON.stringify({ error: "Vapi PATCH failed", details: patchData }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ ok: true, tools: patchData.model?.tools?.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
