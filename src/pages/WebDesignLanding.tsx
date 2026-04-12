@@ -14,6 +14,7 @@ import { motion } from 'framer-motion';
 import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
+import webSketchImg from '@/assets/landing/web-sketch-wireframe.png';
 import nysonThumb from '@/assets/portfolio/nysonblack-thumb.jpg';
 import xitThumb from '@/assets/portfolio/xitcash-thumb.jpg';
 import batteryThumb from '@/assets/portfolio/battery-rescue-thumb.jpg';
@@ -267,7 +268,16 @@ export default function WebDesignLanding() {
               ))}
             </div>
           </div>
-          <div className="hidden md:block" />
+          <div className="hidden md:flex items-center justify-center">
+            <img
+              src={webSketchImg}
+              alt="Pencil sketch wireframe of a modern website UI template"
+              className="w-full max-w-md rounded-3xl shadow-2xl shadow-cyan-500/10 border border-cyan-500/10"
+              loading="lazy"
+              width={800}
+              height={1024}
+            />
+          </div>
         </div>
       </section>
 
