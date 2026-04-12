@@ -8,6 +8,7 @@ import {
   Smartphone, Search, Clock, Rocket, CheckCircle, Loader2, MessageCircle, DoorOpen, X
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
+import FloatingBookNow from '@/components/landing/FloatingBookNow';
 import { motion } from 'framer-motion';
 
 import heroImg from '@/assets/landing/web-hero.jpg';
@@ -441,6 +442,7 @@ export default function WebDesignLanding() {
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
+      <FloatingBookNow />
       <ScrollToTopButton />
 
       {/* Iframe Preview Modal */}

@@ -9,6 +9,7 @@ import {
   DoorOpen, Wifi, Radio
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
+import FloatingBookNow from '@/components/landing/FloatingBookNow';
 import { motion } from 'framer-motion';
 
 import heroImg from '@/assets/landing/parallax-videography-hero.jpg';
@@ -371,6 +372,7 @@ export default function VideographyLanding() {
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
+      <FloatingBookNow />
       <ScrollToTopButton />
     </div>
   );

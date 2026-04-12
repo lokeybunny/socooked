@@ -7,6 +7,7 @@ import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X,
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import VideoPlayer from '@/components/landing/VideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
+import FloatingBookNow from '@/components/landing/FloatingBookNow';
 
 const services = [
   {
@@ -324,6 +325,7 @@ export default function Landing() {
 
           {/* Layer 4: CTA — only render after scene is ready and user has scrolled */}
           <motion.div
+            id="get-started"
             className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
             style={{ 
               opacity: ctaOpacity, 
@@ -382,6 +384,7 @@ export default function Landing() {
             </motion.button>
           )}
         </AnimatePresence>
+        <FloatingBookNow />
       </div>
     </div>
     </>
