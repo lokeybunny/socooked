@@ -382,7 +382,7 @@ export default function WebDesignLanding() {
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-center mb-10">
             <p className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-4">Get Started</p>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Get Your <span className="text-cyan-400">AI Website</span>
+              Let's Begin <span className="text-cyan-400">Creating Your Website</span>
             </h2>
             <p className="mt-4 text-sm text-white/30">Tell us about your Las Vegas business and we'll have your site ready in 48 hours.</p>
           </motion.div>
