@@ -442,6 +442,25 @@ export default function WebDesignLanding() {
         </div>
       </footer>
       <ScrollToTopButton />
+
+      {/* Iframe Preview Modal */}
+      {iframeUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setIframeUrl(null)}>
+          <div className="relative w-[90vw] h-[85vh] max-w-6xl rounded-3xl overflow-hidden border border-cyan-500/20 shadow-2xl shadow-cyan-500/10" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setIframeUrl(null)}
+              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/70 border border-white/10 hover:bg-white/10 transition-colors"
+            >
+              <X className="h-5 w-5 text-white" />
+            </button>
+            <iframe
+              src={iframeUrl}
+              className="w-full h-full bg-white rounded-3xl"
+              title="Site Preview"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
