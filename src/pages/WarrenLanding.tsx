@@ -180,7 +180,7 @@ export default function WarrenLanding() {
         >
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-amber-500/20 bg-amber-500/[0.05] mb-6">
             <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-amber-400/70">AI-Powered Solana Project Studio</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-amber-400/70">Powered Solana Project</span>
           </div>
 
           <p className="text-base sm:text-lg text-white/50 max-w-xl leading-relaxed font-light mb-4">
