@@ -408,6 +408,18 @@ export default function AIDirector() {
       >
         <ArrowUp className="h-5 w-5" />
       </button>
+
+      {/* ─── Floating Learn More ─── */}
+      <motion.button
+        onClick={() => window.location.href = '/course'}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 2, duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+        className="fixed bottom-20 right-4 sm:right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-black text-xs sm:text-sm font-semibold tracking-[0.15em] uppercase shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 hover:scale-105 transition-all duration-300"
+      >
+        <GraduationCap className="h-4 w-4" />
+        Learn More
+      </motion.button>
     </div>
   );
 }
