@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { DollarSign, CreditCard, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { DollarSign, CreditCard, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
