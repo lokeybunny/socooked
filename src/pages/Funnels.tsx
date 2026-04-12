@@ -710,13 +710,13 @@ export default function Funnels() {
       (courseRows || []).forEach((r) => {
         const meta = (r.meta as Record<string, unknown>) || {};
         combined.push({
-          id: r.id, funnel: 'aicourses', _table: 'customers',
+          id: r.id, funnel: 'aicourses', _table: 'guru_subscriptions' as any,
           full_name: r.full_name || r.email, email: r.email, phone: null,
           created_at: r.created_at, status: r.status || 'pending', notes: `Plan: ${r.plan} · Amount: $${(r.amount_cents / 100).toFixed(2)}`,
           company: null,
           vapi_call_status: null, vapi_call_id: null, ai_notes: null,
           vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
-          drafted_at: null,
+          drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
 
