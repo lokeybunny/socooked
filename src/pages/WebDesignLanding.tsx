@@ -294,6 +294,63 @@ export default function WebDesignLanding() {
         </div>
       </section>
 
+      {/* Portfolio Demo */}
+      <section className="py-24 px-6 border-t border-cyan-500/[0.08]">
+        <div className="max-w-5xl mx-auto">
+          <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-xs tracking-[0.4em] uppercase text-cyan-400/50 mb-5 text-center">
+            Our Work
+          </motion.p>
+          <motion.h2 initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={1} className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-4">
+            Websites We've <span className="text-cyan-400">Built.</span>
+          </motion.h2>
+          <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={2} className="text-white/35 text-center max-w-xl mx-auto mb-14 text-sm sm:text-base leading-relaxed">
+            Real sites, real businesses — all designed and launched by our AI engine.
+          </motion.p>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              { name: 'BCC.cash', url: 'https://bcc.cash', img: 'https://api.microlink.io/?url=https://bcc.cash&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'Red Pill Ville', url: 'https://redpillville.com', img: 'https://api.microlink.io/?url=https://redpillville.com&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'Nyson Black', url: 'https://nysonblack.com', img: 'https://api.microlink.io/?url=https://nysonblack.com&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'XIT Cash', url: 'https://xit.cash', img: 'https://api.microlink.io/?url=https://xit.cash&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'Battery Rescue', url: 'https://quickstart-battery-rescue.lovable.app', img: 'https://api.microlink.io/?url=https://quickstart-battery-rescue.lovable.app&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'BigTrout', url: 'https://bigtrout.fun', img: 'https://api.microlink.io/?url=https://bigtrout.fun&screenshot=true&meta=false&embed=screenshot.url' },
+            ].map((site, i) => (
+              <motion.a
+                key={site.name}
+                href={site.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-30px' }}
+                variants={fade}
+                custom={i + 3}
+                className="group relative rounded-xl overflow-hidden aspect-video bg-black/40 border border-cyan-500/[0.06] hover:border-cyan-500/30 transition-all duration-500"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <img
+                  src={site.img}
+                  alt={`${site.name} website screenshot`}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400 flex items-end p-4">
+                  <div>
+                    <span className="text-xs sm:text-sm font-medium tracking-wider text-white/90">{site.name}</span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <DoorOpen className="h-3 w-3 text-cyan-400/60" />
+                      <span className="text-[9px] tracking-[0.2em] uppercase text-cyan-400/60">Visit Site</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.a>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Services Grid */}
       <section className="py-24 px-6 border-t border-cyan-500/[0.08]">
         <div className="max-w-4xl mx-auto">
