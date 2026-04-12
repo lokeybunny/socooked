@@ -244,7 +244,20 @@ export default function VideographyLanding() {
               ))}
             </div>
           </div>
-          <div className="hidden md:block" />
+          <div className="hidden md:flex items-center justify-center">
+            <div className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/10 border border-emerald-500/10 group">
+              <video
+                className="w-full h-auto cursor-pointer"
+                poster={videoThumb}
+                controls
+                preload="none"
+                playsInline
+              >
+                <source src="" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </div>
         </div>
       </section>
 
