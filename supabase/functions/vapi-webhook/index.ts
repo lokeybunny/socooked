@@ -169,13 +169,22 @@ serve(async (req) => {
 
     // ─── Handle function-call: check_availability ───
     if (message?.type === "function-call" || message?.type === "tool-calls") {
-      const functionCall = message?.functionCall || message?.toolCalls?.[0]?.function;
-      const toolCallId = message?.toolCalls?.[0]?.id;
+      const toolCall = message?.toolCallList?.[0]
+        || message?.toolWithToolCallList?.[0]?.toolCall
+        || message?.toolCalls?.[0]
+        || null;
+      const functionCall = message?.functionCall
+        || toolCall?.function
+        || (toolCall?.name ? toolCall : null);
+      const toolCallId = toolCall?.id;
       const fnName = functionCall?.name;
-      console.log("[vapi-webhook] Function call:", fnName, JSON.stringify(functionCall?.parameters || functionCall?.arguments));
+      const rawParams = functionCall?.parameters || functionCall?.arguments;
+      console.log("[vapi-webhook] Function call:", fnName, JSON.stringify(rawParams));
 
       if (fnName === "check_availability") {
-        const params = functionCall?.parameters || (typeof functionCall?.arguments === "string" ? JSON.parse(functionCall.arguments) : functionCall?.arguments) || {};
+        const params = typeof rawParams === "string"
+          ? JSON.parse(rawParams)
+          : (rawParams || {});
         const requestedDate = params.date; // e.g. "2026-04-15"
         const requestedTime = params.time; // e.g. "8:40 AM" or "08:40"
 
@@ -248,7 +257,13 @@ serve(async (req) => {
 
         // Respond in the format Vapi expects
         const responsePayload = message?.type === "tool-calls"
-          ? { results: [{ toolCallId: toolCallId, result: JSON.stringify({ available, message: resultMessage }) }] }
+          ? {
+            results: [{
+              name: fnName,
+              toolCallId,
+              result: JSON.stringify({ available, message: resultMessage }),
+            }],
+          }
           : { result: JSON.stringify({ available, message: resultMessage }) };
 
         return new Response(JSON.stringify(responsePayload), {
@@ -258,7 +273,13 @@ serve(async (req) => {
 
       // Default: return empty result for unknown function calls
       const defaultResponse = message?.type === "tool-calls"
-        ? { results: [{ toolCallId: toolCallId, result: JSON.stringify({ error: "Unknown function" }) }] }
+        ? {
+          results: [{
+            name: fnName || "unknown_function",
+            toolCallId,
+            result: JSON.stringify({ error: "Unknown function" }),
+          }],
+        }
         : { result: JSON.stringify({ error: "Unknown function" }) };
       return new Response(JSON.stringify(defaultResponse), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
