@@ -71,6 +71,8 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
   webdesign: [
     { value: 'lead', label: 'Prospect' },
     { value: 'contacted', label: 'Contacted' },
+    { value: 'callback', label: 'Call Back' },
+    { value: 'scheduled', label: 'Scheduled' },
     { value: 'ai_complete', label: 'AI Complete' },
     { value: 'agreement_sent', label: 'Agreement Sent' },
     { value: 'closed', label: 'Closed' },
