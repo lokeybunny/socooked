@@ -65,10 +65,38 @@ serve(async (req) => {
               clientName: "Warren Guru Videography",
               leadName: full_name,
               firstName,
-              eventType: event_type || "memorial service",
+              eventType: event_type || "event",
               message: message || "",
             },
             serverUrl: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
+            model: {
+              tools: [
+                {
+                  type: "function",
+                  function: {
+                    name: "check_availability",
+                    description: "Check if a specific date and time is available for booking. ALWAYS call this before confirming any appointment time with the caller. Blocked windows: 8:00-10:00 AM and 2:30-3:30 PM PST every day.",
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        date: {
+                          type: "string",
+                          description: "The date to check in YYYY-MM-DD format, e.g. 2026-04-15"
+                        },
+                        time: {
+                          type: "string",
+                          description: "The time to check, e.g. '8:40 AM' or '2:00 PM'"
+                        }
+                      },
+                      required: ["date", "time"]
+                    }
+                  },
+                  server: {
+                    url: `${SUPABASE_URL}/functions/v1/vapi-webhook`
+                  }
+                }
+              ]
+            },
           },
           phoneNumberId: VAPI_PHONE_NUMBER_ID,
           customer: {
