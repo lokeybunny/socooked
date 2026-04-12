@@ -56,6 +56,35 @@ export default function AIDirector() {
 
   return (
     <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
+      <SEOHead
+        title="Warren Guru — AI Filmmaking & Video Production | Las Vegas"
+        description="Warren Guru is a Las Vegas AI filmmaker and video producer. Over 100 projects completed including music videos, short films, and AI-generated content. Book now or enroll in the AI filmmaking course."
+        canonical="https://warren.guru/"
+        ogImage="https://warren.guru/images/og-face.png"
+        keywords="AI filmmaking, AI video production, Las Vegas filmmaker, AI director, music video Las Vegas, Warren Guru, AI filmmaking course"
+        jsonLd={[
+          {
+            "@context": "https://schema.org",
+            "@type": "LocalBusiness",
+            "name": "Warren Guru AI Filmmaking",
+            "url": "https://warren.guru",
+            "image": "https://warren.guru/images/og-face.png",
+            "telephone": "+1-702-357-4528",
+            "description": "Las Vegas AI filmmaking, video production, and cinematic content creation studio.",
+            "address": { "@type": "PostalAddress", "addressLocality": "Las Vegas", "addressRegion": "NV", "addressCountry": "US" },
+            "areaServed": [{ "@type": "City", "name": "Las Vegas" }, { "@type": "City", "name": "Henderson" }],
+            "sameAs": ["https://youtube.com/@warrenguru", "https://vimeo.com/warrenguru", "https://discord.gg/warrenguru"]
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            "serviceType": "AI Filmmaking & Video Production",
+            "provider": { "@type": "LocalBusiness", "name": "Warren Guru" },
+            "areaServed": { "@type": "City", "name": "Las Vegas" },
+            "description": "Professional AI-powered filmmaking, music videos, short films, and cinematic content production in Las Vegas."
+          }
+        ]}
+      />
       {/* ─── Sticky header ─── */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-3 sm:px-6 py-3 md:py-4">
