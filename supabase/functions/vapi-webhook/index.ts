@@ -256,22 +256,41 @@ serve(async (req) => {
           try {
             const scheduledDate = extractScheduleFromTranscript(transcript, summary);
             if (scheduledDate) {
-              // Check for conflicts
+              // Check for conflicts with existing calendar events
               const eventStart = new Date(scheduledDate);
               const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000); // 2-hour block
+
+              // ── Check blocked time slots (PST): 8-10AM and 2:30-3:30PM ──
+              const pstOffset = -8; // PST is UTC-8 (ignore DST for simplicity)
+              const pstHour = (eventStart.getUTCHours() + pstOffset + 24) % 24;
+              const pstMin = eventStart.getUTCMinutes();
+              const pstTime = pstHour + pstMin / 60;
+              const endPstHour = (eventEnd.getUTCHours() + pstOffset + 24) % 24;
+              const endPstTime = endPstHour + eventEnd.getUTCMinutes() / 60;
+              const blockedSlots = [
+                { start: 8, end: 10, label: "8:00 AM - 10:00 AM PST" },
+                { start: 14.5, end: 15.5, label: "2:30 PM - 3:30 PM PST" },
+              ];
+              const hitsBlockedSlot = blockedSlots.some(slot =>
+                (pstTime < slot.end && endPstTime > slot.start)
+              );
+
               const { data: conflicts } = await sb
                 .from("calendar_events")
                 .select("id, title, start_time, end_time")
                 .lt("start_time", eventEnd.toISOString())
                 .gt("end_time", eventStart.toISOString());
 
-              const hasConflict = conflicts && conflicts.length > 0;
+              const hasConflict = (conflicts && conflicts.length > 0) || hitsBlockedSlot;
+              const conflictReason = hitsBlockedSlot
+                ? `Blocked time slot (${blockedSlots.find(s => pstTime < s.end && endPstTime > s.start)?.label || "blocked"})`
+                : "";
 
-              // Create tentative calendar event
+              // Create tentative calendar event in videography-hub calendar
               const eventTitle = `📹 ${hasConflict ? "⚠️ CONFLICT — " : ""}Videography: ${customerLead.full_name}`;
               await sb.from("calendar_events").insert({
                 title: eventTitle,
-                description: `Tentative videography booking from AI call.\n\nClient: ${customerLead.full_name}\nPhone: ${customerLead.phone || "N/A"}\nEmail: ${customerLead.email || "N/A"}\n\n${hasConflict ? "⚠️ CONFLICT: Another event exists at this time. Review needed." : "No conflicts detected."}\n\nAI Notes:\n${aiNotes}`,
+                description: `Tentative videography booking from AI call.\n\nClient: ${customerLead.full_name}\nPhone: ${customerLead.phone || "N/A"}\nEmail: ${customerLead.email || "N/A"}\n\n${hasConflict ? `⚠️ CONFLICT: ${hitsBlockedSlot ? conflictReason : "Another event exists at this time."}. Review needed.` : "No conflicts detected."}\n\nAI Notes:\n${aiNotes}`,
                 start_time: eventStart.toISOString(),
                 end_time: eventEnd.toISOString(),
                 category: "videography",
@@ -281,7 +300,7 @@ serve(async (req) => {
                 color: hasConflict ? "#ef4444" : "#8b5cf6",
                 location: "TBD — confirm with client",
               });
-              console.log(`[vapi-webhook] Created tentative videography booking for ${customerLead.full_name} at ${eventStart.toISOString()}, conflict: ${hasConflict}`);
+              console.log(`[vapi-webhook] Created tentative videography booking for ${customerLead.full_name} at ${eventStart.toISOString()}, conflict: ${hasConflict}, blockedSlot: ${hitsBlockedSlot}`);
 
               // If conflict, send notifications
               if (hasConflict) {
