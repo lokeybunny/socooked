@@ -441,15 +441,22 @@ export default function VideographyHub() {
                 <div key={day.toISOString()} className={`bg-card min-h-[90px] p-1.5 ${!isSameMonth(day, calMonth) ? 'opacity-30' : ''}`}>
                   <p className={`text-xs mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-bold'}`}>{format(day, 'd')}</p>
                   <div className="space-y-0.5">
-                    {dayEvents.map(ev => (
-                      <button
-                        key={ev.id}
-                        onClick={() => openEventEdit(ev)}
-                        className="w-full text-left text-[10px] font-semibold px-1.5 py-0.5 rounded truncate bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-                      >
-                        {format(new Date(ev.start_time), 'h:mm a')} {ev.title?.replace(/\[.*?\]\s*/g, '')}
-                      </button>
-                    ))}
+                    {dayEvents.map(ev => {
+                      const isBlocked = (ev as any)._isBlocked;
+                      return (
+                        <button
+                          key={ev.id}
+                          onClick={() => !isBlocked && openEventEdit(ev)}
+                          className={`w-full text-left text-[10px] font-semibold px-1.5 py-0.5 rounded truncate transition-colors ${
+                            isBlocked
+                              ? 'bg-muted text-muted-foreground cursor-default opacity-60'
+                              : 'bg-purple-600 text-white hover:bg-purple-700'
+                          }`}
+                        >
+                          {format(new Date(ev.start_time), 'h:mm a')} {ev.title?.replace(/\[.*?\]\s*/g, '')}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
