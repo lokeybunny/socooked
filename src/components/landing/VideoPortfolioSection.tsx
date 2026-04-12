@@ -15,7 +15,7 @@ const portfolioItems = [
   { img: funeral1, title: 'Celebration of Life Memorial', category: 'Memorial', desc: 'Dignified, respectful broadcast allowing distant family members to grieve together in real time.' },
   { img: event1, title: 'Corporate Gala Production', category: 'Events', desc: 'Multi-camera live production for a 1,000-guest corporate awards ceremony on the Las Vegas Strip.' },
   { img: event2, title: 'Birthday Celebration', category: 'Events', desc: 'High-energy birthday party coverage with confetti, neon lights, and same-day highlight reel delivery.' },
-  { img: event3, title: 'Live Concert & Music Events', category: 'Events', desc: 'Professional jib and crane coverage for Las Vegas concerts — broadcast-quality from every angle.' },
+  { img: event3, title: 'Corporate Networking Gala', category: 'Events', desc: 'Full behind-the-scenes coverage of exclusive Las Vegas casino ballroom networking events — every handshake on camera.' },
 ];
 
 const fade = {
