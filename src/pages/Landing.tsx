@@ -7,6 +7,7 @@ import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X,
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import VideoPlayer from '@/components/landing/VideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
+import FloatingBookNow from '@/components/landing/FloatingBookNow';
 
 const services = [
   {
@@ -383,6 +384,7 @@ export default function Landing() {
             </motion.button>
           )}
         </AnimatePresence>
+        <FloatingBookNow />
       </div>
     </div>
     </>
