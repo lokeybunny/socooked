@@ -15,6 +15,7 @@ import { motion } from 'framer-motion';
 import heroImg from '@/assets/landing/parallax-videography-hero.jpg';
 import midImg from '@/assets/landing/parallax-videography-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-videography-funnel.jpg';
+import videoThumb from '@/assets/landing/video-demo-thumbnail.jpg';
 import VideoPortfolioSection from '@/components/landing/VideoPortfolioSection';
 
 const fade = {
