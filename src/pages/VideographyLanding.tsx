@@ -247,6 +247,9 @@ export default function VideographyLanding() {
         </div>
       </section>
 
+      {/* ─── Portfolio / Behind the Scenes ─── */}
+      <VideoPortfolioSection />
+
       {/* ─── How It Works ─── */}
       <section className="py-24 px-6 border-t border-emerald-500/[0.08]">
         <div className="max-w-4xl mx-auto">
