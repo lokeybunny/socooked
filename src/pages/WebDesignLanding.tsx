@@ -13,6 +13,8 @@ import { motion } from 'framer-motion';
 import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
+import nysonThumb from '@/assets/portfolio/nysonblack-thumb.jpg';
+import xitThumb from '@/assets/portfolio/xitcash-thumb.jpg';
 
 const fade = {
   hidden: { opacity: 0, y: 30 },
