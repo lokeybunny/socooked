@@ -707,19 +707,16 @@ export default function Funnels() {
         });
       });
 
-      (reLeads || []).forEach((r) => {
+      (courseRows || []).forEach((r) => {
+        const meta = (r.meta as Record<string, unknown>) || {};
         combined.push({
-          id: r.id, funnel: 'realestate', _table: 'lw_landing_leads',
-          full_name: r.full_name, email: r.email, phone: r.phone,
-          created_at: r.created_at, status: r.status || 'new', notes: r.notes,
-          property_address: r.property_address,
-          vapi_call_status: r.vapi_call_status, vapi_call_id: r.vapi_call_id,
-          ai_notes: r.ai_notes, vapi_recording_url: r.vapi_recording_url,
-          timeline: r.timeline, property_condition: r.property_condition,
-          motivation: r.motivation,
-          asking_price: r.asking_price ? Number(r.asking_price) : null,
-          lead_score: r.lead_score,
-          drafted_at: r.drafted_at,
+          id: r.id, funnel: 'aicourses', _table: 'customers',
+          full_name: r.full_name || r.email, email: r.email, phone: null,
+          created_at: r.created_at, status: r.status || 'pending', notes: `Plan: ${r.plan} · Amount: $${(r.amount_cents / 100).toFixed(2)}`,
+          company: null,
+          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
+          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
+          drafted_at: null,
         });
       });
 
@@ -861,7 +858,7 @@ export default function Funnels() {
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
-    realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
+    aicourses: leads.filter(l => l.funnel === 'aicourses' && !l.drafted_at).length,
     videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
   }), [leads]);
 
@@ -902,7 +899,7 @@ export default function Funnels() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['all', 'webdesign', 'videography', 'realestate'] as const).map((key) => {
+          {(['all', 'webdesign', 'videography', 'aicourses'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];
