@@ -44,6 +44,8 @@ const statusStyles: Record<string, string> = {
   confirmed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   contacted: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400',
   callback: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+  in_call: 'bg-green-500/15 text-green-600 dark:text-green-400 animate-pulse',
+  calling: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 animate-pulse',
 };
 
 const statusLabels: Record<string, string> = {
@@ -59,6 +61,8 @@ const statusLabels: Record<string, string> = {
   sent_for_signature: 'Sent for Signature',
   'in-progress': 'In Progress',
   callback: 'Call Back',
+  in_call: '📞 IN CALL',
+  calling: '📞 Calling...',
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
