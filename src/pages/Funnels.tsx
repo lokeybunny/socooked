@@ -474,7 +474,8 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(lead.phone || '');
   const cfg = FUNNEL_CONFIG[lead.funnel];
-  const hasAI = !!(lead.vapi_call_status === 'completed' || lead.ai_notes);
+  const isLiveCall = lead.vapi_call_status === 'in_call' || lead.vapi_call_status === 'calling';
+  const hasAI = !!(isLiveCall || lead.vapi_call_status === 'completed' || lead.ai_notes);
   const isDrafted = !!lead.drafted_at;
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
@@ -521,7 +522,20 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <p className="text-xs text-muted-foreground truncate">{lead.email || lead.phone || '—'}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+          {isLiveCall && (
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-[10px] gap-1 animate-pulse',
+                lead.vapi_call_status === 'in_call'
+                  ? 'text-green-600 border-green-500/30 bg-green-500/10'
+                  : 'text-amber-600 border-amber-500/30 bg-amber-500/10'
+              )}
+            >
+              {lead.vapi_call_status === 'in_call' ? '📞 IN CALL' : '📞 Calling...'}
+            </Badge>
+          )}
           {isDrafted && (
             <Badge variant="outline" className="text-[10px] text-yellow-600 border-yellow-500/30">
               <EyeOff className="h-2.5 w-2.5 mr-0.5" /> {draftHoursLeft}h left
@@ -591,7 +605,6 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Phone className="h-3 w-3" /> Call
           </a>
         )}
-        {/* Happy checkbox — web design leads only */}
         {lead.funnel === 'webdesign' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
             <Checkbox
@@ -602,7 +615,6 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
           </label>
         )}
-        {/* Dead checkbox — web design leads only */}
         {lead.funnel === 'webdesign' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
             <Checkbox
@@ -652,7 +664,6 @@ export default function Funnels() {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      // Web Design from customers (only funnel sources)
       const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
@@ -660,7 +671,6 @@ export default function Funnels() {
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
       ]);
 
-      // Build remind lookup by customer_id
       const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null; created_at: string | null }>();
       (remindRows || []).forEach((r: any) => remindMap.set(r.customer_id, { status: r.status, attempts: r.attempts, connected_at: r.connected_at, created_at: r.created_at }));
 
@@ -701,9 +711,15 @@ export default function Funnels() {
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
-          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
-          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
+          vapi_call_status: (meta.vapi_call_status as string) || null,
+          vapi_call_id: (meta.vapi_call_id as string) || null,
+          ai_notes: (meta.vapi_ai_notes as string) || null,
+          vapi_recording_url: (meta.vapi_recording_url as string) || null,
+          vapi_transcript: (meta.vapi_transcript as string) || null,
+          vapi_summary: (meta.vapi_summary as string) || null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
+          happy: !!(meta.happy),
+          dead: !!(meta.dead),
         });
       });
 
@@ -736,7 +752,14 @@ export default function Funnels() {
     }
   };
 
-  useEffect(() => { fetchLeads(); }, []);
+  useEffect(() => {
+    void fetchLeads();
+    const intervalId = window.setInterval(() => {
+      void fetchLeads();
+    }, 10000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const handleDraft = async (lead: FunnelLead) => {
     const now = new Date().toISOString();
