@@ -560,6 +560,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
               <Bot className="h-2.5 w-2.5" /> AI
             </Badge>
           )}
+          {lead.vapi_call_id && (
+            <Badge variant="outline" className={cn("text-[10px] gap-1", lead.is_inbound ? "text-green-600 border-green-500/30 bg-green-500/10" : "text-orange-600 border-orange-500/30 bg-orange-500/10")}>
+              {lead.is_inbound ? '📥 Inbound' : '📤 Outbound'}
+            </Badge>
+          )}
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
