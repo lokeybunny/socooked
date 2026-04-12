@@ -270,12 +270,12 @@ export default function WebDesignLanding() {
           </div>
           <div className="hidden md:flex items-center justify-center">
             <img
-              src={webSketchImg}
-              alt="Pencil sketch wireframe of a modern website UI template"
-              className="w-full max-w-md rounded-3xl shadow-2xl shadow-cyan-500/10 border border-cyan-500/10"
+              src={web3dWireframe}
+              alt="Futuristic 3D wireframe outline of a website interface"
+              className="w-full max-w-2xl drop-shadow-[0_0_30px_rgba(6,182,212,0.15)]"
               loading="lazy"
-              width={800}
-              height={1024}
+              width={1600}
+              height={1600}
             />
           </div>
         </div>
