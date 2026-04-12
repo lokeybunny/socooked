@@ -231,7 +231,7 @@ serve(async (req) => {
         method: "PATCH",
         headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: { ...ast.model, tools: [...otherTools, newTool] },
+          model: { ...ast.model, tools: [...otherTools, ...crmTools] },
           serverUrl: webhookUrl,
         }),
       });
