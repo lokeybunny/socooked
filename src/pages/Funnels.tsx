@@ -710,13 +710,13 @@ export default function Funnels() {
       (courseRows || []).forEach((r) => {
         const meta = (r.meta as Record<string, unknown>) || {};
         combined.push({
-          id: r.id, funnel: 'aicourses', _table: 'customers',
+          id: r.id, funnel: 'aicourses', _table: 'guru_subscriptions' as any,
           full_name: r.full_name || r.email, email: r.email, phone: null,
           created_at: r.created_at, status: r.status || 'pending', notes: `Plan: ${r.plan} · Amount: $${(r.amount_cents / 100).toFixed(2)}`,
           company: null,
           vapi_call_status: null, vapi_call_id: null, ai_notes: null,
           vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
-          drafted_at: null,
+          drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
 
@@ -742,6 +742,11 @@ export default function Funnels() {
     const now = new Date().toISOString();
     if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: { funnel_drafted_at: now } } as any).eq('id', lead.id);
+    } else if ((lead._table as string) === 'guru_subscriptions') {
+      // Read existing meta, merge drafted_at
+      const { data: row } = await supabase.from('guru_subscriptions').select('meta').eq('id', lead.id).single();
+      const existingMeta = (row?.meta as Record<string, unknown>) || {};
+      await supabase.from('guru_subscriptions').update({ meta: { ...existingMeta, funnel_drafted_at: now } } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: now }).eq('id', lead.id);
     }
@@ -752,6 +757,11 @@ export default function Funnels() {
   const handleUndraft = async (lead: FunnelLead) => {
     if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: {} } as any).eq('id', lead.id);
+    } else if ((lead._table as string) === 'guru_subscriptions') {
+      const { data: row } = await supabase.from('guru_subscriptions').select('meta').eq('id', lead.id).single();
+      const existingMeta = (row?.meta as Record<string, unknown>) || {};
+      delete existingMeta.funnel_drafted_at;
+      await supabase.from('guru_subscriptions').update({ meta: existingMeta } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: null }).eq('id', lead.id);
     }
