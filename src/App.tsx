@@ -72,6 +72,7 @@ const AIDirector = lazyWithRetry(() => import("./pages/AIDirector"), "page-ai-di
 const CourseFunnel = lazyWithRetry(() => import("./pages/CourseFunnel"), "page-course-funnel");
 const CourseLogin = lazyWithRetry(() => import("./pages/CourseLogin"), "page-course-login");
 const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-course-learn");
+const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -179,6 +180,7 @@ const App = () => (
                 <Route path="/course/success" element={<CourseFunnel />} />
                 <Route path="/course/login" element={<CourseLogin />} />
                 <Route path="/course/learn" element={<CourseLearn />} />
+                <Route path="/payme" element={<PayMe />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
