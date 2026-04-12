@@ -189,6 +189,9 @@ export default function VideographyLanding() {
               Book Live Streaming
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </a>
+            <a href="tel:+17023574528" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-emerald-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-emerald-500/[0.1] hover:border-emerald-500/30 transition-all">
+              📞 (702) 357-4528
+            </a>
           </div>
 
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
