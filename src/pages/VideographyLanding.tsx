@@ -104,7 +104,7 @@ export default function VideographyLanding() {
           full_name: name.trim(),
           event_type: eventType || 'general inquiry',
           message: message || '',
-          assistant_id: 'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
+          assistant_id: '0045f12e-56e2-4245-971b-1f7dd2069282',
         },
       }).catch((err) => console.warn('Vapi trigger warning:', err));
 
