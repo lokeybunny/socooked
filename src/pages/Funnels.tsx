@@ -653,10 +653,10 @@ export default function Funnels() {
     setLoading(true);
     try {
       // Web Design from customers (only funnel sources)
-      const [{ data: custLeads }, { data: vidLeads }, { data: reLeads }, { data: remindRows }] = await Promise.all([
+      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
-        supabase.from('lw_landing_leads').select('*').not('landing_page_id', 'is', null).neq('full_name', 'Property Owner').neq('phone', 'N/A').order('created_at', { ascending: false }).limit(500),
+        supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
       ]);
 
