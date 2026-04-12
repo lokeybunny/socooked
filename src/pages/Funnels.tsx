@@ -669,9 +669,12 @@ export default function Funnels() {
   const [emailLead, setEmailLead] = useState<FunnelLead | null>(null);
   const [viewLead, setViewLead] = useState<FunnelLead | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const fetchInFlightRef = useRef(false);
 
-  const fetchLeads = async () => {
-    setLoading(true);
+  const fetchLeads = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
+    if (!silent) setLoading(true);
     try {
       const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').not('meta->>vapi_call_id', 'is', null).order('created_at', { ascending: false }).limit(500),
@@ -766,14 +769,15 @@ export default function Funnels() {
     } catch (err) {
       console.error('Funnels fetch error:', err);
     } finally {
-      setLoading(false);
+      fetchInFlightRef.current = false;
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     void fetchLeads();
     const intervalId = window.setInterval(() => {
-      void fetchLeads();
+      void fetchLeads({ silent: true });
     }, 10000);
 
     return () => window.clearInterval(intervalId);
@@ -885,13 +889,17 @@ export default function Funnels() {
     if (stageFilter) result = result.filter(l => l.status === stageFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(l =>
-        l.full_name.toLowerCase().includes(q) ||
-        (l.email || '').toLowerCase().includes(q) ||
-        (l.phone || '').includes(q) ||
-        (l.property_address || '').toLowerCase().includes(q) ||
-        (l.company || '').toLowerCase().includes(q)
-      );
+      const phoneQuery = search.replace(/\D/g, '');
+      result = result.filter(l => {
+        const phone = l.phone || '';
+        const normalizedPhone = phone.replace(/\D/g, '');
+        return l.full_name.toLowerCase().includes(q) ||
+          (l.email || '').toLowerCase().includes(q) ||
+          phone.toLowerCase().includes(q) ||
+          (!!phoneQuery && normalizedPhone.includes(phoneQuery)) ||
+          (l.property_address || '').toLowerCase().includes(q) ||
+          (l.company || '').toLowerCase().includes(q);
+      });
     }
     return result;
   }, [leads, filter, search, showDrafted, stageFilter]);
@@ -942,7 +950,7 @@ export default function Funnels() {
               <EyeOff className="h-3.5 w-3.5 mr-1" />
               Drafted {draftCount > 0 && `(${draftCount})`}
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchLeads} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={() => fetchLeads()} disabled={loading}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", loading && "animate-spin")} /> Refresh
             </Button>
           </div>
