@@ -247,19 +247,19 @@ export default function VideographyLanding() {
           backgroundSize: '80px 80px',
         }} />
 
-        <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl px-6 pt-14">
+        <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl w-full px-5 sm:px-6 pt-14">
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs tracking-[0.3em] uppercase text-emerald-400/70">Las Vegas Streaming / Recording</span>
+            <span className="text-[10px] sm:text-xs tracking-[0.2em] sm:tracking-[0.3em] uppercase text-emerald-400/70">Las Vegas Streaming / Recording</span>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
             Warren Guru
             <br />
             <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Las Vegas Videographer</span>
           </h1>
 
-          <p className="mt-8 text-base sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light">
+          <p className="mt-8 text-sm sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light px-1 sm:px-0">
             Professional live streaming for weddings, funerals, and events across Las Vegas & Henderson — so every guest can be there, no matter where they are.
           </p>
 
@@ -273,7 +273,7 @@ export default function VideographyLanding() {
             </a>
           </div>
 
-          <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
+          <div className="mt-16 flex items-center justify-center gap-4 sm:gap-10 text-white/20">
             <div className="text-center">
               <div className="text-3xl font-bold text-emerald-400/70">500+</div>
               <div className="text-xs tracking-[0.2em] uppercase mt-1">Events Streamed</div>
