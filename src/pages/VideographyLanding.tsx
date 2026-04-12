@@ -14,6 +14,7 @@ import { motion } from 'framer-motion';
 import heroImg from '@/assets/landing/parallax-videography-hero.jpg';
 import midImg from '@/assets/landing/parallax-videography-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-videography-funnel.jpg';
+import VideoPortfolioSection from '@/components/landing/VideoPortfolioSection';
 
 const fade = {
   hidden: { opacity: 0, y: 30 },
@@ -245,6 +246,9 @@ export default function VideographyLanding() {
           <div className="hidden md:block" />
         </div>
       </section>
+
+      {/* ─── Portfolio / Behind the Scenes ─── */}
+      <VideoPortfolioSection />
 
       {/* ─── How It Works ─── */}
       <section className="py-24 px-6 border-t border-emerald-500/[0.08]">
