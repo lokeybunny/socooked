@@ -121,10 +121,13 @@ serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const payload = await req.json();
-    const { message } = payload;
-    const messageType = message?.type;
+    const message = payload?.message ?? payload;
+    const messageType = String(message?.type || payload?.type || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_]+/g, "-");
 
-    console.log("Vapi webhook event:", messageType, "call:", message?.call?.id);
+    console.log("Vapi webhook event:", messageType || "unknown", "call:", message?.call?.id || payload?.call?.id);
 
     // ════════════════════════════════════════════
     // PART 1: REAL-TIME TOOL CALLS (during call)
