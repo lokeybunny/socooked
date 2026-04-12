@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
-  Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
+  Globe, GraduationCap, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
   FileText, Mic, Copy, Sparkles, UserPlus, BellRing, Zap
@@ -19,11 +19,11 @@ import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'realestate';
+type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses';
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'realestate' | 'videography';
+  funnel: 'webdesign' | 'aicourses' | 'videography';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -62,7 +62,7 @@ const PAGE_SIZE = 30;
 
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  realestate: { label: 'Real Estate', icon: Home, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
+  aicourses: { label: 'AI Courses', icon: GraduationCap, color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
   videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
 };
 
@@ -84,16 +84,11 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
   ],
-  realestate: [
-    { value: 'new', label: 'Funnel Leads' },
-    { value: 'req_trace', label: 'Req. Trace' },
-    { value: 'skip_traced', label: 'Skip Traced' },
-    { value: 'contacted', label: 'Contacted' },
-    { value: 'negotiate', label: 'Negotiate' },
-    { value: 'offer_sent', label: 'Offer Sent' },
-    { value: 'under_contract', label: 'Under Contract' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'dead', label: 'Dead' },
+  aicourses: [
+    { value: 'pending', label: 'Pending Payment' },
+    { value: 'active', label: 'Active' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
   ],
 };
 
@@ -658,10 +653,10 @@ export default function Funnels() {
     setLoading(true);
     try {
       // Web Design from customers (only funnel sources)
-      const [{ data: custLeads }, { data: vidLeads }, { data: reLeads }, { data: remindRows }] = await Promise.all([
+      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
-        supabase.from('lw_landing_leads').select('*').not('landing_page_id', 'is', null).neq('full_name', 'Property Owner').neq('phone', 'N/A').order('created_at', { ascending: false }).limit(500),
+        supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
       ]);
 
@@ -712,19 +707,16 @@ export default function Funnels() {
         });
       });
 
-      (reLeads || []).forEach((r) => {
+      (courseRows || []).forEach((r) => {
+        const meta = (r.meta as Record<string, unknown>) || {};
         combined.push({
-          id: r.id, funnel: 'realestate', _table: 'lw_landing_leads',
-          full_name: r.full_name, email: r.email, phone: r.phone,
-          created_at: r.created_at, status: r.status || 'new', notes: r.notes,
-          property_address: r.property_address,
-          vapi_call_status: r.vapi_call_status, vapi_call_id: r.vapi_call_id,
-          ai_notes: r.ai_notes, vapi_recording_url: r.vapi_recording_url,
-          timeline: r.timeline, property_condition: r.property_condition,
-          motivation: r.motivation,
-          asking_price: r.asking_price ? Number(r.asking_price) : null,
-          lead_score: r.lead_score,
-          drafted_at: r.drafted_at,
+          id: r.id, funnel: 'aicourses', _table: 'customers',
+          full_name: r.full_name || r.email, email: r.email, phone: null,
+          created_at: r.created_at, status: r.status || 'pending', notes: `Plan: ${r.plan} · Amount: $${(r.amount_cents / 100).toFixed(2)}`,
+          company: null,
+          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
+          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
+          drafted_at: null,
         });
       });
 
@@ -866,7 +858,7 @@ export default function Funnels() {
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
-    realestate: leads.filter(l => l.funnel === 'realestate' && !l.drafted_at).length,
+    aicourses: leads.filter(l => l.funnel === 'aicourses' && !l.drafted_at).length,
     videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
   }), [leads]);
 
@@ -907,7 +899,7 @@ export default function Funnels() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['all', 'webdesign', 'videography', 'realestate'] as const).map((key) => {
+          {(['all', 'webdesign', 'videography', 'aicourses'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];
