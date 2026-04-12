@@ -15,6 +15,7 @@ import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
 import nysonThumb from '@/assets/portfolio/nysonblack-thumb.jpg';
 import xitThumb from '@/assets/portfolio/xitcash-thumb.jpg';
+import batteryThumb from '@/assets/portfolio/battery-rescue-thumb.jpg';
 
 const fade = {
   hidden: { opacity: 0, y: 30 },
@@ -315,7 +316,7 @@ export default function WebDesignLanding() {
               { name: 'Red Pill Ville', url: 'https://redpillville.com', img: 'https://api.microlink.io/?url=https://redpillville.com&screenshot=true&meta=false&embed=screenshot.url' },
               { name: 'Nyson Black', url: 'https://nysonblack.com', img: nysonThumb },
               { name: 'XIT Cash', url: 'https://xit.cash', img: xitThumb },
-              { name: 'Battery Rescue', url: 'https://quickstart-battery-rescue.lovable.app', img: 'https://api.microlink.io/?url=https://quickstart-battery-rescue.lovable.app&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'Battery Rescue', url: 'https://quickstart-battery-rescue.lovable.app', img: batteryThumb },
               { name: 'BigTrout', url: 'https://bigtrout.fun', img: 'https://api.microlink.io/?url=https://bigtrout.fun&screenshot=true&meta=false&embed=screenshot.url' },
             ].map((site, i) => (
               <motion.a
