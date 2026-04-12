@@ -245,7 +245,7 @@ export default function VideographyLanding() {
               ))}
             </div>
           </div>
-          <div className="hidden md:flex items-center justify-center">
+          <div className="hidden md:flex items-center justify-center mt-6">
             <div className="relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/10 border border-emerald-500/10 group cursor-pointer"
               onClick={(e) => {
                 const video = e.currentTarget.querySelector('video');
