@@ -18,6 +18,8 @@ interface Stats {
   paidConvertedCount: number;
   emailsToday: number;
   prospectTotalValue: number;
+  aiCourseRevenue: number;
+  aiCourseCount: number;
 }
 
 const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
