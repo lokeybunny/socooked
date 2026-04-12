@@ -46,6 +46,7 @@ interface FunnelLead {
   motivation?: string | null;
   asking_price?: number | null;
   lead_score?: number | null;
+  is_inbound?: boolean;
   // draft
   drafted_at?: string | null;
   // source table
@@ -698,6 +699,7 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
+          is_inbound: isDirectInbound,
           drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
@@ -726,6 +728,7 @@ export default function Funnels() {
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
+          is_inbound: isDirectInbound,
           drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           happy: !!(meta.happy),
           dead: !!(meta.dead),
