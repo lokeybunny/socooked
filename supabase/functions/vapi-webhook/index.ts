@@ -167,6 +167,104 @@ serve(async (req) => {
 
     console.log("Vapi webhook event:", message?.type, "call:", message?.call?.id);
 
+    // ─── Handle function-call: check_availability ───
+    if (message?.type === "function-call" || message?.type === "tool-calls") {
+      const functionCall = message?.functionCall || message?.toolCalls?.[0]?.function;
+      const toolCallId = message?.toolCalls?.[0]?.id;
+      const fnName = functionCall?.name;
+      console.log("[vapi-webhook] Function call:", fnName, JSON.stringify(functionCall?.parameters || functionCall?.arguments));
+
+      if (fnName === "check_availability") {
+        const params = functionCall?.parameters || (typeof functionCall?.arguments === "string" ? JSON.parse(functionCall.arguments) : functionCall?.arguments) || {};
+        const requestedDate = params.date; // e.g. "2026-04-15"
+        const requestedTime = params.time; // e.g. "8:40 AM" or "08:40"
+
+        // Blocked slots in PST
+        const BLOCKED_SLOTS = [
+          { startH: 8, startM: 0, endH: 10, endM: 0, label: "8:00 AM - 10:00 AM" },
+          { startH: 14, startM: 30, endH: 15, endM: 30, label: "2:30 PM - 3:30 PM" },
+        ];
+
+        // Parse requested time to PST minutes
+        let reqHour = 0, reqMin = 0;
+        if (requestedTime) {
+          const tMatch = requestedTime.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?/i);
+          if (tMatch) {
+            reqHour = parseInt(tMatch[1]);
+            reqMin = tMatch[2] ? parseInt(tMatch[2]) : 0;
+            const period = (tMatch[3] || "").replace(/\./g, "").toLowerCase();
+            if (period === "pm" && reqHour < 12) reqHour += 12;
+            if (period === "am" && reqHour === 12) reqHour = 0;
+          }
+        }
+
+        const reqTimeMin = reqHour * 60 + reqMin;
+        const sessionDuration = 120; // 2 hours default
+        const reqEndMin = reqTimeMin + sessionDuration;
+
+        // Check against blocked slots
+        const blockedConflict = BLOCKED_SLOTS.find(slot => {
+          const slotStart = slot.startH * 60 + slot.startM;
+          const slotEnd = slot.endH * 60 + slot.endM;
+          return reqTimeMin < slotEnd && reqEndMin > slotStart;
+        });
+
+        // Check against existing calendar events for that date
+        let calendarConflict = false;
+        let calendarConflictInfo = "";
+        if (requestedDate) {
+          // Convert requested PST time to UTC for DB query
+          const pstToUtcOffset = 7; // PST = UTC-7 (PDT), UTC-8 (PST)
+          const startUtc = new Date(`${requestedDate}T${String(reqHour).padStart(2,"0")}:${String(reqMin).padStart(2,"0")}:00`);
+          startUtc.setHours(startUtc.getHours() + pstToUtcOffset);
+          const endUtc = new Date(startUtc.getTime() + sessionDuration * 60 * 1000);
+
+          const { data: conflicts } = await sb
+            .from("calendar_events")
+            .select("id, title, start_time, end_time")
+            .lt("start_time", endUtc.toISOString())
+            .gt("end_time", startUtc.toISOString());
+
+          if (conflicts && conflicts.length > 0) {
+            calendarConflict = true;
+            calendarConflictInfo = conflicts.map(c => c.title).join(", ");
+          }
+        }
+
+        let resultMessage: string;
+        let available = true;
+
+        if (blockedConflict) {
+          available = false;
+          resultMessage = `That time is NOT available. The ${blockedConflict.label} PST window is blocked every day. Please suggest a different time outside of 8:00-10:00 AM and 2:30-3:30 PM PST.`;
+        } else if (calendarConflict) {
+          available = false;
+          resultMessage = `That time is NOT available — there is already a booking at that time. Please suggest a different time.`;
+        } else {
+          resultMessage = `That time is available! You can confirm the booking for ${requestedTime || "the requested time"} on ${requestedDate || "the requested date"}.`;
+        }
+
+        console.log(`[vapi-webhook] Availability check: date=${requestedDate}, time=${requestedTime}, available=${available}`);
+
+        // Respond in the format Vapi expects
+        const responsePayload = message?.type === "tool-calls"
+          ? { results: [{ toolCallId: toolCallId, result: JSON.stringify({ available, message: resultMessage }) }] }
+          : { result: JSON.stringify({ available, message: resultMessage }) };
+
+        return new Response(JSON.stringify(responsePayload), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Default: return empty result for unknown function calls
+      const defaultResponse = message?.type === "tool-calls"
+        ? { results: [{ toolCallId: toolCallId, result: JSON.stringify({ error: "Unknown function" }) }] }
+        : { result: JSON.stringify({ error: "Unknown function" }) };
+      return new Response(JSON.stringify(defaultResponse), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Handle end-of-call report
     if (message?.type === "end-of-call-report") {
       const callId = message.call?.id;
