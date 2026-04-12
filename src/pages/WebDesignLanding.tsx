@@ -313,8 +313,8 @@ export default function WebDesignLanding() {
             {[
               { name: 'BCC.cash', url: 'https://bcc.cash', img: 'https://api.microlink.io/?url=https://bcc.cash&screenshot=true&meta=false&embed=screenshot.url' },
               { name: 'Red Pill Ville', url: 'https://redpillville.com', img: 'https://api.microlink.io/?url=https://redpillville.com&screenshot=true&meta=false&embed=screenshot.url' },
-              { name: 'Nyson Black', url: 'https://nysonblack.com', img: 'https://api.microlink.io/?url=https://nysonblack.com&screenshot=true&meta=false&embed=screenshot.url' },
-              { name: 'XIT Cash', url: 'https://xit.cash', img: 'https://api.microlink.io/?url=https://xit.cash&screenshot=true&meta=false&embed=screenshot.url' },
+              { name: 'Nyson Black', url: 'https://nysonblack.com', img: nysonThumb },
+              { name: 'XIT Cash', url: 'https://xit.cash', img: xitThumb },
               { name: 'Battery Rescue', url: 'https://quickstart-battery-rescue.lovable.app', img: 'https://api.microlink.io/?url=https://quickstart-battery-rescue.lovable.app&screenshot=true&meta=false&embed=screenshot.url' },
               { name: 'BigTrout', url: 'https://bigtrout.fun', img: 'https://api.microlink.io/?url=https://bigtrout.fun&screenshot=true&meta=false&embed=screenshot.url' },
             ].map((site, i) => (
