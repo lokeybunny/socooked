@@ -29,23 +29,47 @@ const STAGES = [
 
 type Prospect = {
   id: string;
-  business_name: string;
+  full_name: string;
   phone: string | null;
-  address: string | null;
-  website: string | null;
-  contact_name: string | null;
-  contact_role: string | null;
-  contact_email: string | null;
-  contact_phone: string | null;
-  pipeline_stage: string;
-  agreement_doc_id: string | null;
+  email: string | null;
+  status: string;
   notes: string | null;
-  next_followup_at: string | null;
-  last_contacted_at: string | null;
+  tags: string[];
   meta: any;
   created_at: string;
   updated_at: string;
+  // mapped fields
+  business_name: string;
+  pipeline_stage: string;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  next_followup_at: string | null;
+  last_contacted_at: string | null;
 };
+
+function mapCustomerToProspect(c: any): Prospect {
+  const meta = c.meta || {};
+  return {
+    id: c.id,
+    full_name: c.full_name,
+    phone: c.phone,
+    email: c.email,
+    status: c.status,
+    notes: c.notes,
+    tags: c.tags || [],
+    meta,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    business_name: c.company || c.full_name,
+    pipeline_stage: c.status === 'lead' ? 'new' : c.status,
+    contact_name: c.full_name,
+    contact_email: c.email,
+    contact_phone: c.phone,
+    next_followup_at: meta.callback_at || null,
+    last_contacted_at: meta.last_contacted_at || null,
+  };
+}
 
 export default function VideographyHub() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -54,14 +78,7 @@ export default function VideographyHub() {
   const [stageFilter, setStageFilter] = useState('all');
   const [selected, setSelected] = useState<Prospect | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: '', role: '', email: '', phone: '' });
   const [notesText, setNotesText] = useState('');
-  const [addMode, setAddMode] = useState<'closed' | 'manual' | 'csv'>('closed');
-  const [manualForm, setManualForm] = useState({ business_name: '', phone: '', address: '', website: '' });
-  const [csvText, setCsvText] = useState('');
-  const [importing, setImporting] = useState(false);
-  const [pocEditId, setPocEditId] = useState<string | null>(null);
-  const [pocName, setPocName] = useState('');
   const [viewTab, setViewTab] = useState<'pipeline' | 'calendar'>('pipeline');
 
   // Calendar state
@@ -73,11 +90,11 @@ export default function VideographyHub() {
 
   const load = useCallback(async () => {
     const { data } = await supabase
-      .from('videography_prospects')
+      .from('customers')
       .select('*')
-      .order('pipeline_stage', { ascending: true })
-      .order('next_followup_at', { ascending: true });
-    if (data) setProspects(data as Prospect[]);
+      .eq('source', 'videography-landing')
+      .order('created_at', { ascending: false });
+    if (data) setProspects(data.map(mapCustomerToProspect));
     setLoading(false);
   }, []);
 
