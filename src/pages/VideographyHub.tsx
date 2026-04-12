@@ -83,6 +83,12 @@ export default function VideographyHub() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ─── Blocked time slots (PST) ───
+  const BLOCKED_SLOTS = [
+    { label: '🔒 Blocked', startH: 8, startM: 0, endH: 10, endM: 0 },
+    { label: '🔒 Blocked', startH: 14, startM: 30, endH: 15, endM: 30 },
+  ];
+
   // Calendar data
   const loadCalEvents = useCallback(async () => {
     setCalLoading(true);
@@ -93,9 +99,31 @@ export default function VideographyHub() {
       .select('*')
       .gte('start_time', monthStart.toISOString())
       .lte('start_time', monthEnd.toISOString())
-      .or('category.eq.videography,title.ilike.%videography%,title.ilike.%funeral%,title.ilike.%livestream%')
+      .or('category.eq.videography,title.ilike.%videography%')
       .order('start_time', { ascending: true });
-    setCalEvents(data || []);
+
+    // Generate synthetic blocked-slot events for every day in the month
+    const days = eachDayOfInterval({ start: monthStart, end: endOfMonth(calMonth) });
+    const blockedEvents = days.flatMap(day =>
+      BLOCKED_SLOTS.map((slot, si) => {
+        const st = new Date(day);
+        st.setHours(slot.startH, slot.startM, 0, 0);
+        // Offset from local to PST if needed — store as-is since calendar displays local
+        const et = new Date(day);
+        et.setHours(slot.endH, slot.endM, 0, 0);
+        return {
+          id: `blocked-${format(day, 'yyyy-MM-dd')}-${si}`,
+          title: slot.label,
+          start_time: st.toISOString(),
+          end_time: et.toISOString(),
+          category: 'blocked',
+          color: '#6b7280',
+          _isBlocked: true,
+        };
+      })
+    );
+
+    setCalEvents([...(data || []), ...blockedEvents]);
     setCalLoading(false);
   }, [calMonth]);
 
@@ -359,10 +387,10 @@ export default function VideographyHub() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" />
-            Videography Outreach
+            Videography Pipeline
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Build funeral livestream contracts across Las Vegas
+            Video funnel leads & bookings across Las Vegas
           </p>
         </div>
         {overdueCount > 0 && (
