@@ -145,8 +145,85 @@ export default function WebDesignLanding() {
     }
   };
 
+  const webJsonLd = useMemo(() => [
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "@id": "https://warren.guru/web#business",
+      "name": "Warren Guru Las Vegas Web Design",
+      "alternateName": "Warren Guru Web Design",
+      "description": "AI-powered web design and development services in Las Vegas, Nevada. Custom responsive websites for small businesses — built in 48 hours with SEO, branding, and lead capture.",
+      "url": "https://warren.guru/web",
+      "telephone": "+17474949386",
+      "email": "info@warren.guru",
+      "image": "https://warren.guru/images/og-web.jpg",
+      "priceRange": "$$",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Las Vegas",
+        "addressRegion": "NV",
+        "addressCountry": "US"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 36.1699,
+        "longitude": -115.1398
+      },
+      "areaServed": [
+        { "@type": "City", "name": "Las Vegas", "sameAs": "https://en.wikipedia.org/wiki/Las_Vegas" },
+        { "@type": "City", "name": "Henderson", "sameAs": "https://en.wikipedia.org/wiki/Henderson,_Nevada" },
+        { "@type": "City", "name": "North Las Vegas" },
+        { "@type": "City", "name": "Summerlin" },
+        { "@type": "City", "name": "Paradise" }
+      ],
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+        "opens": "08:00",
+        "closes": "20:00"
+      },
+      "sameAs": [
+        "https://discord.gg/warrenguru",
+        "https://youtube.com/@warrenguru"
+      ]
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "serviceType": "Web Design & Development",
+      "provider": { "@id": "https://warren.guru/web#business" },
+      "areaServed": { "@type": "City", "name": "Las Vegas" },
+      "description": "Custom AI-powered web design for Las Vegas businesses. Responsive websites with SEO optimization, lead capture forms, and Google Analytics — delivered in under 48 hours.",
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Web Design Services",
+        "itemListElement": [
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Small Business Web Design Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "SEO Website Development Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "AI Website Builder Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Responsive Web Design Henderson NV" } }
+        ]
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://warren.guru" },
+        { "@type": "ListItem", "position": 2, "name": "Web Design", "item": "https://warren.guru/web" }
+      ]
+    }
+  ], []);
+
   return (
     <div className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
+      <SEOHead
+        title="Las Vegas Web Design & Development | Warren Guru"
+        description="AI-powered web design for Las Vegas businesses. Custom responsive websites with SEO, branding, and lead capture — built in 48 hours. 200+ sites delivered. Call (747) 494-9386."
+        canonical="https://warren.guru/web"
+        keywords="Las Vegas web design, web developer Las Vegas, website design Henderson NV, small business website Las Vegas, affordable web design Nevada, AI web design Las Vegas, SEO website Las Vegas, web designer near me"
+        jsonLd={webJsonLd}
+      />
       {/* Header (matches all pages) */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-3 sm:px-6 py-3 md:py-4">
