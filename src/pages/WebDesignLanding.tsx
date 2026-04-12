@@ -212,7 +212,7 @@ export default function WebDesignLanding() {
             <a href="tel:+17474949386" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.05] text-cyan-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-cyan-500/[0.1] hover:border-cyan-500/30 transition-all">
               📞 (747) 494-9386
             </a>
-            </a>
+          </div>
           </div>
 
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
