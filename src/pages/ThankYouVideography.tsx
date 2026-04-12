@@ -14,7 +14,7 @@ export default function ThankYouVideography() {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          navigate('/videography');
+          navigate('/video');
           return 0;
         }
         return prev - 1;
@@ -30,7 +30,7 @@ export default function ThankYouVideography() {
       </div>
 
       <header className="flex items-center justify-between px-4 sm:px-6 md:px-12 py-4 md:py-5 relative z-30">
-        <button onClick={() => navigate('/videography')} className="flex items-center gap-2 group">
+        <button onClick={() => navigate('/video')} className="flex items-center gap-2 group">
           <ArrowLeft className="h-4 w-4 text-muted-foreground/50 group-hover:text-foreground transition-colors" />
           <span className="text-foreground/70 font-light text-base sm:text-lg tracking-[0.15em] uppercase">Back</span>
         </button>

@@ -171,7 +171,7 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-5">
-            <Link to="/videography" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
+            <Link to="/video" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
             <Link to="/webdesign" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
