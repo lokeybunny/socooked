@@ -223,7 +223,7 @@ serve(async (req) => {
         const existingMeta = (existing?.meta as any) || {};
         const existingTags = Array.isArray(existing?.tags) ? (existing.tags as string[]) : [];
         const nextTags = Array.from(new Set([
-          ...existingTags, "vapi_inbound_call", funnelTag, "in_call",
+          ...existingTags.filter((tag) => tag !== "in_call"), "vapi_inbound_call", funnelTag, "in_call",
         ]));
         const nextMeta = {
           ...existingMeta,
@@ -231,10 +231,12 @@ serve(async (req) => {
           vapi_call_status: "in_call",
           vapi_assistant_id: callAssistantId,
           vapi_direct_dial: true,
-          vapi_call_started_at: existingMeta.vapi_call_started_at || new Date().toISOString(),
+          vapi_call_started_at: new Date().toISOString(),
+          vapi_last_contact: new Date().toISOString(),
           vapi_inbound_notes: notes,
           service_type: serviceType,
           lead_source: "vapi_inbound_call",
+          funnel_drafted_at: null,
         };
         
         let contactId: string;
@@ -611,6 +613,7 @@ serve(async (req) => {
           notes: (customerLead.notes || "") + "\n\n--- AI Call Report ---\n" + aiNotes,
           meta: {
             ...existingMeta,
+            funnel_drafted_at: null,
             vapi_call_status: callFailed ? "no_answer" : "completed",
             vapi_transcript: transcript,
             vapi_summary: summary,
@@ -754,20 +757,29 @@ serve(async (req) => {
           const em = (directLead?.meta as any) || {};
           const et = Array.isArray(directLead?.tags) ? (directLead.tags as string[]) : [];
           const nextTags = Array.from(new Set([
-            ...et, `${funnel.tag}_direct_call`, "vapi_direct",
+            ...et.filter((tag) => tag !== "in_call"), `${funnel.tag}_direct_call`, "vapi_direct",
             ...(mappedStatus === "in_call" || mappedStatus === "calling" ? ["in_call"] : []),
           ]));
           const nextMeta = {
-            ...em, vapi_call_id: callId, vapi_call_status: mappedStatus,
-            vapi_assistant_id: assistantId, vapi_direct_dial: true,
-            vapi_call_started_at: em.vapi_call_started_at || new Date().toISOString(),
+            ...em,
+            vapi_call_id: callId,
+            vapi_call_status: mappedStatus,
+            vapi_assistant_id: assistantId,
+            vapi_direct_dial: true,
+            vapi_call_started_at: mappedStatus === "in_call" || mappedStatus === "calling"
+              ? new Date().toISOString()
+              : (em.vapi_call_started_at || new Date().toISOString()),
+            vapi_last_contact: new Date().toISOString(),
             vapi_raw_status: rawStatus,
+            funnel_drafted_at: null,
           };
 
           if (directLead) {
             await sb.from("customers").update({
               phone: directLead.phone || customerPhone || null,
-              tags: nextTags, meta: nextMeta,
+              status: mappedStatus === "in_call" ? "lead" : directLead.status || "lead",
+              tags: nextTags,
+              meta: nextMeta,
               notes: directLead.notes || `Direct inbound call via ${funnel.label} AI line.`,
             }).eq("id", directLead.id);
             console.log(`[status-update] Updated ${funnel.tag} direct-call lead ${directLead.id}`);

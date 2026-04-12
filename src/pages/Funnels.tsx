@@ -33,6 +33,7 @@ interface FunnelLead {
   company?: string | null;
   property_address?: string | null;
   event_type?: string | null;
+  last_activity_at?: string | null;
   // Vapi AI
   vapi_call_status?: string | null;
   vapi_call_id?: string | null;
@@ -680,19 +681,21 @@ export default function Funnels() {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
         const remind = remindMap.get(c.id);
+        const isLive = ['in_call', 'calling'].includes((meta.vapi_call_status as string) || '');
         combined.push({
           id: c.id, funnel: 'webdesign' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'new', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
+          last_activity_at: (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at,
           vapi_call_status: (meta.vapi_call_status as string) || null,
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
-          drafted_at: (meta.funnel_drafted_at as string) || null,
+          drafted_at: isLive ? null : ((meta.funnel_drafted_at as string) || null),
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
@@ -705,19 +708,21 @@ export default function Funnels() {
       (vidLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
+        const isLive = ['in_call', 'calling'].includes((meta.vapi_call_status as string) || '');
         combined.push({
           id: c.id, funnel: 'videography' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
+          last_activity_at: (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at,
           vapi_call_status: (meta.vapi_call_status as string) || null,
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
-          drafted_at: (meta.funnel_drafted_at as string) || null,
+          drafted_at: isLive ? null : ((meta.funnel_drafted_at as string) || null),
           happy: !!(meta.happy),
           dead: !!(meta.dead),
         });
@@ -730,13 +735,14 @@ export default function Funnels() {
           full_name: r.full_name || r.email, email: r.email, phone: null,
           created_at: r.created_at, status: r.status || 'pending', notes: `Plan: ${r.plan} · Amount: $${(r.amount_cents / 100).toFixed(2)}`,
           company: null,
+          last_activity_at: r.created_at,
           vapi_call_status: null, vapi_call_id: null, ai_notes: null,
           vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
 
-      combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      combined.sort((a, b) => new Date(b.last_activity_at || b.created_at).getTime() - new Date(a.last_activity_at || a.created_at).getTime());
 
       const now = new Date();
       const visible = combined.filter((l) => {
