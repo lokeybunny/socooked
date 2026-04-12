@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import SEOHead from '@/components/SEOHead';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -121,8 +122,86 @@ export default function VideographyLanding() {
     }
   };
 
+  const videoJsonLd = useMemo(() => [
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "@id": "https://warren.guru/video#business",
+      "name": "Warren Guru Las Vegas Videography",
+      "alternateName": "Warren Guru Videographer",
+      "description": "Professional videography, live streaming, and event recording services in Las Vegas and Henderson, Nevada. Weddings, funerals, corporate events — multi-camera 4K broadcast quality.",
+      "url": "https://warren.guru/video",
+      "telephone": "+17023574528",
+      "email": "info@warren.guru",
+      "image": "https://warren.guru/images/og-video.jpg",
+      "priceRange": "$$",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Las Vegas",
+        "addressRegion": "NV",
+        "addressCountry": "US"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 36.1699,
+        "longitude": -115.1398
+      },
+      "areaServed": [
+        { "@type": "City", "name": "Las Vegas", "sameAs": "https://en.wikipedia.org/wiki/Las_Vegas" },
+        { "@type": "City", "name": "Henderson", "sameAs": "https://en.wikipedia.org/wiki/Henderson,_Nevada" },
+        { "@type": "City", "name": "North Las Vegas" },
+        { "@type": "City", "name": "Summerlin" },
+        { "@type": "City", "name": "Paradise" }
+      ],
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+        "opens": "07:00",
+        "closes": "22:00"
+      },
+      "sameAs": [
+        "https://discord.gg/warrenguru",
+        "https://youtube.com/@warrenguru",
+        "https://vimeo.com/warrenguru"
+      ]
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "serviceType": "Videography & Live Streaming",
+      "provider": { "@id": "https://warren.guru/video#business" },
+      "areaServed": { "@type": "City", "name": "Las Vegas" },
+      "description": "Professional live streaming and videography for weddings, funerals, corporate events, and special occasions in Las Vegas, NV. Multi-camera 4K coverage with bonded internet.",
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Videography Services",
+        "itemListElement": [
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Wedding Videography Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Funeral Live Streaming Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Corporate Event Recording Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Multi-Camera 4K Live Broadcast" } }
+        ]
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://warren.guru" },
+        { "@type": "ListItem", "position": 2, "name": "Videography", "item": "https://warren.guru/video" }
+      ]
+    }
+  ], []);
+
   return (
     <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
+      <SEOHead
+        title="Las Vegas Videographer & Live Streaming | Warren Guru"
+        description="Professional videography and live streaming services in Las Vegas, NV. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (702) 357-4528."
+        canonical="https://warren.guru/video"
+        keywords="Las Vegas videographer, live streaming Las Vegas, wedding videography Las Vegas, funeral live stream Nevada, event recording Henderson NV, videographer near me, Las Vegas video production, 4K live streaming Las Vegas"
+        jsonLd={videoJsonLd}
+      />
       {/* ─── Sticky header (matches AI Director) ─── */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-3 sm:px-6 py-3 md:py-4">
