@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Building2, Globe, Zap, Code, Palette,
-  Smartphone, Search, Clock, Rocket, CheckCircle, Loader2, MessageCircle, DoorOpen
+  Smartphone, Search, Clock, Rocket, CheckCircle, Loader2, MessageCircle, DoorOpen, X
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion } from 'framer-motion';
@@ -52,6 +52,7 @@ export default function WebDesignLanding() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const navigate = useNavigate();
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -319,17 +320,15 @@ export default function WebDesignLanding() {
               { name: 'Battery Rescue', url: 'https://quickstart-battery-rescue.lovable.app', img: batteryThumb },
               { name: 'BigTrout', url: 'https://bigtrout.fun', img: 'https://api.microlink.io/?url=https://bigtrout.fun&screenshot=true&meta=false&embed=screenshot.url' },
             ].map((site, i) => (
-              <motion.a
+              <motion.div
                 key={site.name}
-                href={site.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={() => setIframeUrl(site.url)}
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true, margin: '-30px' }}
                 variants={fade}
                 custom={i + 3}
-                className="group relative rounded-xl overflow-hidden aspect-video bg-black/40 border border-cyan-500/[0.06] hover:border-cyan-500/30 transition-all duration-500"
+                className="group relative rounded-xl overflow-hidden aspect-video bg-black/40 border border-cyan-500/[0.06] hover:border-cyan-500/30 transition-all duration-500 cursor-pointer"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -344,11 +343,11 @@ export default function WebDesignLanding() {
                     <span className="text-xs sm:text-sm font-medium tracking-wider text-white/90">{site.name}</span>
                     <div className="flex items-center gap-1 mt-1">
                       <DoorOpen className="h-3 w-3 text-cyan-400/60" />
-                      <span className="text-[9px] tracking-[0.2em] uppercase text-cyan-400/60">Visit Site</span>
+                      <span className="text-[9px] tracking-[0.2em] uppercase text-cyan-400/60">Preview Site</span>
                     </div>
                   </div>
                 </div>
-              </motion.a>
+              </motion.div>
             ))}
           </div>
         </div>
