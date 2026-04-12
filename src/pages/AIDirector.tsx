@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp, DoorOpen } from 'lucide-react';
+import { ArrowRight, Play, Film, Sparkles, GraduationCap, TrendingUp, X, ChevronLeft, ChevronRight, MessageCircle, ArrowUp, DoorOpen, Youtube } from 'lucide-react';
 import warrenHero from '@/assets/landing/warren-guru-hero.jpg';
 
 /* ─── Real Vimeo portfolio (scraped from vimeo.com/warrenguru) ─── */
@@ -128,6 +128,15 @@ export default function AIDirector() {
               >
                 Join Discord
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+              <a
+                href="https://youtube.com/@warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2 px-6 py-3 rounded-full border border-red-500/30 text-red-400 text-sm tracking-wide hover:bg-red-500/10 hover:text-red-300 transition-all"
+              >
+                <Youtube className="h-4 w-4" />
+                YouTube
               </a>
               <Link
                 to="/course"
