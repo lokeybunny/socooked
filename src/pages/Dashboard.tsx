@@ -18,13 +18,15 @@ interface Stats {
   paidConvertedCount: number;
   emailsToday: number;
   prospectTotalValue: number;
+  aiCourseRevenue: number;
+  aiCourseCount: number;
 }
 
 const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, prospectTotalValue: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, prospectTotalValue: 0, aiCourseRevenue: 0, aiCourseCount: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -155,7 +157,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, aiCourseRes] = await Promise.all([
         supabase.from('customers').select('id, meta').eq('status', 'prospect'),
         supabase.from('customers').select('id, meta').eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
@@ -163,6 +165,7 @@ export default function Dashboard() {
         supabase.from('communications').select('type, created_at'),
         supabase.from('invoices').select('customer_id, status'),
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
+        supabase.from('guru_subscriptions').select('id, amount_cents, status').eq('plan', 'ai_course').eq('status', 'active'),
       ]);
 
       const allComms = comms.data || [];
@@ -201,6 +204,10 @@ export default function Dashboard() {
       let paidConvertedCount = 0;
       invoicesByCustomer.forEach((allPaid) => { if (allPaid) paidConvertedCount++; });
 
+      const aiCourseRows = aiCourseRes.data || [];
+      const aiCourseCount = aiCourseRows.length;
+      const aiCourseRevenue = aiCourseCount * 299;
+
       setStats({
         customers: prospectCount,
         prospectCount,
@@ -211,6 +218,8 @@ export default function Dashboard() {
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
         prospectTotalValue,
+        aiCourseRevenue,
+        aiCourseCount,
       });
 
       setRecentCustomers(rc.data || []);
@@ -223,7 +232,7 @@ export default function Dashboard() {
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
     { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
-    { label: 'Potential Lead Conversion + Crypto', value: `$${(stats.prospectTotalValue + cryptoHoldingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects ($${stats.prospectTotalValue.toLocaleString()}) + $${cryptoHoldingUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} crypto`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Potential Lead Conversion + Crypto', value: `$${(stats.prospectTotalValue + cryptoHoldingUsd + stats.aiCourseRevenue).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, subtitle: `${stats.prospectCount + stats.prospectEmailedCount} prospects ($${stats.prospectTotalValue.toLocaleString()}) + $${cryptoHoldingUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} crypto + ${stats.aiCourseCount} AI courses ($${stats.aiCourseRevenue.toLocaleString()})`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
