@@ -561,7 +561,7 @@ serve(async (req) => {
 
       // ─── Map disposition to pipeline stage ───
       const stageMap: Record<string, string> = {
-        interested: "prospect",
+        interested: "contacted",
         booked: "scheduled",
         follow_up: "callback",
         not_interested: "dead",
