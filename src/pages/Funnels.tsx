@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
-  Globe, Home, Filter, Clock, Mail, Phone, Search, Video,
+  Globe, GraduationCap, Filter, Clock, Mail, Phone, Search, Video,
   Bot, Play, ExternalLink, Send, Loader2,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
   FileText, Mic, Copy, Sparkles, UserPlus, BellRing, Zap
@@ -19,11 +19,11 @@ import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'realestate';
+type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses';
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'realestate' | 'videography';
+  funnel: 'webdesign' | 'aicourses' | 'videography';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -62,7 +62,7 @@ const PAGE_SIZE = 30;
 
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  realestate: { label: 'Real Estate', icon: Home, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
+  aicourses: { label: 'AI Courses', icon: GraduationCap, color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
   videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
 };
 
@@ -84,16 +84,11 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
   ],
-  realestate: [
-    { value: 'new', label: 'Funnel Leads' },
-    { value: 'req_trace', label: 'Req. Trace' },
-    { value: 'skip_traced', label: 'Skip Traced' },
-    { value: 'contacted', label: 'Contacted' },
-    { value: 'negotiate', label: 'Negotiate' },
-    { value: 'offer_sent', label: 'Offer Sent' },
-    { value: 'under_contract', label: 'Under Contract' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'dead', label: 'Dead' },
+  aicourses: [
+    { value: 'pending', label: 'Pending Payment' },
+    { value: 'active', label: 'Active' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' },
   ],
 };
 
