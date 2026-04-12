@@ -272,7 +272,7 @@ export default function WebDesignLanding() {
             <img
               src={web3dWireframe}
               alt="Futuristic 3D wireframe outline of a website interface"
-              className="w-full max-w-2xl drop-shadow-[0_0_30px_rgba(6,182,212,0.15)]"
+              className="w-[140%] max-w-none drop-shadow-[0_0_30px_rgba(6,182,212,0.15)]"
               loading="lazy"
               width={1600}
               height={1600}
