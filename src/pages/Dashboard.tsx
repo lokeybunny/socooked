@@ -157,7 +157,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, aiCourseRes] = await Promise.all([
         supabase.from('customers').select('id, meta').eq('status', 'prospect'),
         supabase.from('customers').select('id, meta').eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
@@ -165,6 +165,7 @@ export default function Dashboard() {
         supabase.from('communications').select('type, created_at'),
         supabase.from('invoices').select('customer_id, status'),
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
+        supabase.from('guru_subscriptions').select('id, amount_cents, status').eq('plan', 'ai_course').eq('status', 'active'),
       ]);
 
       const allComms = comms.data || [];
