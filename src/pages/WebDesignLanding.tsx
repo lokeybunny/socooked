@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Building2, Globe, Zap, Code, Palette,
-  Smartphone, Search, Clock, Rocket, CheckCircle, Loader2, MessageCircle, DoorOpen, X
+  Smartphone, Search, Clock, Rocket, CheckCircle, Loader2, MessageCircle, DoorOpen, X, Star
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
