@@ -386,7 +386,6 @@ export default function Landing() {
         </AnimatePresence>
       </div>
     </div>
-    <FloatingBookNow />
     <motion.button
       onClick={() => navigate('/course')}
       initial={{ opacity: 0, scale: 0.8 }}
