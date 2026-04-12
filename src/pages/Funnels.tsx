@@ -742,6 +742,11 @@ export default function Funnels() {
     const now = new Date().toISOString();
     if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: { funnel_drafted_at: now } } as any).eq('id', lead.id);
+    } else if ((lead._table as string) === 'guru_subscriptions') {
+      // Read existing meta, merge drafted_at
+      const { data: row } = await supabase.from('guru_subscriptions').select('meta').eq('id', lead.id).single();
+      const existingMeta = (row?.meta as Record<string, unknown>) || {};
+      await supabase.from('guru_subscriptions').update({ meta: { ...existingMeta, funnel_drafted_at: now } } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: now }).eq('id', lead.id);
     }
@@ -752,6 +757,11 @@ export default function Funnels() {
   const handleUndraft = async (lead: FunnelLead) => {
     if (lead._table === 'customers') {
       await supabase.from('customers').update({ meta: {} } as any).eq('id', lead.id);
+    } else if ((lead._table as string) === 'guru_subscriptions') {
+      const { data: row } = await supabase.from('guru_subscriptions').select('meta').eq('id', lead.id).single();
+      const existingMeta = (row?.meta as Record<string, unknown>) || {};
+      delete existingMeta.funnel_drafted_at;
+      await supabase.from('guru_subscriptions').update({ meta: existingMeta } as any).eq('id', lead.id);
     } else {
       await supabase.from('lw_landing_leads').update({ drafted_at: null }).eq('id', lead.id);
     }
