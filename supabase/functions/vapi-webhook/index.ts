@@ -680,11 +680,20 @@ serve(async (req) => {
     if (message?.type === "status-update") {
       const callId = message.call?.id;
       const status = message.status;
+      const assistantId = message.call?.assistantId || message.call?.assistant?.id || "";
+
+      // ─── Assistant-to-funnel mapping ───
+      const WEB_ASSISTANT_ID = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
+      const VIDEO_ASSISTANT_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
+
       if (callId && status) {
+        // Determine mapped call status
+        const mappedStatus = status === "in-progress" ? "in_call" : status === "ended" ? "completed" : status;
+
         // Try lw_landing_leads first
         const { data: llLead } = await sb
           .from("lw_landing_leads")
-          .update({ vapi_call_status: status === "ended" ? "completed" : status })
+          .update({ vapi_call_status: mappedStatus })
           .eq("vapi_call_id", callId)
           .select("id")
           .maybeSingle();
@@ -693,16 +702,56 @@ serve(async (req) => {
         if (!llLead) {
           const { data: custRow } = await sb
             .from("customers")
-            .select("id, meta")
+            .select("id, meta, source")
             .filter("meta->>vapi_call_id", "eq", callId)
             .maybeSingle();
+
           if (custRow) {
             await sb.from("customers").update({
               meta: {
                 ...((custRow.meta as any) || {}),
-                vapi_call_status: status === "ended" ? "completed" : status,
+                vapi_call_status: mappedStatus,
               },
             }).eq("id", custRow.id);
+          }
+        }
+
+        // ─── Direct-dial Vapi calls: route to correct funnel as "IN CALL" ───
+        if (status === "in-progress" && (assistantId === WEB_ASSISTANT_ID || assistantId === VIDEO_ASSISTANT_ID)) {
+          const customerPhone = message.call?.customer?.number || "";
+          const isWeb = assistantId === WEB_ASSISTANT_ID;
+          const funnelSource = isWeb ? "webdesign-landing" : "videography-landing";
+          const funnelCategory = isWeb ? "web_design" : "videography";
+          const funnelTag = isWeb ? "web_direct_call" : "video_direct_call";
+
+          console.log(`[vapi-webhook] Direct-dial IN CALL detected: assistant=${isWeb ? "web" : "video"}, phone=${customerPhone}, callId=${callId}`);
+
+          // Check if a customer already exists with this call ID
+          const { data: existingByCall } = await sb
+            .from("customers")
+            .select("id")
+            .filter("meta->>vapi_call_id", "eq", callId)
+            .maybeSingle();
+
+          if (!existingByCall) {
+            // Create a new lead record for this direct call
+            const cleanPhone = customerPhone.replace(/^\+1/, "");
+            await sb.from("customers").insert({
+              full_name: `Direct Caller (${cleanPhone || "Unknown"})`,
+              phone: cleanPhone || null,
+              source: funnelSource,
+              category: funnelCategory,
+              status: "lead",
+              tags: [funnelTag, "in_call", "vapi_direct"],
+              meta: {
+                vapi_call_id: callId,
+                vapi_call_status: "in_call",
+                vapi_assistant_id: assistantId,
+                vapi_direct_dial: true,
+                vapi_call_started_at: new Date().toISOString(),
+              },
+            });
+            console.log(`[vapi-webhook] Created ${funnelCategory} direct-call lead for ${cleanPhone}`);
           }
         }
       }

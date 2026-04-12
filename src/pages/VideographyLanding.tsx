@@ -289,6 +289,14 @@ export default function VideographyLanding() {
               <div className="text-xs tracking-[0.2em] uppercase mt-1">Stream Uptime</div>
             </div>
           </div>
+
+          {/* 5 Gold Stars */}
+          <div className="mt-8 flex items-center justify-center gap-1.5">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="h-5 w-5 sm:h-6 sm:w-6 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
+            ))}
+          </div>
+          <p className="mt-2 text-xs tracking-[0.15em] uppercase text-amber-400/60">Trusted by Las Vegas Event Organizers</p>
         </motion.div>
 
         <motion.div className="absolute bottom-8 left-1/2 -translate-x-1/2" animate={{ y: [0, 8, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}>
