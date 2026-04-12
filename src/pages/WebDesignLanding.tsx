@@ -442,7 +442,7 @@ export default function WebDesignLanding() {
           <p className="text-xs text-white/15">© {new Date().getFullYear()} Warren Guru. All rights reserved.</p>
         </div>
       </footer>
-      <FloatingBookNow />
+      <FloatingBookNow variant="cyan" />
       <ScrollToTopButton />
 
       {/* Iframe Preview Modal */}
