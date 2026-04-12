@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
