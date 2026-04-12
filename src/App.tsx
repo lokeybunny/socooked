@@ -180,6 +180,7 @@ const App = () => (
                 <Route path="/course/success" element={<CourseFunnel />} />
                 <Route path="/course/login" element={<CourseLogin />} />
                 <Route path="/course/learn" element={<CourseLearn />} />
+                <Route path="/payme" element={<PayMe />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
