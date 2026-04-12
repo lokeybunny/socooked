@@ -10,7 +10,7 @@ import {
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { motion } from 'framer-motion';
 
-import heroImg from '@/assets/landing/parallax-webdesign-hero.jpg';
+import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
 
