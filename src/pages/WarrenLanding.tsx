@@ -132,9 +132,6 @@ export default function WarrenLanding() {
             <Link to="/" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               AI
             </Link>
-            <span className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400">
-              Crypto
-            </span>
             <Link to="/video" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Video
             </Link>
