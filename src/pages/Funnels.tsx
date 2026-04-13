@@ -61,6 +61,7 @@ interface FunnelLead {
 }
 
 const PAGE_SIZE = 30;
+const LIVE_CALL_STALE_MS = 15 * 60 * 1000;
 
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
@@ -692,7 +693,13 @@ export default function Funnels() {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
         const remind = remindMap.get(c.id);
-        const isLive = ['in_call', 'calling'].includes((meta.vapi_call_status as string) || '');
+        const lastActivityAt = (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at;
+        const rawCallStatus = (meta.vapi_call_status as string) || null;
+        const isFreshLiveCall = !!(
+          rawCallStatus &&
+          ['in_call', 'calling'].includes(rawCallStatus) &&
+          Date.now() - new Date(lastActivityAt).getTime() < LIVE_CALL_STALE_MS
+        );
         const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
           id: c.id, funnel: 'webdesign' as const, _table: 'customers',
@@ -700,15 +707,15 @@ export default function Funnels() {
           created_at: c.created_at, status: c.status || 'new', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
-          last_activity_at: (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at,
-          vapi_call_status: (meta.vapi_call_status as string) || null,
+          last_activity_at: lastActivityAt,
+          vapi_call_status: isFreshLiveCall ? rawCallStatus : (rawCallStatus === 'in_call' || rawCallStatus === 'calling' ? null : rawCallStatus),
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
           is_inbound: isDirectInbound,
-          drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
+          drafted_at: (isFreshLiveCall || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
@@ -721,7 +728,13 @@ export default function Funnels() {
       (vidLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
-        const isLive = ['in_call', 'calling'].includes((meta.vapi_call_status as string) || '');
+        const lastActivityAt = (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at;
+        const rawCallStatus = (meta.vapi_call_status as string) || null;
+        const isFreshLiveCall = !!(
+          rawCallStatus &&
+          ['in_call', 'calling'].includes(rawCallStatus) &&
+          Date.now() - new Date(lastActivityAt).getTime() < LIVE_CALL_STALE_MS
+        );
         const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
           id: c.id, funnel: 'videography' as const, _table: 'customers',
@@ -729,15 +742,15 @@ export default function Funnels() {
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
-          last_activity_at: (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at,
-          vapi_call_status: (meta.vapi_call_status as string) || null,
+          last_activity_at: lastActivityAt,
+          vapi_call_status: isFreshLiveCall ? rawCallStatus : (rawCallStatus === 'in_call' || rawCallStatus === 'calling' ? null : rawCallStatus),
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
           is_inbound: isDirectInbound,
-          drafted_at: (isLive || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
+          drafted_at: (isFreshLiveCall || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           happy: !!(meta.happy),
           dead: !!(meta.dead),
         });
