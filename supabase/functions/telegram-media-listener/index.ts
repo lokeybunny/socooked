@@ -4305,7 +4305,28 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    if (action === 'start') {
+    // ─── Handle Test Call command ───
+    if (action === 'testcall') {
+      // Clear any existing testcall session
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'testcall_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create testcall session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'testcall_session',
+        payload: { chat_id: chatId, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '📞 <b>Test Call</b>\n\nEnter a phone number to place a test outbound call.\n\n<i>Format: (702) 555-1234 or +17025551234</i>',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
         text: '🤖 <b>CLAWDbot Command Center</b>\n\nTap a button or type a command. I\'m ready to help with invoices, customers, emails, social media, and more.\n\n<i>Tip: Type naturally — "Send Bryan an email about the project update" — and I\'ll handle the rest.</i>',
