@@ -650,6 +650,16 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
               <Zap className="h-3 w-3" /> POWER DIALED
             </Badge>
           )}
+          {lead.funnel === 'powerdial' && lead.status === 'positive' && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-green-600 border-green-500/30 bg-green-500/10">
+              👍 Positive
+            </Badge>
+          )}
+          {lead.funnel === 'powerdial' && lead.status === 'negative' && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-red-600 border-red-500/30 bg-red-500/10">
+              👎 Negative
+            </Badge>
+          )}
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
