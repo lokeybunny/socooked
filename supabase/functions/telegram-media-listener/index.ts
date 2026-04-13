@@ -5568,6 +5568,49 @@ Deno.serve(async (req) => {
         await processProposalSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
       } else if (sessionType === 'audit_session') {
         await processAuditSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
+      } else if (sessionType === 'testcall_session') {
+        // Handle test call phone number input inline
+        await supabase.from('webhook_events').delete().eq('id', session.id)
+        const phoneInput = text.trim()
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `📞 <b>Dialing test call to:</b> <code>${phoneInput}</code>\n\n<i>Placing call via PowerD engine...</i>`,
+          parse_mode: 'HTML',
+          reply_markup: PAGE_3_KEYBOARD,
+        })
+        try {
+          const pdRes = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-engine`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ action: 'test_call', phone: phoneInput }),
+          })
+          const pdData = await pdRes.json()
+          if (pdRes.ok && pdData.ok) {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `✅ <b>Test call placed!</b>\n\n📱 To: <code>${pdData.to}</code>\n📤 From: <code>${pdData.from}</code>\n🆔 SID: <code>${pdData.call_sid}</code>`,
+              parse_mode: 'HTML',
+              reply_markup: PAGE_3_KEYBOARD,
+            })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `❌ <b>Test call failed</b>\n\n${pdData.error || 'Unknown error'}`,
+              parse_mode: 'HTML',
+              reply_markup: PAGE_3_KEYBOARD,
+            })
+          }
+        } catch (e: any) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Test call error:</b> ${e.message}`,
+            parse_mode: 'HTML',
+            reply_markup: PAGE_3_KEYBOARD,
+          })
+        }
       } else {
         const mod = sessionType.replace('_session', '') as any
         await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
