@@ -11,7 +11,7 @@ const sb = createClient(supabaseUrl, serviceKey);
 
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-const TWILIO_FROM = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
+const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
 
 function json(data: unknown, status = 200) {
