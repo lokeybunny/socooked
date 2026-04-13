@@ -4217,8 +4217,8 @@ Deno.serve(async (req) => {
     const action = resolvePersistentAction(text)
 
     // Session types we track for cleanup and workflow continuation
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'arbitrage_session', 'arbitrage_awaiting_photo', 'vid_poc_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'vid_poc_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'arbitrage_session', 'arbitrage_awaiting_photo', 'vid_poc_session', 'testcall_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session', 'vid_poc_session', 'testcall_session']
 
     // ─── If this is a reply-to-message and no button/command matched, stay silent ───
     // Allow active workflows (especially arbitrage) to continue when the user replies directly to the bot prompt.
@@ -4307,9 +4307,10 @@ Deno.serve(async (req) => {
 
     // ─── Handle Test Call command ───
     if (action === 'testcall') {
-      // Clear any existing testcall session
+      // Clear ALL active sessions for this chat to prevent conflicts
       await supabase.from('webhook_events').delete()
-        .eq('source', 'telegram').eq('event_type', 'testcall_session')
+        .eq('source', 'telegram')
+        .in('event_type', ALL_SESSIONS)
         .filter('payload->>chat_id', 'eq', String(chatId))
       // Create testcall session
       await supabase.from('webhook_events').insert({
@@ -5567,6 +5568,49 @@ Deno.serve(async (req) => {
         await processProposalSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
       } else if (sessionType === 'audit_session') {
         await processAuditSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
+      } else if (sessionType === 'testcall_session') {
+        // Handle test call phone number input inline
+        await supabase.from('webhook_events').delete().eq('id', session.id)
+        const phoneInput = text.trim()
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `📞 <b>Dialing test call to:</b> <code>${phoneInput}</code>\n\n<i>Placing call via PowerD engine...</i>`,
+          parse_mode: 'HTML',
+          reply_markup: PAGE_3_KEYBOARD,
+        })
+        try {
+          const pdRes = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-engine`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            },
+            body: JSON.stringify({ action: 'test_call', phone: phoneInput }),
+          })
+          const pdData = await pdRes.json()
+          if (pdRes.ok && pdData.ok) {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `✅ <b>Test call placed!</b>\n\n📱 To: <code>${pdData.to}</code>\n📤 From: <code>${pdData.from}</code>\n🆔 SID: <code>${pdData.call_sid}</code>`,
+              parse_mode: 'HTML',
+              reply_markup: PAGE_3_KEYBOARD,
+            })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: chatId,
+              text: `❌ <b>Test call failed</b>\n\n${pdData.error || 'Unknown error'}`,
+              parse_mode: 'HTML',
+              reply_markup: PAGE_3_KEYBOARD,
+            })
+          }
+        } catch (e: any) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Test call error:</b> ${e.message}`,
+            parse_mode: 'HTML',
+            reply_markup: PAGE_3_KEYBOARD,
+          })
+        }
       } else {
         const mod = sessionType.replace('_session', '') as any
         await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
