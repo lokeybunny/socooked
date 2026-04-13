@@ -109,7 +109,7 @@ function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: strin
 
 async function findBestCustomerMatch(
   sb: any,
-  criteria: { callId?: string; phone?: string; email?: string; source?: string | null },
+  criteria: { callId?: string; phone?: string; phones?: string[]; email?: string; source?: string | null },
 ) {
   const matches = new Map<string, any>();
   const remember = (rows: any[] | null | undefined) => {
@@ -126,9 +126,13 @@ async function findBestCustomerMatch(
     remember(data);
   }
 
-  if (criteria.phone && criteria.phone.length >= 10) {
+  // Search by all provided phone numbers
+  const allPhones = [...(criteria.phones || []), ...(criteria.phone ? [criteria.phone] : [])].filter(
+    (p) => p && p.length >= 10
+  );
+  for (const ph of [...new Set(allPhones)]) {
     const { data } = await sb.from("customers").select("*")
-      .eq("phone", criteria.phone)
+      .eq("phone", ph)
       .order("updated_at", { ascending: false })
       .limit(10);
     remember(data);
