@@ -607,8 +607,13 @@ serve(async (req) => {
       }
 
       // Always check customers table too (direct-dial leads)
-      const { data: custRow } = await sb.from("customers").select("*")
-        .filter("meta->>vapi_call_id", "eq", callId).maybeSingle();
+      // Use limit(1) to avoid maybeSingle() failure when multiple records share the same call_id
+      const { data: custRows } = await sb.from("customers").select("*")
+        .filter("meta->>vapi_call_id", "eq", callId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const custRow = custRows?.[0] || null;
+      if (!custRow) console.log(`[end-of-call] No customer found by call_id ${callId}, trying phone fallback`);
 
       // Also try by phone if no match by callId
       let customerLead = custRow;
@@ -655,6 +660,21 @@ serve(async (req) => {
         }).eq("id", customerLead.id);
 
         console.log(`[end-of-call] Updated customer ${customerLead.id}: status=${newStatus}, disposition=${disposition}`);
+
+        // Clear stale in_call on any OTHER customers that share this call_id
+        const { data: dupes } = await sb.from("customers").select("id, meta")
+          .filter("meta->>vapi_call_id", "eq", callId)
+          .neq("id", customerLead.id);
+        if (dupes?.length) {
+          for (const d of dupes) {
+            const dm = (d.meta as any) || {};
+            await sb.from("customers").update({
+              meta: { ...dm, vapi_call_status: "completed", vapi_last_contact: new Date().toISOString() },
+              tags: Array.isArray((d as any).tags) ? (d as any).tags.filter((t: string) => t !== "in_call") : [],
+            }).eq("id", d.id);
+            console.log(`[end-of-call] Cleared stale in_call on duplicate customer ${d.id}`);
+          }
+        }
 
         // Log to communications table for audit trail
         await sb.from("communications").insert({
