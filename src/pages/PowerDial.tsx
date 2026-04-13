@@ -112,6 +112,9 @@ export default function PowerDial() {
     try {
       const { data, error } = await supabase.functions.invoke('powerdial-engine', { body });
       if (error) throw error;
+      if ((data as any)?.reason && ((data as any)?.reason === 'twilio_error' || (data as any)?.reason === 'twilio_from_missing') && (data as any)?.message) {
+        toast.error((data as any).message);
+      }
       await loadCampaigns();
       if (activeCampaign) {
         const { data: updated } = await supabase.from('powerdial_campaigns').select('*').eq('id', activeCampaign.id).single();
