@@ -54,6 +54,7 @@ export default function PowerDial() {
   const [foundLeads, setFoundLeads] = useState<any[]>([]);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [currentDialing, setCurrentDialing] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -191,15 +192,15 @@ export default function PowerDial() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Phone className="h-5 w-5 text-primary" />
+            <div className="p-2 rounded-lg bg-purple-400/20">
+              <Sparkles className="h-5 w-5 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">POWERDIAL</h1>
+              <h1 className="text-xl font-bold text-foreground">PowerD</h1>
               <p className="text-xs text-muted-foreground">Automated outbound calling system</p>
             </div>
           </div>
-          <Button onClick={() => setShowCreate(true)} size="sm">
+          <Button onClick={() => setShowCreate(true)} size="sm" className="bg-purple-500 hover:bg-purple-600 text-white">
             <Plus className="h-4 w-4 mr-1" /> New Campaign
           </Button>
         </div>
@@ -227,6 +228,11 @@ export default function PowerDial() {
           <Button variant="ghost" size="icon" onClick={loadCampaigns}>
             <RefreshCw className="h-4 w-4" />
           </Button>
+          {activeCampaign && (activeCampaign.status === 'stopped' || activeCampaign.status === 'completed' || activeCampaign.status === 'idle') && (
+            <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => setDeleteConfirmId(activeCampaign.id)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         {activeCampaign && (
