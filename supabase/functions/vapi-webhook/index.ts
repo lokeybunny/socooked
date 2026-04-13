@@ -90,13 +90,15 @@ function isPlaceholderLeadName(value: unknown): boolean {
   return normalized.startsWith("direct caller (") || normalized.startsWith("caller (");
 }
 
-function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: string; email?: string; source?: string | null }): number {
+function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: string; phones?: string[]; email?: string; source?: string | null }): number {
   const meta = (row?.meta as any) || {};
   let score = 0;
 
   if (criteria.callId && String(meta.vapi_call_id || "") === criteria.callId) score += 100;
   if (criteria.source && row?.source === criteria.source) score += 25;
-  if (criteria.phone && normalizePhone(row?.phone || "") === criteria.phone) score += 20;
+  const allPhones = [...(criteria.phones || []), ...(criteria.phone ? [criteria.phone] : [])].filter(Boolean);
+  const rowPhone = normalizePhone(row?.phone || "");
+  if (rowPhone && allPhones.includes(rowPhone)) score += 20;
   if (criteria.email && normalizeEmail(row?.email) === criteria.email) score += 20;
   if (!isPlaceholderLeadName(row?.full_name)) score += 5;
   if (row?.email) score += 2;
@@ -107,7 +109,7 @@ function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: strin
 
 async function findBestCustomerMatch(
   sb: any,
-  criteria: { callId?: string; phone?: string; email?: string; source?: string | null },
+  criteria: { callId?: string; phone?: string; phones?: string[]; email?: string; source?: string | null },
 ) {
   const matches = new Map<string, any>();
   const remember = (rows: any[] | null | undefined) => {
@@ -124,9 +126,13 @@ async function findBestCustomerMatch(
     remember(data);
   }
 
-  if (criteria.phone && criteria.phone.length >= 10) {
+  // Search by all provided phone numbers
+  const allPhones = [...(criteria.phones || []), ...(criteria.phone ? [criteria.phone] : [])].filter(
+    (p) => p && p.length >= 10
+  );
+  for (const ph of [...new Set(allPhones)]) {
     const { data } = await sb.from("customers").select("*")
-      .eq("phone", criteria.phone)
+      .eq("phone", ph)
       .order("updated_at", { ascending: false })
       .limit(10);
     remember(data);
@@ -268,9 +274,11 @@ serve(async (req) => {
       // ──── TOOL: create_or_update_lead ────
       if (fnName === "create_or_update_lead") {
         const name = (params.name || params.full_name || "").trim();
-        const phone = normalizePhone(
-          params.phone || message?.call?.customer?.number || message?.call?.phoneNumber?.number || "",
+        const paramsPhone = normalizePhone(params.phone || "");
+        const callerDevicePhone = normalizePhone(
+          message?.call?.customer?.number || message?.call?.phoneNumber?.number || "",
         );
+        const phone = paramsPhone || callerDevicePhone;
         const email = normalizeEmail(params.email);
         const serviceType = (params.service_type || "").toLowerCase();
         const notes = params.notes || "";
@@ -280,7 +288,9 @@ serve(async (req) => {
         const source = funnel?.source || (serviceType.includes("video") ? "videography-landing" : "webdesign-landing");
         const funnelTag = funnel?.tag || (serviceType.includes("video") ? "video" : "web");
         
-        const existing = await findBestCustomerMatch(sb, { callId, phone, email, source });
+        // Search by BOTH the params phone AND the caller's device phone to avoid duplicates
+        const searchPhones = [paramsPhone, callerDevicePhone].filter(Boolean);
+        const existing = await findBestCustomerMatch(sb, { callId, phone, phones: searchPhones, email, source });
         
         const existingMeta = (existing?.meta as any) || {};
         const existingTags = Array.isArray(existing?.tags) ? (existing.tags as string[]) : [];
@@ -308,7 +318,7 @@ serve(async (req) => {
           await sb.from("customers").update({
             full_name: name || existing.full_name,
             email: email || existing.email,
-            phone: phone || existing.phone,
+            phone: phone || existing.phone || callerDevicePhone || null,
             source: existing.source || source,
             tags: nextTags,
             notes: existing.notes
