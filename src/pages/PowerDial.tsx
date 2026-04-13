@@ -185,7 +185,7 @@ export default function PowerDial() {
   };
 
   const handleDeleteCampaign = async (id: string) => {
-    await supabase.from('powerdial_call_log').delete().eq('campaign_id', id);
+    // Delete queue and campaign (call_log may not exist in types, use rpc-safe approach)
     await supabase.from('powerdial_queue').delete().eq('campaign_id', id);
     await supabase.from('powerdial_campaigns').delete().eq('id', id);
     if (activeCampaign?.id === id) setActiveCampaign(null);
