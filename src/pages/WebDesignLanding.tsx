@@ -154,7 +154,7 @@ export default function WebDesignLanding() {
       "alternateName": "Warren Guru Web Design",
       "description": "AI-powered web design and development services in Las Vegas, Nevada. Custom responsive websites for small businesses — built in 48 hours with SEO, branding, and lead capture.",
       "url": "https://warren.guru/web",
-      "telephone": "+17474949386",
+      "telephone": "+17023574528",
       "email": "info@warren.guru",
       "image": "https://warren.guru/images/og-web.jpg",
       "priceRange": "$$",
@@ -219,7 +219,7 @@ export default function WebDesignLanding() {
     <div className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
       <SEOHead
         title="Las Vegas Web Design & Development | Warren Guru"
-        description="AI-powered web design for Las Vegas businesses. Custom responsive websites with SEO, branding, and lead capture — built in 48 hours. 200+ sites delivered. Call (747) 494-9386."
+        description="AI-powered web design for Las Vegas businesses. Custom responsive websites with SEO, branding, and lead capture — built in 48 hours. 200+ sites delivered. Call (702) 357-4528."
         canonical="https://warren.guru/web"
         keywords="Las Vegas web design, web developer Las Vegas, website design Henderson NV, small business website Las Vegas, affordable web design Nevada, AI web design Las Vegas, SEO website Las Vegas, web designer near me"
         jsonLd={webJsonLd}
@@ -290,8 +290,8 @@ export default function WebDesignLanding() {
               Get Your Website
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </a>
-            <a href="tel:+17474949386" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.05] text-cyan-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-cyan-500/[0.1] hover:border-cyan-500/30 transition-all">
-              📞 (747) 494-9386
+            <a href="tel:+17023574528" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.05] text-cyan-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-cyan-500/[0.1] hover:border-cyan-500/30 transition-all">
+              📞 (702) 357-4528
             </a>
           </div>
 
