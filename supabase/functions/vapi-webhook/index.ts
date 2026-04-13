@@ -318,7 +318,7 @@ serve(async (req) => {
           await sb.from("customers").update({
             full_name: name || existing.full_name,
             email: email || existing.email,
-            phone: phone || existing.phone,
+            phone: phone || existing.phone || callerDevicePhone || null,
             source: existing.source || source,
             tags: nextTags,
             notes: existing.notes
