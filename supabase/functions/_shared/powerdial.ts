@@ -749,5 +749,9 @@ export async function advanceCampaign(campaignId: string, logPrefix = "[powerdia
     await wait(delay);
   }
 
+  const tripleDialEnabled = Boolean((campaign.settings as any)?.triple_dial);
+  if (tripleDialEnabled) {
+    return dialNextBatch(campaignId, 3, logPrefix);
+  }
   return dialNext(campaignId, logPrefix);
 }
