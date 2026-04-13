@@ -308,7 +308,7 @@ serve(async (req) => {
         const notes = params.notes || "";
         const callId = message?.call?.id || "";
         
-        const funnel = getAssistantFunnel(callAssistantId);
+        const funnel = getAssistantFunnel(callAssistantId, message?.call);
         const source = funnel?.source || (serviceType.includes("video") ? "videography-landing" : "webdesign-landing");
         const funnelTag = funnel?.tag || (serviceType.includes("video") ? "video" : "web");
         
@@ -482,7 +482,7 @@ serve(async (req) => {
         const callerEmail = params.email || "";
         const { hour, min } = parseTime(time);
         
-        const funnel = getAssistantFunnel(callAssistantId);
+        const funnel = getAssistantFunnel(callAssistantId, message?.call);
         const isVideo = serviceType.includes("video") || funnel?.tag === "video";
         const durationMinutes = params.duration_minutes || (isVideo ? 180 : 60);
 
@@ -700,7 +700,7 @@ serve(async (req) => {
       }
 
       // Always check customers table too (direct-dial leads)
-      const funnel = getAssistantFunnel(assistantId);
+      const funnel = getAssistantFunnel(assistantId, message?.call || payload?.call);
       const customerLead = await findBestCustomerMatch(sb, {
         callId,
         phone: customerPhone,
@@ -810,7 +810,7 @@ serve(async (req) => {
 
       // If neither found, and we have a phone, create a new lead
       if (!llLead && !customerLead && customerPhone) {
-        const funnel = getAssistantFunnel(assistantId);
+        const funnel = getAssistantFunnel(assistantId, message?.call || payload?.call);
         if (funnel) {
           const { error: insertError } = await sb.from("customers").insert({
             full_name: `Caller (${customerPhone})`,
@@ -871,7 +871,7 @@ serve(async (req) => {
       if (callId && mappedStatus) {
         console.log(`[status-update] call=${callId} raw=${rawStatus} mapped=${mappedStatus} assistant=${assistantId} phone=${customerPhone}`);
 
-          const funnel = getAssistantFunnel(assistantId);
+          const funnel = getAssistantFunnel(assistantId, message?.call || payload?.call);
           const custByCall = await findBestCustomerMatch(sb, {
             callId,
             phone: customerPhone,
