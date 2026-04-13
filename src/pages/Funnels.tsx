@@ -739,6 +739,7 @@ export default function Funnels() {
           remind_created_at: remind?.created_at || null,
           happy: !!(meta.happy),
           dead: !!(meta.dead),
+          vapi_call_sessions: Array.isArray(meta.vapi_call_sessions) ? meta.vapi_call_sessions as any : undefined,
         });
       });
 
@@ -774,6 +775,7 @@ export default function Funnels() {
           drafted_at: (isFreshLiveCall || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
           happy: !!(meta.happy),
           dead: !!(meta.dead),
+          vapi_call_sessions: Array.isArray(meta.vapi_call_sessions) ? meta.vapi_call_sessions as any : undefined,
         });
       });
 
