@@ -545,7 +545,7 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit, onDismiss }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
@@ -553,6 +553,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   onHappyToggle: (checked: boolean) => void;
   onDeadToggle: (checked: boolean) => void;
   onPhoneEdit: (newPhone: string) => void;
+  onDismiss?: () => void;
 }) {
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(lead.phone || '');
@@ -754,7 +755,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             {isReminding ? 'Stop Remind' : 'Remind'}
           </Button>
         )}
-        {isDrafted ? (
+        {lead.funnel === 'powerdial' && onDismiss ? (
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 ml-auto" onClick={onDismiss}>
+            <Trash2 className="h-3 w-3 mr-1" /> Dismiss
+          </Button>
+        ) : isDrafted ? (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-yellow-600 ml-auto" onClick={onUndraft}>
             <Eye className="h-3 w-3 mr-1" /> Undraft
           </Button>
@@ -790,7 +795,7 @@ export default function Funnels() {
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
-        supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').order('created_at', { ascending: false }).limit(500),
+        supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').is('dismissed_at', null).order('created_at', { ascending: false }).limit(500),
         supabase.from('powerdial_queue').select('id, contact_name, phone').limit(1000),
       ]);
 
@@ -1063,6 +1068,13 @@ export default function Funnels() {
     toast.success(checked ? `☠️ ${lead.full_name} marked dead` : `${lead.full_name} revived`);
   };
 
+  const handleDismissPD = async (lead: FunnelLead) => {
+    setLeads(prev => prev.filter(l => l.id !== lead.id));
+    const { error } = await supabase.from('powerdial_call_logs').update({ dismissed_at: new Date().toISOString() } as any).eq('id', lead.id);
+    if (error) { toast.error('Failed to dismiss'); fetchLeads(); return; }
+    toast.success(`Dismissed ${lead.full_name}`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
@@ -1215,6 +1227,7 @@ export default function Funnels() {
                 onRemind={() => handleRemind(lead)}
                 onHappyToggle={(checked) => handleHappyToggle(lead, checked)}
                 onDeadToggle={(checked) => handleDeadToggle(lead, checked)}
+                onDismiss={lead.funnel === 'powerdial' ? () => handleDismissPD(lead) : undefined}
                 onPhoneEdit={async (newPhone) => {
                   if (!newPhone.trim()) return;
                   const { error } = await supabase.from('customers').update({ phone: newPhone.trim() }).eq('id', lead.id);
