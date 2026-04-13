@@ -10,8 +10,7 @@ const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(supabaseUrl, serviceKey);
 
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
-// Default Vapi assistant for powerdial — uses existing web design inbound assistant
-const DEFAULT_VAPI_ASSISTANT = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
+const FALLBACK_VAPI_ASSISTANT = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
 
 function twimlResponse(xml: string) {
   return new Response(xml, {

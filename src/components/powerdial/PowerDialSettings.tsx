@@ -3,8 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
+
+const VAPI_ASSISTANTS = [
+  { id: 'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8', label: 'Web Design – Inbound' },
+  { id: 'dc35680f-8763-4702-84d7-e3df267ddaf9', label: 'Web Design – Outbound' },
+  { id: '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38', label: 'Videography – Inbound' },
+  { id: '0045f12e-56e2-4245-971b-1f7dd2069282', label: 'Videography – Outbound' },
+];
 
 type Props = {
   campaign: {
@@ -22,9 +30,18 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [retryBusyMinutes, setRetryBusyMinutes] = useState(String(s.retry_busy_minutes || 30));
   const [hoursStart, setHoursStart] = useState(s.calling_hours_start || '09:00');
   const [hoursEnd, setHoursEnd] = useState(s.calling_hours_end || '17:00');
+  const [vapiAssistantId, setVapiAssistantId] = useState(s.vapi_assistant_id || VAPI_ASSISTANTS[0].id);
+  const [customAssistantId, setCustomAssistantId] = useState(s.vapi_assistant_id && !VAPI_ASSISTANTS.find(a => a.id === s.vapi_assistant_id) ? s.vapi_assistant_id : '');
   const [saving, setSaving] = useState(false);
 
+  const isCustom = vapiAssistantId === 'custom';
+  const resolvedAssistantId = isCustom ? customAssistantId : vapiAssistantId;
+
   const handleSave = async () => {
+    if (!resolvedAssistantId) {
+      toast.error('Please select or enter a Vapi assistant ID');
+      return;
+    }
     setSaving(true);
     const newSettings = {
       call_delay_ms: Number(callDelay) || 2000,
@@ -33,6 +50,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       retry_busy_minutes: Number(retryBusyMinutes) || 30,
       calling_hours_start: hoursStart,
       calling_hours_end: hoursEnd,
+      vapi_assistant_id: resolvedAssistantId,
     };
 
     const { error } = await supabase
@@ -52,6 +70,28 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   return (
     <div className="glass-card p-6 space-y-5 max-w-md">
       <h3 className="text-sm font-semibold text-foreground">Campaign Settings</h3>
+
+      <div>
+        <Label>Vapi AI Assistant</Label>
+        <Select value={VAPI_ASSISTANTS.find(a => a.id === vapiAssistantId) ? vapiAssistantId : 'custom'} onValueChange={(v) => {
+          setVapiAssistantId(v);
+          if (v !== 'custom') setCustomAssistantId('');
+        }}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select assistant" />
+          </SelectTrigger>
+          <SelectContent>
+            {VAPI_ASSISTANTS.map(a => (
+              <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+            ))}
+            <SelectItem value="custom">Custom Assistant ID</SelectItem>
+          </SelectContent>
+        </Select>
+        {isCustom && (
+          <Input className="mt-2" placeholder="Paste Vapi assistant ID" value={customAssistantId} onChange={e => setCustomAssistantId(e.target.value)} />
+        )}
+        <p className="text-[10px] text-muted-foreground mt-1">Which AI assistant handles live human calls</p>
+      </div>
 
       <div>
         <Label>Call Delay (ms between calls)</Label>
