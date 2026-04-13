@@ -81,6 +81,74 @@ function normalizePhone(value: string): string {
   return digits;
 }
 
+function normalizeEmail(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isPlaceholderLeadName(value: unknown): boolean {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.startsWith("direct caller (") || normalized.startsWith("caller (");
+}
+
+function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: string; email?: string; source?: string | null }): number {
+  const meta = (row?.meta as any) || {};
+  let score = 0;
+
+  if (criteria.callId && String(meta.vapi_call_id || "") === criteria.callId) score += 100;
+  if (criteria.source && row?.source === criteria.source) score += 25;
+  if (criteria.phone && normalizePhone(row?.phone || "") === criteria.phone) score += 20;
+  if (criteria.email && normalizeEmail(row?.email) === criteria.email) score += 20;
+  if (!isPlaceholderLeadName(row?.full_name)) score += 5;
+  if (row?.email) score += 2;
+  if (row?.phone) score += 2;
+
+  return score;
+}
+
+async function findBestCustomerMatch(
+  sb: any,
+  criteria: { callId?: string; phone?: string; email?: string; source?: string | null },
+) {
+  const matches = new Map<string, any>();
+  const remember = (rows: any[] | null | undefined) => {
+    for (const row of rows || []) {
+      if (row?.id && !matches.has(row.id)) matches.set(row.id, row);
+    }
+  };
+
+  if (criteria.callId) {
+    const { data } = await sb.from("customers").select("*")
+      .filter("meta->>vapi_call_id", "eq", criteria.callId)
+      .order("updated_at", { ascending: false })
+      .limit(10);
+    remember(data);
+  }
+
+  if (criteria.phone && criteria.phone.length >= 10) {
+    const { data } = await sb.from("customers").select("*")
+      .eq("phone", criteria.phone)
+      .order("updated_at", { ascending: false })
+      .limit(10);
+    remember(data);
+  }
+
+  if (criteria.email) {
+    const { data } = await sb.from("customers").select("*")
+      .eq("email", criteria.email)
+      .order("updated_at", { ascending: false })
+      .limit(10);
+    remember(data);
+  }
+
+  return Array.from(matches.values()).sort((a, b) => {
+    const scoreDiff = scoreCustomerMatch(b, criteria) - scoreCustomerMatch(a, criteria);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    return new Date(b?.updated_at || b?.created_at || 0).getTime()
+      - new Date(a?.updated_at || a?.created_at || 0).getTime();
+  })[0] || null;
+}
+
 // ─── Assistant IDs ───
 const WEB_INBOUND_ID = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
 const VIDEO_INBOUND_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
@@ -200,8 +268,10 @@ serve(async (req) => {
       // ──── TOOL: create_or_update_lead ────
       if (fnName === "create_or_update_lead") {
         const name = (params.name || params.full_name || "").trim();
-        const phone = normalizePhone(params.phone || "");
-        const email = (params.email || "").trim().toLowerCase();
+        const phone = normalizePhone(
+          params.phone || message?.call?.customer?.number || message?.call?.phoneNumber?.number || "",
+        );
+        const email = normalizeEmail(params.email);
         const serviceType = (params.service_type || "").toLowerCase();
         const notes = params.notes || "";
         const callId = message?.call?.id || "";
@@ -210,18 +280,7 @@ serve(async (req) => {
         const source = funnel?.source || (serviceType.includes("video") ? "videography-landing" : "webdesign-landing");
         const funnelTag = funnel?.tag || (serviceType.includes("video") ? "video" : "web");
         
-        // Search for existing contact by phone or email
-        let existing: any = null;
-        if (phone && phone.length >= 10) {
-          const { data } = await sb.from("customers").select("*")
-            .eq("phone", phone).order("created_at", { ascending: false }).limit(1).maybeSingle();
-          existing = data;
-        }
-        if (!existing && email) {
-          const { data } = await sb.from("customers").select("*")
-            .eq("email", email).order("created_at", { ascending: false }).limit(1).maybeSingle();
-          existing = data;
-        }
+        const existing = await findBestCustomerMatch(sb, { callId, phone, email, source });
         
         const existingMeta = (existing?.meta as any) || {};
         const existingTags = Array.isArray(existing?.tags) ? (existing.tags as string[]) : [];
@@ -607,25 +666,13 @@ serve(async (req) => {
       }
 
       // Always check customers table too (direct-dial leads)
-      // Use limit(1) to avoid maybeSingle() failure when multiple records share the same call_id
-      const { data: custRows } = await sb.from("customers").select("*")
-        .filter("meta->>vapi_call_id", "eq", callId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      const custRow = custRows?.[0] || null;
-      if (!custRow) console.log(`[end-of-call] No customer found by call_id ${callId}, trying phone fallback`);
-
-      // Also try by phone if no match by callId
-      let customerLead = custRow;
-      if (!customerLead && customerPhone) {
-        const funnel = getAssistantFunnel(assistantId);
-        if (funnel) {
-          const { data: byPhone } = await sb.from("customers").select("*")
-            .eq("source", funnel.source).eq("phone", customerPhone)
-            .order("created_at", { ascending: false }).limit(1).maybeSingle();
-          customerLead = byPhone;
-        }
-      }
+      const funnel = getAssistantFunnel(assistantId);
+      const customerLead = await findBestCustomerMatch(sb, {
+        callId,
+        phone: customerPhone,
+        source: funnel?.source || null,
+      });
+      if (!customerLead) console.log(`[end-of-call] No customer found for call ${callId}, phone=${customerPhone}`);
 
       if (customerLead) {
         const existingMeta = (customerLead.meta as any) || {};
@@ -774,12 +821,15 @@ serve(async (req) => {
       if (callId && mappedStatus) {
         console.log(`[status-update] call=${callId} raw=${rawStatus} mapped=${mappedStatus} assistant=${assistantId} phone=${customerPhone}`);
 
+          const funnel = getAssistantFunnel(assistantId);
+          const custByCall = await findBestCustomerMatch(sb, {
+            callId,
+            phone: customerPhone,
+            source: funnel?.source || null,
+          });
+
         // Update lw_landing_leads
         await sb.from("lw_landing_leads").update({ vapi_call_status: mappedStatus }).eq("vapi_call_id", callId);
-
-        // Update customers by call ID
-        const { data: custByCall } = await sb.from("customers").select("id, meta, source, tags, phone, full_name, notes")
-          .filter("meta->>vapi_call_id", "eq", callId).maybeSingle();
 
         if (custByCall && mappedStatus !== "completed") {
           // Skip meta update on "ended/completed" — end-of-call-report will write the final state
@@ -791,15 +841,15 @@ serve(async (req) => {
 
         // Direct-dial lead creation/update
         // Skip when call ended — end-of-call-report handles final enrichment with transcript/recording
-        const funnel = getAssistantFunnel(assistantId);
         if (funnel && (assistantId === WEB_INBOUND_ID || assistantId === VIDEO_INBOUND_ID) && mappedStatus !== "completed") {
           let directLead = custByCall;
 
           if (!directLead && customerPhone) {
-            const { data } = await sb.from("customers").select("id, meta, tags, notes, phone, full_name, status")
-              .eq("source", funnel.source).eq("phone", customerPhone)
-              .order("created_at", { ascending: false }).limit(1).maybeSingle();
-            directLead = data;
+            directLead = await findBestCustomerMatch(sb, {
+              callId,
+              phone: customerPhone,
+              source: funnel.source,
+            });
           }
 
           const em = (directLead?.meta as any) || {};
