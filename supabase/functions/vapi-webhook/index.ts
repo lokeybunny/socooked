@@ -607,8 +607,13 @@ serve(async (req) => {
       }
 
       // Always check customers table too (direct-dial leads)
-      const { data: custRow } = await sb.from("customers").select("*")
-        .filter("meta->>vapi_call_id", "eq", callId).maybeSingle();
+      // Use limit(1) to avoid maybeSingle() failure when multiple records share the same call_id
+      const { data: custRows } = await sb.from("customers").select("*")
+        .filter("meta->>vapi_call_id", "eq", callId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const custRow = custRows?.[0] || null;
+      if (!custRow) console.log(`[end-of-call] No customer found by call_id ${callId}, trying phone fallback`);
 
       // Also try by phone if no match by callId
       let customerLead = custRow;
