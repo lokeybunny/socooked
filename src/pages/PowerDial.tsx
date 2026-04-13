@@ -9,8 +9,9 @@ import { toast } from 'sonner';
 import {
   Phone, Play, Pause, Square, SkipForward, Plus, Users, PhoneCall,
   Voicemail, PhoneOff, Clock, CheckCircle, AlertCircle, Loader2,
-  Settings, List, BarChart3, Search, RefreshCw,
+  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles,
 } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';

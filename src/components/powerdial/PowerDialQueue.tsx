@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Phone, User, Clock, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Phone, User, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type QueueItem = {
   id: string;
@@ -15,9 +16,12 @@ type QueueItem = {
   last_dialed_at: string | null;
 };
 
+const ITEMS_PER_PAGE = 20;
+
 export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   const load = async () => {
     const { data } = await supabase
@@ -29,9 +33,8 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [campaignId]);
+  useEffect(() => { load(); setPage(1); }, [campaignId]);
 
-  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel(`pd-queue-${campaignId}`)
@@ -58,20 +61,35 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
     skipped: '⏭ Skip',
   };
 
+  const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+  const pagedItems = items.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="glass-card">
       <div className="p-3 border-b border-border flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">{items.length} numbers in queue</p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span>{page} / {totalPages}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </div>
-      <ScrollArea className="h-[400px]">
+      <ScrollArea className="h-[500px]">
         <div className="divide-y divide-border">
-          {items.map((item, i) => {
+          {pagedItems.map((item) => {
             const badge = statusBadge[item.status] || statusBadge.pending;
+            const globalIndex = (page - 1) * ITEMS_PER_PAGE + items.indexOf(item) + 1;
             return (
               <div key={item.id} className={`flex items-center gap-3 px-4 py-2.5 ${item.status === 'dialing' ? 'bg-emerald-500/5' : ''}`}>
-                <span className="text-xs text-muted-foreground w-6 text-right">{i + 1}</span>
+                <span className="text-xs text-muted-foreground w-6 text-right">{item.position + 1}</span>
                 <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="text-sm font-mono text-foreground">{item.phone}</span>
                 {item.contact_name && (
@@ -93,6 +111,18 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
           })}
         </div>
       </ScrollArea>
+      {totalPages > 1 && (
+        <div className="p-2 border-t border-border flex justify-center gap-1">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
+            Math.max(0, page - 3),
+            Math.min(totalPages, page + 2)
+          ).map(p => (
+            <Button key={p} variant={p === page ? 'default' : 'ghost'} size="icon" className="h-7 w-7 text-xs" onClick={() => setPage(p)}>
+              {p}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
