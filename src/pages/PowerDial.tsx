@@ -55,6 +55,9 @@ export default function PowerDial() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [currentDialing, setCurrentDialing] = useState<any>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<string[]>([]);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
