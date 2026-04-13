@@ -1059,6 +1059,7 @@ export default function Funnels() {
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     aicourses: leads.filter(l => l.funnel === 'aicourses' && !l.drafted_at).length,
     videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
+    powerdial: leads.filter(l => l.funnel === 'powerdial').length,
   }), [leads]);
 
   // Pipeline stage counts for current funnel
