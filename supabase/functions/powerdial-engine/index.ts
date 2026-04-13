@@ -157,6 +157,69 @@ Deno.serve(async (req) => {
         return json({ ok: true, ...result });
       }
 
+      case "test_call": {
+        const testPhone = body.phone;
+        const testAssistantId = body.assistant_id;
+        if (!testPhone) return json({ error: "phone required" }, 400);
+
+        const { normalizePhone, prepareVapiOutboundAssistant, resolveTwilioFromNumber: resolveFrom, supabaseUrl: sbUrl } = await import("../_shared/powerdial.ts");
+        const normalized = normalizePhone(testPhone);
+        if (!normalized || normalized.replace(/\D/g, "").length < 10) {
+          return json({ error: "Invalid phone number" }, 400);
+        }
+
+        // Resolve assistant
+        const resolvedAssistant = sanitizePowerDialAssistantId(testAssistantId);
+        const vapiPrep = await prepareVapiOutboundAssistant(resolvedAssistant);
+        if (!vapiPrep.ok) {
+          return json({ error: `Vapi setup failed: ${vapiPrep.details}` }, 500);
+        }
+
+        // Resolve from number
+        const fromResolution = await resolveFrom();
+        if (!fromResolution.resolvedFrom) {
+          return json({ error: "No valid Twilio from number configured" }, 500);
+        }
+
+        // Place a single test call via Twilio
+        const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+        const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+        const webhookUrl = `${sbUrl}/functions/v1/powerdial-webhook`;
+
+        const callParams = new URLSearchParams({
+          To: normalized,
+          From: fromResolution.resolvedFrom,
+          MachineDetection: "Enable",
+          AsyncAmd: "true",
+          AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=test&queue_item_id=test&call_log_id=test`,
+          StatusCallback: `${webhookUrl}?type=status&campaign_id=test&queue_item_id=test&call_log_id=test`,
+          StatusCallbackEvent: "initiated ringing answered completed",
+          Url: `${webhookUrl}?type=twiml&campaign_id=test&queue_item_id=test&call_log_id=test`,
+          Timeout: "30",
+        });
+
+        const twilioResp = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: callParams.toString(),
+          },
+        );
+
+        const twilioData = await twilioResp.json();
+        if (!twilioResp.ok) {
+          console.error("[powerdial-engine] test_call Twilio error:", twilioData);
+          return json({ error: twilioData.message || "Twilio call failed", twilio_code: twilioData.code }, 500);
+        }
+
+        console.log(`[powerdial-engine] test_call placed to ${normalized}, SID: ${twilioData.sid}`);
+        return json({ ok: true, call_sid: twilioData.sid, to: normalized, from: fromResolution.resolvedFrom, assistant: resolvedAssistant });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
