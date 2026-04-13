@@ -677,6 +677,20 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
         </Select>
       </div>
       {lead.notes && <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>}
+      {/* Inline audio for powerdial */}
+      {lead.funnel === 'powerdial' && lead.vapi_recording_url && (
+        <div className="mt-2">
+          <audio controls className="w-full h-8" preload="metadata"><source src={lead.vapi_recording_url} /></audio>
+        </div>
+      )}
+      {lead.funnel === 'powerdial' && lead.vapi_transcript && (
+        <details className="mt-2">
+          <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+            <FileText className="h-3 w-3" /> View Transcript
+          </summary>
+          <div className="bg-muted/50 rounded-md p-2 text-[10px] whitespace-pre-wrap max-h-32 overflow-y-auto mt-1">{lead.vapi_transcript}</div>
+        </details>
+      )}
       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onView}>
           <Eye className="h-3 w-3 mr-1" /> View
