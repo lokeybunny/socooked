@@ -23,7 +23,7 @@ type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses' | 'powerdial
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'aicourses' | 'videography';
+  funnel: 'webdesign' | 'aicourses' | 'videography' | 'powerdial';
   full_name: string;
   email: string | null;
   phone: string | null;
