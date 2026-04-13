@@ -184,6 +184,16 @@ export default function PowerDial() {
     completed: 'bg-blue-500/20 text-blue-400',
   };
 
+  const handleDeleteCampaign = async (id: string) => {
+    await supabase.from('powerdial_call_log').delete().eq('campaign_id', id);
+    await supabase.from('powerdial_queue').delete().eq('campaign_id', id);
+    await supabase.from('powerdial_campaigns').delete().eq('id', id);
+    if (activeCampaign?.id === id) setActiveCampaign(null);
+    setDeleteConfirmId(null);
+    toast.success('Campaign deleted');
+    loadCampaigns();
+  };
+
   const remaining = activeCampaign ? activeCampaign.total_leads - activeCampaign.completed_count : 0;
 
   return (
