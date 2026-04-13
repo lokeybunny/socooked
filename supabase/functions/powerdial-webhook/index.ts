@@ -4,6 +4,7 @@ import {
   normalizePhone,
   prepareVapiOutboundAssistant,
   resolvePowerDialAssistantId,
+  sanitizePowerDialAssistantId,
   sb,
 } from "../_shared/powerdial.ts";
 
@@ -226,7 +227,9 @@ Deno.serve(async (req) => {
         const frozenAssistantId = typeof existingMeta.assistant_id === "string"
           ? existingMeta.assistant_id.trim()
           : "";
-        const assistantId = frozenAssistantId || resolvePowerDialAssistantId((campSettings?.settings || {}) as Record<string, unknown>);
+        const assistantId = sanitizePowerDialAssistantId(
+          frozenAssistantId || resolvePowerDialAssistantId((campSettings?.settings || {}) as Record<string, unknown>),
+        );
         const assistantPreparation = await prepareVapiOutboundAssistant(assistantId);
         const vapiPhoneNumber = assistantPreparation.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
         const redirected = vapiPhoneNumber

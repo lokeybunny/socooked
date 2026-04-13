@@ -8,12 +8,14 @@ import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 
 const DEFAULT_OUTBOUND_ASSISTANT = 'dc35680f-8763-4702-84d7-e3df267ddaf9';
+const INBOUND_ASSISTANT_IDS = new Set([
+  'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
+  '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38',
+]);
 
-const VAPI_ASSISTANTS = [
-  { id: 'dc35680f-8763-4702-84d7-e3df267ddaf9', label: 'Web Design – Outbound' },
+const OUTBOUND_VAPI_ASSISTANTS = [
+  { id: 'dc35680f-8763-4702-84d7-e3df267ddaf9', label: 'Web Design – Outbound (Default)' },
   { id: '0045f12e-56e2-4245-971b-1f7dd2069282', label: 'Videography – Outbound' },
-  { id: 'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8', label: 'Web Design – Inbound' },
-  { id: '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38', label: 'Videography – Inbound' },
 ];
 
 type Props = {
@@ -26,8 +28,8 @@ type Props = {
 
 function getSettingsFormState(settings: any) {
   const nextSettings = settings || {};
-  const defaultAssistantId = nextSettings.vapi_assistant_id || DEFAULT_OUTBOUND_ASSISTANT;
-  const knownAssistant = VAPI_ASSISTANTS.find((assistant) => assistant.id === defaultAssistantId);
+  const persistedAssistantId = sanitizeAssistantId(nextSettings.vapi_assistant_id);
+  const knownAssistant = OUTBOUND_VAPI_ASSISTANTS.find((assistant) => assistant.id === persistedAssistantId);
 
   return {
     callDelay: String(nextSettings.call_delay_ms || 2000),
@@ -36,9 +38,19 @@ function getSettingsFormState(settings: any) {
     retryBusyMinutes: String(nextSettings.retry_busy_minutes || 30),
     hoursStart: nextSettings.calling_hours_start || '09:00',
     hoursEnd: nextSettings.calling_hours_end || '17:00',
-    vapiAssistantId: knownAssistant ? defaultAssistantId : 'custom',
-    customAssistantId: knownAssistant ? '' : defaultAssistantId,
+    vapiAssistantId: knownAssistant ? persistedAssistantId : 'custom',
+    customAssistantId: knownAssistant ? '' : persistedAssistantId,
   };
+}
+
+function sanitizeAssistantId(value: unknown) {
+  const assistantId = typeof value === 'string' ? value.trim() : '';
+
+  if (!assistantId || INBOUND_ASSISTANT_IDS.has(assistantId)) {
+    return DEFAULT_OUTBOUND_ASSISTANT;
+  }
+
+  return assistantId;
 }
 
 export default function PowerDialSettings({ campaign, onUpdate }: Props) {
@@ -69,14 +81,9 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
-  const resolvedAssistantId = isCustom ? customAssistantId.trim() : vapiAssistantId;
+  const resolvedAssistantId = sanitizeAssistantId(isCustom ? customAssistantId : vapiAssistantId);
 
   const handleSave = async () => {
-    if (!resolvedAssistantId) {
-      toast.error('Please select or enter a Vapi assistant ID');
-      return;
-    }
-
     setSaving(true);
     const newSettings = {
       ...s,
@@ -108,7 +115,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       <h3 className="text-sm font-semibold text-foreground">Campaign Settings</h3>
 
       <div>
-        <Label>Vapi AI Assistant</Label>
+        <Label>Outbound Vapi AI Assistant</Label>
         <Select
           value={vapiAssistantId}
           onValueChange={(value) => {
@@ -120,7 +127,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             <SelectValue placeholder="Select assistant" />
           </SelectTrigger>
           <SelectContent>
-            {VAPI_ASSISTANTS.map((assistant) => (
+            {OUTBOUND_VAPI_ASSISTANTS.map((assistant) => (
               <SelectItem key={assistant.id} value={assistant.id}>{assistant.label}</SelectItem>
             ))}
             <SelectItem value="custom">Custom Assistant ID</SelectItem>
@@ -134,7 +141,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             onChange={(event) => setCustomAssistantId(event.target.value)}
           />
         )}
-        <p className="text-[10px] text-muted-foreground mt-1">PowerDial transfers live humans to this assistant, so outbound assistants should be used here.</p>
+        <p className="text-[10px] text-muted-foreground mt-1">PowerDial only uses outbound assistants and defaults to Web Design – Outbound for calls.</p>
       </div>
 
       <div>
