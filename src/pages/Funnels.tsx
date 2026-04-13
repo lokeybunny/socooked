@@ -893,8 +893,21 @@ export default function Funnels() {
       const queueNameMap = new Map<string, string>();
       (pdQueue || []).forEach((q: any) => queueNameMap.set(q.id, q.contact_name || ''));
 
-      // Power Dial call logs (human-answered calls)
+      // Power Dial call logs (human-answered calls) — deduplicate by queue_item_id
+      const pdDeduped = new Map<string, any>();
       (pdLogs || []).forEach((log: any) => {
+        const key = log.queue_item_id || log.id;
+        const existing = pdDeduped.get(key);
+        // Keep the entry with the most data (transcript/recording) or most recent
+        if (!existing ||
+            (log.transcript && !existing.transcript) ||
+            (log.recording_url && !existing.recording_url) ||
+            (!existing.transcript && !existing.recording_url && new Date(log.created_at) > new Date(existing.created_at))) {
+          pdDeduped.set(key, log);
+        }
+      });
+
+      pdDeduped.forEach((log) => {
         const meta = (log.meta as Record<string, unknown>) || {};
         const disp = (log.disposition || '').toLowerCase();
         const summary = (log.summary || '').toLowerCase();
