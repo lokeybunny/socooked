@@ -138,13 +138,12 @@ async function handleCallCompletion(
     connected_to_vapi: false,
   }).eq("id", callLogId);
 
-  const [{ data: logData }, { data: qItem }] = await Promise.all([
-    sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id").eq("id", callLogId).single(),
-    sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single(),
-  ]);
+  const { data: qItem } = await sb.from("powerdial_queue").select("phone, contact_name").eq("id", queueItemId).single();
 
-  // Note: connected_to_vapi was just set to false, but check vapi_call_id absence
   if (qItem?.phone) {
+    // Wait for Vapi to finish processing the call before fetching
+    await new Promise((r) => setTimeout(r, 5000));
+
     const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
     if (matchedCall) {
       const transcript = matchedCall.transcript ||
@@ -161,6 +160,30 @@ async function handleCallCompletion(
       console.log(`[powerdial-webhook] Matched Vapi call from ${source}: ${matchedCall.id}`);
 
       await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, matchedCall);
+    } else {
+      console.log(`[powerdial-webhook] No Vapi call matched for phone ${qItem.phone} after ${source}`);
+      // Schedule a retry after 15 seconds via a deferred fetch
+      setTimeout(async () => {
+        try {
+          const retryCall = await fetchRecentVapiCallForPhone(qItem.phone);
+          if (retryCall) {
+            const retryTranscript = retryCall.transcript ||
+              retryCall.messages?.map((m: any) => `${m.role}: ${m.content}`).join("\n") || null;
+            await sb.from("powerdial_call_logs").update({
+              vapi_call_id: retryCall.id,
+              transcript: retryTranscript,
+              summary: retryCall.analysis?.summary || retryCall.summary || null,
+              disposition: retryCall.analysis?.successEvaluation || null,
+              recording_url: retryCall.recordingUrl || retryCall.artifact?.recordingUrl || null,
+              follow_up_needed: retryCall.analysis?.successEvaluation === "follow_up",
+            }).eq("id", callLogId);
+            console.log(`[powerdial-webhook] Retry matched Vapi call: ${retryCall.id}`);
+            await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, retryCall);
+          }
+        } catch (err) {
+          console.error("[powerdial-webhook] Retry match error:", err);
+        }
+      }, 15000);
     }
   }
 
@@ -208,22 +231,50 @@ async function bumpCampaignCount(
 
 async function fetchRecentVapiCallForPhone(phone: string) {
   try {
-    const vapiResp = await fetch("https://api.vapi.ai/call?limit=10&sortOrder=DESC", {
+    const vapiResp = await fetch("https://api.vapi.ai/call?limit=50&sortOrder=DESC", {
       headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
     });
 
     if (!vapiResp.ok) {
-      await vapiResp.text();
+      const errText = await vapiResp.text();
+      console.error("[powerdial-webhook] Vapi list calls error:", errText);
       return null;
     }
 
     const vapiCalls = await vapiResp.json();
     const rawDigits = phone.replace(/\D/g, "");
+    const last10 = rawDigits.slice(-10);
 
-    return (vapiCalls || []).find((call: any) => {
-      const callNumber = String(call.customer?.number || "").replace(/\D/g, "");
-      return callNumber && rawDigits.endsWith(callNumber.slice(-10));
-    }) || null;
+    // Match by customer number OR by phoneNumber field (bridged calls)
+    const matched = (vapiCalls || []).find((call: any) => {
+      // Check customer.number (standard Vapi field)
+      const custNumber = String(call.customer?.number || "").replace(/\D/g, "");
+      if (custNumber && last10 === custNumber.slice(-10)) return true;
+      // Check phoneNumber field (some Vapi versions)
+      const pn = String(call.phoneNumber || "").replace(/\D/g, "");
+      if (pn && last10 === pn.slice(-10)) return true;
+      // Check metadata/destination
+      const dest = String(call.destination?.number || call.metadata?.destination || "").replace(/\D/g, "");
+      if (dest && last10 === dest.slice(-10)) return true;
+      return false;
+    });
+
+    if (matched) return matched;
+
+    // Fallback: match by recent time window (last 5 min) if it was a completed call
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const recentCompleted = (vapiCalls || []).find((call: any) => {
+      if (call.status !== "ended") return false;
+      const callEnd = new Date(call.endedAt || call.updatedAt || 0).getTime();
+      return callEnd > fiveMinAgo;
+    });
+
+    if (recentCompleted) {
+      console.log(`[powerdial-webhook] Fallback time-match for ${phone}: Vapi call ${recentCompleted.id}`);
+      return recentCompleted;
+    }
+
+    return null;
   } catch (err) {
     console.error("[powerdial-webhook] Vapi fetch error:", err);
     return null;
