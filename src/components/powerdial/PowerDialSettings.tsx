@@ -7,14 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 
-const DEFAULT_OUTBOUND_ASSISTANT = 'dc35680f-8763-4702-84d7-e3df267ddaf9';
+const DEFAULT_OUTBOUND_ASSISTANT = '1eddf1f7-3ef8-4950-9a65-1fd68516208e';
 const INBOUND_ASSISTANT_IDS = new Set([
   'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
   '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38',
 ]);
 
 const OUTBOUND_VAPI_ASSISTANTS = [
-  { id: 'dc35680f-8763-4702-84d7-e3df267ddaf9', label: 'Web Design – Outbound (Default)' },
+  { id: '1eddf1f7-3ef8-4950-9a65-1fd68516208e', label: 'Cold Caller (Default)' },
+  { id: 'dc35680f-8763-4702-84d7-e3df267ddaf9', label: 'Web Design – Outbound' },
   { id: '0045f12e-56e2-4245-971b-1f7dd2069282', label: 'Videography – Outbound' },
 ];
 

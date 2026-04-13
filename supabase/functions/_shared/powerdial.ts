@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-export const DEFAULT_OUTBOUND_VAPI_ASSISTANT = "dc35680f-8763-4702-84d7-e3df267ddaf9";
+export const DEFAULT_OUTBOUND_VAPI_ASSISTANT = "1eddf1f7-3ef8-4950-9a65-1fd68516208e";
 
 const POWERDIAL_INBOUND_VAPI_ASSISTANTS = new Set([
   "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8",
