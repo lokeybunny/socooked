@@ -481,6 +481,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const isLiveCall = lead.vapi_call_status === 'in_call' || lead.vapi_call_status === 'calling';
   const hasAI = !!(isLiveCall || lead.vapi_call_status === 'completed' || lead.ai_notes);
+  const activityAt = lead.last_activity_at || lead.created_at;
   const isDrafted = !!lead.drafted_at;
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
@@ -570,7 +571,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
         </div>
       </div>
       <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}</span>
+        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDistanceToNow(new Date(activityAt), { addSuffix: true })}</span>
         <Select value={lead.status} onValueChange={onStageChange}>
           <SelectTrigger className="h-6 text-[10px] w-auto gap-1 border-dashed px-2 py-0">
             <SelectValue>{currentStageLabel}</SelectValue>

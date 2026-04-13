@@ -683,7 +683,7 @@ serve(async (req) => {
           try {
             const scheduledDate = extractScheduleFromTranscript(transcript, summary);
             if (scheduledDate) {
-              await createVideoBookingFromTranscript(sb, customerLead, scheduledDate, aiNotes, callId, existingMeta, SUPABASE_URL);
+              await createVideoBookingFromTranscript(sb, customerLead, scheduledDate, aiNotes, callId, SUPABASE_URL);
             }
           } catch (bookingErr) {
             console.error("[end-of-call] Video booking creation failed:", bookingErr);
@@ -900,7 +900,7 @@ async function handleLandingLeadEndOfCall(
 // HELPER: Create videography booking from transcript
 // ════════════════════════════════════════════
 async function createVideoBookingFromTranscript(
-  sb: any, customer: any, scheduledDate: string, aiNotes: string, callId: string, existingMeta: any, SUPABASE_URL: string
+  sb: any, customer: any, scheduledDate: string, aiNotes: string, callId: string, SUPABASE_URL: string
 ) {
   const eventStart = new Date(scheduledDate);
   const eventEnd = new Date(eventStart.getTime() + 2 * 60 * 60 * 1000);
@@ -932,9 +932,11 @@ async function createVideoBookingFromTranscript(
     location: "TBD — confirm with client",
   });
 
-  // Update customer meta
+  // Update customer meta without clobbering the final end-of-call fields
+  const { data: latestCustomer } = await sb.from("customers").select("meta").eq("id", customer.id).maybeSingle();
+  const latestMeta = (latestCustomer?.meta as any) || {};
   await sb.from("customers").update({
-    meta: { ...existingMeta, videography_tentative_date: eventStart.toISOString(), videography_booking_conflict: hasConflict },
+    meta: { ...latestMeta, videography_tentative_date: eventStart.toISOString(), videography_booking_conflict: hasConflict },
   }).eq("id", customer.id);
 
   console.log(`[video-booking] Created for ${customer.full_name}, conflict=${hasConflict}`);
