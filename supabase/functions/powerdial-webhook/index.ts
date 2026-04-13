@@ -138,13 +138,12 @@ async function handleCallCompletion(
     connected_to_vapi: false,
   }).eq("id", callLogId);
 
-  const [{ data: logData }, { data: qItem }] = await Promise.all([
-    sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id").eq("id", callLogId).single(),
-    sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single(),
-  ]);
+  const { data: qItem } = await sb.from("powerdial_queue").select("phone, contact_name").eq("id", queueItemId).single();
 
-  // Note: connected_to_vapi was just set to false, but check vapi_call_id absence
   if (qItem?.phone) {
+    // Wait for Vapi to finish processing the call before fetching
+    await new Promise((r) => setTimeout(r, 5000));
+
     const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
     if (matchedCall) {
       const transcript = matchedCall.transcript ||
@@ -161,6 +160,30 @@ async function handleCallCompletion(
       console.log(`[powerdial-webhook] Matched Vapi call from ${source}: ${matchedCall.id}`);
 
       await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, matchedCall);
+    } else {
+      console.log(`[powerdial-webhook] No Vapi call matched for phone ${qItem.phone} after ${source}`);
+      // Schedule a retry after 15 seconds via a deferred fetch
+      setTimeout(async () => {
+        try {
+          const retryCall = await fetchRecentVapiCallForPhone(qItem.phone);
+          if (retryCall) {
+            const retryTranscript = retryCall.transcript ||
+              retryCall.messages?.map((m: any) => `${m.role}: ${m.content}`).join("\n") || null;
+            await sb.from("powerdial_call_logs").update({
+              vapi_call_id: retryCall.id,
+              transcript: retryTranscript,
+              summary: retryCall.analysis?.summary || retryCall.summary || null,
+              disposition: retryCall.analysis?.successEvaluation || null,
+              recording_url: retryCall.recordingUrl || retryCall.artifact?.recordingUrl || null,
+              follow_up_needed: retryCall.analysis?.successEvaluation === "follow_up",
+            }).eq("id", callLogId);
+            console.log(`[powerdial-webhook] Retry matched Vapi call: ${retryCall.id}`);
+            await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, retryCall);
+          }
+        } catch (err) {
+          console.error("[powerdial-webhook] Retry match error:", err);
+        }
+      }, 15000);
     }
   }
 
