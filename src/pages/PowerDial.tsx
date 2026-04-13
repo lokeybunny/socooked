@@ -542,6 +542,78 @@ export default function PowerDial() {
   );
 }
 
+function TestCallSection() {
+  const [testPhone, setTestPhone] = useState('');
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+
+  const handleTestCall = async () => {
+    if (!testPhone.trim()) {
+      toast.error('Enter a phone number to test');
+      return;
+    }
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('powerdial-engine', {
+        body: { action: 'test_call', phone: testPhone.trim() },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setTestResult({ error: data.error });
+      } else {
+        toast.success(`Test call placed to ${data.to}`);
+        setTestResult(data);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Test call failed');
+      setTestResult({ error: err.message });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  return (
+    <div className="glass-card p-5 space-y-3 max-w-md">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 rounded-md bg-purple-400/20">
+          <PhoneCall className="h-4 w-4 text-purple-400" />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground">Test Call</h3>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Place a single test outbound call before running a full campaign. The call will use your configured Vapi assistant and Twilio number.
+      </p>
+      <div className="flex gap-2">
+        <Input
+          placeholder="e.g. 7025551234"
+          value={testPhone}
+          onChange={(e) => setTestPhone(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleTestCall()}
+          className="font-mono"
+        />
+        <Button
+          onClick={handleTestCall}
+          disabled={testLoading}
+          size="sm"
+          className="bg-purple-500 hover:bg-purple-600 text-white shrink-0"
+        >
+          {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4 mr-1" />}
+          {testLoading ? 'Calling…' : 'Call'}
+        </Button>
+      </div>
+      {testResult && (
+        <div className={`text-xs rounded-md p-2 ${testResult.error ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+          {testResult.error
+            ? `❌ ${testResult.error}`
+            : `✅ Call placed — SID: ${testResult.call_sid?.slice(0, 12)}… | From: ${testResult.from} → To: ${testResult.to}`}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatCard({ label, value, icon: Icon, color }: { label: string; value: number | string; icon: any; color?: string }) {
   return (
     <div className="glass-card p-3 text-center">
