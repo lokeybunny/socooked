@@ -790,7 +790,7 @@ export default function Funnels() {
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
-        supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').order('created_at', { ascending: false }).limit(500),
+        supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').is('dismissed_at', null).order('created_at', { ascending: false }).limit(500),
         supabase.from('powerdial_queue').select('id, contact_name, phone').limit(1000),
       ]);
 
