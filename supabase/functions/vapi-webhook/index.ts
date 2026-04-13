@@ -695,6 +695,21 @@ serve(async (req) => {
           ...(followUpRequired ? ["follow_up_needed"] : []),
         ]));
 
+        // Build session entry for call history
+        const custSessionEntry = {
+          call_id: callId,
+          date: new Date().toISOString(),
+          status: callFailed ? "no_answer" : "completed",
+          recording_url: recordingUrl,
+          transcript,
+          summary,
+          ai_notes: aiNotes,
+          ended_reason: endedReason,
+          duration_seconds: duration,
+          disposition,
+        };
+        const prevCustSessions = Array.isArray(existingMeta?.vapi_call_sessions) ? existingMeta.vapi_call_sessions : [];
+
         await sb.from("customers").update({
           status: newStatus,
           tags: nextTags,
@@ -713,6 +728,7 @@ serve(async (req) => {
             vapi_follow_up_required: followUpRequired,
             vapi_next_action_date: nextActionDate,
             vapi_last_contact: new Date().toISOString(),
+            vapi_call_sessions: [...prevCustSessions, custSessionEntry],
           },
         }).eq("id", customerLead.id);
 
