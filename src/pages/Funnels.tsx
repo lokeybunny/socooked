@@ -4,7 +4,7 @@ import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
   Globe, GraduationCap, Filter, Clock, Mail, Phone, Search, Video,
-  Bot, Play, ExternalLink, Send, Loader2,
+  Bot, Play, ExternalLink, Send, Loader2, PhoneCall,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
   FileText, Mic, Copy, Sparkles, UserPlus, BellRing, Zap
 } from 'lucide-react';
