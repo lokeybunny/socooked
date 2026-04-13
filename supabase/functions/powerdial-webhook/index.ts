@@ -132,12 +132,19 @@ async function handleCallCompletion(
   callLogId: string,
   source: "status" | "dial-complete",
 ) {
+  // Mark call as fully terminal FIRST so hasActiveConnectedCall won't block next batch
+  await sb.from("powerdial_call_logs").update({
+    twilio_status: "completed",
+    connected_to_vapi: false,
+  }).eq("id", callLogId);
+
   const [{ data: logData }, { data: qItem }] = await Promise.all([
     sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id").eq("id", callLogId).single(),
     sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single(),
   ]);
 
-  if (logData?.connected_to_vapi && qItem?.phone && !logData.vapi_call_id) {
+  // Note: connected_to_vapi was just set to false, but check vapi_call_id absence
+  if (qItem?.phone) {
     const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
     if (matchedCall) {
       const transcript = matchedCall.transcript ||
@@ -541,8 +548,8 @@ Deno.serve(async (req) => {
 
         const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
         console.log(`[powerdial-webhook] Advance after no-answer for ${campaignId}:`, advanceResult);
-      } else if (callStatus === "failed" || callStatus === "canceled") {
-        // Check if this is a cancelled triple-dial sibling — if so, skip overwriting queue status
+    } else if (callStatus === "failed" || callStatus === "canceled") {
+        // Check if this is a cancelled triple-dial sibling — if so, skip everything
         const { data: logCheck } = await sb.from("powerdial_call_logs")
           .select("amd_result, batch_id")
           .eq("id", callLogId)
@@ -568,6 +575,11 @@ Deno.serve(async (req) => {
           console.log(`[powerdial-webhook] Advance after failed/canceled for ${campaignId}:`, advanceResult);
         } else {
           console.log(`[powerdial-webhook] Skipping status update for triple-dial cancelled sibling ${callLogId}`);
+          // Ensure queue item stays pending (safety net against race conditions)
+          await sb.from("powerdial_queue").update({
+            status: "pending",
+            last_result: null,
+          }).eq("id", queueItemId).in("status", ["dialing", "completed"]);
         }
       } else if (callStatus === "completed") {
         await handleCallCompletion(campaignId, queueItemId, callLogId, "status");
