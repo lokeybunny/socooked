@@ -106,12 +106,12 @@ Deno.serve(async (req) => {
       }).eq("id", callLogId);
 
       if (connectVapi) {
-        // Connect to Vapi by updating the call with new TwiML
-        // Get queue item phone for context
+        // Connect to Vapi — read assistant ID from campaign settings
         const { data: qItem } = await sb.from("powerdial_queue").select("phone, contact_name, customer_id").eq("id", queueItemId).single();
+        const { data: campSettings } = await sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single();
+        const assistantId = (campSettings?.settings as any)?.vapi_assistant_id || FALLBACK_VAPI_ASSISTANT;
 
         try {
-          // Create Vapi call that connects to the existing Twilio call
           const vapiResp = await fetch("https://api.vapi.ai/call", {
             method: "POST",
             headers: {
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              assistantId: DEFAULT_VAPI_ASSISTANT,
+              assistantId,
               phoneCallProvider: "twilio",
               phoneCallTransport: "pstn",
               customer: {
