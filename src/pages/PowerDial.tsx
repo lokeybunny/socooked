@@ -339,7 +339,7 @@ export default function PowerDial() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New POWERDIAL Campaign</DialogTitle>
+            <DialogTitle>New PowerD Campaign</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -405,6 +405,24 @@ export default function PowerDial() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Campaign Confirmation */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the campaign, its queue, and all associated data. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteConfirmId && handleDeleteCampaign(deleteConfirmId)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
