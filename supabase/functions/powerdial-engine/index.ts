@@ -3,6 +3,7 @@ import {
   DEFAULT_POWERDIAL_SETTINGS,
   dialNext,
   resolveTwilioFromNumber,
+  sanitizePowerDialAssistantId,
   sb,
 } from "../_shared/powerdial.ts";
 
@@ -19,9 +20,14 @@ function json(data: unknown, status = 200) {
 }
 
 function withDefaultCampaignSettings(settings: Record<string, unknown> | null | undefined) {
-  return {
+  const mergedSettings = {
     ...DEFAULT_POWERDIAL_SETTINGS,
     ...(settings || {}),
+  };
+
+  return {
+    ...mergedSettings,
+    vapi_assistant_id: sanitizePowerDialAssistantId(mergedSettings.vapi_assistant_id),
   };
 }
 
