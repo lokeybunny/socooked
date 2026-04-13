@@ -19,7 +19,7 @@ import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses';
+type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses' | 'powerdial';
 
 interface FunnelLead {
   id: string;
