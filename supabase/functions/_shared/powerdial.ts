@@ -58,9 +58,9 @@ const TERMINAL_CONNECTED_CALL_STATUSES = new Set([
 async function hasActiveConnectedCall(campaignId: string) {
   const { data: connectedCalls } = await sb
     .from("powerdial_call_logs")
-    .select("id, twilio_status")
+    .select("id, twilio_status, amd_result, connected_to_vapi")
     .eq("campaign_id", campaignId)
-    .eq("connected_to_vapi", true)
+    .or("connected_to_vapi.eq.true,amd_result.eq.human")
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -68,6 +68,34 @@ async function hasActiveConnectedCall(campaignId: string) {
     const status = String(call?.twilio_status || "").toLowerCase();
     return !status || !TERMINAL_CONNECTED_CALL_STATUSES.has(status);
   }));
+}
+
+async function recoverCancelledTripleDialQueue(campaignId: string) {
+  const { data: stuckItems } = await sb
+    .from("powerdial_queue")
+    .select("id")
+    .eq("campaign_id", campaignId)
+    .eq("status", "dialing")
+    .eq("last_result", "cancelled_triple_dial")
+    .limit(20);
+
+  if (!stuckItems?.length) return 0;
+
+  const ids = stuckItems.map((item: any) => item.id).filter(Boolean);
+  if (!ids.length) return 0;
+
+  const { data: recovered } = await sb
+    .from("powerdial_queue")
+    .update({
+      status: "pending",
+      retry_at: null,
+    })
+    .in("id", ids)
+    .eq("status", "dialing")
+    .eq("last_result", "cancelled_triple_dial")
+    .select("id");
+
+  return recovered?.length || 0;
 }
 
 export function normalizePhone(raw: string | null | undefined): string {
@@ -495,6 +523,8 @@ export async function dialNext(campaignId: string, logPrefix = "[powerdial]"): P
   if (cErr || !campaign) return { dialed: false, reason: "campaign_not_found" };
   if (campaign.status !== "running") return { dialed: false, reason: "campaign_not_running" };
 
+  await recoverCancelledTripleDialQueue(campaignId);
+
   if (await hasActiveConnectedCall(campaignId)) {
     return { dialed: false, reason: "active_human_call" };
   }
@@ -619,6 +649,8 @@ export async function dialNextBatch(campaignId: string, batchSize: number, logPr
 
   if (cErr || !campaign) return { dialed: false, reason: "campaign_not_found" };
   if (campaign.status !== "running") return { dialed: false, reason: "campaign_not_running" };
+
+  await recoverCancelledTripleDialQueue(campaignId);
 
   if (await hasActiveConnectedCall(campaignId)) {
     return { dialed: false, reason: "active_human_call" };
