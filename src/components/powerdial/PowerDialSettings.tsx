@@ -1,0 +1,93 @@
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+import { Save } from 'lucide-react';
+
+type Props = {
+  campaign: {
+    id: string;
+    settings: any;
+  };
+  onUpdate: () => void;
+};
+
+export default function PowerDialSettings({ campaign, onUpdate }: Props) {
+  const s = campaign.settings || {};
+  const [callDelay, setCallDelay] = useState(String(s.call_delay_ms || 2000));
+  const [maxRetries, setMaxRetries] = useState(String(s.max_retries || 2));
+  const [retryNoAnswerHours, setRetryNoAnswerHours] = useState(String(s.retry_no_answer_hours || 4));
+  const [retryBusyMinutes, setRetryBusyMinutes] = useState(String(s.retry_busy_minutes || 30));
+  const [hoursStart, setHoursStart] = useState(s.calling_hours_start || '09:00');
+  const [hoursEnd, setHoursEnd] = useState(s.calling_hours_end || '17:00');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const newSettings = {
+      call_delay_ms: Number(callDelay) || 2000,
+      max_retries: Number(maxRetries) || 2,
+      retry_no_answer_hours: Number(retryNoAnswerHours) || 4,
+      retry_busy_minutes: Number(retryBusyMinutes) || 30,
+      calling_hours_start: hoursStart,
+      calling_hours_end: hoursEnd,
+    };
+
+    const { error } = await supabase
+      .from('powerdial_campaigns')
+      .update({ settings: newSettings })
+      .eq('id', campaign.id);
+
+    setSaving(false);
+    if (error) {
+      toast.error('Failed to save settings');
+    } else {
+      toast.success('Settings saved');
+      onUpdate();
+    }
+  };
+
+  return (
+    <div className="glass-card p-6 space-y-5 max-w-md">
+      <h3 className="text-sm font-semibold text-foreground">Campaign Settings</h3>
+
+      <div>
+        <Label>Call Delay (ms between calls)</Label>
+        <Input type="number" value={callDelay} onChange={e => setCallDelay(e.target.value)} />
+        <p className="text-[10px] text-muted-foreground mt-1">Default: 2000ms (2 seconds)</p>
+      </div>
+
+      <div>
+        <Label>Max Retries per Contact</Label>
+        <Input type="number" value={maxRetries} onChange={e => setMaxRetries(e.target.value)} />
+      </div>
+
+      <div>
+        <Label>Retry No-Answer After (hours)</Label>
+        <Input type="number" value={retryNoAnswerHours} onChange={e => setRetryNoAnswerHours(e.target.value)} />
+      </div>
+
+      <div>
+        <Label>Retry Busy After (minutes)</Label>
+        <Input type="number" value={retryBusyMinutes} onChange={e => setRetryBusyMinutes(e.target.value)} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Calling Hours Start</Label>
+          <Input type="time" value={hoursStart} onChange={e => setHoursStart(e.target.value)} />
+        </div>
+        <div>
+          <Label>Calling Hours End</Label>
+          <Input type="time" value={hoursEnd} onChange={e => setHoursEnd(e.target.value)} />
+        </div>
+      </div>
+
+      <Button onClick={handleSave} disabled={saving}>
+        <Save className="h-4 w-4 mr-1" /> Save Settings
+      </Button>
+    </div>
+  );
+}

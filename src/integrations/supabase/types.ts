@@ -3143,6 +3143,223 @@ export type Database = {
         }
         Relationships: []
       }
+      powerdial_call_logs: {
+        Row: {
+          amd_result: string | null
+          attempt_number: number
+          campaign_id: string
+          connected_to_vapi: boolean
+          created_at: string
+          customer_id: string | null
+          disposition: string | null
+          follow_up_needed: boolean
+          id: string
+          meta: Json | null
+          phone: string
+          queue_item_id: string | null
+          recording_url: string | null
+          retry_eligible: boolean
+          summary: string | null
+          transcript: string | null
+          twilio_call_sid: string | null
+          twilio_status: string | null
+          updated_at: string
+          vapi_call_id: string | null
+        }
+        Insert: {
+          amd_result?: string | null
+          attempt_number?: number
+          campaign_id: string
+          connected_to_vapi?: boolean
+          created_at?: string
+          customer_id?: string | null
+          disposition?: string | null
+          follow_up_needed?: boolean
+          id?: string
+          meta?: Json | null
+          phone: string
+          queue_item_id?: string | null
+          recording_url?: string | null
+          retry_eligible?: boolean
+          summary?: string | null
+          transcript?: string | null
+          twilio_call_sid?: string | null
+          twilio_status?: string | null
+          updated_at?: string
+          vapi_call_id?: string | null
+        }
+        Update: {
+          amd_result?: string | null
+          attempt_number?: number
+          campaign_id?: string
+          connected_to_vapi?: boolean
+          created_at?: string
+          customer_id?: string | null
+          disposition?: string | null
+          follow_up_needed?: boolean
+          id?: string
+          meta?: Json | null
+          phone?: string
+          queue_item_id?: string | null
+          recording_url?: string | null
+          retry_eligible?: boolean
+          summary?: string | null
+          transcript?: string | null
+          twilio_call_sid?: string | null
+          twilio_status?: string | null
+          updated_at?: string
+          vapi_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "powerdial_call_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "powerdial_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "powerdial_call_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "powerdial_call_logs_queue_item_id_fkey"
+            columns: ["queue_item_id"]
+            isOneToOne: false
+            referencedRelation: "powerdial_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      powerdial_campaigns: {
+        Row: {
+          busy_count: number
+          completed_count: number
+          created_at: string
+          created_by: string
+          current_index: number
+          ended_at: string | null
+          failed_count: number
+          human_count: number
+          id: string
+          name: string
+          no_answer_count: number
+          settings: Json | null
+          source_filter: Json | null
+          started_at: string | null
+          status: string
+          total_leads: number
+          updated_at: string
+          voicemail_count: number
+        }
+        Insert: {
+          busy_count?: number
+          completed_count?: number
+          created_at?: string
+          created_by: string
+          current_index?: number
+          ended_at?: string | null
+          failed_count?: number
+          human_count?: number
+          id?: string
+          name?: string
+          no_answer_count?: number
+          settings?: Json | null
+          source_filter?: Json | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number
+          updated_at?: string
+          voicemail_count?: number
+        }
+        Update: {
+          busy_count?: number
+          completed_count?: number
+          created_at?: string
+          created_by?: string
+          current_index?: number
+          ended_at?: string | null
+          failed_count?: number
+          human_count?: number
+          id?: string
+          name?: string
+          no_answer_count?: number
+          settings?: Json | null
+          source_filter?: Json | null
+          started_at?: string | null
+          status?: string
+          total_leads?: number
+          updated_at?: string
+          voicemail_count?: number
+        }
+        Relationships: []
+      }
+      powerdial_queue: {
+        Row: {
+          campaign_id: string
+          contact_name: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          last_dialed_at: string | null
+          last_result: string | null
+          phone: string
+          position: number
+          retry_at: string | null
+          retry_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_dialed_at?: string | null
+          last_result?: string | null
+          phone: string
+          position?: number
+          retry_at?: string | null
+          retry_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_dialed_at?: string | null
+          last_result?: string | null
+          phone?: string
+          position?: number
+          retry_at?: string | null
+          retry_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "powerdial_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "powerdial_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "powerdial_queue_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

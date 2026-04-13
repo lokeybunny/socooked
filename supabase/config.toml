@@ -152,3 +152,9 @@ verify_jwt = false
 
 [functions.vapi-webhook]
 verify_jwt = false
+
+[functions.powerdial-engine]
+verify_jwt = false
+
+[functions.powerdial-webhook]
+verify_jwt = false
