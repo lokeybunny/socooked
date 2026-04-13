@@ -229,6 +229,20 @@ serve(async (req) => {
         }
       }
 
+      // Build session entry for call history
+      const syncSession = {
+        call_id: lead.vapi_call_id,
+        date: new Date().toISOString(),
+        status: callFailed ? "no_answer" : callEnded ? "completed" : status,
+        recording_url: recordingUrl,
+        transcript,
+        summary,
+        ai_notes: aiNotes,
+        ended_reason: endedReason,
+        duration_seconds: duration,
+      };
+      const prevSyncSessions = Array.isArray((lead.meta as any)?.vapi_call_sessions) ? (lead.meta as any).vapi_call_sessions : [];
+
       // Update lead
       const updates: Record<string, any> = {
         vapi_call_status: callFailed ? "no_answer" : callEnded ? "completed" : status,
@@ -243,6 +257,7 @@ serve(async (req) => {
           vapi_duration_seconds: duration || (lead.meta as any)?.vapi_duration_seconds,
           vapi_cost_cents: costCents || (lead.meta as any)?.vapi_cost_cents,
           vapi_synced_at: new Date().toISOString(),
+          vapi_call_sessions: [...prevSyncSessions, syncSession],
         },
       };
 
