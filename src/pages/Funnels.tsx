@@ -639,6 +639,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
               {lead.is_inbound ? '📥 Inbound' : '📤 Outbound'}
             </Badge>
           )}
+          {lead.event_type === 'power_dialed' && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-purple-500 border-purple-500/30 bg-purple-500/10">
+              <Zap className="h-3 w-3" /> POWER DIALED
+            </Badge>
+          )}
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
@@ -792,7 +797,7 @@ export default function Funnels() {
           vapi_transcript: (meta.vapi_transcript as string) || null,
           vapi_summary: (meta.vapi_summary as string) || null,
           is_inbound: isDirectInbound,
-          drafted_at: (isFreshLiveCall || isDirectInbound) ? null : ((meta.funnel_drafted_at as string) || null),
+          drafted_at: (isFreshLiveCall || isDirectInbound || tags.includes('power_dialed')) ? null : ((meta.funnel_drafted_at as string) || null),
           remind_status: (remind?.status as any) || (meta.vapi_remind_status as any) || null,
           remind_attempts: remind?.attempts || null,
           remind_connected_at: remind?.connected_at || (meta.vapi_remind_connected_at as string) || null,
