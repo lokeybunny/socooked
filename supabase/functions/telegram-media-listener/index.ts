@@ -6266,7 +6266,7 @@ Deno.serve(async (req) => {
 
     return new Response('ok')
 
-  } catch (err: any) {
+  } catch (err) {
     console.error('[telegram-media-listener] ERROR:', err)
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders })
   }
