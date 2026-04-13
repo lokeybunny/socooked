@@ -55,23 +55,29 @@ const TERMINAL_CONNECTED_CALL_STATUSES = new Set([
   "canceled",
 ]);
 
-async function hasActiveConnectedCall(campaignId: string) {
+async function hasActiveConnectedCall(campaignId: string, excludeCallLogId?: string) {
   const { data: connectedCalls } = await sb
     .from("powerdial_call_logs")
-    .select("id, twilio_status, amd_result, connected_to_vapi")
+    .select("id, twilio_status, amd_result, connected_to_vapi, created_at")
     .eq("campaign_id", campaignId)
     .or("connected_to_vapi.eq.true,amd_result.eq.human")
     .order("created_at", { ascending: false })
     .limit(10);
 
+  const now = Date.now();
   return Boolean((connectedCalls || []).find((call: any) => {
+    if (excludeCallLogId && call.id === excludeCallLogId) return false;
+    // Treat calls older than 5 minutes as stale (safety net)
+    const age = now - new Date(call.created_at).getTime();
+    if (age > 5 * 60 * 1000) return false;
     const status = String(call?.twilio_status || "").toLowerCase();
     return !status || !TERMINAL_CONNECTED_CALL_STATUSES.has(status);
   }));
 }
 
 async function recoverCancelledTripleDialQueue(campaignId: string) {
-  const { data: stuckItems } = await sb
+  // Recover items stuck in "dialing" with cancelled_triple_dial result
+  const { data: stuckDialing } = await sb
     .from("powerdial_queue")
     .select("id")
     .eq("campaign_id", campaignId)
@@ -79,21 +85,35 @@ async function recoverCancelledTripleDialQueue(campaignId: string) {
     .eq("last_result", "cancelled_triple_dial")
     .limit(20);
 
-  if (!stuckItems?.length) return 0;
+  // Also recover items stuck in "completed" with cancelled_triple_dial (race condition)
+  const { data: stuckCompleted } = await sb
+    .from("powerdial_queue")
+    .select("id")
+    .eq("campaign_id", campaignId)
+    .eq("status", "completed")
+    .eq("last_result", "cancelled_triple_dial")
+    .limit(20);
 
-  const ids = stuckItems.map((item: any) => item.id).filter(Boolean);
+  const allStuck = [...(stuckDialing || []), ...(stuckCompleted || [])];
+  if (!allStuck.length) return 0;
+
+  const ids = allStuck.map((item: any) => item.id).filter(Boolean);
   if (!ids.length) return 0;
 
   const { data: recovered } = await sb
     .from("powerdial_queue")
     .update({
       status: "pending",
+      last_result: null,
       retry_at: null,
     })
     .in("id", ids)
-    .eq("status", "dialing")
-    .eq("last_result", "cancelled_triple_dial")
+    .in("status", ["dialing", "completed"])
     .select("id");
+
+  if (recovered?.length) {
+    console.log(`[powerdial] Recovered ${recovered.length} cancelled_triple_dial queue items`);
+  }
 
   return recovered?.length || 0;
 }
