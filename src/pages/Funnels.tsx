@@ -761,11 +761,12 @@ export default function Funnels() {
     fetchInFlightRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }] = await Promise.all([
+      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }, { data: pdLogs }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').not('meta->>vapi_call_id', 'is', null).order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
+        supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').order('created_at', { ascending: false }).limit(500),
       ]);
 
       const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null; created_at: string | null }>();
