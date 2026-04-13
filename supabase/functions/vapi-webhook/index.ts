@@ -661,6 +661,21 @@ serve(async (req) => {
 
         console.log(`[end-of-call] Updated customer ${customerLead.id}: status=${newStatus}, disposition=${disposition}`);
 
+        // Clear stale in_call on any OTHER customers that share this call_id
+        const { data: dupes } = await sb.from("customers").select("id, meta")
+          .filter("meta->>vapi_call_id", "eq", callId)
+          .neq("id", customerLead.id);
+        if (dupes?.length) {
+          for (const d of dupes) {
+            const dm = (d.meta as any) || {};
+            await sb.from("customers").update({
+              meta: { ...dm, vapi_call_status: "completed", vapi_last_contact: new Date().toISOString() },
+              tags: Array.isArray((d as any).tags) ? (d as any).tags.filter((t: string) => t !== "in_call") : [],
+            }).eq("id", d.id);
+            console.log(`[end-of-call] Cleared stale in_call on duplicate customer ${d.id}`);
+          }
+        }
+
         // Log to communications table for audit trail
         await sb.from("communications").insert({
           customer_id: customerLead.id,
