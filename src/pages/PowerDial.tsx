@@ -421,8 +421,8 @@ export default function PowerDial() {
           </>
         )}
 
-        {/* Test Call Section */}
-        <TestCallSection />
+        {/* Test Call Button */}
+        <TestCallButton />
 
         {!activeCampaign && !loading && (
           <div className="glass-card p-12 text-center">
