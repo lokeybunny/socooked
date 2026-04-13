@@ -384,9 +384,16 @@ Deno.serve(async (req) => {
 
         // Get frozen assistant from call log meta (set at dial time), fallback to campaign settings
         const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
-          sb.from("powerdial_call_logs").select("meta").eq("id", callLogId).single(),
+          sb.from("powerdial_call_logs").select("meta, batch_id").eq("id", callLogId).single(),
           sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
         ]);
+
+        // If this is a triple-dial batch, cancel the sibling calls
+        const batchId = (existingLog as any)?.batch_id;
+        if (batchId) {
+          console.log(`[powerdial-webhook] Human detected in triple-dial batch ${batchId}, cancelling siblings`);
+          await cancelSiblingCalls(batchId, callLogId, campaignId);
+        }
 
         const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
           ? existingLog.meta as Record<string, unknown>
