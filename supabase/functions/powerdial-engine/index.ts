@@ -2,6 +2,7 @@ import {
   advanceCampaign,
   DEFAULT_POWERDIAL_SETTINGS,
   dialNext,
+  dialNextBatch,
   resolveTwilioFromNumber,
   sanitizePowerDialAssistantId,
   sb,
@@ -104,12 +105,16 @@ Deno.serve(async (req) => {
 
       case "start":
       case "resume": {
+        const { data: campData } = await sb.from("powerdial_campaigns").select("settings").eq("id", campaign_id).single();
         await sb.from("powerdial_campaigns").update({
           status: "running",
           ...(action === "start" ? { started_at: new Date().toISOString() } : {}),
         }).eq("id", campaign_id);
 
-        const result = await dialNext(campaign_id, "[powerdial-engine]");
+        const tripleDialEnabled = Boolean((campData?.settings as any)?.triple_dial);
+        const result = tripleDialEnabled
+          ? await dialNextBatch(campaign_id, 3, "[powerdial-engine]")
+          : await dialNext(campaign_id, "[powerdial-engine]");
         console.log(`[powerdial-engine] ${action} result for ${campaign_id}:`, result);
         return json({ ok: true, ...result });
       }

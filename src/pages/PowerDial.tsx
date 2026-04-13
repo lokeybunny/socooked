@@ -9,8 +9,9 @@ import { toast } from 'sonner';
 import {
   Phone, Play, Pause, Square, SkipForward, Plus, Users, PhoneCall,
   Voicemail, PhoneOff, Clock, CheckCircle, AlertCircle, Loader2,
-  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles,
+  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -341,6 +342,22 @@ export default function PowerDial() {
               <Badge className={statusColor[activeCampaign.status] || ''}>
                 {activeCampaign.status.toUpperCase()}
               </Badge>
+
+              {/* 3x Dial Toggle */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10">
+                <Zap className="h-3.5 w-3.5 text-purple-400" />
+                <span className="text-xs font-medium text-purple-300">3x Dial</span>
+                <Switch
+                  checked={Boolean(activeCampaign.settings?.triple_dial)}
+                  onCheckedChange={async (checked) => {
+                    const newSettings = { ...(activeCampaign.settings || {}), triple_dial: checked };
+                    await supabase.from('powerdial_campaigns').update({ settings: newSettings }).eq('id', activeCampaign.id);
+                    setActiveCampaign({ ...activeCampaign, settings: newSettings });
+                    toast.success(checked ? '3x Dial enabled — dialing 3 numbers at once' : '3x Dial disabled — single dialing');
+                  }}
+                  className="data-[state=checked]:bg-purple-500"
+                />
+              </div>
 
               {(activeCampaign.status === 'idle' || activeCampaign.status === 'stopped') && (
                 <Button size="sm" onClick={() => invokeEngine({ action: 'start', campaign_id: activeCampaign.id })} disabled={actionLoading}>
