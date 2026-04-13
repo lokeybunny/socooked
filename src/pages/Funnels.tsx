@@ -108,6 +108,11 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Cancelled' },
   ],
+  powerdial: [
+    { value: 'positive', label: 'Positive' },
+    { value: 'negative', label: 'Negative' },
+    { value: 'unknown', label: 'Unknown' },
+  ],
 };
 
 /* ─── Email Modal ─── */
