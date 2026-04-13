@@ -5619,10 +5619,10 @@ Deno.serve(async (req) => {
             reply_markup: PAGE_3_KEYBOARD,
           })
         }
-      } catch (err: any) {
+      } catch (err) {
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: `❌ <b>Test call error:</b> ${err.message}`,
+          text: `❌ <b>Test call error:</b> ${(err as Error).message}`,
           parse_mode: 'HTML',
           reply_markup: PAGE_3_KEYBOARD,
         })
