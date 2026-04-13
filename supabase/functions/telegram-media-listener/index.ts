@@ -4319,7 +4319,7 @@ Deno.serve(async (req) => {
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '📞 <b>Test Call</b>\n\nEnter a phone number to place a test outbound call.\n\n<i>Format: 7027016192</i>',
+        text: '📞 <b>Test Call</b>\n\nEnter a phone number to place a test outbound call.\n\nFormat: <code>7027016192</code>',
         parse_mode: 'HTML',
         reply_markup: PAGE_3_KEYBOARD,
       })
