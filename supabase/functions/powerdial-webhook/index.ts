@@ -132,12 +132,19 @@ async function handleCallCompletion(
   callLogId: string,
   source: "status" | "dial-complete",
 ) {
+  // Mark call as fully terminal FIRST so hasActiveConnectedCall won't block next batch
+  await sb.from("powerdial_call_logs").update({
+    twilio_status: "completed",
+    connected_to_vapi: false,
+  }).eq("id", callLogId);
+
   const [{ data: logData }, { data: qItem }] = await Promise.all([
     sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id").eq("id", callLogId).single(),
     sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single(),
   ]);
 
-  if (logData?.connected_to_vapi && qItem?.phone && !logData.vapi_call_id) {
+  // Note: connected_to_vapi was just set to false, but check vapi_call_id absence
+  if (qItem?.phone) {
     const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
     if (matchedCall) {
       const transcript = matchedCall.transcript ||
