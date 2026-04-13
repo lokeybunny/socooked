@@ -58,6 +58,18 @@ interface FunnelLead {
   remind_created_at?: string | null;
   happy?: boolean;
   dead?: boolean;
+  vapi_call_sessions?: Array<{
+    call_id: string;
+    date: string;
+    status: string;
+    recording_url?: string | null;
+    transcript?: string;
+    summary?: string;
+    ai_notes?: string;
+    ended_reason?: string;
+    duration_seconds?: number;
+    disposition?: string;
+  }>;
 }
 
 const PAGE_SIZE = 30;
