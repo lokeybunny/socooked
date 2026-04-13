@@ -404,6 +404,66 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
           </div>
         )}
 
+        {/* Call History (multiple sessions) */}
+        {lead.vapi_call_sessions && lead.vapi_call_sessions.length > 1 && (
+          <div className="mt-4 border-t pt-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+              <Phone className="h-4 w-4 text-primary" /> Call History
+              <Badge variant="secondary" className="text-[10px]">{lead.vapi_call_sessions.length} calls</Badge>
+            </h3>
+            <div className="space-y-2">
+              {[...lead.vapi_call_sessions].reverse().map((session, idx) => (
+                <details key={session.call_id || idx} className="group rounded-md border border-border bg-muted/20" {...(idx === 0 ? { open: true } : {})}>
+                  <summary className="flex items-center gap-2 px-3 py-2 cursor-pointer text-xs hover:bg-muted/40">
+                    <span className="font-medium">
+                      {format(new Date(session.date), 'MMM d, yyyy h:mm a')}
+                    </span>
+                    <Badge variant={session.status === 'completed' ? 'default' : 'secondary'} className="text-[9px]">
+                      {session.status || 'unknown'}
+                    </Badge>
+                    {session.disposition && (
+                      <Badge variant="outline" className="text-[9px]">{session.disposition}</Badge>
+                    )}
+                    {session.duration_seconds != null && (
+                      <span className="text-muted-foreground ml-auto">{Math.round(session.duration_seconds)}s</span>
+                    )}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="px-3 pb-3 space-y-2">
+                    {session.recording_url && (
+                      <div>
+                        <p className="text-muted-foreground text-[10px] mb-1">Recording</p>
+                        <audio controls className="w-full h-8" preload="metadata"><source src={session.recording_url} /></audio>
+                      </div>
+                    )}
+                    {session.summary && (
+                      <div>
+                        <p className="text-muted-foreground text-[10px] mb-1">Summary</p>
+                        <div className="bg-muted/50 rounded p-2 text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">{session.summary}</div>
+                      </div>
+                    )}
+                    {session.ai_notes && (
+                      <div>
+                        <p className="text-muted-foreground text-[10px] mb-1">AI Notes</p>
+                        <div className="bg-muted/50 rounded p-2 text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">{session.ai_notes}</div>
+                      </div>
+                    )}
+                    {session.transcript && (
+                      <div>
+                        <p className="text-muted-foreground text-[10px] mb-1">Transcript</p>
+                        <div className="bg-muted/50 rounded p-2 text-xs whitespace-pre-wrap max-h-48 overflow-y-auto">{session.transcript}</div>
+                      </div>
+                    )}
+                    {session.ended_reason && (
+                      <p className="text-[10px] text-muted-foreground">Ended: {session.ended_reason.replace(/-/g, ' ')}</p>
+                    )}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* AI Analysis Result */}
         {analysisResult && (
           <div className="mt-4 border-t pt-4">
