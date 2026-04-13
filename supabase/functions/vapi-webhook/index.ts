@@ -379,11 +379,14 @@ serve(async (req) => {
 
       // ──── TOOL: create_tentative_booking ────
       if (fnName === "create_tentative_booking") {
-        const contactId = params.contact_id;
+        let contactId = params.contact_id || null;
         const date = params.date;
         const time = params.time || "10:00 AM";
         const serviceType = (params.service_type || "").toLowerCase();
         const notes = params.notes || "";
+        const callerName = params.name || params.full_name || "";
+        const callerPhone = params.phone || "";
+        const callerEmail = params.email || "";
         const { hour, min } = parseTime(time);
         
         const funnel = getAssistantFunnel(callAssistantId);
@@ -401,16 +404,36 @@ serve(async (req) => {
           .select("id").lt("start_time", endUtc.toISOString()).gt("end_time", startUtc.toISOString());
         const hasConflict = !!(conflicts && conflicts.length > 0);
 
-        // Fetch contact info
-        let contactName = "Caller";
-        let contactPhone = "";
-        let contactEmail = "";
+        // Auto-resolve contact from call metadata if no contact_id provided
+        let contactName = callerName || "Caller";
+        let contactPhone = callerPhone;
+        let contactEmail = callerEmail;
+
+        if (!contactId) {
+          // Try to find contact from the call's phone number
+          const callPhone = normalizePhone(
+            callerPhone || message?.call?.customer?.number || message?.call?.phoneNumber?.number || ""
+          );
+          if (callPhone && callPhone.length >= 10) {
+            const { data: found } = await sb.from("customers").select("id, full_name, phone, email")
+              .or(`phone.eq.${callPhone},phone.eq.+1${callPhone},phone.eq.+${callPhone}`)
+              .order("created_at", { ascending: false }).limit(1).maybeSingle();
+            if (found) {
+              contactId = found.id;
+              contactName = found.full_name || contactName;
+              contactPhone = found.phone || contactPhone;
+              contactEmail = found.email || contactEmail;
+              console.log(`[create_tentative_booking] Auto-resolved contact: ${contactId} (${contactName})`);
+            }
+          }
+        }
+
         if (contactId) {
           const { data: contact } = await sb.from("customers").select("full_name, phone, email").eq("id", contactId).single();
           if (contact) {
-            contactName = contact.full_name;
-            contactPhone = contact.phone || "";
-            contactEmail = contact.email || "";
+            contactName = contact.full_name || contactName;
+            contactPhone = contact.phone || contactPhone;
+            contactEmail = contact.email || contactEmail;
           }
         }
 
