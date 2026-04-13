@@ -865,6 +865,38 @@ export default function Funnels() {
         });
       });
 
+      // Power Dial call logs (human-answered calls)
+      (pdLogs || []).forEach((log: any) => {
+        const meta = (log.meta as Record<string, unknown>) || {};
+        const disp = (log.disposition || '').toLowerCase();
+        const summary = (log.summary || '').toLowerCase();
+        const transcript = (log.transcript || '').toLowerCase();
+        const combined_text = `${disp} ${summary} ${transcript}`;
+        const negSignals = ['not interested', 'no thanks', 'don\'t call', 'remove me', 'stop calling', 'wrong number', 'do not call', 'hang up'];
+        const posSignals = ['interested', 'yes', 'sure', 'tell me more', 'sounds good', 'schedule', 'appointment', 'book', 'meeting', 'callback', 'follow_up', 'success'];
+        const isNeg = negSignals.some(s => combined_text.includes(s));
+        const isPos = !isNeg && (log.follow_up_needed || disp === 'interested' || posSignals.some(s => combined_text.includes(s)));
+        const sentiment = isNeg ? 'negative' : isPos ? 'positive' : 'unknown';
+
+        combined.push({
+          id: log.id, funnel: 'powerdial' as const, _table: 'powerdial_call_logs' as any,
+          full_name: (meta.contact_name as string) || log.phone || 'Unknown',
+          email: null, phone: log.phone,
+          created_at: log.created_at, status: sentiment,
+          notes: log.summary || null,
+          company: null,
+          last_activity_at: log.updated_at || log.created_at,
+          vapi_call_status: log.connected_to_vapi ? 'completed' : null,
+          vapi_call_id: log.vapi_call_id || null,
+          ai_notes: null,
+          vapi_recording_url: log.recording_url || null,
+          vapi_transcript: log.transcript || null,
+          vapi_summary: log.summary || null,
+          drafted_at: null,
+          event_type: sentiment === 'positive' ? 'interested' : sentiment === 'negative' ? 'not_interested' : null,
+        });
+      });
+
       combined.sort((a, b) => new Date(b.last_activity_at || b.created_at).getTime() - new Date(a.last_activity_at || a.created_at).getTime());
 
       const now = new Date();
