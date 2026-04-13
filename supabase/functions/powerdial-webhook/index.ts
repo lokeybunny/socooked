@@ -28,6 +28,25 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function normalizePhone(value: string | null | undefined): string {
+  const raw = String(value || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (raw.startsWith("+")) return raw;
+  return `+${digits}`;
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 /** Fetch the E.164 phone number associated with a Vapi phoneNumberId */
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
   if (!phoneNumberId) return null;
@@ -50,15 +69,17 @@ async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null>
 }
 
 /** Update a live Twilio call with new TwiML to transfer to Vapi */
-async function redirectCallToVapi(callSid: string, vapiPhoneNumber: string, assistantId: string): Promise<boolean> {
+async function redirectCallToVapi(callSid: string, vapiPhoneNumber: string, assistantId: string, twilioFrom?: string): Promise<boolean> {
   try {
-    // Build TwiML that dials the Vapi phone number with the assistant context
-    // The SIP headers pass the assistant ID to Vapi so it knows which assistant to use
+    const resolvedCallerId = normalizePhone(twilioFrom);
+    const callerIdAttr = resolvedCallerId ? ` callerId="${escapeXml(resolvedCallerId)}"` : "";
+
+    // Reuse the verified Twilio number from the live outbound leg.
+    // The configured env value may be invalid even when the actual live call was auto-fallbacked.
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say>Please hold while I connect you.</Say>
-  <Dial callerId="${Deno.env.get("TWILIO_FROM_NUMBER") || ""}" timeout="30">
-    <Number>${vapiPhoneNumber}</Number>
+  <Dial timeout="30" answerOnBridge="true"${callerIdAttr}>
+    <Number>${escapeXml(vapiPhoneNumber)}</Number>
   </Dial>
 </Response>`;
 
@@ -80,7 +101,7 @@ async function redirectCallToVapi(callSid: string, vapiPhoneNumber: string, assi
       return false;
     }
     const data = await resp.json();
-    console.log(`[powerdial-webhook] Call ${callSid} redirected to Vapi number ${vapiPhoneNumber}`);
+    console.log(`[powerdial-webhook] Call ${callSid} redirected to Vapi number ${vapiPhoneNumber} with assistant ${assistantId} using caller ID ${resolvedCallerId || "default"}`);
     return true;
   } catch (err) {
     console.error("[powerdial-webhook] Redirect exception:", err);
@@ -140,6 +161,7 @@ Deno.serve(async (req) => {
     const params = new URLSearchParams(formText);
     const callSid = params.get("CallSid") || "";
     const callStatus = params.get("CallStatus") || "";
+    const twilioFrom = params.get("From") || "";
 
     if (type === "amd") {
       const answeredBy = params.get("AnsweredBy") || "";
@@ -177,26 +199,35 @@ Deno.serve(async (req) => {
         const vapiPhoneNumber = await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
 
         if (vapiPhoneNumber) {
-          const redirected = await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId);
+          const redirected = await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId, twilioFrom);
 
           if (redirected) {
             await sb.from("powerdial_call_logs").update({
               connected_to_vapi: true,
-              meta: { transfer_method: "twilio_redirect", vapi_phone: vapiPhoneNumber, assistant_id: assistantId },
+              meta: {
+                transfer_method: "twilio_redirect",
+                vapi_phone: vapiPhoneNumber,
+                assistant_id: assistantId,
+                twilio_from: normalizePhone(twilioFrom) || null,
+              },
             }).eq("id", callLogId);
             console.log(`[powerdial-webhook] Human detected — redirected call ${callSid} to Vapi at ${vapiPhoneNumber}`);
           } else {
             console.error("[powerdial-webhook] Failed to redirect call to Vapi");
             await sb.from("powerdial_call_logs").update({
               connected_to_vapi: false,
-              meta: { vapi_error: "redirect_failed" },
+              meta: { vapi_error: "redirect_failed", twilio_from: normalizePhone(twilioFrom) || null },
             }).eq("id", callLogId);
           }
         } else {
           console.error("[powerdial-webhook] Could not resolve Vapi phone number from ID:", VAPI_PHONE_NUMBER_ID);
           await sb.from("powerdial_call_logs").update({
             connected_to_vapi: false,
-            meta: { vapi_error: "no_vapi_phone_number", vapi_phone_number_id: VAPI_PHONE_NUMBER_ID },
+            meta: {
+              vapi_error: "no_vapi_phone_number",
+              vapi_phone_number_id: VAPI_PHONE_NUMBER_ID,
+              twilio_from: normalizePhone(twilioFrom) || null,
+            },
           }).eq("id", callLogId);
         }
 

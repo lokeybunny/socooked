@@ -80,7 +80,7 @@ function buildCallParams(args: {
   return new URLSearchParams({
     To: args.phone,
     From: args.from,
-    MachineDetection: "DetectMessageEnd",
+    MachineDetection: "Enable",
     AsyncAmd: "true",
     AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
     StatusCallback: `${webhookUrl}?type=status&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
