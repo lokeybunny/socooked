@@ -7,11 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 
+const DEFAULT_OUTBOUND_ASSISTANT = 'dc35680f-8763-4702-84d7-e3df267ddaf9';
+
 const VAPI_ASSISTANTS = [
-  { id: 'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8', label: 'Web Design – Inbound' },
   { id: 'dc35680f-8763-4702-84d7-e3df267ddaf9', label: 'Web Design – Outbound' },
-  { id: '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38', label: 'Videography – Inbound' },
   { id: '0045f12e-56e2-4245-971b-1f7dd2069282', label: 'Videography – Outbound' },
+  { id: 'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8', label: 'Web Design – Inbound' },
+  { id: '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38', label: 'Videography – Inbound' },
 ];
 
 type Props = {
@@ -24,26 +26,31 @@ type Props = {
 
 export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const s = campaign.settings || {};
+  const defaultAssistantId = s.vapi_assistant_id || DEFAULT_OUTBOUND_ASSISTANT;
+  const knownAssistant = VAPI_ASSISTANTS.find((assistant) => assistant.id === defaultAssistantId);
+
   const [callDelay, setCallDelay] = useState(String(s.call_delay_ms || 2000));
   const [maxRetries, setMaxRetries] = useState(String(s.max_retries || 2));
   const [retryNoAnswerHours, setRetryNoAnswerHours] = useState(String(s.retry_no_answer_hours || 4));
   const [retryBusyMinutes, setRetryBusyMinutes] = useState(String(s.retry_busy_minutes || 30));
   const [hoursStart, setHoursStart] = useState(s.calling_hours_start || '09:00');
   const [hoursEnd, setHoursEnd] = useState(s.calling_hours_end || '17:00');
-  const [vapiAssistantId, setVapiAssistantId] = useState(s.vapi_assistant_id || VAPI_ASSISTANTS[0].id);
-  const [customAssistantId, setCustomAssistantId] = useState(s.vapi_assistant_id && !VAPI_ASSISTANTS.find(a => a.id === s.vapi_assistant_id) ? s.vapi_assistant_id : '');
+  const [vapiAssistantId, setVapiAssistantId] = useState(knownAssistant ? defaultAssistantId : 'custom');
+  const [customAssistantId, setCustomAssistantId] = useState(knownAssistant ? '' : defaultAssistantId);
   const [saving, setSaving] = useState(false);
 
   const isCustom = vapiAssistantId === 'custom';
-  const resolvedAssistantId = isCustom ? customAssistantId : vapiAssistantId;
+  const resolvedAssistantId = isCustom ? customAssistantId.trim() : vapiAssistantId;
 
   const handleSave = async () => {
     if (!resolvedAssistantId) {
       toast.error('Please select or enter a Vapi assistant ID');
       return;
     }
+
     setSaving(true);
     const newSettings = {
+      ...s,
       call_delay_ms: Number(callDelay) || 2000,
       max_retries: Number(maxRetries) || 2,
       retry_no_answer_hours: Number(retryNoAnswerHours) || 4,
@@ -73,55 +80,63 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
 
       <div>
         <Label>Vapi AI Assistant</Label>
-        <Select value={VAPI_ASSISTANTS.find(a => a.id === vapiAssistantId) ? vapiAssistantId : 'custom'} onValueChange={(v) => {
-          setVapiAssistantId(v);
-          if (v !== 'custom') setCustomAssistantId('');
-        }}>
+        <Select
+          value={vapiAssistantId}
+          onValueChange={(value) => {
+            setVapiAssistantId(value);
+            if (value !== 'custom') setCustomAssistantId('');
+          }}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select assistant" />
           </SelectTrigger>
           <SelectContent>
-            {VAPI_ASSISTANTS.map(a => (
-              <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+            {VAPI_ASSISTANTS.map((assistant) => (
+              <SelectItem key={assistant.id} value={assistant.id}>{assistant.label}</SelectItem>
             ))}
             <SelectItem value="custom">Custom Assistant ID</SelectItem>
           </SelectContent>
         </Select>
         {isCustom && (
-          <Input className="mt-2" placeholder="Paste Vapi assistant ID" value={customAssistantId} onChange={e => setCustomAssistantId(e.target.value)} />
+          <Input
+            className="mt-2"
+            placeholder="Paste Vapi assistant ID"
+            value={customAssistantId}
+            onChange={(event) => setCustomAssistantId(event.target.value)}
+          />
         )}
-        <p className="text-[10px] text-muted-foreground mt-1">Which AI assistant handles live human calls</p>
+        <p className="text-[10px] text-muted-foreground mt-1">PowerDial transfers live humans to this assistant, so outbound assistants should be used here.</p>
       </div>
 
       <div>
         <Label>Call Delay (ms between calls)</Label>
-        <Input type="number" value={callDelay} onChange={e => setCallDelay(e.target.value)} />
+        <Input type="number" value={callDelay} onChange={(event) => setCallDelay(event.target.value)} />
         <p className="text-[10px] text-muted-foreground mt-1">Default: 2000ms (2 seconds)</p>
       </div>
 
       <div>
         <Label>Max Retries per Contact</Label>
-        <Input type="number" value={maxRetries} onChange={e => setMaxRetries(e.target.value)} />
+        <Input type="number" value={maxRetries} onChange={(event) => setMaxRetries(event.target.value)} />
       </div>
 
       <div>
         <Label>Retry No-Answer After (hours)</Label>
-        <Input type="number" value={retryNoAnswerHours} onChange={e => setRetryNoAnswerHours(e.target.value)} />
+        <Input type="number" value={retryNoAnswerHours} onChange={(event) => setRetryNoAnswerHours(event.target.value)} />
       </div>
 
       <div>
         <Label>Retry Busy After (minutes)</Label>
-        <Input type="number" value={retryBusyMinutes} onChange={e => setRetryBusyMinutes(e.target.value)} />
+        <Input type="number" value={retryBusyMinutes} onChange={(event) => setRetryBusyMinutes(event.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Calling Hours Start</Label>
-          <Input type="time" value={hoursStart} onChange={e => setHoursStart(e.target.value)} />
+          <Input type="time" value={hoursStart} onChange={(event) => setHoursStart(event.target.value)} />
         </div>
         <div>
           <Label>Calling Hours End</Label>
-          <Input type="time" value={hoursEnd} onChange={e => setHoursEnd(e.target.value)} />
+          <Input type="time" value={hoursEnd} onChange={(event) => setHoursEnd(event.target.value)} />
         </div>
       </div>
 
