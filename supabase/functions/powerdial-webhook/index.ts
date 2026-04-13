@@ -288,14 +288,19 @@ async function analyzeAndLabelPowerDialLead(
       await sb.from("customers").update({
         tags: newTags,
         status: existing.status === "lead" ? "prospect" : existing.status,
+        source: "webdesign-landing",
         meta: {
           ...currentMeta,
           powerdial_campaign_id: campaignId,
           powerdial_interested: true,
           powerdial_transcript_summary: summary.slice(0, 500),
           powerdial_call_log_id: callLogId,
+          vapi_call_id: matchedCall.id || currentMeta.vapi_call_id || null,
+          vapi_call_status: "completed",
+          vapi_transcript: transcript.slice(0, 2000),
+          vapi_summary: summary.slice(0, 1000),
+          vapi_ai_notes: `[PowerD] ${summary.slice(0, 500)}`,
         },
-        source: currentMeta.source || "power_dialed",
       }).eq("id", existing.id);
 
       console.log(`[powerdial-webhook] Updated existing customer ${existing.id} with power_dialed tag`);
