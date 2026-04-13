@@ -61,6 +61,7 @@ const PAGE_2_KEYBOARD = {
 const PAGE_3_KEYBOARD = {
   keyboard: [
     [{ text: '🏪 Arbitrage' }, { text: '🔎 Checkup' }],
+    [{ text: '📞 Test Call' }],
     [{ text: '⬅️ Back 2' }],
   ],
   resize_keyboard: true,
@@ -158,7 +159,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'checkup' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'checkup' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | 'testcall' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -192,6 +193,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
    if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
    if (normalized === 'wheresvideo' || normalized === '/wheresvideo') return 'wheresvideo'
    if (normalized === 'checkup' || normalized === '/checkup') return 'checkup'
+   if (normalized === 'test call' || normalized === 'testcall' || normalized === '/testcall') return 'testcall'
   return null
 }
 
@@ -4303,6 +4305,27 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle Test Call command ───
+    if (action === 'testcall') {
+      // Clear any existing testcall session
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'testcall_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create testcall session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'testcall_session',
+        payload: { chat_id: chatId, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '📞 <b>Test Call</b>\n\nEnter a phone number to place a test outbound call.\n\n<i>Format: (702) 555-1234 or +17025551234</i>',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
     if (action === 'start') {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
@@ -5551,6 +5574,62 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle testcall session (phone number input) ───
+    const { data: testcallSessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'testcall_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .order('created_at', { ascending: false }).limit(1)
+
+    if (testcallSessions && testcallSessions.length > 0 && text) {
+      // Clean up session
+      await supabase.from('webhook_events').delete().eq('id', testcallSessions[0].id)
+
+      const phoneInput = text.trim()
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `📞 <b>Dialing test call to:</b> ${phoneInput}\n\n<i>Placing call via PowerD engine...</i>`,
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
+
+      try {
+        const pdRes = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-engine`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({ action: 'test_call', phone: phoneInput }),
+        })
+        const pdData = await pdRes.json()
+
+        if (pdRes.ok && pdData.ok) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ <b>Test call placed!</b>\n\n📱 To: <code>${pdData.to}</code>\n📤 From: <code>${pdData.from}</code>\n🆔 SID: <code>${pdData.call_sid}</code>`,
+            parse_mode: 'HTML',
+            reply_markup: PAGE_3_KEYBOARD,
+          })
+        } else {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Test call failed</b>\n\n${pdData.error || 'Unknown error'}`,
+            parse_mode: 'HTML',
+            reply_markup: PAGE_3_KEYBOARD,
+          })
+        }
+      } catch (err) {
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `❌ <b>Test call error:</b> ${(err as Error).message}`,
+          parse_mode: 'HTML',
+          reply_markup: PAGE_3_KEYBOARD,
+        })
+      }
+      return new Response('ok')
+    }
+
     // ─── Handle checkup session (price lookup) ───
     const { data: checkupSessions } = await supabase.from('webhook_events')
       .select('id, payload')
@@ -6187,7 +6266,7 @@ Deno.serve(async (req) => {
 
     return new Response('ok')
 
-  } catch (err: any) {
+  } catch (err) {
     console.error('[telegram-media-listener] ERROR:', err)
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders })
   }
