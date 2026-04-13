@@ -4,7 +4,7 @@ import { AuthLayoutGate } from '@/components/layout/AuthLayoutGate';
 import { toast } from 'sonner';
 import {
   Globe, GraduationCap, Filter, Clock, Mail, Phone, Search, Video,
-  Bot, Play, ExternalLink, Send, Loader2,
+  Bot, Play, ExternalLink, Send, Loader2, PhoneCall,
   RefreshCw, Eye, MessageSquare, EyeOff, ChevronLeft, ChevronRight, Trash2, ChevronDown,
   FileText, Mic, Copy, Sparkles, UserPlus, BellRing, Zap
 } from 'lucide-react';
@@ -19,11 +19,11 @@ import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses';
+type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses' | 'powerdial';
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'aicourses' | 'videography';
+  funnel: 'webdesign' | 'aicourses' | 'videography' | 'powerdial';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -79,6 +79,7 @@ const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: 
   webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   aicourses: { label: 'AI Courses', icon: GraduationCap, color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
   videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+  powerdial: { label: 'Power D', icon: PhoneCall, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
@@ -106,6 +107,11 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'active', label: 'Active' },
     { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Cancelled' },
+  ],
+  powerdial: [
+    { value: 'positive', label: 'Positive' },
+    { value: 'negative', label: 'Negative' },
+    { value: 'unknown', label: 'Unknown' },
   ],
 };
 
@@ -644,6 +650,16 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
               <Zap className="h-3 w-3" /> POWER DIALED
             </Badge>
           )}
+          {lead.funnel === 'powerdial' && lead.status === 'positive' && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-green-600 border-green-500/30 bg-green-500/10">
+              👍 Positive
+            </Badge>
+          )}
+          {lead.funnel === 'powerdial' && lead.status === 'negative' && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-red-600 border-red-500/30 bg-red-500/10">
+              👎 Negative
+            </Badge>
+          )}
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
@@ -661,6 +677,20 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
         </Select>
       </div>
       {lead.notes && <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>}
+      {/* Inline audio for powerdial */}
+      {lead.funnel === 'powerdial' && lead.vapi_recording_url && (
+        <div className="mt-2">
+          <audio controls className="w-full h-8" preload="metadata"><source src={lead.vapi_recording_url} /></audio>
+        </div>
+      )}
+      {lead.funnel === 'powerdial' && lead.vapi_transcript && (
+        <details className="mt-2">
+          <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+            <FileText className="h-3 w-3" /> View Transcript
+          </summary>
+          <div className="bg-muted/50 rounded-md p-2 text-[10px] whitespace-pre-wrap max-h-32 overflow-y-auto mt-1">{lead.vapi_transcript}</div>
+        </details>
+      )}
       <div className="mt-3 flex items-center gap-1.5 flex-wrap">
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onView}>
           <Eye className="h-3 w-3 mr-1" /> View
@@ -755,11 +785,13 @@ export default function Funnels() {
     fetchInFlightRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }] = await Promise.all([
+      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }, { data: pdLogs }, { data: pdQueue }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').not('meta->>vapi_call_id', 'is', null).order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
         supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
+        supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').order('created_at', { ascending: false }).limit(500),
+        supabase.from('powerdial_queue').select('id, contact_name, phone').limit(1000),
       ]);
 
       const remindMap = new Map<string, { status: string; attempts: number; connected_at: string | null; created_at: string | null }>();
@@ -855,6 +887,41 @@ export default function Funnels() {
           vapi_call_status: null, vapi_call_id: null, ai_notes: null,
           vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
           drafted_at: (meta.funnel_drafted_at as string) || null,
+        });
+      });
+      // Build queue name lookup
+      const queueNameMap = new Map<string, string>();
+      (pdQueue || []).forEach((q: any) => queueNameMap.set(q.id, q.contact_name || ''));
+
+      // Power Dial call logs (human-answered calls)
+      (pdLogs || []).forEach((log: any) => {
+        const meta = (log.meta as Record<string, unknown>) || {};
+        const disp = (log.disposition || '').toLowerCase();
+        const summary = (log.summary || '').toLowerCase();
+        const transcript = (log.transcript || '').toLowerCase();
+        const combined_text = `${disp} ${summary} ${transcript}`;
+        const negSignals = ['not interested', 'no thanks', 'don\'t call', 'remove me', 'stop calling', 'wrong number', 'do not call', 'hang up'];
+        const posSignals = ['interested', 'yes', 'sure', 'tell me more', 'sounds good', 'schedule', 'appointment', 'book', 'meeting', 'callback', 'follow_up', 'success'];
+        const isNeg = negSignals.some(s => combined_text.includes(s));
+        const isPos = !isNeg && (log.follow_up_needed || disp === 'interested' || posSignals.some(s => combined_text.includes(s)));
+        const sentiment = isNeg ? 'negative' : isPos ? 'positive' : 'unknown';
+
+        combined.push({
+          id: log.id, funnel: 'powerdial' as const, _table: 'powerdial_call_logs' as any,
+          full_name: queueNameMap.get(log.queue_item_id) || (meta.contact_name as string) || log.phone || 'Unknown',
+          email: null, phone: log.phone,
+          created_at: log.created_at, status: sentiment,
+          notes: log.summary || null,
+          company: null,
+          last_activity_at: log.updated_at || log.created_at,
+          vapi_call_status: log.connected_to_vapi ? 'completed' : null,
+          vapi_call_id: log.vapi_call_id || null,
+          ai_notes: null,
+          vapi_recording_url: log.recording_url || null,
+          vapi_transcript: log.transcript || null,
+          vapi_summary: log.summary || null,
+          drafted_at: null,
+          event_type: sentiment === 'positive' ? 'interested' : sentiment === 'negative' ? 'not_interested' : null,
         });
       });
 
@@ -1020,6 +1087,7 @@ export default function Funnels() {
     webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
     aicourses: leads.filter(l => l.funnel === 'aicourses' && !l.drafted_at).length,
     videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
+    powerdial: leads.filter(l => l.funnel === 'powerdial').length,
   }), [leads]);
 
   // Pipeline stage counts for current funnel
@@ -1058,8 +1126,8 @@ export default function Funnels() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {(['all', 'webdesign', 'videography', 'aicourses'] as const).map((key) => {
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {(['all', 'webdesign', 'videography', 'aicourses', 'powerdial'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];
