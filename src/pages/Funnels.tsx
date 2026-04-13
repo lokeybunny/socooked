@@ -1227,6 +1227,7 @@ export default function Funnels() {
                 onRemind={() => handleRemind(lead)}
                 onHappyToggle={(checked) => handleHappyToggle(lead, checked)}
                 onDeadToggle={(checked) => handleDeadToggle(lead, checked)}
+                onDismiss={lead.funnel === 'powerdial' ? () => handleDismissPD(lead) : undefined}
                 onPhoneEdit={async (newPhone) => {
                   if (!newPhone.trim()) return;
                   const { error } = await supabase.from('customers').update({ phone: newPhone.trim() }).eq('id', lead.id);
