@@ -619,6 +619,13 @@ export async function cancelSiblingCalls(batchId: string, winnerCallLogId: strin
   const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 
   for (const sibling of siblings) {
+    // Mark call log as cancelled FIRST (before Twilio cancel, so webhook sees it)
+    await sb.from("powerdial_call_logs").update({
+      amd_result: "cancelled_triple_dial",
+      twilio_status: "canceled",
+      connected_to_vapi: false,
+    }).eq("id", sibling.id);
+
     // Hang up the Twilio call
     if (sibling.twilio_call_sid) {
       try {
@@ -638,18 +645,12 @@ export async function cancelSiblingCalls(batchId: string, winnerCallLogId: strin
       }
     }
 
-    // Mark call log as cancelled
-    await sb.from("powerdial_call_logs").update({
-      amd_result: "cancelled_triple_dial",
-      twilio_status: "canceled",
-    }).eq("id", sibling.id);
-
-    // Put queue item back to pending so it can be dialed later
+    // Put queue item back to pending (match ANY non-completed status)
     if (sibling.queue_item_id) {
       await sb.from("powerdial_queue").update({
         status: "pending",
-        last_result: "cancelled_triple_dial",
-      }).eq("id", sibling.queue_item_id).in("status", ["dialing", "completed"]);
+        last_result: null,
+      }).eq("id", sibling.queue_item_id);
     }
   }
 
