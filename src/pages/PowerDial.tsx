@@ -233,34 +233,94 @@ export default function PowerDial() {
         </div>
 
         {/* Campaign Selector */}
-        <div className="flex items-center gap-3">
-          <Select
-            value={activeCampaign?.id || ''}
-            onValueChange={(id) => {
-              const c = campaigns.find(c => c.id === id);
-              setActiveCampaign(c || null);
-            }}
-          >
-            <SelectTrigger className="w-[300px]">
-              <SelectValue placeholder="Select a campaign" />
-            </SelectTrigger>
-            <SelectContent>
-              {campaigns.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name} — {c.status}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="icon" onClick={loadCampaigns}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          {activeCampaign && (activeCampaign.status === 'stopped' || activeCampaign.status === 'completed' || activeCampaign.status === 'idle') && (
-            <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => setDeleteConfirmId(activeCampaign.id)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {!bulkMode ? (
+            <>
+              <Select
+                value={activeCampaign?.id || ''}
+                onValueChange={(id) => {
+                  const c = campaigns.find(c => c.id === id);
+                  setActiveCampaign(c || null);
+                }}
+              >
+                <SelectTrigger className="w-[300px]">
+                  <SelectValue placeholder="Select a campaign" />
+                </SelectTrigger>
+                <SelectContent>
+                  {campaigns.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} — {c.status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="icon" onClick={loadCampaigns}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              {activeCampaign && (activeCampaign.status === 'stopped' || activeCampaign.status === 'completed' || activeCampaign.status === 'idle') && (
+                <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => setDeleteConfirmId(activeCampaign.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              {deletableCampaigns.length > 1 && (
+                <Button variant="outline" size="sm" onClick={() => { setBulkMode(true); setBulkSelected([]); }}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Bulk Remove
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setBulkMode(false); setBulkSelected([]); }}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={bulkSelected.length === 0}
+                  onClick={() => setBulkDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete {bulkSelected.length} Selected
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBulkSelected(
+                    bulkSelected.length === deletableCampaigns.length
+                      ? []
+                      : deletableCampaigns.map(c => c.id)
+                  )}
+                >
+                  {bulkSelected.length === deletableCampaigns.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              </div>
+            </>
           )}
         </div>
+
+        {/* Bulk selection list */}
+        {bulkMode && (
+          <ScrollArea className="max-h-[300px] border rounded-md p-2">
+            {deletableCampaigns.map(c => (
+              <label key={c.id} className="flex items-center gap-3 py-2 px-2 hover:bg-muted/50 rounded cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={bulkSelected.includes(c.id)}
+                  onChange={() => setBulkSelected(prev =>
+                    prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]
+                  )}
+                  className="rounded"
+                />
+                <span className="text-sm font-medium">{c.name}</span>
+                <Badge className={`ml-auto ${statusColor[c.status] || ''}`}>{c.status}</Badge>
+                <span className="text-xs text-muted-foreground">{c.total_leads} leads</span>
+              </label>
+            ))}
+            {deletableCampaigns.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">No deletable campaigns (only idle/stopped/completed can be removed)</p>
+            )}
+          </ScrollArea>
+        )}
 
         {activeCampaign && (
           <>
