@@ -639,6 +639,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
               {lead.is_inbound ? '📥 Inbound' : '📤 Outbound'}
             </Badge>
           )}
+          {lead.event_type === 'power_dialed' && (
+            <Badge variant="outline" className="text-[10px] gap-1 text-purple-500 border-purple-500/30 bg-purple-500/10">
+              <Zap className="h-3 w-3" /> POWER DIALED
+            </Badge>
+          )}
           <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
         </div>
       </div>
