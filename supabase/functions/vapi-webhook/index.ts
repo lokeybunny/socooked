@@ -161,6 +161,12 @@ const VIDEO_INBOUND_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
 const WEB_OUTBOUND_ID = "dc35680f-8763-4702-84d7-e3df267ddaf9";
 const VIDEO_OUTBOUND_ID = "0045f12e-56e2-4245-971b-1f7dd2069282";
 
+// ─── Phone numbers mapped to funnels ───
+// (702) 357-4528 → videography line
+const VIDEOGRAPHY_PHONE_NUMBERS = ["+17023574528", "7023574528"];
+// Add web design phone numbers here if needed
+const WEBDESIGN_PHONE_NUMBERS: string[] = [];
+
 // ─── Blocked time slots (PST) ───
 const BLOCKED_SLOTS = [
   { startH: 8, startM: 0, endH: 10, endM: 0, label: "8:00 AM - 10:00 AM PST" },
@@ -178,11 +184,29 @@ function parseTime(timeStr: string): { hour: number; min: number } {
   return { hour, min };
 }
 
-function getAssistantFunnel(assistantId: string): { source: string; category: string; tag: string; label: string } | null {
+function getPhoneNumberFunnel(call: any): { source: string; category: string; tag: string; label: string } | null {
+  // Extract the Vapi phone number this call came TO (the "twilioPhoneNumber" or "phoneNumber")
+  const phoneNum = normalizePhone(
+    call?.phoneNumber?.twilioPhoneNumber || call?.phoneNumber?.number || call?.phoneCallProvider?.twilioPhoneNumber || ""
+  );
+  if (!phoneNum) return null;
+  const digits = phoneNum.replace(/\D/g, "");
+  if (VIDEOGRAPHY_PHONE_NUMBERS.some(p => digits.endsWith(p.replace(/\D/g, "")))) {
+    return { source: "videography-landing", category: "videography", tag: "video", label: "Videography" };
+  }
+  if (WEBDESIGN_PHONE_NUMBERS.some(p => digits.endsWith(p.replace(/\D/g, "")))) {
+    return { source: "webdesign-landing", category: "web_design", tag: "web", label: "Web Design" };
+  }
+  return null;
+}
+
+function getAssistantFunnel(assistantId: string, call?: any): { source: string; category: string; tag: string; label: string } | null {
   if (assistantId === WEB_INBOUND_ID || assistantId === WEB_OUTBOUND_ID)
     return { source: "webdesign-landing", category: "web_design", tag: "web", label: "Web Design" };
   if (assistantId === VIDEO_INBOUND_ID || assistantId === VIDEO_OUTBOUND_ID)
     return { source: "videography-landing", category: "videography", tag: "video", label: "Videography" };
+  // Fallback: route by phone number the call came TO
+  if (call) return getPhoneNumberFunnel(call);
   return null;
 }
 
@@ -284,7 +308,7 @@ serve(async (req) => {
         const notes = params.notes || "";
         const callId = message?.call?.id || "";
         
-        const funnel = getAssistantFunnel(callAssistantId);
+        const funnel = getAssistantFunnel(callAssistantId, message?.call);
         const source = funnel?.source || (serviceType.includes("video") ? "videography-landing" : "webdesign-landing");
         const funnelTag = funnel?.tag || (serviceType.includes("video") ? "video" : "web");
         
@@ -458,7 +482,7 @@ serve(async (req) => {
         const callerEmail = params.email || "";
         const { hour, min } = parseTime(time);
         
-        const funnel = getAssistantFunnel(callAssistantId);
+        const funnel = getAssistantFunnel(callAssistantId, message?.call);
         const isVideo = serviceType.includes("video") || funnel?.tag === "video";
         const durationMinutes = params.duration_minutes || (isVideo ? 180 : 60);
 
@@ -676,7 +700,7 @@ serve(async (req) => {
       }
 
       // Always check customers table too (direct-dial leads)
-      const funnel = getAssistantFunnel(assistantId);
+      const funnel = getAssistantFunnel(assistantId, message?.call || payload?.call);
       const customerLead = await findBestCustomerMatch(sb, {
         callId,
         phone: customerPhone,
@@ -786,7 +810,7 @@ serve(async (req) => {
 
       // If neither found, and we have a phone, create a new lead
       if (!llLead && !customerLead && customerPhone) {
-        const funnel = getAssistantFunnel(assistantId);
+        const funnel = getAssistantFunnel(assistantId, message?.call || payload?.call);
         if (funnel) {
           const { error: insertError } = await sb.from("customers").insert({
             full_name: `Caller (${customerPhone})`,
@@ -847,7 +871,7 @@ serve(async (req) => {
       if (callId && mappedStatus) {
         console.log(`[status-update] call=${callId} raw=${rawStatus} mapped=${mappedStatus} assistant=${assistantId} phone=${customerPhone}`);
 
-          const funnel = getAssistantFunnel(assistantId);
+          const funnel = getAssistantFunnel(assistantId, message?.call || payload?.call);
           const custByCall = await findBestCustomerMatch(sb, {
             callId,
             phone: customerPhone,
