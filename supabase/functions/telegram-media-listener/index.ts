@@ -4307,9 +4307,10 @@ Deno.serve(async (req) => {
 
     // ─── Handle Test Call command ───
     if (action === 'testcall') {
-      // Clear any existing testcall session
+      // Clear ALL active sessions for this chat to prevent conflicts
       await supabase.from('webhook_events').delete()
-        .eq('source', 'telegram').eq('event_type', 'testcall_session')
+        .eq('source', 'telegram')
+        .in('event_type', ALL_SESSIONS)
         .filter('payload->>chat_id', 'eq', String(chatId))
       // Create testcall session
       await supabase.from('webhook_events').insert({
