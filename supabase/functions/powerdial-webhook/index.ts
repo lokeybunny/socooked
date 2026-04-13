@@ -12,6 +12,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
 const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
@@ -61,14 +62,39 @@ async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null>
   }
 }
 
-async function redirectCallToVapi(callSid: string, vapiPhoneNumber: string, assistantId: string, twilioFrom?: string): Promise<boolean> {
+function buildPowerDialWebhookUrl(type: string, campaignId: string, queueItemId: string, callLogId: string) {
+  const webhookUrl = new URL(`${SUPABASE_URL}/functions/v1/powerdial-webhook`);
+  webhookUrl.searchParams.set("type", type);
+  webhookUrl.searchParams.set("campaign_id", campaignId);
+  webhookUrl.searchParams.set("queue_item_id", queueItemId);
+  webhookUrl.searchParams.set("call_log_id", callLogId);
+  return webhookUrl.toString();
+}
+
+async function redirectCallToVapi(
+  callSid: string,
+  vapiPhoneNumber: string,
+  assistantId: string,
+  options: {
+    campaignId: string;
+    queueItemId: string;
+    callLogId: string;
+    twilioFrom?: string;
+  },
+): Promise<boolean> {
   try {
-    const resolvedCallerId = normalizePhone(twilioFrom);
+    const resolvedCallerId = normalizePhone(options.twilioFrom);
     const callerIdAttr = resolvedCallerId ? ` callerId="${escapeXml(resolvedCallerId)}"` : "";
+    const dialCompleteUrl = buildPowerDialWebhookUrl(
+      "dial-complete",
+      options.campaignId,
+      options.queueItemId,
+      options.callLogId,
+    );
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial timeout="30" answerOnBridge="true"${callerIdAttr}>
+  <Dial timeout="30" answerOnBridge="true" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(vapiPhoneNumber)}</Number>
   </Dial>
 </Response>`;
@@ -97,6 +123,42 @@ async function redirectCallToVapi(callSid: string, vapiPhoneNumber: string, assi
     console.error("[powerdial-webhook] Redirect exception:", err);
     return false;
   }
+}
+
+async function handleCallCompletion(
+  campaignId: string,
+  queueItemId: string,
+  callLogId: string,
+  source: "status" | "dial-complete",
+) {
+  const [{ data: logData }, { data: qItem }] = await Promise.all([
+    sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id").eq("id", callLogId).single(),
+    sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single(),
+  ]);
+
+  if (logData?.connected_to_vapi && qItem?.phone && !logData.vapi_call_id) {
+    const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
+    if (matchedCall) {
+      const transcript = matchedCall.transcript ||
+        matchedCall.messages?.map((message: any) => `${message.role}: ${message.content}`).join("\n") || null;
+
+      await sb.from("powerdial_call_logs").update({
+        vapi_call_id: matchedCall.id,
+        transcript,
+        summary: matchedCall.analysis?.summary || matchedCall.summary || null,
+        disposition: matchedCall.analysis?.successEvaluation || null,
+        recording_url: matchedCall.recordingUrl || matchedCall.artifact?.recordingUrl || null,
+        follow_up_needed: matchedCall.analysis?.successEvaluation === "follow_up",
+      }).eq("id", callLogId);
+      console.log(`[powerdial-webhook] Matched Vapi call from ${source}: ${matchedCall.id}`);
+
+      await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, matchedCall);
+    }
+  }
+
+  const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+  console.log(`[powerdial-webhook] Advance after ${source} completion for ${campaignId}:`, advanceResult);
+  return advanceResult;
 }
 
 async function updateQueueStatusOnce(
@@ -347,7 +409,12 @@ Deno.serve(async (req) => {
 
         const vapiPhoneNumber = assistantPreparation.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
         const redirected = vapiPhoneNumber
-          ? await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId, twilioFrom)
+          ? await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId, {
+              campaignId,
+              queueItemId,
+              callLogId,
+              twilioFrom,
+            })
           : false;
 
         await sb.from("powerdial_call_logs").update({
@@ -402,6 +469,18 @@ Deno.serve(async (req) => {
       console.log(`[powerdial-webhook] Advance after voicemail for ${campaignId}:`, advanceResult);
 
       return json({ ok: true, amd_result: amdResult, advanced: advanceResult });
+    }
+
+    if (type === "dial-complete") {
+      const dialCallStatus = params.get("DialCallStatus") || params.get("CallStatus") || "completed";
+      console.log(`[powerdial-webhook] Dial complete: ${dialCallStatus} for call ${callSid}`);
+
+      await sb.from("powerdial_call_logs").update({
+        twilio_status: dialCallStatus,
+      }).eq("id", callLogId);
+
+      const advanceResult = await handleCallCompletion(campaignId, queueItemId, callLogId, "dial-complete");
+      return json({ ok: true, source: "dial-complete", dial_call_status: dialCallStatus, advanced: advanceResult });
     }
 
     if (type === "status") {
@@ -471,34 +550,7 @@ Deno.serve(async (req) => {
         const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
         console.log(`[powerdial-webhook] Advance after failed/canceled for ${campaignId}:`, advanceResult);
       } else if (callStatus === "completed") {
-        const [{ data: logData }, { data: qItem }] = await Promise.all([
-          sb.from("powerdial_call_logs").select("connected_to_vapi").eq("id", callLogId).single(),
-          sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single(),
-        ]);
-
-        if (logData?.connected_to_vapi && qItem?.phone) {
-          const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
-          if (matchedCall) {
-            const transcript = matchedCall.transcript ||
-              matchedCall.messages?.map((message: any) => `${message.role}: ${message.content}`).join("\n") || null;
-
-            await sb.from("powerdial_call_logs").update({
-              vapi_call_id: matchedCall.id,
-              transcript,
-              summary: matchedCall.analysis?.summary || matchedCall.summary || null,
-              disposition: matchedCall.analysis?.successEvaluation || null,
-              recording_url: matchedCall.recordingUrl || matchedCall.artifact?.recordingUrl || null,
-              follow_up_needed: matchedCall.analysis?.successEvaluation === "follow_up",
-            }).eq("id", callLogId);
-            console.log(`[powerdial-webhook] Matched Vapi call: ${matchedCall.id}`);
-
-            // Analyze transcript and push interested leads to CRM
-            await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, matchedCall);
-          }
-        }
-
-        const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
-        console.log(`[powerdial-webhook] Advance after completed for ${campaignId}:`, advanceResult);
+        await handleCallCompletion(campaignId, queueItemId, callLogId, "status");
       }
 
       return json({ ok: true });
