@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,20 +24,49 @@ type Props = {
   onUpdate: () => void;
 };
 
-export default function PowerDialSettings({ campaign, onUpdate }: Props) {
-  const s = campaign.settings || {};
-  const defaultAssistantId = s.vapi_assistant_id || DEFAULT_OUTBOUND_ASSISTANT;
+function getSettingsFormState(settings: any) {
+  const nextSettings = settings || {};
+  const defaultAssistantId = nextSettings.vapi_assistant_id || DEFAULT_OUTBOUND_ASSISTANT;
   const knownAssistant = VAPI_ASSISTANTS.find((assistant) => assistant.id === defaultAssistantId);
 
-  const [callDelay, setCallDelay] = useState(String(s.call_delay_ms || 2000));
-  const [maxRetries, setMaxRetries] = useState(String(s.max_retries || 2));
-  const [retryNoAnswerHours, setRetryNoAnswerHours] = useState(String(s.retry_no_answer_hours || 4));
-  const [retryBusyMinutes, setRetryBusyMinutes] = useState(String(s.retry_busy_minutes || 30));
-  const [hoursStart, setHoursStart] = useState(s.calling_hours_start || '09:00');
-  const [hoursEnd, setHoursEnd] = useState(s.calling_hours_end || '17:00');
-  const [vapiAssistantId, setVapiAssistantId] = useState(knownAssistant ? defaultAssistantId : 'custom');
-  const [customAssistantId, setCustomAssistantId] = useState(knownAssistant ? '' : defaultAssistantId);
+  return {
+    callDelay: String(nextSettings.call_delay_ms || 2000),
+    maxRetries: String(nextSettings.max_retries || 2),
+    retryNoAnswerHours: String(nextSettings.retry_no_answer_hours || 4),
+    retryBusyMinutes: String(nextSettings.retry_busy_minutes || 30),
+    hoursStart: nextSettings.calling_hours_start || '09:00',
+    hoursEnd: nextSettings.calling_hours_end || '17:00',
+    vapiAssistantId: knownAssistant ? defaultAssistantId : 'custom',
+    customAssistantId: knownAssistant ? '' : defaultAssistantId,
+  };
+}
+
+export default function PowerDialSettings({ campaign, onUpdate }: Props) {
+  const s = campaign.settings || {};
+  const settingsKey = JSON.stringify(s);
+  const initialState = getSettingsFormState(s);
+
+  const [callDelay, setCallDelay] = useState(initialState.callDelay);
+  const [maxRetries, setMaxRetries] = useState(initialState.maxRetries);
+  const [retryNoAnswerHours, setRetryNoAnswerHours] = useState(initialState.retryNoAnswerHours);
+  const [retryBusyMinutes, setRetryBusyMinutes] = useState(initialState.retryBusyMinutes);
+  const [hoursStart, setHoursStart] = useState(initialState.hoursStart);
+  const [hoursEnd, setHoursEnd] = useState(initialState.hoursEnd);
+  const [vapiAssistantId, setVapiAssistantId] = useState(initialState.vapiAssistantId);
+  const [customAssistantId, setCustomAssistantId] = useState(initialState.customAssistantId);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const nextState = getSettingsFormState(campaign.settings || {});
+    setCallDelay(nextState.callDelay);
+    setMaxRetries(nextState.maxRetries);
+    setRetryNoAnswerHours(nextState.retryNoAnswerHours);
+    setRetryBusyMinutes(nextState.retryBusyMinutes);
+    setHoursStart(nextState.hoursStart);
+    setHoursEnd(nextState.hoursEnd);
+    setVapiAssistantId(nextState.vapiAssistantId);
+    setCustomAssistantId(nextState.customAssistantId);
+  }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
   const resolvedAssistantId = isCustom ? customAssistantId.trim() : vapiAssistantId;

@@ -17,6 +17,8 @@ const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY") || "";
+const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 const TWILIO_CALLER_ID_ERROR_CODES = new Set([21210, 21212]);
 
 export const sb = createClient(supabaseUrl, serviceKey);
@@ -27,6 +29,13 @@ type DialNextResult = {
   message?: string;
   twilio_code?: number;
   from?: string | null;
+};
+
+type VapiAssistantPreparationResult = {
+  ok: boolean;
+  phoneNumber: string | null;
+  currentAssistantId: string | null;
+  details: string | null;
 };
 
 function wait(ms: number) {
@@ -41,6 +50,136 @@ export function normalizePhone(raw: string | null | undefined): string {
   if (digits.length === 10) return `+1${digits}`;
   if (value.startsWith("+")) return value.replace(/[^\d+]/g, "");
   return `+${digits}`;
+}
+
+function extractVapiPhoneNumber(payload: any): string | null {
+  return payload?.number || payload?.phoneNumber || payload?.phone_number || null;
+}
+
+function extractVapiAssistantId(payload: any): string | null {
+  const assistantId = String(payload?.assistantId || payload?.assistant?.id || payload?.assistant_id || "").trim();
+  return assistantId || null;
+}
+
+async function fetchVapiJson(path: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${VAPI_API_KEY}`);
+
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`https://api.vapi.ai${path}`, {
+    ...init,
+    headers,
+  });
+
+  const text = await response.text();
+  let data: any = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
+
+  return { response, data };
+}
+
+export function resolvePowerDialAssistantId(settings: Record<string, unknown> | null | undefined) {
+  const assistantId = typeof settings?.vapi_assistant_id === "string"
+    ? settings.vapi_assistant_id.trim()
+    : "";
+
+  return assistantId || DEFAULT_OUTBOUND_VAPI_ASSISTANT;
+}
+
+export async function prepareVapiOutboundAssistant(assistantId: string): Promise<VapiAssistantPreparationResult> {
+  const resolvedAssistantId = assistantId.trim();
+
+  if (!resolvedAssistantId) {
+    return {
+      ok: false,
+      phoneNumber: null,
+      currentAssistantId: null,
+      details: "Missing assistant ID",
+    };
+  }
+
+  if (!VAPI_API_KEY || !VAPI_PHONE_NUMBER_ID) {
+    return {
+      ok: false,
+      phoneNumber: null,
+      currentAssistantId: null,
+      details: "Missing Vapi configuration",
+    };
+  }
+
+  try {
+    const patchResult = await fetchVapiJson(`/phone-number/${VAPI_PHONE_NUMBER_ID}`, {
+      method: "PATCH",
+      body: JSON.stringify({ assistantId: resolvedAssistantId }),
+    });
+
+    let phoneNumber = extractVapiPhoneNumber(patchResult.data);
+    let currentAssistantId = extractVapiAssistantId(patchResult.data);
+
+    if (!patchResult.response.ok) {
+      return {
+        ok: false,
+        phoneNumber,
+        currentAssistantId,
+        details: patchResult.data?.message || patchResult.data?.error || patchResult.data?.raw || `HTTP ${patchResult.response.status}`,
+      };
+    }
+
+    if (currentAssistantId === resolvedAssistantId) {
+      return {
+        ok: true,
+        phoneNumber,
+        currentAssistantId,
+        details: null,
+      };
+    }
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await wait(250);
+
+      const getResult = await fetchVapiJson(`/phone-number/${VAPI_PHONE_NUMBER_ID}`, {
+        method: "GET",
+      });
+
+      if (!getResult.response.ok) break;
+
+      phoneNumber = extractVapiPhoneNumber(getResult.data) || phoneNumber;
+      currentAssistantId = extractVapiAssistantId(getResult.data);
+
+      if (currentAssistantId === resolvedAssistantId) {
+        return {
+          ok: true,
+          phoneNumber,
+          currentAssistantId,
+          details: null,
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      phoneNumber,
+      currentAssistantId,
+      details: currentAssistantId
+        ? `Vapi phone is still mapped to ${currentAssistantId}`
+        : "Unable to confirm Vapi phone assistant",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      phoneNumber: null,
+      currentAssistantId: null,
+      details: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 async function fetchTwilioJson(path: string, init: RequestInit) {
@@ -148,6 +287,7 @@ async function markCallFailed(
 
 async function placeCall(campaign: any, queueItem: any, logPrefix: string): Promise<DialNextResult> {
   const phone = normalizePhone(queueItem.phone);
+  const selectedAssistantId = resolvePowerDialAssistantId((campaign.settings || {}) as Record<string, unknown>);
 
   if (!phone) {
     await markCallFailed(campaign, queueItem, null, {
@@ -178,12 +318,25 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
     phone,
     attempt_number: Number(queueItem.retry_count || 0) + 1,
     twilio_status: "initiated",
+    meta: {
+      assistant_id: selectedAssistantId,
+      assistant_source: "campaign_settings",
+    },
   }).select("id").single();
 
   const callLogId = log?.id;
   const safeCallLogId = callLogId || "";
   const configuredFrom = TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "";
   const resolution = await resolveTwilioFromNumber(TWILIO_FROM);
+  const assistantPreparation = await prepareVapiOutboundAssistant(selectedAssistantId);
+  const baseMeta: Record<string, unknown> = {
+    assistant_id: selectedAssistantId,
+    assistant_source: "campaign_settings",
+    assistant_prepare_ok: assistantPreparation.ok,
+    ...(assistantPreparation.details ? { assistant_prepare_error: assistantPreparation.details } : {}),
+    ...(assistantPreparation.phoneNumber ? { vapi_phone: assistantPreparation.phoneNumber } : {}),
+    ...(assistantPreparation.currentAssistantId ? { vapi_phone_assistant_id: assistantPreparation.currentAssistantId } : {}),
+  };
   let selectedFrom = resolution.resolvedFrom || configuredFrom;
   let availableFromNumbers = resolution.availableFromNumbers;
 
@@ -191,6 +344,7 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
     if (!selectedFrom) {
       const message = "No verified or purchased Twilio caller ID is available for this account.";
       await markCallFailed(campaign, queueItem, callLogId, {
+        ...baseMeta,
         twilio_error: { message },
         configured_from: configuredFrom || null,
         available_from_numbers: availableFromNumbers,
@@ -243,6 +397,7 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
     if (!twilioResp.ok) {
       console.error(`${logPrefix} Twilio error:`, twilioData);
       await markCallFailed(campaign, queueItem, callLogId, {
+        ...baseMeta,
         twilio_error: twilioData,
         configured_from: configuredFrom || null,
         resolved_from: selectedFrom || null,
@@ -262,6 +417,7 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
         twilio_call_sid: twilioData.sid,
         twilio_status: "initiated",
         meta: {
+          ...baseMeta,
           resolved_from: selectedFrom,
           ...(selectedFrom !== configuredFrom ? {
             configured_from: configuredFrom || null,
@@ -275,6 +431,7 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
   } catch (err) {
     console.error(`${logPrefix} Call placement error:`, err);
     await markCallFailed(campaign, queueItem, callLogId, {
+      ...baseMeta,
       exception: err instanceof Error ? err.message : String(err),
       configured_from: configuredFrom || null,
       resolved_from: selectedFrom || null,
