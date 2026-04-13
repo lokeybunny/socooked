@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Search, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -116,7 +116,12 @@ export default function PowerDialCallLog({ campaignId }: { campaignId: string })
       {/* Detail modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-auto">
-          <DialogHeader><DialogTitle>Call Detail — {selected?.phone}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Call Detail — {selected?.phone}</DialogTitle>
+            <DialogDescription>
+              Review the call outcome, Twilio status, and any AI conversation details for this dial attempt.
+            </DialogDescription>
+          </DialogHeader>
           {selected && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
