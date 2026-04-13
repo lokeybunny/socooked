@@ -188,7 +188,6 @@ export default function PowerDial() {
   };
 
   const handleDeleteCampaign = async (id: string) => {
-    // Delete queue and campaign (call_log may not exist in types, use rpc-safe approach)
     await supabase.from('powerdial_queue').delete().eq('campaign_id', id);
     await supabase.from('powerdial_campaigns').delete().eq('id', id);
     if (activeCampaign?.id === id) setActiveCampaign(null);
@@ -196,6 +195,21 @@ export default function PowerDial() {
     toast.success('Campaign deleted');
     loadCampaigns();
   };
+
+  const handleBulkDelete = async () => {
+    for (const id of bulkSelected) {
+      await supabase.from('powerdial_queue').delete().eq('campaign_id', id);
+      await supabase.from('powerdial_campaigns').delete().eq('id', id);
+      if (activeCampaign?.id === id) setActiveCampaign(null);
+    }
+    setBulkDeleteConfirm(false);
+    setBulkSelected([]);
+    setBulkMode(false);
+    toast.success(`${bulkSelected.length} campaign(s) deleted`);
+    loadCampaigns();
+  };
+
+  const deletableCampaigns = campaigns.filter(c => ['stopped', 'completed', 'idle'].includes(c.status));
 
   const remaining = activeCampaign ? activeCampaign.total_leads - activeCampaign.completed_count : 0;
 
