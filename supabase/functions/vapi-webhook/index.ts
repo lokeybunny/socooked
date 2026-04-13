@@ -274,9 +274,11 @@ serve(async (req) => {
       // ──── TOOL: create_or_update_lead ────
       if (fnName === "create_or_update_lead") {
         const name = (params.name || params.full_name || "").trim();
-        const phone = normalizePhone(
-          params.phone || message?.call?.customer?.number || message?.call?.phoneNumber?.number || "",
+        const paramsPhone = normalizePhone(params.phone || "");
+        const callerDevicePhone = normalizePhone(
+          message?.call?.customer?.number || message?.call?.phoneNumber?.number || "",
         );
+        const phone = paramsPhone || callerDevicePhone;
         const email = normalizeEmail(params.email);
         const serviceType = (params.service_type || "").toLowerCase();
         const notes = params.notes || "";
@@ -286,7 +288,9 @@ serve(async (req) => {
         const source = funnel?.source || (serviceType.includes("video") ? "videography-landing" : "webdesign-landing");
         const funnelTag = funnel?.tag || (serviceType.includes("video") ? "video" : "web");
         
-        const existing = await findBestCustomerMatch(sb, { callId, phone, email, source });
+        // Search by BOTH the params phone AND the caller's device phone to avoid duplicates
+        const searchPhones = [paramsPhone, callerDevicePhone].filter(Boolean);
+        const existing = await findBestCustomerMatch(sb, { callId, phone, phones: searchPhones, email, source });
         
         const existingMeta = (existing?.meta as any) || {};
         const existingTags = Array.isArray(existing?.tags) ? (existing.tags as string[]) : [];
