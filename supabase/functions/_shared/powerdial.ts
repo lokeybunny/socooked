@@ -2,6 +2,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 export const DEFAULT_OUTBOUND_VAPI_ASSISTANT = "dc35680f-8763-4702-84d7-e3df267ddaf9";
 
+const POWERDIAL_INBOUND_VAPI_ASSISTANTS = new Set([
+  "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8",
+  "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38",
+]);
+
 export const DEFAULT_POWERDIAL_SETTINGS = {
   call_delay_ms: 2000,
   max_retries: 2,
@@ -87,11 +92,19 @@ async function fetchVapiJson(path: string, init: RequestInit = {}) {
 }
 
 export function resolvePowerDialAssistantId(settings: Record<string, unknown> | null | undefined) {
-  const assistantId = typeof settings?.vapi_assistant_id === "string"
-    ? settings.vapi_assistant_id.trim()
+  return sanitizePowerDialAssistantId(settings?.vapi_assistant_id);
+}
+
+export function sanitizePowerDialAssistantId(value: unknown) {
+  const assistantId = typeof value === "string"
+    ? value.trim()
     : "";
 
-  return assistantId || DEFAULT_OUTBOUND_VAPI_ASSISTANT;
+  if (!assistantId || POWERDIAL_INBOUND_VAPI_ASSISTANTS.has(assistantId)) {
+    return DEFAULT_OUTBOUND_VAPI_ASSISTANT;
+  }
+
+  return assistantId;
 }
 
 export async function prepareVapiOutboundAssistant(assistantId: string): Promise<VapiAssistantPreparationResult> {
