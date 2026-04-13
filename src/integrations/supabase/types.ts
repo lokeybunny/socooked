@@ -3152,6 +3152,7 @@ export type Database = {
           connected_to_vapi: boolean
           created_at: string
           customer_id: string | null
+          dismissed_at: string | null
           disposition: string | null
           follow_up_needed: boolean
           id: string
@@ -3175,6 +3176,7 @@ export type Database = {
           connected_to_vapi?: boolean
           created_at?: string
           customer_id?: string | null
+          dismissed_at?: string | null
           disposition?: string | null
           follow_up_needed?: boolean
           id?: string
@@ -3198,6 +3200,7 @@ export type Database = {
           connected_to_vapi?: boolean
           created_at?: string
           customer_id?: string | null
+          dismissed_at?: string | null
           disposition?: string | null
           follow_up_needed?: boolean
           id?: string
