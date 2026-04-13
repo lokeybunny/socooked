@@ -884,7 +884,7 @@ export default function Funnels() {
 
         combined.push({
           id: log.id, funnel: 'powerdial' as const, _table: 'powerdial_call_logs' as any,
-          full_name: (meta.contact_name as string) || log.phone || 'Unknown',
+          full_name: queueNameMap.get(log.queue_item_id) || (meta.contact_name as string) || log.phone || 'Unknown',
           email: null, phone: log.phone,
           created_at: log.created_at, status: sentiment,
           notes: log.summary || null,
