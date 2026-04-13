@@ -761,7 +761,8 @@ serve(async (req) => {
         const { data: custByCall } = await sb.from("customers").select("id, meta, source, tags, phone, full_name, notes")
           .filter("meta->>vapi_call_id", "eq", callId).maybeSingle();
 
-        if (custByCall) {
+        if (custByCall && mappedStatus !== "completed") {
+          // Skip meta update on "ended/completed" — end-of-call-report will write the final state
           const em = (custByCall.meta as any) || {};
           await sb.from("customers").update({
             meta: { ...em, vapi_call_status: mappedStatus, vapi_assistant_id: em.vapi_assistant_id || assistantId, vapi_raw_status: rawStatus },
@@ -769,8 +770,9 @@ serve(async (req) => {
         }
 
         // Direct-dial lead creation/update
+        // Skip when call ended — end-of-call-report handles final enrichment with transcript/recording
         const funnel = getAssistantFunnel(assistantId);
-        if (funnel && (assistantId === WEB_INBOUND_ID || assistantId === VIDEO_INBOUND_ID)) {
+        if (funnel && (assistantId === WEB_INBOUND_ID || assistantId === VIDEO_INBOUND_ID) && mappedStatus !== "completed") {
           let directLead = custByCall;
 
           if (!directLead && customerPhone) {
