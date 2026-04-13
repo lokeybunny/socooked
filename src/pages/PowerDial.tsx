@@ -9,8 +9,9 @@ import { toast } from 'sonner';
 import {
   Phone, Play, Pause, Square, SkipForward, Plus, Users, PhoneCall,
   Voicemail, PhoneOff, Clock, CheckCircle, AlertCircle, Loader2,
-  Settings, List, BarChart3, Search, RefreshCw,
+  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles,
 } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -53,6 +54,7 @@ export default function PowerDial() {
   const [foundLeads, setFoundLeads] = useState<any[]>([]);
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [currentDialing, setCurrentDialing] = useState<any>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -182,6 +184,16 @@ export default function PowerDial() {
     completed: 'bg-blue-500/20 text-blue-400',
   };
 
+  const handleDeleteCampaign = async (id: string) => {
+    // Delete queue and campaign (call_log may not exist in types, use rpc-safe approach)
+    await supabase.from('powerdial_queue').delete().eq('campaign_id', id);
+    await supabase.from('powerdial_campaigns').delete().eq('id', id);
+    if (activeCampaign?.id === id) setActiveCampaign(null);
+    setDeleteConfirmId(null);
+    toast.success('Campaign deleted');
+    loadCampaigns();
+  };
+
   const remaining = activeCampaign ? activeCampaign.total_leads - activeCampaign.completed_count : 0;
 
   return (
@@ -190,15 +202,15 @@ export default function PowerDial() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Phone className="h-5 w-5 text-primary" />
+            <div className="p-2 rounded-lg bg-purple-400/20">
+              <Sparkles className="h-5 w-5 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">POWERDIAL</h1>
+              <h1 className="text-xl font-bold text-foreground">PowerD</h1>
               <p className="text-xs text-muted-foreground">Automated outbound calling system</p>
             </div>
           </div>
-          <Button onClick={() => setShowCreate(true)} size="sm">
+          <Button onClick={() => setShowCreate(true)} size="sm" className="bg-purple-500 hover:bg-purple-600 text-white">
             <Plus className="h-4 w-4 mr-1" /> New Campaign
           </Button>
         </div>
@@ -226,6 +238,11 @@ export default function PowerDial() {
           <Button variant="ghost" size="icon" onClick={loadCampaigns}>
             <RefreshCw className="h-4 w-4" />
           </Button>
+          {activeCampaign && (activeCampaign.status === 'stopped' || activeCampaign.status === 'completed' || activeCampaign.status === 'idle') && (
+            <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => setDeleteConfirmId(activeCampaign.id)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         {activeCampaign && (
@@ -322,7 +339,7 @@ export default function PowerDial() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New POWERDIAL Campaign</DialogTitle>
+            <DialogTitle>New PowerD Campaign</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -388,6 +405,24 @@ export default function PowerDial() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Campaign Confirmation */}
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the campaign, its queue, and all associated data. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => deleteConfirmId && handleDeleteCampaign(deleteConfirmId)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
