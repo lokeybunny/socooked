@@ -755,7 +755,11 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             {isReminding ? 'Stop Remind' : 'Remind'}
           </Button>
         )}
-        {isDrafted ? (
+        {lead.funnel === 'powerdial' && onDismiss ? (
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-red-500 ml-auto" onClick={onDismiss}>
+            <Trash2 className="h-3 w-3 mr-1" /> Dismiss
+          </Button>
+        ) : isDrafted ? (
           <Button variant="ghost" size="sm" className="h-7 text-xs text-yellow-600 ml-auto" onClick={onUndraft}>
             <Eye className="h-3 w-3 mr-1" /> Undraft
           </Button>
