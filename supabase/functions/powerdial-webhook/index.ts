@@ -10,7 +10,10 @@ const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(supabaseUrl, serviceKey);
 
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
+const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 const FALLBACK_VAPI_ASSISTANT = "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8";
+const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 
 function twimlResponse(xml: string) {
   return new Response(xml, {
@@ -25,8 +28,67 @@ function json(data: unknown, status = 200) {
   });
 }
 
+/** Fetch the E.164 phone number associated with a Vapi phoneNumberId */
+async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
+  if (!phoneNumberId) return null;
+  try {
+    const resp = await fetch(`https://api.vapi.ai/phone-number/${phoneNumberId}`, {
+      headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      // Vapi returns the number in data.number (E.164)
+      return data.number || data.phoneNumber || null;
+    }
+    const errText = await resp.text();
+    console.error("[powerdial-webhook] Vapi phone lookup error:", errText);
+    return null;
+  } catch (err) {
+    console.error("[powerdial-webhook] Vapi phone lookup exception:", err);
+    return null;
+  }
+}
+
+/** Update a live Twilio call with new TwiML to transfer to Vapi */
+async function redirectCallToVapi(callSid: string, vapiPhoneNumber: string, assistantId: string): Promise<boolean> {
+  try {
+    // Build TwiML that dials the Vapi phone number with the assistant context
+    // The SIP headers pass the assistant ID to Vapi so it knows which assistant to use
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say>Please hold while I connect you.</Say>
+  <Dial callerId="${Deno.env.get("TWILIO_FROM_NUMBER") || ""}" timeout="30">
+    <Number>${vapiPhoneNumber}</Number>
+  </Dial>
+</Response>`;
+
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ Twiml: twiml }).toString(),
+      }
+    );
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error("[powerdial-webhook] Twilio redirect error:", errText);
+      return false;
+    }
+    const data = await resp.json();
+    console.log(`[powerdial-webhook] Call ${callSid} redirected to Vapi number ${vapiPhoneNumber}`);
+    return true;
+  } catch (err) {
+    console.error("[powerdial-webhook] Redirect exception:", err);
+    return false;
+  }
+}
+
 async function advanceCampaign(campaignId: string) {
-  // Trigger next dial via the engine
   try {
     const { data: campaign } = await sb
       .from("powerdial_campaigns")
@@ -63,8 +125,7 @@ Deno.serve(async (req) => {
 
   try {
     if (type === "twiml") {
-      // Initial TwiML — just hold the call while AMD processes
-      // AMD runs async, so we need to keep the call alive
+      // Initial TwiML — hold the call while AMD processes async
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Pause length="30"/>
@@ -82,7 +143,6 @@ Deno.serve(async (req) => {
 
     if (type === "amd") {
       const answeredBy = params.get("AnsweredBy") || "";
-      const machineDetection = params.get("MachineDetectionDuration") || "";
       console.log(`[powerdial-webhook] AMD result: ${answeredBy} for call ${callSid}`);
 
       let amdResult = "unknown";
@@ -94,7 +154,6 @@ Deno.serve(async (req) => {
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
       } else if (answeredBy === "unknown") {
-        // Treat unknown as potential human for safety
         amdResult = "human";
         connectVapi = true;
       }
@@ -106,65 +165,39 @@ Deno.serve(async (req) => {
       }).eq("id", callLogId);
 
       if (connectVapi) {
-        // Connect to Vapi — read assistant ID from campaign settings
-        const { data: qItem } = await sb.from("powerdial_queue").select("phone, contact_name, customer_id").eq("id", queueItemId).single();
+        // === KEY FIX: Redirect the existing Twilio call to the Vapi phone number ===
+        // Instead of creating a separate outbound Vapi call (which the customer won't answer
+        // because they're already on this call), we update THIS call's TwiML to dial
+        // the Vapi phone number, transferring the live audio to the Vapi assistant.
+
         const { data: campSettings } = await sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single();
         const assistantId = (campSettings?.settings as any)?.vapi_assistant_id || FALLBACK_VAPI_ASSISTANT;
-        const phoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 
-        // Normalize customer phone to E.164
-        const rawPhone = qItem?.phone || "";
-        const digits = rawPhone.replace(/\D/g, "");
-        let customerNumber = rawPhone;
-        if (digits.length === 10) customerNumber = `+1${digits}`;
-        else if (digits.length === 11 && digits.startsWith("1")) customerNumber = `+${digits}`;
-        else if (!rawPhone.startsWith("+")) customerNumber = `+${digits}`;
+        // Get the actual Vapi phone number from the phoneNumberId
+        const vapiPhoneNumber = await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
 
-        try {
-          const vapiBody: Record<string, unknown> = {
-            assistantId,
-            customer: {
-              number: customerNumber,
-              name: qItem?.contact_name || "Unknown",
-            },
-            metadata: {
-              powerdial_campaign_id: campaignId,
-              powerdial_queue_item_id: queueItemId,
-              powerdial_call_log_id: callLogId,
-              customer_id: qItem?.customer_id || "",
-            },
-          };
-          if (phoneNumberId) {
-            vapiBody.phoneNumberId = phoneNumberId;
-          }
+        if (vapiPhoneNumber) {
+          const redirected = await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId);
 
-          const vapiResp = await fetch("https://api.vapi.ai/call", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${VAPI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(vapiBody),
-          });
-
-          if (vapiResp.ok) {
-            const vapiData = await vapiResp.json();
+          if (redirected) {
             await sb.from("powerdial_call_logs").update({
-              vapi_call_id: vapiData.id,
               connected_to_vapi: true,
+              meta: { transfer_method: "twilio_redirect", vapi_phone: vapiPhoneNumber, assistant_id: assistantId },
             }).eq("id", callLogId);
-            console.log(`[powerdial-webhook] Vapi call created: ${vapiData.id}`);
+            console.log(`[powerdial-webhook] Human detected — redirected call ${callSid} to Vapi at ${vapiPhoneNumber}`);
           } else {
-            const errText = await vapiResp.text();
-            console.error("[powerdial-webhook] Vapi error:", errText);
-            // Still connected even if Vapi fails - Twilio call continues
+            console.error("[powerdial-webhook] Failed to redirect call to Vapi");
             await sb.from("powerdial_call_logs").update({
               connected_to_vapi: false,
-              meta: { vapi_error: errText },
+              meta: { vapi_error: "redirect_failed" },
             }).eq("id", callLogId);
           }
-        } catch (vapiErr) {
-          console.error("[powerdial-webhook] Vapi exception:", vapiErr);
+        } else {
+          console.error("[powerdial-webhook] Could not resolve Vapi phone number from ID:", VAPI_PHONE_NUMBER_ID);
+          await sb.from("powerdial_call_logs").update({
+            connected_to_vapi: false,
+            meta: { vapi_error: "no_vapi_phone_number", vapi_phone_number_id: VAPI_PHONE_NUMBER_ID },
+          }).eq("id", callLogId);
         }
 
         // Update queue + campaign for human
@@ -177,14 +210,14 @@ Deno.serve(async (req) => {
           }).eq("id", campaignId);
         }
       } else {
-        // Voicemail - hangup the call
+        // Voicemail — hangup the call
         try {
           await fetch(
-            `https://api.twilio.com/2010-04-01/Accounts/${Deno.env.get("TWILIO_ACCOUNT_SID")}/Calls/${callSid}.json`,
+            `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
             {
               method: "POST",
               headers: {
-                Authorization: `Basic ${btoa(`${Deno.env.get("TWILIO_ACCOUNT_SID")}:${Deno.env.get("TWILIO_AUTH_TOKEN")}`)}`,
+                Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
                 "Content-Type": "application/x-www-form-urlencoded",
               },
               body: new URLSearchParams({ Status: "completed" }).toString(),
@@ -227,7 +260,6 @@ Deno.serve(async (req) => {
         await sb.from("powerdial_call_logs").update({ amd_result: "busy" }).eq("id", callLogId);
         await advanceCampaign(campaignId);
       } else if (callStatus === "no-answer") {
-        // Check retry logic
         const { data: qItem } = await sb.from("powerdial_queue").select("retry_count").eq("id", queueItemId).single();
         const { data: camp } = await sb.from("powerdial_campaigns").select("settings, no_answer_count, completed_count").eq("id", campaignId).single();
         const maxRetries = (camp?.settings as any)?.max_retries || 2;
@@ -266,24 +298,42 @@ Deno.serve(async (req) => {
         }
         await advanceCampaign(campaignId);
       } else if (callStatus === "completed") {
-        // Call ended — check if it was a human call with Vapi
-        const { data: logData } = await sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id").eq("id", callLogId).single();
+        // Call ended — check if it was a human call transferred to Vapi
+        const { data: logData } = await sb.from("powerdial_call_logs").select("connected_to_vapi, vapi_call_id, meta").eq("id", callLogId).single();
 
-        if (logData?.connected_to_vapi && logData?.vapi_call_id) {
-          // Fetch Vapi call data
+        // If we transferred to Vapi via phone redirect, try to fetch call data from Vapi
+        if (logData?.connected_to_vapi) {
+          // Look up the most recent Vapi call for this phone number
           try {
-            const vapiResp = await fetch(`https://api.vapi.ai/call/${logData.vapi_call_id}`, {
-              headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
-            });
-            if (vapiResp.ok) {
-              const vapiCall = await vapiResp.json();
-              await sb.from("powerdial_call_logs").update({
-                transcript: vapiCall.transcript || vapiCall.messages?.map((m: any) => `${m.role}: ${m.content}`).join("\n") || null,
-                summary: vapiCall.analysis?.summary || vapiCall.summary || null,
-                disposition: vapiCall.analysis?.successEvaluation || null,
-                recording_url: vapiCall.recordingUrl || vapiCall.artifact?.recordingUrl || null,
-                follow_up_needed: vapiCall.analysis?.successEvaluation === "follow_up",
-              }).eq("id", callLogId);
+            const { data: qItem } = await sb.from("powerdial_queue").select("phone").eq("id", queueItemId).single();
+            if (qItem?.phone) {
+              // Search Vapi calls by customer number (recent)
+              const vapiResp = await fetch(`https://api.vapi.ai/call?limit=5&sortOrder=DESC`, {
+                headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
+              });
+              if (vapiResp.ok) {
+                const vapiCalls = await vapiResp.json();
+                // Find the call that matches our customer phone
+                const rawDigits = qItem.phone.replace(/\D/g, "");
+                const matchedCall = (vapiCalls || []).find((c: any) => {
+                  const cNum = (c.customer?.number || "").replace(/\D/g, "");
+                  return cNum && rawDigits.endsWith(cNum.slice(-10));
+                });
+
+                if (matchedCall) {
+                  await sb.from("powerdial_call_logs").update({
+                    vapi_call_id: matchedCall.id,
+                    transcript: matchedCall.transcript || matchedCall.messages?.map((m: any) => `${m.role}: ${m.content}`).join("\n") || null,
+                    summary: matchedCall.analysis?.summary || matchedCall.summary || null,
+                    disposition: matchedCall.analysis?.successEvaluation || null,
+                    recording_url: matchedCall.recordingUrl || matchedCall.artifact?.recordingUrl || null,
+                    follow_up_needed: matchedCall.analysis?.successEvaluation === "follow_up",
+                  }).eq("id", callLogId);
+                  console.log(`[powerdial-webhook] Matched Vapi call: ${matchedCall.id}`);
+                }
+              } else {
+                await vapiResp.text(); // consume body
+              }
             }
           } catch (err) {
             console.error("[powerdial-webhook] Vapi fetch error:", err);
