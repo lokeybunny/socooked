@@ -110,29 +110,41 @@ Deno.serve(async (req) => {
         const { data: qItem } = await sb.from("powerdial_queue").select("phone, contact_name, customer_id").eq("id", queueItemId).single();
         const { data: campSettings } = await sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single();
         const assistantId = (campSettings?.settings as any)?.vapi_assistant_id || FALLBACK_VAPI_ASSISTANT;
+        const phoneNumberId = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
+
+        // Normalize customer phone to E.164
+        const rawPhone = qItem?.phone || "";
+        const digits = rawPhone.replace(/\D/g, "");
+        let customerNumber = rawPhone;
+        if (digits.length === 10) customerNumber = `+1${digits}`;
+        else if (digits.length === 11 && digits.startsWith("1")) customerNumber = `+${digits}`;
+        else if (!rawPhone.startsWith("+")) customerNumber = `+${digits}`;
 
         try {
+          const vapiBody: Record<string, unknown> = {
+            assistantId,
+            customer: {
+              number: customerNumber,
+              name: qItem?.contact_name || "Unknown",
+            },
+            metadata: {
+              powerdial_campaign_id: campaignId,
+              powerdial_queue_item_id: queueItemId,
+              powerdial_call_log_id: callLogId,
+              customer_id: qItem?.customer_id || "",
+            },
+          };
+          if (phoneNumberId) {
+            vapiBody.phoneNumberId = phoneNumberId;
+          }
+
           const vapiResp = await fetch("https://api.vapi.ai/call", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${VAPI_API_KEY}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              assistantId,
-              phoneCallProvider: "twilio",
-              phoneCallTransport: "pstn",
-              customer: {
-                number: qItem?.phone || "",
-                name: qItem?.contact_name || "Unknown",
-              },
-              metadata: {
-                powerdial_campaign_id: campaignId,
-                powerdial_queue_item_id: queueItemId,
-                powerdial_call_log_id: callLogId,
-                customer_id: qItem?.customer_id || "",
-              },
-            }),
+            body: JSON.stringify(vapiBody),
           });
 
           if (vapiResp.ok) {
