@@ -316,13 +316,18 @@ async function analyzeAndLabelPowerDialLead(
         full_name: qItem?.contact_name || `Power Dialed ${last10}`,
         phone: normalizedPhone,
         status: "prospect",
-        source: "power_dialed",
+        source: "webdesign-landing",
         tags: ["power_dialed"],
         meta: {
           powerdial_campaign_id: campaignId,
           powerdial_interested: true,
           powerdial_transcript_summary: summary.slice(0, 500),
           powerdial_call_log_id: callLogId,
+          vapi_call_id: matchedCall.id || null,
+          vapi_call_status: "completed",
+          vapi_transcript: transcript.slice(0, 2000),
+          vapi_summary: summary.slice(0, 1000),
+          vapi_ai_notes: `[PowerD] ${summary.slice(0, 500)}`,
         },
       });
 
