@@ -542,21 +542,33 @@ Deno.serve(async (req) => {
         const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
         console.log(`[powerdial-webhook] Advance after no-answer for ${campaignId}:`, advanceResult);
       } else if (callStatus === "failed" || callStatus === "canceled") {
-        const queueProcessed = await updateQueueStatusOnce(queueItemId, {
-          status: "completed",
-          last_result: "failed",
-        });
+        // Check if this is a cancelled triple-dial sibling — if so, skip overwriting queue status
+        const { data: logCheck } = await sb.from("powerdial_call_logs")
+          .select("amd_result, batch_id")
+          .eq("id", callLogId)
+          .single();
 
-        if (queueProcessed) {
-          await sb.from("powerdial_call_logs").update({
-            amd_result: "failed",
-            twilio_status: callStatus,
-          }).eq("id", callLogId);
-          await bumpCampaignCount(campaignId, "failed_count");
+        const isTripleDialCancelled = logCheck?.amd_result === "cancelled_triple_dial";
+
+        if (!isTripleDialCancelled) {
+          const queueProcessed = await updateQueueStatusOnce(queueItemId, {
+            status: "completed",
+            last_result: "failed",
+          });
+
+          if (queueProcessed) {
+            await sb.from("powerdial_call_logs").update({
+              amd_result: "failed",
+              twilio_status: callStatus,
+            }).eq("id", callLogId);
+            await bumpCampaignCount(campaignId, "failed_count");
+          }
+
+          const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+          console.log(`[powerdial-webhook] Advance after failed/canceled for ${campaignId}:`, advanceResult);
+        } else {
+          console.log(`[powerdial-webhook] Skipping status update for triple-dial cancelled sibling ${callLogId}`);
         }
-
-        const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
-        console.log(`[powerdial-webhook] Advance after failed/canceled for ${campaignId}:`, advanceResult);
       } else if (callStatus === "completed") {
         await handleCallCompletion(campaignId, queueItemId, callLogId, "status");
       }
