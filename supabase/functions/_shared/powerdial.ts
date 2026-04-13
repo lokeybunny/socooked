@@ -522,6 +522,213 @@ export async function dialNext(campaignId: string, logPrefix = "[powerdial]"): P
   return { dialed: false, reason: "campaign_completed" };
 }
 
+export async function cancelSiblingCalls(batchId: string, winnerCallLogId: string, campaignId: string) {
+  if (!batchId) return;
+
+  const { data: siblings } = await sb
+    .from("powerdial_call_logs")
+    .select("id, twilio_call_sid, queue_item_id")
+    .eq("batch_id", batchId)
+    .neq("id", winnerCallLogId);
+
+  if (!siblings?.length) return;
+
+  const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+  const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+
+  for (const sibling of siblings) {
+    // Hang up the Twilio call
+    if (sibling.twilio_call_sid) {
+      try {
+        await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${sibling.twilio_call_sid}.json`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ Status: "completed" }).toString(),
+          },
+        );
+      } catch (err) {
+        console.error(`[powerdial] Failed to cancel sibling call ${sibling.twilio_call_sid}:`, err);
+      }
+    }
+
+    // Mark call log as cancelled
+    await sb.from("powerdial_call_logs").update({
+      amd_result: "cancelled_triple_dial",
+      twilio_status: "canceled",
+    }).eq("id", sibling.id);
+
+    // Put queue item back to pending so it can be dialed later
+    if (sibling.queue_item_id) {
+      await sb.from("powerdial_queue").update({
+        status: "pending",
+        last_result: "cancelled_triple_dial",
+      }).eq("id", sibling.queue_item_id).in("status", ["dialing"]);
+    }
+  }
+
+  console.log(`[powerdial] Cancelled ${siblings.length} sibling calls for batch ${batchId}`);
+}
+
+export async function dialNextBatch(campaignId: string, batchSize: number, logPrefix = "[powerdial]"): Promise<DialNextResult> {
+  if (batchSize <= 1) {
+    return dialNext(campaignId, logPrefix);
+  }
+
+  const { data: campaign, error: cErr } = await sb
+    .from("powerdial_campaigns")
+    .select("*")
+    .eq("id", campaignId)
+    .single();
+
+  if (cErr || !campaign) return { dialed: false, reason: "campaign_not_found" };
+  if (campaign.status !== "running") return { dialed: false, reason: "campaign_not_running" };
+
+  const { data: activeDialing } = await sb
+    .from("powerdial_queue")
+    .select("id")
+    .eq("campaign_id", campaignId)
+    .eq("status", "dialing")
+    .limit(1);
+
+  if (activeDialing?.length) {
+    return { dialed: false, reason: "already_dialing" };
+  }
+
+  // Get next N pending items
+  const { data: nextItems } = await sb
+    .from("powerdial_queue")
+    .select("*")
+    .eq("campaign_id", campaignId)
+    .eq("status", "pending")
+    .order("position", { ascending: true })
+    .limit(batchSize);
+
+  const items = nextItems || [];
+
+  if (!items.length) {
+    // Fall back to single dial for retries / completion logic
+    return dialNext(campaignId, logPrefix);
+  }
+
+  // Generate batch_id
+  const batchId = crypto.randomUUID();
+
+  // Dial all items in parallel
+  const results = await Promise.allSettled(
+    items.map((item) => placeCallWithBatch(campaign, item, batchId, logPrefix)),
+  );
+
+  const anyDialed = results.some(
+    (r) => r.status === "fulfilled" && r.value.dialed,
+  );
+
+  return { dialed: anyDialed, reason: anyDialed ? undefined : "all_failed" };
+}
+
+async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string, logPrefix: string): Promise<DialNextResult> {
+  const phone = normalizePhone(queueItem.phone);
+  const selectedAssistantId = resolvePowerDialAssistantId((campaign.settings || {}) as Record<string, unknown>);
+
+  if (!phone) {
+    return { dialed: false, reason: "invalid_phone" };
+  }
+
+  const { data: dialLock } = await sb
+    .from("powerdial_queue")
+    .update({ status: "dialing", last_dialed_at: new Date().toISOString() })
+    .eq("id", queueItem.id)
+    .in("status", ["pending", "retry_later"])
+    .select("id")
+    .maybeSingle();
+
+  if (!dialLock) {
+    return { dialed: false, reason: "queue_item_not_available" };
+  }
+
+  const { data: log } = await sb.from("powerdial_call_logs").insert({
+    campaign_id: campaign.id,
+    queue_item_id: queueItem.id,
+    customer_id: queueItem.customer_id,
+    phone,
+    attempt_number: Number(queueItem.retry_count || 0) + 1,
+    twilio_status: "initiated",
+    batch_id: batchId,
+    meta: {
+      assistant_id: selectedAssistantId,
+      assistant_source: "campaign_settings",
+      triple_dial: true,
+      batch_id: batchId,
+    },
+  }).select("id").single();
+
+  const callLogId = log?.id || "";
+
+  const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+  const resolution = await resolveTwilioFromNumber(TWILIO_FROM);
+  const selectedFrom = resolution.resolvedFrom || (TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "");
+
+  if (!selectedFrom) {
+    return { dialed: false, reason: "twilio_from_missing" };
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const webhookUrl = `${supabaseUrl}/functions/v1/powerdial-webhook`;
+
+  const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+  const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+
+  const callParams = new URLSearchParams({
+    To: phone,
+    From: selectedFrom,
+    MachineDetection: "Enable",
+    AsyncAmd: "true",
+    AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
+    StatusCallback: `${webhookUrl}?type=status&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
+    StatusCallbackEvent: "initiated ringing answered completed",
+    Url: `${webhookUrl}?type=twiml&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
+    Timeout: "30",
+  });
+
+  try {
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: callParams.toString(),
+      },
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      console.error(`${logPrefix} Triple-dial Twilio error for ${phone}:`, data);
+      return { dialed: false, reason: "twilio_error" };
+    }
+
+    if (callLogId) {
+      await sb.from("powerdial_call_logs").update({
+        twilio_call_sid: data.sid,
+        twilio_status: "initiated",
+      }).eq("id", callLogId);
+    }
+
+    console.log(`${logPrefix} Triple-dial: placed call to ${phone} (batch ${batchId})`);
+    return { dialed: true, from: selectedFrom };
+  } catch (err) {
+    console.error(`${logPrefix} Triple-dial error for ${phone}:`, err);
+    return { dialed: false, reason: "exception" };
+  }
+}
+
 export async function advanceCampaign(campaignId: string, logPrefix = "[powerdial]"): Promise<DialNextResult> {
   const { data: campaign } = await sb
     .from("powerdial_campaigns")

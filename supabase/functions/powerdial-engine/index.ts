@@ -2,6 +2,7 @@ import {
   advanceCampaign,
   DEFAULT_POWERDIAL_SETTINGS,
   dialNext,
+  dialNextBatch,
   resolveTwilioFromNumber,
   sanitizePowerDialAssistantId,
   sb,
