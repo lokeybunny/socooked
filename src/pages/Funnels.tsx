@@ -865,6 +865,9 @@ export default function Funnels() {
           drafted_at: (meta.funnel_drafted_at as string) || null,
         });
       });
+      // Build queue name lookup
+      const queueNameMap = new Map<string, string>();
+      (pdQueue || []).forEach((q: any) => queueNameMap.set(q.id, q.contact_name || ''));
 
       // Power Dial call logs (human-answered calls)
       (pdLogs || []).forEach((log: any) => {
