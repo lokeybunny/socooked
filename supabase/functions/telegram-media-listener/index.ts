@@ -61,6 +61,7 @@ const PAGE_2_KEYBOARD = {
 const PAGE_3_KEYBOARD = {
   keyboard: [
     [{ text: '🏪 Arbitrage' }, { text: '🔎 Checkup' }],
+    [{ text: '📞 Test Call' }],
     [{ text: '⬅️ Back 2' }],
   ],
   resize_keyboard: true,
@@ -158,7 +159,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'checkup' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'more3' | 'back' | 'back2' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | 'arbitrage' | 'checkup' | 'fig' | 'defaultaddy' | 'defaultaddyoff' | 'wheresshop' | 'wheresvideo' | 'testcall' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -192,6 +193,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
    if (normalized === 'wheresshop' || normalized === '/wheresshop') return 'wheresshop'
    if (normalized === 'wheresvideo' || normalized === '/wheresvideo') return 'wheresvideo'
    if (normalized === 'checkup' || normalized === '/checkup') return 'checkup'
+   if (normalized === 'test call' || normalized === 'testcall' || normalized === '/testcall') return 'testcall'
   return null
 }
 
