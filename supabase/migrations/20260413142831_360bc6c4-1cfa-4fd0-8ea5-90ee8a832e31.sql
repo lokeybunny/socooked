@@ -1,0 +1,1 @@
+ALTER TABLE public.powerdial_call_logs ADD COLUMN IF NOT EXISTS batch_id text;

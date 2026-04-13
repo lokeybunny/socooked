@@ -3147,6 +3147,7 @@ export type Database = {
         Row: {
           amd_result: string | null
           attempt_number: number
+          batch_id: string | null
           campaign_id: string
           connected_to_vapi: boolean
           created_at: string
@@ -3169,6 +3170,7 @@ export type Database = {
         Insert: {
           amd_result?: string | null
           attempt_number?: number
+          batch_id?: string | null
           campaign_id: string
           connected_to_vapi?: boolean
           created_at?: string
@@ -3191,6 +3193,7 @@ export type Database = {
         Update: {
           amd_result?: string | null
           attempt_number?: number
+          batch_id?: string | null
           campaign_id?: string
           connected_to_vapi?: boolean
           created_at?: string
