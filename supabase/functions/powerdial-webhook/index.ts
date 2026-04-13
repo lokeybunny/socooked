@@ -231,7 +231,7 @@ async function bumpCampaignCount(
 
 async function fetchRecentVapiCallForPhone(phone: string) {
   try {
-    const vapiResp = await fetch("https://api.vapi.ai/call?limit=50&sortOrder=DESC", {
+    const vapiResp = await fetch("https://api.vapi.ai/call?limit=50", {
       headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
     });
 
