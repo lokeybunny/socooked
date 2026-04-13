@@ -481,6 +481,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   const cfg = FUNNEL_CONFIG[lead.funnel];
   const isLiveCall = lead.vapi_call_status === 'in_call' || lead.vapi_call_status === 'calling';
   const hasAI = !!(isLiveCall || lead.vapi_call_status === 'completed' || lead.ai_notes);
+  const activityAt = lead.last_activity_at || lead.created_at;
   const isDrafted = !!lead.drafted_at;
   const draftHoursLeft = isDrafted ? Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!))) : null;
   const stages = PIPELINE_STAGES[lead.funnel] || [];
@@ -570,7 +571,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
         </div>
       </div>
       <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}</span>
+        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDistanceToNow(new Date(activityAt), { addSuffix: true })}</span>
         <Select value={lead.status} onValueChange={onStageChange}>
           <SelectTrigger className="h-6 text-[10px] w-auto gap-1 border-dashed px-2 py-0">
             <SelectValue>{currentStageLabel}</SelectValue>
@@ -693,11 +694,15 @@ export default function Funnels() {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
         const remind = remindMap.get(c.id);
-        const lastActivityAt = (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at;
+        const lastActivityAt = (meta.vapi_last_contact as string) || (meta.vapi_call_ended_at as string) || (meta.vapi_call_started_at as string) || c.created_at;
         const rawCallStatus = (meta.vapi_call_status as string) || null;
+        const hasFinalDisposition = tags.some((tag) => tag.startsWith('disposition_')) || tags.includes('follow_up_needed');
+        const normalizedCallStatus = hasFinalDisposition && (rawCallStatus === 'in_call' || rawCallStatus === 'calling')
+          ? 'completed'
+          : rawCallStatus;
         const isFreshLiveCall = !!(
-          rawCallStatus &&
-          ['in_call', 'calling'].includes(rawCallStatus) &&
+          normalizedCallStatus &&
+          ['in_call', 'calling'].includes(normalizedCallStatus) &&
           Date.now() - new Date(lastActivityAt).getTime() < LIVE_CALL_STALE_MS
         );
         const isDirectInbound = !!meta.vapi_direct_dial;
@@ -708,7 +713,7 @@ export default function Funnels() {
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
           last_activity_at: lastActivityAt,
-          vapi_call_status: isFreshLiveCall ? rawCallStatus : (rawCallStatus === 'in_call' || rawCallStatus === 'calling' ? null : rawCallStatus),
+          vapi_call_status: isFreshLiveCall ? normalizedCallStatus : (normalizedCallStatus === 'in_call' || normalizedCallStatus === 'calling' ? null : normalizedCallStatus),
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
@@ -728,11 +733,15 @@ export default function Funnels() {
       (vidLeads || []).forEach((c) => {
         const meta = (c.meta as Record<string, unknown>) || {};
         const tags = c.tags as string[] || [];
-        const lastActivityAt = (meta.vapi_last_contact as string) || (meta.vapi_call_started_at as string) || c.created_at;
+        const lastActivityAt = (meta.vapi_last_contact as string) || (meta.vapi_call_ended_at as string) || (meta.vapi_call_started_at as string) || c.created_at;
         const rawCallStatus = (meta.vapi_call_status as string) || null;
+        const hasFinalDisposition = tags.some((tag) => tag.startsWith('disposition_')) || tags.includes('follow_up_needed');
+        const normalizedCallStatus = hasFinalDisposition && (rawCallStatus === 'in_call' || rawCallStatus === 'calling')
+          ? 'completed'
+          : rawCallStatus;
         const isFreshLiveCall = !!(
-          rawCallStatus &&
-          ['in_call', 'calling'].includes(rawCallStatus) &&
+          normalizedCallStatus &&
+          ['in_call', 'calling'].includes(normalizedCallStatus) &&
           Date.now() - new Date(lastActivityAt).getTime() < LIVE_CALL_STALE_MS
         );
         const isDirectInbound = !!meta.vapi_direct_dial;
@@ -743,7 +752,7 @@ export default function Funnels() {
           company: c.company,
           event_type: tags.find(t => !['videography', 'webdesign', 'ai-website', 'general'].includes(t)) || null,
           last_activity_at: lastActivityAt,
-          vapi_call_status: isFreshLiveCall ? rawCallStatus : (rawCallStatus === 'in_call' || rawCallStatus === 'calling' ? null : rawCallStatus),
+          vapi_call_status: isFreshLiveCall ? normalizedCallStatus : (normalizedCallStatus === 'in_call' || normalizedCallStatus === 'calling' ? null : normalizedCallStatus),
           vapi_call_id: (meta.vapi_call_id as string) || null,
           ai_notes: (meta.vapi_ai_notes as string) || null,
           vapi_recording_url: (meta.vapi_recording_url as string) || null,
