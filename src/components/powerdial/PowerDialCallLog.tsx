@@ -4,9 +4,22 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Search, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
+
+type CallLogMeta = {
+  twilio_error?: {
+    code?: number;
+    message?: string;
+    more_info?: string;
+  };
+  configured_from?: string | null;
+  resolved_from?: string | null;
+  available_from_numbers?: string[];
+  needs_twilio_verified_from?: boolean;
+  auto_switched_from_number?: boolean;
+};
 
 type CallLog = {
   id: string;
@@ -22,6 +35,7 @@ type CallLog = {
   follow_up_needed: boolean;
   created_at: string;
   customer_id: string | null;
+  meta?: CallLogMeta | null;
 };
 
 export default function PowerDialCallLog({ campaignId }: { campaignId: string }) {
@@ -102,7 +116,12 @@ export default function PowerDialCallLog({ campaignId }: { campaignId: string })
       {/* Detail modal */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-auto">
-          <DialogHeader><DialogTitle>Call Detail — {selected?.phone}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Call Detail — {selected?.phone}</DialogTitle>
+            <DialogDescription>
+              Review the call outcome, Twilio status, and any AI conversation details for this dial attempt.
+            </DialogDescription>
+          </DialogHeader>
           {selected && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
@@ -113,6 +132,23 @@ export default function PowerDialCallLog({ campaignId }: { campaignId: string })
                 <div><span className="text-muted-foreground">Follow-up:</span> <span className="font-medium">{selected.follow_up_needed ? 'Yes' : 'No'}</span></div>
                 <div><span className="text-muted-foreground">Attempt:</span> <span className="font-medium">#{selected.attempt_number}</span></div>
               </div>
+              {selected.meta?.twilio_error?.message && (
+                <div>
+                  <p className="text-muted-foreground mb-1">Twilio Error</p>
+                  <div className="rounded-md border border-border bg-destructive/10 p-3 text-xs space-y-1">
+                    <p className="font-medium text-foreground">{selected.meta.twilio_error.message}</p>
+                    {selected.meta.twilio_error.code && (
+                      <p className="text-muted-foreground">Code: {selected.meta.twilio_error.code}</p>
+                    )}
+                    {selected.meta.configured_from && (
+                      <p className="text-muted-foreground">Configured From: {selected.meta.configured_from}</p>
+                    )}
+                    {selected.meta.resolved_from && (
+                      <p className="text-muted-foreground">Dialed From: {selected.meta.resolved_from}</p>
+                    )}
+                  </div>
+                </div>
+              )}
               {selected.summary && (
                 <div>
                   <p className="text-muted-foreground mb-1">Summary</p>

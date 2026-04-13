@@ -13,12 +13,116 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
+const TWILIO_CALLER_ID_ERROR_CODES = new Set([21210, 21212]);
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
+}
+
+async function fetchTwilioJson(path: string, init: RequestInit) {
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`);
+
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}${path}`,
+    {
+      ...init,
+      headers,
+    }
+  );
+
+  const text = await response.text();
+  let data: any = {};
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { raw: text };
+  }
+
+  return { response, data };
+}
+
+async function listAvailableTwilioFromNumbers(): Promise<string[]> {
+  const numbers = new Set<string>();
+  const [incoming, outgoingCallerIds] = await Promise.all([
+    fetchTwilioJson("/IncomingPhoneNumbers.json?PageSize=20", { method: "GET" }),
+    fetchTwilioJson("/OutgoingCallerIds.json?PageSize=20", { method: "GET" }),
+  ]);
+
+  for (const item of incoming.data?.incoming_phone_numbers || []) {
+    if (item?.phone_number) numbers.add(normalizePhone(String(item.phone_number)));
+  }
+
+  for (const item of outgoingCallerIds.data?.outgoing_caller_ids || []) {
+    if (item?.phone_number) numbers.add(normalizePhone(String(item.phone_number)));
+  }
+
+  return Array.from(numbers);
+}
+
+function isTwilioCallerIdError(twilioData: any) {
+  return TWILIO_CALLER_ID_ERROR_CODES.has(Number(twilioData?.code));
+}
+
+function buildCallParams(args: {
+  phone: string;
+  from: string;
+  campaignId: string;
+  queueItemId: string;
+  callLogId: string;
+}) {
+  const webhookUrl = `${supabaseUrl}/functions/v1/powerdial-webhook`;
+
+  return new URLSearchParams({
+    To: args.phone,
+    From: args.from,
+    MachineDetection: "DetectMessageEnd",
+    AsyncAmd: "true",
+    AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
+    StatusCallback: `${webhookUrl}?type=status&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
+    StatusCallbackEvent: "initiated ringing answered completed",
+    Url: `${webhookUrl}?type=twiml&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
+    Timeout: "30",
+  });
+}
+
+async function resolveTwilioFromNumber(configuredFrom: string) {
+  const availableFromNumbers = await listAvailableTwilioFromNumbers();
+  const normalizedConfigured = configuredFrom ? normalizePhone(configuredFrom) : "";
+
+  if (normalizedConfigured && availableFromNumbers.includes(normalizedConfigured)) {
+    return { resolvedFrom: normalizedConfigured, availableFromNumbers };
+  }
+
+  return {
+    resolvedFrom: availableFromNumbers[0] || null,
+    availableFromNumbers,
+  };
+}
+
+async function markCallFailed(
+  campaign: any,
+  queueItem: any,
+  callLogId: string | null | undefined,
+  meta: Record<string, unknown> = {},
+) {
+  if (callLogId) {
+    await sb.from("powerdial_call_logs").update({
+      twilio_status: "failed",
+      amd_result: "failed",
+      ...(Object.keys(meta).length > 0 ? { meta } : {}),
+    }).eq("id", callLogId);
+  }
+
+  await sb.from("powerdial_queue").update({ status: "completed", last_result: "failed" }).eq("id", queueItem.id);
+  await sb.from("powerdial_campaigns").update({
+    failed_count: campaign.failed_count + 1,
+    completed_count: campaign.completed_count + 1,
+  }).eq("id", campaign.id);
 }
 
 // Normalize phone to E.164
@@ -95,60 +199,113 @@ async function placeCall(campaign: any, queueItem: any): Promise<{ dialed: boole
   }).select("id").single();
 
   const callLogId = log?.id;
-
-  // Place Twilio call with AMD
-  const webhookUrl = `${supabaseUrl}/functions/v1/powerdial-webhook`;
-  const params = new URLSearchParams({
-    To: phone,
-    From: TWILIO_FROM,
-    MachineDetection: "DetectMessageEnd",
-    AsyncAmd: "true",
-    AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
-    StatusCallback: `${webhookUrl}?type=status&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
-    StatusCallbackEvent: "initiated ringing answered completed",
-    Url: `${webhookUrl}?type=twiml&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
-    Timeout: "30",
-  });
+  const safeCallLogId = callLogId || "";
+  const configuredFrom = TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "";
+  let selectedFrom = configuredFrom;
+  let availableFromNumbers: string[] = [];
 
   try {
-    const twilioResp = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      }
-    );
+    if (!selectedFrom) {
+      const resolution = await resolveTwilioFromNumber(configuredFrom);
+      selectedFrom = resolution.resolvedFrom || "";
+      availableFromNumbers = resolution.availableFromNumbers;
+    }
 
-    const twilioData = await twilioResp.json();
+    if (!selectedFrom) {
+      const message = "No verified or purchased Twilio caller ID is available for this account.";
+      await markCallFailed(campaign, queueItem, callLogId, {
+        twilio_error: { message },
+        configured_from: configuredFrom || null,
+        available_from_numbers: availableFromNumbers,
+        needs_twilio_verified_from: true,
+      });
+      return { dialed: false, reason: "twilio_from_missing", message } as any;
+    }
+
+    let twilioResult = await fetchTwilioJson("/Calls.json", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: buildCallParams({
+        phone,
+        from: selectedFrom,
+        campaignId: campaign.id,
+        queueItemId: queueItem.id,
+        callLogId: safeCallLogId,
+      }).toString(),
+    });
+
+    let twilioResp = twilioResult.response;
+    let twilioData = twilioResult.data;
+
+    if (!twilioResp.ok && isTwilioCallerIdError(twilioData)) {
+      const resolution = await resolveTwilioFromNumber(configuredFrom);
+      availableFromNumbers = resolution.availableFromNumbers;
+
+      if (resolution.resolvedFrom && resolution.resolvedFrom !== selectedFrom) {
+        selectedFrom = resolution.resolvedFrom;
+        twilioResult = await fetchTwilioJson("/Calls.json", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: buildCallParams({
+            phone,
+            from: selectedFrom,
+            campaignId: campaign.id,
+            queueItemId: queueItem.id,
+            callLogId: safeCallLogId,
+          }).toString(),
+        });
+        twilioResp = twilioResult.response;
+        twilioData = twilioResult.data;
+      }
+    }
 
     if (!twilioResp.ok) {
       console.error("[powerdial] Twilio error:", twilioData);
-      // Mark failed
-      await sb.from("powerdial_call_logs").update({ twilio_status: "failed", amd_result: "failed", meta: { twilio_error: twilioData } }).eq("id", callLogId);
-      await sb.from("powerdial_queue").update({ status: "completed", last_result: "failed" }).eq("id", queueItem.id);
-      await sb.from("powerdial_campaigns").update({
-        failed_count: campaign.failed_count + 1,
-        completed_count: campaign.completed_count + 1,
-      }).eq("id", campaign.id);
-      return { dialed: false, reason: "twilio_error" };
+      await markCallFailed(campaign, queueItem, callLogId, {
+        twilio_error: twilioData,
+        configured_from: configuredFrom || null,
+        resolved_from: selectedFrom || null,
+        available_from_numbers: availableFromNumbers,
+        needs_twilio_verified_from: isTwilioCallerIdError(twilioData),
+      });
+      return {
+        dialed: false,
+        reason: "twilio_error",
+        message: twilioData?.message || "Twilio call failed",
+        twilio_code: twilioData?.code,
+      } as any;
     }
 
     // Update call log with SID
     await sb.from("powerdial_call_logs").update({
       twilio_call_sid: twilioData.sid,
       twilio_status: "initiated",
+      meta: {
+        resolved_from: selectedFrom,
+        ...(selectedFrom !== configuredFrom ? {
+          configured_from: configuredFrom || null,
+          auto_switched_from_number: true,
+        } : {}),
+      },
     }).eq("id", callLogId);
 
-    return { dialed: true };
+    return { dialed: true, from: selectedFrom } as any;
   } catch (err) {
     console.error("[powerdial] Call placement error:", err);
-    await sb.from("powerdial_call_logs").update({ twilio_status: "failed" }).eq("id", callLogId);
-    await sb.from("powerdial_queue").update({ status: "completed", last_result: "failed" }).eq("id", queueItem.id);
-    return { dialed: false, reason: "exception" };
+    await markCallFailed(campaign, queueItem, callLogId, {
+      exception: err instanceof Error ? err.message : String(err),
+      configured_from: configuredFrom || null,
+      resolved_from: selectedFrom || null,
+    });
+    return {
+      dialed: false,
+      reason: "exception",
+      message: err instanceof Error ? err.message : String(err),
+    } as any;
   }
 }
 
@@ -160,6 +317,17 @@ Deno.serve(async (req) => {
     const { action, campaign_id, campaign_name, lead_ids, phones, settings } = body;
 
     switch (action) {
+      case "validate_config": {
+        const resolution = await resolveTwilioFromNumber(TWILIO_FROM);
+        return json({
+          ok: true,
+          configured_from: TWILIO_FROM ? normalizePhone(TWILIO_FROM) : null,
+          resolved_from: resolution.resolvedFrom,
+          available_from_numbers: resolution.availableFromNumbers,
+          has_valid_from_number: Boolean(resolution.resolvedFrom),
+        });
+      }
+
       case "create_campaign": {
         // Create campaign + populate queue from lead_ids or raw phones
         const userId = body.user_id;

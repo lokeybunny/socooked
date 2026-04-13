@@ -12,7 +12,7 @@ import {
   Settings, List, BarChart3, Search, RefreshCw,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -112,6 +112,9 @@ export default function PowerDial() {
     try {
       const { data, error } = await supabase.functions.invoke('powerdial-engine', { body });
       if (error) throw error;
+      if ((data as any)?.reason && ((data as any)?.reason === 'twilio_error' || (data as any)?.reason === 'twilio_from_missing') && (data as any)?.message) {
+        toast.error((data as any).message);
+      }
       await loadCampaigns();
       if (activeCampaign) {
         const { data: updated } = await supabase.from('powerdial_campaigns').select('*').eq('id', activeCampaign.id).single();
