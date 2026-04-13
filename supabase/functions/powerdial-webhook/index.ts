@@ -1,8 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   advanceCampaign,
-  DEFAULT_OUTBOUND_VAPI_ASSISTANT,
   normalizePhone,
+  prepareVapiOutboundAssistant,
+  resolvePowerDialAssistantId,
   sb,
 } from "../_shared/powerdial.ts";
 
@@ -57,58 +58,6 @@ async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null>
   } catch (err) {
     console.error("[powerdial-webhook] Vapi phone lookup exception:", err);
     return null;
-  }
-}
-
-async function updateVapiPhoneAssistant(phoneNumberId: string, assistantId: string) {
-  if (!phoneNumberId || !assistantId) {
-    return {
-      ok: false,
-      phoneNumber: null,
-      details: "Missing Vapi phone number ID or assistant ID",
-    };
-  }
-
-  try {
-    const resp = await fetch(`https://api.vapi.ai/phone-number/${phoneNumberId}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${VAPI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ assistantId }),
-    });
-
-    const text = await resp.text();
-    let data: any = {};
-
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { raw: text };
-    }
-
-    if (!resp.ok) {
-      console.error("[powerdial-webhook] Vapi phone assistant update error:", data);
-      return {
-        ok: false,
-        phoneNumber: data.number || data.phoneNumber || null,
-        details: data?.message || data?.error || text || `HTTP ${resp.status}`,
-      };
-    }
-
-    return {
-      ok: true,
-      phoneNumber: data.number || data.phoneNumber || null,
-      details: null,
-    };
-  } catch (err) {
-    console.error("[powerdial-webhook] Vapi phone assistant update exception:", err);
-    return {
-      ok: false,
-      phoneNumber: null,
-      details: err instanceof Error ? err.message : String(err),
-    };
   }
 }
 
@@ -266,15 +215,20 @@ Deno.serve(async (req) => {
           await bumpCampaignCount(campaignId, "human_count");
         }
 
-        const { data: campSettings } = await sb
-          .from("powerdial_campaigns")
-          .select("settings")
-          .eq("id", campaignId)
-          .single();
+        const [{ data: campSettings }, { data: existingLog }] = await Promise.all([
+          sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
+          sb.from("powerdial_call_logs").select("meta").eq("id", callLogId).single(),
+        ]);
 
-        const assistantId = String((campSettings?.settings as any)?.vapi_assistant_id || DEFAULT_OUTBOUND_VAPI_ASSISTANT).trim();
-        const assistantUpdate = await updateVapiPhoneAssistant(VAPI_PHONE_NUMBER_ID, assistantId);
-        const vapiPhoneNumber = assistantUpdate.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
+        const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+          ? existingLog.meta as Record<string, unknown>
+          : {};
+        const frozenAssistantId = typeof existingMeta.assistant_id === "string"
+          ? existingMeta.assistant_id.trim()
+          : "";
+        const assistantId = frozenAssistantId || resolvePowerDialAssistantId((campSettings?.settings || {}) as Record<string, unknown>);
+        const assistantPreparation = await prepareVapiOutboundAssistant(assistantId);
+        const vapiPhoneNumber = assistantPreparation.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
         const redirected = vapiPhoneNumber
           ? await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId, twilioFrom)
           : false;
@@ -282,11 +236,14 @@ Deno.serve(async (req) => {
         await sb.from("powerdial_call_logs").update({
           connected_to_vapi: redirected,
           meta: {
+            ...existingMeta,
             transfer_method: "twilio_redirect",
             assistant_id: assistantId,
-            assistant_update_ok: assistantUpdate.ok,
-            assistant_update_error: assistantUpdate.details,
+            assistant_source: frozenAssistantId ? "call_log" : "campaign_settings",
+            assistant_prepare_ok: assistantPreparation.ok,
+            assistant_prepare_error: assistantPreparation.details,
             vapi_phone: vapiPhoneNumber,
+            ...(assistantPreparation.currentAssistantId ? { vapi_phone_assistant_id: assistantPreparation.currentAssistantId } : {}),
             twilio_from: normalizePhone(twilioFrom) || null,
           },
         }).eq("id", callLogId);
