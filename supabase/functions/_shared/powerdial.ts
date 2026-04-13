@@ -47,6 +47,29 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const TERMINAL_CONNECTED_CALL_STATUSES = new Set([
+  "completed",
+  "busy",
+  "failed",
+  "no-answer",
+  "canceled",
+]);
+
+async function hasActiveConnectedCall(campaignId: string) {
+  const { data: connectedCalls } = await sb
+    .from("powerdial_call_logs")
+    .select("id, twilio_status")
+    .eq("campaign_id", campaignId)
+    .eq("connected_to_vapi", true)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return Boolean((connectedCalls || []).find((call: any) => {
+    const status = String(call?.twilio_status || "").toLowerCase();
+    return !status || !TERMINAL_CONNECTED_CALL_STATUSES.has(status);
+  }));
+}
+
 export function normalizePhone(raw: string | null | undefined): string {
   const value = String(raw ?? "").trim();
   const digits = value.replace(/\D/g, "");
@@ -312,7 +335,12 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
 
   const { data: dialLock } = await sb
     .from("powerdial_queue")
-    .update({ status: "dialing", last_dialed_at: new Date().toISOString() })
+    .update({
+      status: "dialing",
+      last_dialed_at: new Date().toISOString(),
+      last_result: null,
+      retry_at: null,
+    })
     .eq("id", queueItem.id)
     .in("status", ["pending", "retry_later"])
     .select("id")
@@ -467,6 +495,10 @@ export async function dialNext(campaignId: string, logPrefix = "[powerdial]"): P
   if (cErr || !campaign) return { dialed: false, reason: "campaign_not_found" };
   if (campaign.status !== "running") return { dialed: false, reason: "campaign_not_running" };
 
+  if (await hasActiveConnectedCall(campaignId)) {
+    return { dialed: false, reason: "active_human_call" };
+  }
+
   const { data: activeDialing } = await sb
     .from("powerdial_queue")
     .select("id")
@@ -588,6 +620,10 @@ export async function dialNextBatch(campaignId: string, batchSize: number, logPr
   if (cErr || !campaign) return { dialed: false, reason: "campaign_not_found" };
   if (campaign.status !== "running") return { dialed: false, reason: "campaign_not_running" };
 
+  if (await hasActiveConnectedCall(campaignId)) {
+    return { dialed: false, reason: "active_human_call" };
+  }
+
   const { data: activeDialing } = await sb
     .from("powerdial_queue")
     .select("id")
@@ -640,7 +676,12 @@ async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string
 
   const { data: dialLock } = await sb
     .from("powerdial_queue")
-    .update({ status: "dialing", last_dialed_at: new Date().toISOString() })
+    .update({
+      status: "dialing",
+      last_dialed_at: new Date().toISOString(),
+      last_result: null,
+      retry_at: null,
+    })
     .eq("id", queueItem.id)
     .in("status", ["pending", "retry_later"])
     .select("id")
