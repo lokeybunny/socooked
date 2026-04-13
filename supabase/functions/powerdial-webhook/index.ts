@@ -231,22 +231,50 @@ async function bumpCampaignCount(
 
 async function fetchRecentVapiCallForPhone(phone: string) {
   try {
-    const vapiResp = await fetch("https://api.vapi.ai/call?limit=10&sortOrder=DESC", {
+    const vapiResp = await fetch("https://api.vapi.ai/call?limit=50&sortOrder=DESC", {
       headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
     });
 
     if (!vapiResp.ok) {
-      await vapiResp.text();
+      const errText = await vapiResp.text();
+      console.error("[powerdial-webhook] Vapi list calls error:", errText);
       return null;
     }
 
     const vapiCalls = await vapiResp.json();
     const rawDigits = phone.replace(/\D/g, "");
+    const last10 = rawDigits.slice(-10);
 
-    return (vapiCalls || []).find((call: any) => {
-      const callNumber = String(call.customer?.number || "").replace(/\D/g, "");
-      return callNumber && rawDigits.endsWith(callNumber.slice(-10));
-    }) || null;
+    // Match by customer number OR by phoneNumber field (bridged calls)
+    const matched = (vapiCalls || []).find((call: any) => {
+      // Check customer.number (standard Vapi field)
+      const custNumber = String(call.customer?.number || "").replace(/\D/g, "");
+      if (custNumber && last10 === custNumber.slice(-10)) return true;
+      // Check phoneNumber field (some Vapi versions)
+      const pn = String(call.phoneNumber || "").replace(/\D/g, "");
+      if (pn && last10 === pn.slice(-10)) return true;
+      // Check metadata/destination
+      const dest = String(call.destination?.number || call.metadata?.destination || "").replace(/\D/g, "");
+      if (dest && last10 === dest.slice(-10)) return true;
+      return false;
+    });
+
+    if (matched) return matched;
+
+    // Fallback: match by recent time window (last 5 min) if it was a completed call
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const recentCompleted = (vapiCalls || []).find((call: any) => {
+      if (call.status !== "ended") return false;
+      const callEnd = new Date(call.endedAt || call.updatedAt || 0).getTime();
+      return callEnd > fiveMinAgo;
+    });
+
+    if (recentCompleted) {
+      console.log(`[powerdial-webhook] Fallback time-match for ${phone}: Vapi call ${recentCompleted.id}`);
+      return recentCompleted;
+    }
+
+    return null;
   } catch (err) {
     console.error("[powerdial-webhook] Vapi fetch error:", err);
     return null;
