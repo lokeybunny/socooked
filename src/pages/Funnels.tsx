@@ -1068,6 +1068,13 @@ export default function Funnels() {
     toast.success(checked ? `☠️ ${lead.full_name} marked dead` : `${lead.full_name} revived`);
   };
 
+  const handleDismissPD = async (lead: FunnelLead) => {
+    setLeads(prev => prev.filter(l => l.id !== lead.id));
+    const { error } = await supabase.from('powerdial_call_logs').update({ dismissed_at: new Date().toISOString() } as any).eq('id', lead.id);
+    if (error) { toast.error('Failed to dismiss'); fetchLeads(); return; }
+    toast.success(`Dismissed ${lead.full_name}`);
+  };
+
   const filtered = useMemo(() => {
     let result = leads;
     if (filter !== 'all') result = result.filter(l => l.funnel === filter);
