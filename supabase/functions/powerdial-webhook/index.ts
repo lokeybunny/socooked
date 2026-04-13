@@ -1,4 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   advanceCampaign,
   normalizePhone,
@@ -161,6 +160,110 @@ async function fetchRecentVapiCallForPhone(phone: string) {
   }
 }
 
+/** After a completed Vapi call, analyze transcript and push interested leads to CRM */
+async function analyzeAndLabelPowerDialLead(
+  callLogId: string,
+  campaignId: string,
+  queueItemId: string,
+  phone: string,
+  matchedCall: any,
+) {
+  try {
+    const transcript = matchedCall.transcript ||
+      matchedCall.messages?.map((m: any) => `${m.role}: ${m.content}`).join("\n") || "";
+    const summary = matchedCall.analysis?.summary || matchedCall.summary || "";
+    const disposition = matchedCall.analysis?.successEvaluation || "";
+
+    // Determine if lead is interested based on Vapi analysis or keywords
+    const interestSignals = [
+      "interested", "yes", "sure", "tell me more", "sounds good",
+      "schedule", "appointment", "book", "meeting", "callback",
+      "follow_up", "follow up", "success",
+    ];
+
+    const notInterestedSignals = [
+      "not interested", "no thanks", "don't call", "remove me",
+      "stop calling", "hang up", "wrong number", "do not call",
+    ];
+
+    const lowerTranscript = (transcript + " " + summary + " " + disposition).toLowerCase();
+    const isNotInterested = notInterestedSignals.some((s) => lowerTranscript.includes(s));
+    const isInterested = !isNotInterested && interestSignals.some((s) => lowerTranscript.includes(s));
+
+    if (!isInterested) {
+      console.log(`[powerdial-webhook] Lead at ${phone} not interested or inconclusive, skipping CRM push`);
+      return;
+    }
+
+    // Check if customer already exists by phone
+    const normalizedPhone = normalizePhone(phone);
+    const digits = normalizedPhone.replace(/\D/g, "");
+    const last10 = digits.slice(-10);
+
+    const { data: existing } = await sb
+      .from("customers")
+      .select("id, tags, meta, status")
+      .or(`phone.ilike.%${last10}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing customer with power_dialed tag and status
+      const currentTags: string[] = Array.isArray(existing.tags) ? existing.tags : [];
+      const newTags = [...new Set([...currentTags, "power_dialed"])];
+      const currentMeta = existing.meta && typeof existing.meta === "object" && !Array.isArray(existing.meta)
+        ? existing.meta as Record<string, unknown>
+        : {};
+
+      await sb.from("customers").update({
+        tags: newTags,
+        status: existing.status === "lead" ? "prospect" : existing.status,
+        meta: {
+          ...currentMeta,
+          powerdial_campaign_id: campaignId,
+          powerdial_interested: true,
+          powerdial_transcript_summary: summary.slice(0, 500),
+          powerdial_call_log_id: callLogId,
+        },
+        source: currentMeta.source || "power_dialed",
+      }).eq("id", existing.id);
+
+      console.log(`[powerdial-webhook] Updated existing customer ${existing.id} with power_dialed tag`);
+    } else {
+      // Create new customer from power dial
+      const { data: qItem } = await sb
+        .from("powerdial_queue")
+        .select("contact_name, customer_id")
+        .eq("id", queueItemId)
+        .single();
+
+      await sb.from("customers").insert({
+        full_name: qItem?.contact_name || `Power Dialed ${last10}`,
+        phone: normalizedPhone,
+        status: "prospect",
+        source: "power_dialed",
+        tags: ["power_dialed"],
+        meta: {
+          powerdial_campaign_id: campaignId,
+          powerdial_interested: true,
+          powerdial_transcript_summary: summary.slice(0, 500),
+          powerdial_call_log_id: callLogId,
+        },
+      });
+
+      console.log(`[powerdial-webhook] Created new customer from power dial for ${normalizedPhone}`);
+    }
+
+    // Mark call log as lead pushed
+    await sb.from("powerdial_call_logs").update({
+      follow_up_needed: true,
+      disposition: "interested",
+    }).eq("id", callLogId);
+  } catch (err) {
+    console.error("[powerdial-webhook] Lead labeling error:", err);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -216,21 +319,32 @@ Deno.serve(async (req) => {
           await bumpCampaignCount(campaignId, "human_count");
         }
 
-        const [{ data: campSettings }, { data: existingLog }] = await Promise.all([
-          sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
+        // Get frozen assistant from call log meta (set at dial time), fallback to campaign settings
+        const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
           sb.from("powerdial_call_logs").select("meta").eq("id", callLogId).single(),
+          sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
         ]);
 
         const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
           ? existingLog.meta as Record<string, unknown>
           : {};
+
+        // The assistant_id was frozen in call log meta at dial time by placeCall()
         const frozenAssistantId = typeof existingMeta.assistant_id === "string"
           ? existingMeta.assistant_id.trim()
           : "";
+
+        // Always sanitize to ensure we never use an inbound assistant
         const assistantId = sanitizePowerDialAssistantId(
           frozenAssistantId || resolvePowerDialAssistantId((campSettings?.settings || {}) as Record<string, unknown>),
         );
+
+        console.log(`[powerdial-webhook] Resolved outbound assistant: ${assistantId} (frozen=${frozenAssistantId}, campaign=${(campSettings?.settings as any)?.vapi_assistant_id || 'none'})`);
+
+        // PATCH the Vapi phone number to use the correct outbound assistant BEFORE redirect
         const assistantPreparation = await prepareVapiOutboundAssistant(assistantId);
+        console.log(`[powerdial-webhook] Vapi assistant prep: ok=${assistantPreparation.ok}, current=${assistantPreparation.currentAssistantId}, target=${assistantId}`);
+
         const vapiPhoneNumber = assistantPreparation.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
         const redirected = vapiPhoneNumber
           ? await redirectCallToVapi(callSid, vapiPhoneNumber, assistantId, twilioFrom)
@@ -242,7 +356,7 @@ Deno.serve(async (req) => {
             ...existingMeta,
             transfer_method: "twilio_redirect",
             assistant_id: assistantId,
-            assistant_source: frozenAssistantId ? "call_log" : "campaign_settings",
+            assistant_source: frozenAssistantId ? "call_log_frozen" : "campaign_settings",
             assistant_prepare_ok: assistantPreparation.ok,
             assistant_prepare_error: assistantPreparation.details,
             vapi_phone: vapiPhoneNumber,
@@ -255,9 +369,10 @@ Deno.serve(async (req) => {
           console.error("[powerdial-webhook] Failed to redirect human call to Vapi");
         }
 
-        return json({ ok: true, amd_result: amdResult, redirected });
+        return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
       }
 
+      // Non-human: hang up and advance
       try {
         await fetch(
           `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
@@ -364,16 +479,21 @@ Deno.serve(async (req) => {
         if (logData?.connected_to_vapi && qItem?.phone) {
           const matchedCall = await fetchRecentVapiCallForPhone(qItem.phone);
           if (matchedCall) {
+            const transcript = matchedCall.transcript ||
+              matchedCall.messages?.map((message: any) => `${message.role}: ${message.content}`).join("\n") || null;
+
             await sb.from("powerdial_call_logs").update({
               vapi_call_id: matchedCall.id,
-              transcript: matchedCall.transcript || matchedCall.messages?.map((message: any) => `${message.role}: ${message.content}`).join("
-") || null,
+              transcript,
               summary: matchedCall.analysis?.summary || matchedCall.summary || null,
               disposition: matchedCall.analysis?.successEvaluation || null,
               recording_url: matchedCall.recordingUrl || matchedCall.artifact?.recordingUrl || null,
               follow_up_needed: matchedCall.analysis?.successEvaluation === "follow_up",
             }).eq("id", callLogId);
             console.log(`[powerdial-webhook] Matched Vapi call: ${matchedCall.id}`);
+
+            // Analyze transcript and push interested leads to CRM
+            await analyzeAndLabelPowerDialLead(callLogId, campaignId, queueItemId, qItem.phone, matchedCall);
           }
         }
 
