@@ -90,13 +90,15 @@ function isPlaceholderLeadName(value: unknown): boolean {
   return normalized.startsWith("direct caller (") || normalized.startsWith("caller (");
 }
 
-function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: string; email?: string; source?: string | null }): number {
+function scoreCustomerMatch(row: any, criteria: { callId?: string; phone?: string; phones?: string[]; email?: string; source?: string | null }): number {
   const meta = (row?.meta as any) || {};
   let score = 0;
 
   if (criteria.callId && String(meta.vapi_call_id || "") === criteria.callId) score += 100;
   if (criteria.source && row?.source === criteria.source) score += 25;
-  if (criteria.phone && normalizePhone(row?.phone || "") === criteria.phone) score += 20;
+  const allPhones = [...(criteria.phones || []), ...(criteria.phone ? [criteria.phone] : [])].filter(Boolean);
+  const rowPhone = normalizePhone(row?.phone || "");
+  if (rowPhone && allPhones.includes(rowPhone)) score += 20;
   if (criteria.email && normalizeEmail(row?.email) === criteria.email) score += 20;
   if (!isPlaceholderLeadName(row?.full_name)) score += 5;
   if (row?.email) score += 2;
