@@ -5574,6 +5574,62 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle testcall session (phone number input) ───
+    const { data: testcallSessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'testcall_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .order('created_at', { ascending: false }).limit(1)
+
+    if (testcallSessions && testcallSessions.length > 0 && text) {
+      // Clean up session
+      await supabase.from('webhook_events').delete().eq('id', testcallSessions[0].id)
+
+      const phoneInput = text.trim()
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `📞 <b>Dialing test call to:</b> ${phoneInput}\n\n<i>Placing call via PowerD engine...</i>`,
+        parse_mode: 'HTML',
+        reply_markup: PAGE_3_KEYBOARD,
+      })
+
+      try {
+        const pdRes = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-engine`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({ action: 'test_call', phone: phoneInput }),
+        })
+        const pdData = await pdRes.json()
+
+        if (pdRes.ok && pdData.ok) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ <b>Test call placed!</b>\n\n📱 To: <code>${pdData.to}</code>\n📤 From: <code>${pdData.from}</code>\n🆔 SID: <code>${pdData.call_sid}</code>`,
+            parse_mode: 'HTML',
+            reply_markup: PAGE_3_KEYBOARD,
+          })
+        } else {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Test call failed</b>\n\n${pdData.error || 'Unknown error'}`,
+            parse_mode: 'HTML',
+            reply_markup: PAGE_3_KEYBOARD,
+          })
+        }
+      } catch (err: any) {
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `❌ <b>Test call error:</b> ${err.message}`,
+          parse_mode: 'HTML',
+          reply_markup: PAGE_3_KEYBOARD,
+        })
+      }
+      return new Response('ok')
+    }
+
     // ─── Handle checkup session (price lookup) ───
     const { data: checkupSessions } = await supabase.from('webhook_events')
       .select('id, payload')
