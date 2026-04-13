@@ -567,7 +567,7 @@ export async function cancelSiblingCalls(batchId: string, winnerCallLogId: strin
       await sb.from("powerdial_queue").update({
         status: "pending",
         last_result: "cancelled_triple_dial",
-      }).eq("id", sibling.queue_item_id).in("status", ["dialing"]);
+      }).eq("id", sibling.queue_item_id).in("status", ["dialing", "completed"]);
     }
   }
 
