@@ -139,16 +139,15 @@ function usePowerDStats(): { stats: PowerDStats; loading: boolean } {
 
   const load = useCallback(async () => {
     try {
-      // Get call log stats
       const { data: logs } = await supabase
         .from('powerdial_call_logs')
-        .select('id, lead_name, lead_phone, call_status, ai_sentiment, ai_interested, created_at')
+        .select('id, phone, twilio_status, amd_result, connected_to_vapi, ai_sentiment, ai_interested, disposition, created_at, meta')
         .order('created_at', { ascending: false })
         .limit(500);
 
       if (logs) {
         const total = logs.length;
-        const human = logs.filter(l => l.call_status === 'completed' || l.call_status === 'human-answered').length;
+        const human = logs.filter(l => l.connected_to_vapi === true || l.amd_result === 'human').length;
         const positive = logs.filter(l => l.ai_sentiment === 'positive' || l.ai_interested === true).length;
         const negative = logs.filter(l => l.ai_sentiment === 'negative').length;
         const rate = human > 0 ? Math.round((positive / human) * 100) : 0;
@@ -157,8 +156,8 @@ function usePowerDStats(): { stats: PowerDStats; loading: boolean } {
           .filter(l => l.ai_interested === true || l.ai_sentiment === 'positive')
           .slice(0, 5)
           .map(l => ({
-            name: l.lead_name || 'Unknown',
-            phone: l.lead_phone || '',
+            name: (l.meta as any)?.customer_name || 'Unknown',
+            phone: l.phone || '',
             sentiment: l.ai_sentiment || 'positive',
             created_at: l.created_at,
           }));
