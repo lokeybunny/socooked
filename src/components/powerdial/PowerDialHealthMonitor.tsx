@@ -81,12 +81,12 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
 
       // 3) Check for recent call log errors (last 5 min)
       const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
-      const { data: recentErrors } = await supabase
+      const errQuery = supabase
         .from('powerdial_call_logs')
         .select('id, phone, last_status')
         .eq('campaign_id', campaignId)
-        .eq('last_status', 'failed')
-        .gte('created_at', fiveMinAgo) as any;
+        .eq('last_status', 'failed');
+      const { data: recentErrors } = await (errQuery as any).gte('created_at', fiveMinAgo);
 
       const errorCount = recentErrors?.length || 0;
 
