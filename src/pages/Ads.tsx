@@ -8,7 +8,8 @@ import {
   CheckCircle2, AlertCircle, ArrowRight, Activity,
   DollarSign, BarChart3, Zap, ExternalLink, ChevronRight,
   Megaphone, MapPin, Key, Link2, Eye, Users, PhoneCall,
-  ThumbsUp, ThumbsDown, Clock, Sparkles,
+  ThumbsUp, ThumbsDown, Clock, Sparkles, Plus, Trash2, Tag,
+  FolderOpen, Hash,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
