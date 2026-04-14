@@ -222,19 +222,40 @@ export default function AIDirector() {
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Latest Release</h2>
           </motion.div>
           <motion.div
-            className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-emerald-500/5 relative"
+            className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-emerald-500/5 relative cursor-pointer group"
             initial={{ opacity: 0, scale: 0.97 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
+            onClick={(e) => {
+              const video = e.currentTarget.querySelector('video');
+              if (video) {
+                if (video.paused) {
+                  video.play();
+                  e.currentTarget.setAttribute('data-playing', 'true');
+                } else {
+                  video.pause();
+                  e.currentTarget.removeAttribute('data-playing');
+                }
+              }
+            }}
           >
             <video
               src="/videos/spotlight.mov"
-              controls
               playsInline
               preload="metadata"
               className="w-full aspect-video bg-black"
+              onEnded={(e) => {
+                const wrapper = e.currentTarget.closest('[data-playing]');
+                wrapper?.removeAttribute('data-playing');
+              }}
             />
+            {/* Play button overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-data-[playing]:opacity-0 transition-opacity duration-300 pointer-events-none">
+              <div className="rounded-full bg-white/20 backdrop-blur-sm p-5 transition-transform duration-300 group-hover:scale-110">
+                <Play className="h-8 w-8 text-white fill-white" />
+              </div>
+            </div>
             <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/80 backdrop-blur-sm">
               <span className="text-[10px] font-semibold tracking-widest uppercase text-white flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3" /> Spotlight
