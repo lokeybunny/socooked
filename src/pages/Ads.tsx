@@ -709,6 +709,9 @@ export default function Ads() {
               onConnect={handleConnect}
               powerDStats={powerDStats}
               powerDLoading={powerDLoading}
+              campaigns={campaigns}
+              onAddCampaign={addCampaign}
+              onRemoveCampaign={removeCampaign}
             />
           )}
         </AnimatePresence>
