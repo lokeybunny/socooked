@@ -3145,6 +3145,9 @@ export type Database = {
       }
       powerdial_call_logs: {
         Row: {
+          ai_interested: boolean | null
+          ai_reason: string | null
+          ai_sentiment: string | null
           amd_result: string | null
           attempt_number: number
           batch_id: string | null
@@ -3169,6 +3172,9 @@ export type Database = {
           vapi_call_id: string | null
         }
         Insert: {
+          ai_interested?: boolean | null
+          ai_reason?: string | null
+          ai_sentiment?: string | null
           amd_result?: string | null
           attempt_number?: number
           batch_id?: string | null
@@ -3193,6 +3199,9 @@ export type Database = {
           vapi_call_id?: string | null
         }
         Update: {
+          ai_interested?: boolean | null
+          ai_reason?: string | null
+          ai_sentiment?: string | null
           amd_result?: string | null
           attempt_number?: number
           batch_id?: string | null
@@ -3254,6 +3263,7 @@ export type Database = {
           name: string
           no_answer_count: number
           schedule_status: string | null
+          scheduled_end: string | null
           scheduled_start: string | null
           settings: Json | null
           source_filter: Json | null
@@ -3276,6 +3286,7 @@ export type Database = {
           name?: string
           no_answer_count?: number
           schedule_status?: string | null
+          scheduled_end?: string | null
           scheduled_start?: string | null
           settings?: Json | null
           source_filter?: Json | null
@@ -3298,6 +3309,7 @@ export type Database = {
           name?: string
           no_answer_count?: number
           schedule_status?: string | null
+          scheduled_end?: string | null
           scheduled_start?: string | null
           settings?: Json | null
           source_filter?: Json | null

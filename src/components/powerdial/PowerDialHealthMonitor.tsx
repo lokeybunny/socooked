@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   Activity, AlertTriangle, CheckCircle2, RefreshCw, Loader2,
-  Wrench, XCircle, Clock, Zap, ChevronDown, ChevronUp, Trash2,
+  Wrench, XCircle, ChevronDown, ChevronUp, Trash2, Brain,
+  ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +13,7 @@ import { toast } from 'sonner';
 type LogEntry = {
   id: string;
   ts: Date;
-  level: 'info' | 'warn' | 'error' | 'fix';
+  level: 'info' | 'warn' | 'error' | 'fix' | 'ai';
   message: string;
 };
 
@@ -20,7 +21,7 @@ type QueueHealth = {
   stuck_dialing: number;
   orphaned_calls: number;
   campaign_stalled: boolean;
-  queue_gap: boolean;
+  ai_analyzed: number;
 };
 
 interface Props {
@@ -32,17 +33,165 @@ interface Props {
 export default function PowerDialHealthMonitor({ campaignId, campaignStatus, settings }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [health, setHealth] = useState<QueueHealth>({ stuck_dialing: 0, orphaned_calls: 0, campaign_stalled: false, queue_gap: false });
+  const [health, setHealth] = useState<QueueHealth>({ stuck_dialing: 0, orphaned_calls: 0, campaign_stalled: false, ai_analyzed: 0 });
   const [checking, setChecking] = useState(false);
   const [autoFix, setAutoFix] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const analyzedRef = useRef<Set<string>>(new Set());
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
     setLogs(prev => [...prev.slice(-200), { id: crypto.randomUUID(), ts: new Date(), level, message }]);
   }, []);
 
-  // Health check: detect stuck items, stalled campaigns, orphaned calls
+  // AI sentiment analysis for human-answered calls with transcripts
+  const analyzeTranscripts = useCallback(async () => {
+    // Fetch human call logs with transcripts that haven't been AI-analyzed yet
+    const logsQuery: any = supabase
+      .from('powerdial_call_logs')
+      .select('id, phone, contact_name, transcript, amd_result, ai_sentiment, queue_item_id')
+      .eq('campaign_id', campaignId)
+      .eq('amd_result', 'human');
+    const { data: humanLogs } = await logsQuery.not('transcript', 'is', null).is('ai_sentiment', null).limit(10);
+
+    if (!humanLogs?.length) return 0;
+
+    let analyzed = 0;
+    for (const log of humanLogs) {
+      if (analyzedRef.current.has(log.id)) continue;
+      analyzedRef.current.add(log.id);
+
+      const transcript = (log.transcript || '').trim();
+      if (transcript.length < 20) {
+        // Too short to analyze meaningfully
+        await supabase.from('powerdial_call_logs').update({ ai_sentiment: 'unknown' } as any).eq('id', log.id);
+        addLog('ai', `⏭ ${log.contact_name || log.phone} — transcript too short, skipped`);
+        continue;
+      }
+
+      try {
+        addLog('ai', `🧠 Analyzing: ${log.contact_name || log.phone}…`);
+
+        const { data: aiResult, error: aiErr } = await supabase.functions.invoke('ai-assistant', {
+          body: {
+            prompt: `You are a sales call sentiment analyzer. Analyze this cold call transcript and determine if the person being called is INTERESTED or NOT INTERESTED in the service being offered.
+
+Reply with ONLY a JSON object, no other text:
+{"sentiment": "positive" | "negative" | "neutral", "confidence": 0-100, "reason": "one sentence explanation", "interested": true | false}
+
+Rules:
+- "positive" = person expressed interest, asked questions about the service, wanted more info, agreed to a meeting/callback
+- "negative" = person said no, hung up, was hostile, asked to be removed, not interested
+- "neutral" = unclear, short call, voicemail left, inconclusive
+
+TRANSCRIPT:
+${transcript.slice(0, 3000)}`,
+            model: 'google/gemini-2.5-flash',
+          },
+        });
+
+        if (aiErr) {
+          addLog('error', `✗ AI error for ${log.contact_name || log.phone}: ${aiErr.message}`);
+          continue;
+        }
+
+        // Parse AI response
+        let sentiment = 'unknown';
+        let interested = false;
+        let reason = '';
+        let confidence = 0;
+
+        try {
+          const responseText = typeof aiResult === 'string' ? aiResult : (aiResult?.message || aiResult?.response || JSON.stringify(aiResult));
+          const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            sentiment = parsed.sentiment || 'unknown';
+            interested = Boolean(parsed.interested);
+            reason = parsed.reason || '';
+            confidence = parsed.confidence || 0;
+          }
+        } catch {
+          addLog('warn', `⚠ Could not parse AI response for ${log.contact_name || log.phone}`);
+          sentiment = 'unknown';
+        }
+
+        // Update the call log with AI analysis
+        await supabase.from('powerdial_call_logs').update({
+          ai_sentiment: sentiment,
+          ai_reason: reason,
+          ai_interested: interested,
+        } as any).eq('id', log.id);
+
+        // Log the result
+        const icon = sentiment === 'positive' ? '👍' : sentiment === 'negative' ? '👎' : '❓';
+        addLog('ai', `${icon} ${log.contact_name || log.phone}: ${sentiment.toUpperCase()} (${confidence}%) — ${reason}`);
+
+        // If interested, ensure the customer is tagged and promoted for funnels
+        if (interested && sentiment === 'positive') {
+          addLog('fix', `📊 Promoting ${log.contact_name || log.phone} to funnel pipeline as interested`);
+
+          // Find the customer linked to this queue item and tag them
+          if (log.queue_item_id) {
+            const { data: queueItem } = await supabase
+              .from('powerdial_queue')
+              .select('customer_id, phone')
+              .eq('id', log.queue_item_id)
+              .single();
+
+            if (queueItem?.customer_id) {
+              const { data: customer } = await supabase
+                .from('customers')
+                .select('id, tags, status')
+                .eq('id', queueItem.customer_id)
+                .single();
+
+              if (customer) {
+                const existingTags = (customer.tags || []) as string[];
+                const newTags = [...new Set([...existingTags, 'power_dialed', 'ai_interested'])];
+                await supabase.from('customers').update({
+                  tags: newTags,
+                  status: customer.status === 'lead' ? 'prospect' : customer.status,
+                }).eq('id', customer.id);
+                addLog('fix', `  → Tagged customer & promoted to prospect`);
+              }
+            }
+          }
+        } else if (sentiment === 'negative') {
+          // Tag as not interested for funnel filtering
+          if (log.queue_item_id) {
+            const { data: queueItem } = await supabase
+              .from('powerdial_queue')
+              .select('customer_id')
+              .eq('id', log.queue_item_id)
+              .single();
+
+            if (queueItem?.customer_id) {
+              const { data: customer } = await supabase
+                .from('customers')
+                .select('id, tags')
+                .eq('id', queueItem.customer_id)
+                .single();
+
+              if (customer) {
+                const existingTags = (customer.tags || []) as string[];
+                const newTags = [...new Set([...existingTags, 'power_dialed', 'ai_not_interested'])];
+                await supabase.from('customers').update({ tags: newTags }).eq('id', customer.id);
+                addLog('info', `  → Tagged as not interested`);
+              }
+            }
+          }
+        }
+
+        analyzed++;
+      } catch (e: any) {
+        addLog('error', `✗ Analysis failed for ${log.contact_name || log.phone}: ${e.message}`);
+      }
+    }
+    return analyzed;
+  }, [campaignId, addLog]);
+
+  // Health check: detect stuck items, stalled campaigns, orphaned calls + AI analysis
   const runHealthCheck = useCallback(async () => {
     if (checking) return;
     setChecking(true);
@@ -76,8 +225,8 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
       const pendingCount = rawPendingCount || 0;
 
       const isRunning = campaignStatus === 'running';
-      const stalled = isRunning && (dialingCount || 0) === 0 && (pendingCount || 0) > 0;
-      const completed = isRunning && (dialingCount || 0) === 0 && (pendingCount || 0) === 0;
+      const stalled = isRunning && dialingCount === 0 && pendingCount > 0;
+      const completed = isRunning && dialingCount === 0 && pendingCount === 0;
 
       // 3) Check for recent call log errors (last 5 min)
       const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
@@ -86,30 +235,13 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         .select('id, phone, last_status')
         .eq('campaign_id', campaignId);
       const { data: recentErrors } = await errQuery.eq('last_status', 'failed').gte('created_at', fiveMinAgo);
-
       const errorCount = recentErrors?.length || 0;
 
-      const newHealth: QueueHealth = {
-        stuck_dialing: stuckCount,
-        orphaned_calls: errorCount,
-        campaign_stalled: stalled,
-        queue_gap: false,
-      };
-      setHealth(newHealth);
-
       // Log findings
-      if (stuckCount > 0) {
-        addLog('warn', `⚠ ${stuckCount} item(s) stuck in "dialing" for 3+ min`);
-      }
-      if (errorCount > 0) {
-        addLog('warn', `⚠ ${errorCount} call failure(s) in last 5 min`);
-      }
-      if (stalled) {
-        addLog('warn', `⚠ Campaign stalled — running but nothing dialing with ${pendingCount} pending`);
-      }
-      if (completed) {
-        addLog('info', `✓ All queue items processed — campaign may auto-complete`);
-      }
+      if (stuckCount > 0) addLog('warn', `⚠ ${stuckCount} item(s) stuck in "dialing" for 3+ min`);
+      if (errorCount > 0) addLog('warn', `⚠ ${errorCount} call failure(s) in last 5 min`);
+      if (stalled) addLog('warn', `⚠ Campaign stalled — running but nothing dialing with ${pendingCount} pending`);
+      if (completed) addLog('info', `✓ All queue items processed — campaign may auto-complete`);
 
       // AUTO-FIX: unstick dialing items
       if (autoFix && stuckCount > 0) {
@@ -138,15 +270,26 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         }
       }
 
+      // 4) AI transcript analysis for human calls
+      const aiAnalyzed = await analyzeTranscripts();
+
+      const newHealth: QueueHealth = {
+        stuck_dialing: stuckCount,
+        orphaned_calls: errorCount,
+        campaign_stalled: stalled,
+        ai_analyzed: aiAnalyzed || 0,
+      };
+      setHealth(newHealth);
+
       if (stuckCount === 0 && errorCount === 0 && !stalled) {
-        addLog('info', '✓ Health check passed — pipeline healthy');
+        addLog('info', `✓ Health check passed — pipeline healthy${aiAnalyzed ? ` · ${aiAnalyzed} transcript(s) analyzed` : ''}`);
       }
     } catch (err: any) {
       addLog('error', `✗ Health check failed: ${err.message}`);
     } finally {
       setChecking(false);
     }
-  }, [campaignId, campaignStatus, checking, autoFix, addLog]);
+  }, [campaignId, campaignStatus, checking, autoFix, addLog, analyzeTranscripts]);
 
   // Auto-poll every 30s when campaign is running
   useEffect(() => {
@@ -172,7 +315,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         if (item?.status === 'failed') {
           addLog('error', `✗ Call failed: ${item.contact_name || item.phone} — ${item.last_result || 'unknown'}`);
         } else if (item?.status === 'completed' && item?.last_result === 'human') {
-          addLog('info', `☎ Human detected: ${item.contact_name || item.phone}`);
+          addLog('info', `☎ Human detected: ${item.contact_name || item.phone} — will analyze transcript shortly`);
         } else if (item?.status === 'completed' && item?.last_result === 'machine') {
           addLog('info', `📠 Machine: ${item.contact_name || item.phone}`);
         }
@@ -204,7 +347,6 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
 
   return (
     <div className="border border-border/50 rounded-lg bg-card/50 mt-6">
-      {/* Header bar */}
       <button
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-2 px-4 h-11 text-xs font-mono hover:bg-muted/30 transition-colors rounded-t-lg"
@@ -213,7 +355,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         <span className="font-semibold text-foreground/80">Pipeline Monitor</span>
         <span className="text-muted-foreground/60">—</span>
         <span className="text-muted-foreground/60 truncate">
-          {campaignStatus === 'running' ? 'live · auto-polling 30s' : campaignStatus}
+          {campaignStatus === 'running' ? 'live · auto-polling 30s · AI analysis' : campaignStatus}
         </span>
 
         {hasIssues && (
@@ -228,21 +370,17 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
               <Wrench className="h-2.5 w-2.5 mr-0.5" /> auto-fix
             </Badge>
           )}
+          <Badge variant="outline" className="text-[10px] border-blue-500/40 text-blue-400 px-1.5 py-0">
+            <Brain className="h-2.5 w-2.5 mr-0.5" /> AI
+          </Badge>
           {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />}
         </div>
       </button>
 
       {expanded && (
         <div className="border-t border-border/30">
-          {/* Toolbar */}
           <div className="flex items-center gap-2 px-4 py-2 border-b border-border/20">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={runHealthCheck}
-              disabled={checking}
-              className="h-7 text-xs"
-            >
+            <Button size="sm" variant="ghost" onClick={runHealthCheck} disabled={checking} className="h-7 text-xs">
               {checking ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Run Check
             </Button>
@@ -258,22 +396,25 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setLogs([])}
-              className="h-7 text-xs ml-auto"
+              onClick={() => analyzeTranscripts().then(n => n && toast.info(`Analyzed ${n} transcript(s)`))}
+              disabled={checking}
+              className="h-7 text-xs"
             >
+              <Brain className="h-3 w-3 mr-1" /> Analyze Now
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setLogs([])} className="h-7 text-xs ml-auto">
               <Trash2 className="h-3 w-3 mr-1" /> Clear
             </Button>
           </div>
 
-          {/* Health summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-4 py-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 px-4 py-2">
             <HealthCard label="Stuck Calls" value={health.stuck_dialing} ok={health.stuck_dialing === 0} />
             <HealthCard label="Recent Failures" value={health.orphaned_calls} ok={health.orphaned_calls === 0} />
             <HealthCard label="Pipeline" value={health.campaign_stalled ? 'STALLED' : 'OK'} ok={!health.campaign_stalled} />
             <HealthCard label="Auto-Fix" value={autoFix ? 'ACTIVE' : 'OFF'} ok={autoFix} />
+            <HealthCard label="AI Analyzed" value={health.ai_analyzed} ok={true} icon="brain" />
           </div>
 
-          {/* Log stream */}
           <div ref={scrollRef} className="max-h-56 overflow-y-auto px-4 py-2 font-mono text-[11px] space-y-0.5">
             {logs.length === 0 && (
               <p className="text-muted-foreground/50 italic py-4 text-center">No events yet — click "Run Check" or wait for auto-poll</p>
@@ -285,6 +426,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
                 log.level === 'warn' && 'text-amber-400',
                 log.level === 'error' && 'text-red-400',
                 log.level === 'fix' && 'text-purple-400',
+                log.level === 'ai' && 'text-blue-400',
               )}>
                 <span className="text-muted-foreground/40 mr-2">
                   {log.ts.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -293,6 +435,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
                 {log.level === 'error' && <XCircle className="h-3 w-3 inline mr-1 -mt-0.5" />}
                 {log.level === 'warn' && <AlertTriangle className="h-3 w-3 inline mr-1 -mt-0.5" />}
                 {log.level === 'info' && <CheckCircle2 className="h-3 w-3 inline mr-1 -mt-0.5" />}
+                {log.level === 'ai' && <Brain className="h-3 w-3 inline mr-1 -mt-0.5" />}
                 {log.message}
               </div>
             ))}
@@ -303,13 +446,14 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
   );
 }
 
-function HealthCard({ label, value, ok }: { label: string; value: number | string; ok: boolean }) {
+function HealthCard({ label, value, ok, icon }: { label: string; value: number | string; ok: boolean; icon?: string }) {
   return (
     <div className={cn(
       'rounded-md px-3 py-1.5 text-center border',
-      ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/10'
+      ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/30 bg-amber-500/10',
+      icon === 'brain' && 'border-blue-500/20 bg-blue-500/5',
     )}>
-      <p className={cn('text-sm font-bold', ok ? 'text-emerald-400' : 'text-amber-400')}>{value}</p>
+      <p className={cn('text-sm font-bold', ok ? (icon === 'brain' ? 'text-blue-400' : 'text-emerald-400') : 'text-amber-400')}>{value}</p>
       <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );

@@ -41,6 +41,7 @@ type Campaign = {
   ended_at: string | null;
   created_at: string;
   scheduled_start: string | null;
+  scheduled_end: string | null;
   schedule_status: string | null;
 };
 
@@ -65,6 +66,8 @@ export default function PowerDial() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [scheduleEndDate, setScheduleEndDate] = useState('');
+  const [scheduleEndTime, setScheduleEndTime] = useState('17:00');
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -164,23 +167,30 @@ export default function PowerDial() {
     if (result?.campaign_id) {
       // If scheduling is enabled, set the scheduled start time (convert PST to UTC)
       if (scheduleEnabled && scheduleDate && scheduleTime) {
-        // PST is UTC-8, PDT is UTC-7. Use America/Los_Angeles for proper handling.
-        const pstDatetime = `${scheduleDate}T${scheduleTime}:00`;
-        // Create date in PST by appending the timezone
-        const scheduledUtc = new Date(new Date(pstDatetime + '-08:00').toISOString());
-        // Use a more reliable approach: build it via Intl
-        const localParts = pstDatetime.split(/[-T:]/);
-        const pstDate = new Date(Date.UTC(
+        const localParts = `${scheduleDate}T${scheduleTime}:00`.split(/[-T:]/);
+        const pstStart = new Date(Date.UTC(
           parseInt(localParts[0]), parseInt(localParts[1]) - 1, parseInt(localParts[2]),
           parseInt(localParts[3]) + 8, parseInt(localParts[4])
         ));
 
-        await supabase.from('powerdial_campaigns').update({
-          scheduled_start: pstDate.toISOString(),
+        const updatePayload: any = {
+          scheduled_start: pstStart.toISOString(),
           schedule_status: 'scheduled',
-        }).eq('id', result.campaign_id);
+        };
 
-        toast.success(`Campaign scheduled for ${scheduleDate} at ${scheduleTime} PST`);
+        // End time
+        if (scheduleEndDate && scheduleEndTime) {
+          const endParts = `${scheduleEndDate}T${scheduleEndTime}:00`.split(/[-T:]/);
+          const pstEnd = new Date(Date.UTC(
+            parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]),
+            parseInt(endParts[3]) + 8, parseInt(endParts[4])
+          ));
+          updatePayload.scheduled_end = pstEnd.toISOString();
+        }
+
+        await supabase.from('powerdial_campaigns').update(updatePayload).eq('id', result.campaign_id);
+
+        toast.success(`Campaign scheduled: ${scheduleDate} ${scheduleTime}${scheduleEndDate ? ` → ${scheduleEndDate} ${scheduleEndTime}` : ''} PST`);
       } else {
         toast.success(`Campaign created with ${result.queued} numbers`);
       }
@@ -192,6 +202,8 @@ export default function PowerDial() {
       setScheduleEnabled(false);
       setScheduleDate('');
       setScheduleTime('09:00');
+      setScheduleEndDate('');
+      setScheduleEndTime('17:00');
       await loadCampaigns();
       const { data: newCamp } = await supabase.from('powerdial_campaigns').select('*').eq('id', result.campaign_id).single();
       if (newCamp) setActiveCampaign(newCamp as Campaign);
@@ -378,14 +390,17 @@ export default function PowerDial() {
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10">
                   <CalendarClock className="h-3.5 w-3.5 text-amber-400" />
                   <span className="text-xs text-amber-300">
-                    Scheduled: {new Date(activeCampaign.scheduled_start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} PST
+                    Scheduled: {new Date(activeCampaign.scheduled_start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                    {activeCampaign.scheduled_end && (
+                      <> → {new Date(activeCampaign.scheduled_end).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</>
+                    )} PST
                   </span>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-6 px-2 text-[10px] text-amber-400 hover:text-amber-300"
                     onClick={async () => {
-                      await supabase.from('powerdial_campaigns').update({ schedule_status: null, scheduled_start: null }).eq('id', activeCampaign.id);
+                      await supabase.from('powerdial_campaigns').update({ schedule_status: null, scheduled_start: null, scheduled_end: null }).eq('id', activeCampaign.id);
                       toast.info('Schedule cancelled — campaign is now manual');
                       loadCampaigns();
                     }}
@@ -573,7 +588,7 @@ export default function PowerDial() {
               {scheduleEnabled && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Date</Label>
+                    <Label className="text-xs text-muted-foreground">Start Date</Label>
                     <Input
                       type="date"
                       value={scheduleDate}
@@ -582,15 +597,32 @@ export default function PowerDial() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Time (PST)</Label>
+                    <Label className="text-xs text-muted-foreground">Start Time (PST)</Label>
                     <Input
                       type="time"
                       value={scheduleTime}
                       onChange={e => setScheduleTime(e.target.value)}
                     />
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">End Date</Label>
+                    <Input
+                      type="date"
+                      value={scheduleEndDate}
+                      onChange={e => setScheduleEndDate(e.target.value)}
+                      min={scheduleDate || new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">End Time (PST)</Label>
+                    <Input
+                      type="time"
+                      value={scheduleEndTime}
+                      onChange={e => setScheduleEndTime(e.target.value)}
+                    />
+                  </div>
                   <p className="col-span-2 text-[10px] text-muted-foreground">
-                    Campaign will auto-start at the scheduled time. All times are Pacific Standard Time.
+                    Campaign auto-starts at start time and auto-stops at end time — no after-hours calls. All times PST.
                   </p>
                 </div>
               )}
