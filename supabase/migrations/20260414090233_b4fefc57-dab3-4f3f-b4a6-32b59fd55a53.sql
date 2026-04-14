@@ -1,0 +1,1 @@
+ALTER TABLE public.powerdial_campaigns ADD COLUMN IF NOT EXISTS scheduled_end timestamptz DEFAULT NULL;

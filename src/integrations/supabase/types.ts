@@ -3254,6 +3254,7 @@ export type Database = {
           name: string
           no_answer_count: number
           schedule_status: string | null
+          scheduled_end: string | null
           scheduled_start: string | null
           settings: Json | null
           source_filter: Json | null
@@ -3276,6 +3277,7 @@ export type Database = {
           name?: string
           no_answer_count?: number
           schedule_status?: string | null
+          scheduled_end?: string | null
           scheduled_start?: string | null
           settings?: Json | null
           source_filter?: Json | null
@@ -3298,6 +3300,7 @@ export type Database = {
           name?: string
           no_answer_count?: number
           schedule_status?: string | null
+          scheduled_end?: string | null
           scheduled_start?: string | null
           settings?: Json | null
           source_filter?: Json | null
