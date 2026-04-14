@@ -41,6 +41,7 @@ type Campaign = {
   ended_at: string | null;
   created_at: string;
   scheduled_start: string | null;
+  scheduled_end: string | null;
   schedule_status: string | null;
 };
 
@@ -65,6 +66,8 @@ export default function PowerDial() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('09:00');
+  const [scheduleEndDate, setScheduleEndDate] = useState('');
+  const [scheduleEndTime, setScheduleEndTime] = useState('17:00');
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -164,23 +167,30 @@ export default function PowerDial() {
     if (result?.campaign_id) {
       // If scheduling is enabled, set the scheduled start time (convert PST to UTC)
       if (scheduleEnabled && scheduleDate && scheduleTime) {
-        // PST is UTC-8, PDT is UTC-7. Use America/Los_Angeles for proper handling.
-        const pstDatetime = `${scheduleDate}T${scheduleTime}:00`;
-        // Create date in PST by appending the timezone
-        const scheduledUtc = new Date(new Date(pstDatetime + '-08:00').toISOString());
-        // Use a more reliable approach: build it via Intl
-        const localParts = pstDatetime.split(/[-T:]/);
-        const pstDate = new Date(Date.UTC(
+        const localParts = `${scheduleDate}T${scheduleTime}:00`.split(/[-T:]/);
+        const pstStart = new Date(Date.UTC(
           parseInt(localParts[0]), parseInt(localParts[1]) - 1, parseInt(localParts[2]),
           parseInt(localParts[3]) + 8, parseInt(localParts[4])
         ));
 
-        await supabase.from('powerdial_campaigns').update({
-          scheduled_start: pstDate.toISOString(),
+        const updatePayload: any = {
+          scheduled_start: pstStart.toISOString(),
           schedule_status: 'scheduled',
-        }).eq('id', result.campaign_id);
+        };
 
-        toast.success(`Campaign scheduled for ${scheduleDate} at ${scheduleTime} PST`);
+        // End time
+        if (scheduleEndDate && scheduleEndTime) {
+          const endParts = `${scheduleEndDate}T${scheduleEndTime}:00`.split(/[-T:]/);
+          const pstEnd = new Date(Date.UTC(
+            parseInt(endParts[0]), parseInt(endParts[1]) - 1, parseInt(endParts[2]),
+            parseInt(endParts[3]) + 8, parseInt(endParts[4])
+          ));
+          updatePayload.scheduled_end = pstEnd.toISOString();
+        }
+
+        await supabase.from('powerdial_campaigns').update(updatePayload).eq('id', result.campaign_id);
+
+        toast.success(`Campaign scheduled: ${scheduleDate} ${scheduleTime}${scheduleEndDate ? ` → ${scheduleEndDate} ${scheduleEndTime}` : ''} PST`);
       } else {
         toast.success(`Campaign created with ${result.queued} numbers`);
       }
