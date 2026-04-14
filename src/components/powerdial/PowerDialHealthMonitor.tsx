@@ -58,6 +58,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         .eq('status', 'dialing')
         .lt('updated_at', threeMinAgo) as any;
       const stuckItemsList = (stuckItems as any[]) || [];
+      const stuckCount = stuckItemsList.length;
 
       // 2) Check if campaign is "running" but no items are dialing or pending
       const { count: rawDialingCount } = await supabase
@@ -85,7 +86,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         .select('id, phone, last_status')
         .eq('campaign_id', campaignId)
         .eq('last_status', 'failed')
-        .gte('created_at', fiveMinAgo);
+        .gte('created_at', fiveMinAgo) as any;
 
       const errorCount = recentErrors?.length || 0;
 
@@ -112,9 +113,9 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
       }
 
       // AUTO-FIX: unstick dialing items
-      if (autoFix && stuckCount > 0 && stuckItems) {
+      if (autoFix && stuckCount > 0) {
         addLog('fix', `🔧 Auto-fixing ${stuckCount} stuck item(s) → resetting to pending`);
-        for (const item of stuckItems) {
+        for (const item of stuckItemsList) {
           await supabase.from('powerdial_queue').update({ status: 'pending', last_result: 'auto_reset' }).eq('id', item.id);
           addLog('fix', `  → Reset ${item.contact_name || item.phone} to pending`);
         }
