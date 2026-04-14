@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Phone, Play, Pause, Square, SkipForward, Plus, Users, PhoneCall,
   Voicemail, PhoneOff, Clock, CheckCircle, AlertCircle, Loader2,
-  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap,
+  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap, CalendarClock,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
@@ -40,6 +40,8 @@ type Campaign = {
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
+  scheduled_start: string | null;
+  schedule_status: string | null;
 };
 
 export default function PowerDial() {
@@ -60,6 +62,9 @@ export default function PowerDial() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -157,13 +162,37 @@ export default function PowerDial() {
     });
 
     if (result?.campaign_id) {
-      toast.success(`Campaign created with ${result.queued} numbers`);
+      // If scheduling is enabled, set the scheduled start time (convert PST to UTC)
+      if (scheduleEnabled && scheduleDate && scheduleTime) {
+        // PST is UTC-8, PDT is UTC-7. Use America/Los_Angeles for proper handling.
+        const pstDatetime = `${scheduleDate}T${scheduleTime}:00`;
+        // Create date in PST by appending the timezone
+        const scheduledUtc = new Date(new Date(pstDatetime + '-08:00').toISOString());
+        // Use a more reliable approach: build it via Intl
+        const localParts = pstDatetime.split(/[-T:]/);
+        const pstDate = new Date(Date.UTC(
+          parseInt(localParts[0]), parseInt(localParts[1]) - 1, parseInt(localParts[2]),
+          parseInt(localParts[3]) + 8, parseInt(localParts[4])
+        ));
+
+        await supabase.from('powerdial_campaigns').update({
+          scheduled_start: pstDate.toISOString(),
+          schedule_status: 'scheduled',
+        }).eq('id', result.campaign_id);
+
+        toast.success(`Campaign scheduled for ${scheduleDate} at ${scheduleTime} PST`);
+      } else {
+        toast.success(`Campaign created with ${result.queued} numbers`);
+      }
+
       setShowCreate(false);
       setNewName('');
       setPhoneInput('');
       setSelectedLeadIds([]);
+      setScheduleEnabled(false);
+      setScheduleDate('');
+      setScheduleTime('09:00');
       await loadCampaigns();
-      // Auto-select the new campaign
       const { data: newCamp } = await supabase.from('powerdial_campaigns').select('*').eq('id', result.campaign_id).single();
       if (newCamp) setActiveCampaign(newCamp as Campaign);
     }
@@ -251,7 +280,7 @@ export default function PowerDial() {
                 <SelectContent>
                   {campaigns.map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} — {c.status}
+                      {c.name} — {c.schedule_status === 'scheduled' ? `⏰ scheduled` : c.status}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -343,6 +372,33 @@ export default function PowerDial() {
               <Badge className={statusColor[activeCampaign.status] || ''}>
                 {activeCampaign.status.toUpperCase()}
               </Badge>
+
+              {/* Scheduled indicator */}
+              {activeCampaign.schedule_status === 'scheduled' && activeCampaign.scheduled_start && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10">
+                  <CalendarClock className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="text-xs text-amber-300">
+                    Scheduled: {new Date(activeCampaign.scheduled_start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} PST
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px] text-amber-400 hover:text-amber-300"
+                    onClick={async () => {
+                      await supabase.from('powerdial_campaigns').update({ schedule_status: null, scheduled_start: null }).eq('id', activeCampaign.id);
+                      toast.info('Schedule cancelled — campaign is now manual');
+                      loadCampaigns();
+                    }}
+                  >
+                    Cancel Schedule
+                  </Button>
+                </div>
+              )}
+              {activeCampaign.schedule_status === 'triggered' && (
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 text-[10px]">
+                  <CalendarClock className="h-3 w-3 mr-1" /> Auto-started
+                </Badge>
+              )}
 
               {/* 3x Dial Toggle */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10">
@@ -500,12 +556,51 @@ export default function PowerDial() {
                 )}
               </div>
             )}
+
+            {/* Schedule Section */}
+            <div className="border border-border/50 rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-purple-400" />
+                  <Label className="text-sm font-medium">Schedule Campaign</Label>
+                </div>
+                <Switch
+                  checked={scheduleEnabled}
+                  onCheckedChange={setScheduleEnabled}
+                  className="data-[state=checked]:bg-purple-500"
+                />
+              </div>
+              {scheduleEnabled && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Date</Label>
+                    <Input
+                      type="date"
+                      value={scheduleDate}
+                      onChange={e => setScheduleDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Time (PST)</Label>
+                    <Input
+                      type="time"
+                      value={scheduleTime}
+                      onChange={e => setScheduleTime(e.target.value)}
+                    />
+                  </div>
+                  <p className="col-span-2 text-[10px] text-muted-foreground">
+                    Campaign will auto-start at the scheduled time. All times are Pacific Standard Time.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button onClick={handleCreate} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Create Campaign
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : scheduleEnabled ? <Clock className="h-4 w-4 mr-1" /> : null}
+              {scheduleEnabled ? 'Schedule Campaign' : 'Create Campaign'}
             </Button>
           </DialogFooter>
         </DialogContent>
