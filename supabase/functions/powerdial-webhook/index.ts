@@ -605,6 +605,19 @@ Deno.serve(async (req) => {
             retry_eligible: willRetry,
           }).eq("id", callLogId);
           await bumpCampaignCount(campaignId, "no_answer_count");
+
+          // Auto-register in DNC registry after max attempts exhausted
+          if (!willRetry) {
+            const totalAttempts = currentRetryCount + 1;
+            await sb.from("lh_dnc_registry").upsert({
+              phone: qItem.phone,
+              reason: "max_attempts",
+              call_count: totalAttempts,
+              last_called_at: new Date().toISOString(),
+              source_list_id: null,
+            }, { onConflict: "phone" });
+            console.log(`[powerdial-webhook] DNC registered: ${qItem.phone} after ${totalAttempts} attempts`);
+          }
         }
 
         const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
