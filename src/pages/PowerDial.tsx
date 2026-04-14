@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import PowerDialQueue from '@/components/powerdial/PowerDialQueue';
 import PowerDialCallLog from '@/components/powerdial/PowerDialCallLog';
 import PowerDialSettings from '@/components/powerdial/PowerDialSettings';
+import PowerDialHealthMonitor from '@/components/powerdial/PowerDialHealthMonitor';
 
 type Campaign = {
   id: string;
@@ -418,6 +419,13 @@ export default function PowerDial() {
                 <PowerDialSettings campaign={activeCampaign} onUpdate={() => loadCampaigns()} />
               </TabsContent>
             </Tabs>
+
+            {/* Pipeline Health Monitor */}
+            <PowerDialHealthMonitor
+              campaignId={activeCampaign.id}
+              campaignStatus={activeCampaign.status}
+              settings={activeCampaign.settings}
+            />
           </>
         )}
 
