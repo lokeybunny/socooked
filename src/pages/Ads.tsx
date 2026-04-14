@@ -514,21 +514,26 @@ function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading, campaig
       ) : isCraigslist ? (
         /* Craigslist: simple check link */
         <div className="space-y-3">
-          <div className="flex items-center gap-2 p-4 rounded-lg bg-muted/30 border border-border/50">
-            <MapPin className={cn('h-5 w-5 shrink-0', channel.text)} />
-            <div className="flex-1">
-              <p className="text-xs font-medium text-foreground">Check Craigslist for Live Data</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Monitor local market activity and posting opportunities in your target areas.</p>
+          {[
+            { label: 'Las Vegas', url: 'https://lasvegas.craigslist.org' },
+            { label: 'Los Angeles', url: 'https://losangeles.craigslist.org' },
+          ].map(area => (
+            <div key={area.label} className="flex items-center gap-2 p-4 rounded-lg bg-muted/30 border border-border/50">
+              <MapPin className={cn('h-5 w-5 shrink-0', channel.text)} />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-foreground">{area.label} — Craigslist</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Monitor local market activity and posting opportunities.</p>
+              </div>
+              <a
+                href={area.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-foreground/70 hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted/70 shrink-0"
+              >
+                Open <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
-            <a
-              href="https://lasvegas.craigslist.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-foreground/70 hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted/70 shrink-0"
-            >
-              Open Craigslist <ExternalLink className="h-3 w-3" />
-            </a>
-          </div>
+          ))}
         </div>
       ) : (
         /* Standard: features + API setup */
