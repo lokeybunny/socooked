@@ -56,9 +56,8 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         .select('id, phone, contact_name, updated_at')
         .eq('campaign_id', campaignId)
         .eq('status', 'dialing')
-        .lt('updated_at', threeMinAgo);
-
-      const stuckCount = stuckItems?.length || 0;
+        .lt('updated_at', threeMinAgo) as any;
+      const stuckItemsList = (stuckItems as any[]) || [];
 
       // 2) Check if campaign is "running" but no items are dialing or pending
       const { count: rawDialingCount } = await supabase
