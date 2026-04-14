@@ -1143,8 +1143,11 @@ export default function Research() {
           <h1 className="text-2xl font-bold text-foreground">{activeSrc?.label || ''} Leads</h1>
         </div>
 
+        {/* Lead Hunter Pro Panel */}
+        {selectedSource === 'lead-hunter' && <LeadHunterPro />}
+
         {/* Controls — 1 row, 2 columns */}
-        {selectedSource !== 'craigslist' && <div className="grid grid-cols-2 gap-4 items-start">
+        {selectedSource !== 'craigslist' && selectedSource !== 'lead-hunter' && <div className="grid grid-cols-2 gap-4 items-start">
           {/* Column 1: Findings count + Market Cap Alerts label */}
           <div className="space-y-2">
             <p className="text-muted-foreground text-lg">{filtered.length} findings</p>
