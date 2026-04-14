@@ -17,8 +17,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apifyToken = Deno.env.get("APIFY_TOKEN");
-    if (!apifyToken) throw new Error("APIFY_TOKEN not configured");
+    // Pull the active Apify key from the apify_config table (API Management)
+    const { data: apifyRow, error: apifyErr } = await sb
+      .from("apify_config")
+      .select("api_key")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (apifyErr) throw new Error(`Failed to fetch Apify config: ${apifyErr.message}`);
+    const apifyToken = apifyRow?.api_key;
+    if (!apifyToken) throw new Error("No active Apify API key found in API Management. Please add one at /api-management.");
 
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
