@@ -677,7 +677,7 @@ export default function Ads() {
             <h1 className="text-lg font-semibold text-foreground tracking-tight">Advertisement Hub</h1>
           </div>
           <p className="text-xs text-muted-foreground/70">
-            Marketing channels across Web Design &amp; Videography — connect APIs to track live spend, monitor CRM analytics.
+            Marketing channels across AI Directing, Web Design &amp; Videography — connect APIs to track live spend, monitor CRM analytics.
           </p>
         </div>
 
