@@ -25,6 +25,7 @@ import { XFeedPanel } from '@/components/research/XFeedPanel';
 import { MarketCapAlerts } from '@/components/research/MarketCapAlerts';
 import { MetaPopup } from '@/components/research/MetaPopup';
 import { DevAIModal } from '@/components/research/DevAIModal';
+import { LeadHunterPro } from '@/components/research/LeadHunterPro';
 
 import type { LucideIcon } from 'lucide-react';
 
