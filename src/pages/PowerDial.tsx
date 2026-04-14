@@ -280,7 +280,7 @@ export default function PowerDial() {
                 <SelectContent>
                   {campaigns.map(c => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} — {c.status}
+                      {c.name} — {c.schedule_status === 'scheduled' ? `⏰ scheduled` : c.status}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -529,12 +529,51 @@ export default function PowerDial() {
                 )}
               </div>
             )}
+
+            {/* Schedule Section */}
+            <div className="border border-border/50 rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-purple-400" />
+                  <Label className="text-sm font-medium">Schedule Campaign</Label>
+                </div>
+                <Switch
+                  checked={scheduleEnabled}
+                  onCheckedChange={setScheduleEnabled}
+                  className="data-[state=checked]:bg-purple-500"
+                />
+              </div>
+              {scheduleEnabled && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Date</Label>
+                    <Input
+                      type="date"
+                      value={scheduleDate}
+                      onChange={e => setScheduleDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Time (PST)</Label>
+                    <Input
+                      type="time"
+                      value={scheduleTime}
+                      onChange={e => setScheduleTime(e.target.value)}
+                    />
+                  </div>
+                  <p className="col-span-2 text-[10px] text-muted-foreground">
+                    Campaign will auto-start at the scheduled time. All times are Pacific Standard Time.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button onClick={handleCreate} disabled={actionLoading}>
-              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Create Campaign
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : scheduleEnabled ? <Clock className="h-4 w-4 mr-1" /> : null}
+              {scheduleEnabled ? 'Schedule Campaign' : 'Create Campaign'}
             </Button>
           </DialogFooter>
         </DialogContent>
