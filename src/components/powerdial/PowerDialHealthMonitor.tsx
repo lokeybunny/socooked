@@ -61,17 +61,19 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
       const stuckCount = stuckItems?.length || 0;
 
       // 2) Check if campaign is "running" but no items are dialing or pending
-      const { count: dialingCount } = await supabase
+      const { count: rawDialingCount } = await supabase
         .from('powerdial_queue')
         .select('id', { count: 'exact', head: true })
         .eq('campaign_id', campaignId)
         .eq('status', 'dialing');
+      const dialingCount = rawDialingCount || 0;
 
-      const { count: pendingCount } = await supabase
+      const { count: rawPendingCount } = await supabase
         .from('powerdial_queue')
         .select('id', { count: 'exact', head: true })
         .eq('campaign_id', campaignId)
         .eq('status', 'pending');
+      const pendingCount = rawPendingCount || 0;
 
       const isRunning = campaignStatus === 'running';
       const stalled = isRunning && (dialingCount || 0) === 0 && (pendingCount || 0) > 0;
@@ -198,7 +200,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
   }, [logs, expanded]);
 
   const hasIssues = health.stuck_dialing > 0 || health.orphaned_calls > 0 || health.campaign_stalled;
-  const statusIcon = checking ? Loader2 : hasIssues ? AlertTriangle : Activity;
+  const StatusIcon = checking ? Loader2 : hasIssues ? AlertTriangle : Activity;
   const statusColor = hasIssues ? 'text-amber-400' : 'text-emerald-400';
 
   return (
@@ -208,7 +210,7 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-2 px-4 h-11 text-xs font-mono hover:bg-muted/30 transition-colors rounded-t-lg"
       >
-        <statusIcon className={cn('h-3.5 w-3.5', checking && 'animate-spin', statusColor)} />
+        <StatusIcon className={cn('h-3.5 w-3.5', checking && 'animate-spin', statusColor)} />
         <span className="font-semibold text-foreground/80">Pipeline Monitor</span>
         <span className="text-muted-foreground/60">—</span>
         <span className="text-muted-foreground/60 truncate">
