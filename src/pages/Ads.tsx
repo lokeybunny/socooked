@@ -455,11 +455,14 @@ function PowerDAnalyticsPanel({ stats, loading }: { stats: PowerDStats; loading:
 }
 
 /* ─── Channel Detail Panel ────────────────────────────────── */
-function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading }: {
+function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading, campaigns, onAddCampaign, onRemoveCampaign }: {
   channel: Channel;
   onConnect: (id: string, key: string) => void;
   powerDStats: PowerDStats;
   powerDLoading: boolean;
+  campaigns: AdCampaign[];
+  onAddCampaign: (c: Omit<AdCampaign, 'id' | 'created'>) => void;
+  onRemoveCampaign: (id: string) => void;
 }) {
   const [apiKey, setApiKey] = useState('');
   const [connecting, setConnecting] = useState(false);
