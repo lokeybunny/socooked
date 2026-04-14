@@ -32,6 +32,24 @@ interface Channel {
   features: string[];
 }
 
+const AI_DIRECTING_CHANNELS: Channel[] = [
+  {
+    id: 'instagram-directing',
+    label: 'Instagram Ads',
+    desc: 'Meta Business — AI Directing Leads',
+    icon: Instagram,
+    color: 'from-pink-500 to-purple-600',
+    ring: 'ring-pink-500/30',
+    bg: 'bg-pink-500/10',
+    text: 'text-pink-400',
+    pulse: 'bg-pink-500',
+    status: 'setup_required',
+    apiKeyName: 'META_ACCESS_TOKEN',
+    setupUrl: 'https://business.facebook.com/settings',
+    features: ['Daily ad spend tracking', 'Instagram story & reel ad performance', 'Audience retargeting', 'Lead conversion funnel'],
+  },
+];
+
 const WEB_CHANNELS: Channel[] = [
   {
     id: 'facebook-web',
