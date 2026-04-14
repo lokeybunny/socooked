@@ -9,7 +9,7 @@ import {
   DollarSign, BarChart3, Zap, ExternalLink, ChevronRight,
   Megaphone, MapPin, Key, Link2, Eye, Users, PhoneCall,
   ThumbsUp, ThumbsDown, Clock, Sparkles, Plus, Trash2, Tag,
-  FolderOpen, Hash,
+  FolderOpen, Hash, Instagram, Clapperboard,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
