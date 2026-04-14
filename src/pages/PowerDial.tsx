@@ -40,6 +40,8 @@ type Campaign = {
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
+  scheduled_start: string | null;
+  schedule_status: string | null;
 };
 
 export default function PowerDial() {
@@ -60,6 +62,9 @@ export default function PowerDial() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('09:00');
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -157,13 +162,37 @@ export default function PowerDial() {
     });
 
     if (result?.campaign_id) {
-      toast.success(`Campaign created with ${result.queued} numbers`);
+      // If scheduling is enabled, set the scheduled start time (convert PST to UTC)
+      if (scheduleEnabled && scheduleDate && scheduleTime) {
+        // PST is UTC-8, PDT is UTC-7. Use America/Los_Angeles for proper handling.
+        const pstDatetime = `${scheduleDate}T${scheduleTime}:00`;
+        // Create date in PST by appending the timezone
+        const scheduledUtc = new Date(new Date(pstDatetime + '-08:00').toISOString());
+        // Use a more reliable approach: build it via Intl
+        const localParts = pstDatetime.split(/[-T:]/);
+        const pstDate = new Date(Date.UTC(
+          parseInt(localParts[0]), parseInt(localParts[1]) - 1, parseInt(localParts[2]),
+          parseInt(localParts[3]) + 8, parseInt(localParts[4])
+        ));
+
+        await supabase.from('powerdial_campaigns').update({
+          scheduled_start: pstDate.toISOString(),
+          schedule_status: 'scheduled',
+        }).eq('id', result.campaign_id);
+
+        toast.success(`Campaign scheduled for ${scheduleDate} at ${scheduleTime} PST`);
+      } else {
+        toast.success(`Campaign created with ${result.queued} numbers`);
+      }
+
       setShowCreate(false);
       setNewName('');
       setPhoneInput('');
       setSelectedLeadIds([]);
+      setScheduleEnabled(false);
+      setScheduleDate('');
+      setScheduleTime('09:00');
       await loadCampaigns();
-      // Auto-select the new campaign
       const { data: newCamp } = await supabase.from('powerdial_campaigns').select('*').eq('id', result.campaign_id).single();
       if (newCamp) setActiveCampaign(newCamp as Campaign);
     }
