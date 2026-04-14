@@ -202,6 +202,8 @@ export default function PowerDial() {
       setScheduleEnabled(false);
       setScheduleDate('');
       setScheduleTime('09:00');
+      setScheduleEndDate('');
+      setScheduleEndTime('17:00');
       await loadCampaigns();
       const { data: newCamp } = await supabase.from('powerdial_campaigns').select('*').eq('id', result.campaign_id).single();
       if (newCamp) setActiveCampaign(newCamp as Campaign);
