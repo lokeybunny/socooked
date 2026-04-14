@@ -648,7 +648,7 @@ function FlowArrow() {
 /* ─── Main page ───────────────────────────────────────────── */
 export default function Ads() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>('facebook-web');
-  const allChannels = [...WEB_CHANNELS, ...VIDEO_CHANNELS];
+  const allChannels = [...AI_DIRECTING_CHANNELS, ...WEB_CHANNELS, ...VIDEO_CHANNELS];
   const activeChannel = allChannels.find(c => c.id === selectedChannel) || null;
   const [channelStates, setChannelStates] = useState<Record<string, Channel['status']>>({});
   const { stats: powerDStats, loading: powerDLoading } = usePowerDStats();
@@ -698,6 +698,19 @@ export default function Ads() {
             </div>
           ))}
         </div>
+
+        {/* AI Directing Business Track */}
+        <BusinessTrack
+          title="AI Directing Business"
+          subtitle="Instagram Ads"
+          icon={Clapperboard}
+          gradient="from-pink-500 to-purple-600"
+          channels={AI_DIRECTING_CHANNELS.map(getChannel)}
+          selectedChannel={selectedChannel}
+          onSelectChannel={setSelectedChannel}
+        />
+
+        <FlowArrow />
 
         {/* Web Business Track */}
         <BusinessTrack
