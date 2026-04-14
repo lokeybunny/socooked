@@ -8,7 +8,8 @@ import {
   CheckCircle2, AlertCircle, ArrowRight, Activity,
   DollarSign, BarChart3, Zap, ExternalLink, ChevronRight,
   Megaphone, MapPin, Key, Link2, Eye, Users, PhoneCall,
-  ThumbsUp, ThumbsDown, Clock, Sparkles,
+  ThumbsUp, ThumbsDown, Clock, Sparkles, Plus, Trash2, Tag,
+  FolderOpen, Hash,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -175,6 +176,142 @@ function usePowerDStats(): { stats: PowerDStats; loading: boolean } {
   return { stats, loading };
 }
 
+/* ─── Campaign Management ─────────────────────────────────── */
+interface AdCampaign {
+  id: string;
+  name: string;
+  channelId: string;
+  campaignId: string; // Meta or Google campaign ID
+  status: 'active' | 'paused' | 'draft';
+  dailyBudget: string;
+  notes: string;
+  created: string;
+}
+
+function useCampaigns() {
+  const STORAGE_KEY = 'ads_hub_campaigns';
+  const [campaigns, setCampaigns] = useState<AdCampaign[]>(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+  });
+
+  const save = (next: AdCampaign[]) => {
+    setCampaigns(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const add = (c: Omit<AdCampaign, 'id' | 'created'>) => {
+    save([...campaigns, { ...c, id: crypto.randomUUID(), created: new Date().toISOString() }]);
+  };
+  const remove = (id: string) => save(campaigns.filter(c => c.id !== id));
+  const update = (id: string, patch: Partial<AdCampaign>) => save(campaigns.map(c => c.id === id ? { ...c, ...patch } : c));
+
+  return { campaigns, add, remove, update };
+}
+
+function CampaignManager({ channelId, channelLabel, campaigns, onAdd, onRemove }: {
+  channelId: string;
+  channelLabel: string;
+  campaigns: AdCampaign[];
+  onAdd: (c: Omit<AdCampaign, 'id' | 'created'>) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [cid, setCid] = useState('');
+  const [budget, setBudget] = useState('');
+
+  const filtered = campaigns.filter(c => c.channelId === channelId);
+
+  const handleAdd = () => {
+    if (!name.trim()) { toast.error('Enter a campaign name'); return; }
+    onAdd({ name: name.trim(), channelId, campaignId: cid.trim(), status: 'active', dailyBudget: budget, notes: '' });
+    setName(''); setCid(''); setBudget(''); setAdding(false);
+    toast.success('Campaign added');
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Campaign Tracking</p>
+        </div>
+        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setAdding(!adding)}>
+          <Plus className="h-3 w-3" /> Add Campaign
+        </Button>
+      </div>
+
+      {adding && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-3 rounded-lg border border-dashed border-border bg-muted/20 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Input placeholder="Campaign name" value={name} onChange={e => setName(e.target.value)} className="h-8 text-xs" />
+            <Input placeholder={`${channelLabel} Campaign ID`} value={cid} onChange={e => setCid(e.target.value)} className="h-8 text-xs" />
+            <Input placeholder="Daily budget ($)" type="number" value={budget} onChange={e => setBudget(e.target.value)} className="h-8 text-xs" />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button size="sm" className="h-7 text-xs" onClick={handleAdd}>Save Campaign</Button>
+          </div>
+        </motion.div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="p-4 rounded-lg border border-dashed border-border/50 bg-muted/10 text-center">
+          <Tag className="h-5 w-5 mx-auto mb-1.5 text-muted-foreground/30" />
+          <p className="text-xs text-muted-foreground">No campaigns tracked yet</p>
+          <p className="text-[10px] text-muted-foreground/50 mt-0.5">Add your {channelLabel} campaigns to see per-campaign metrics</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(c => (
+            <div key={c.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-foreground truncate">{c.name}</span>
+                  <span className={cn(
+                    'text-[9px] px-1.5 py-0.5 rounded-full',
+                    c.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' :
+                    c.status === 'paused' ? 'bg-amber-500/10 text-amber-500' :
+                    'bg-muted text-muted-foreground',
+                  )}>{c.status}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  {c.campaignId && (
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Hash className="h-2.5 w-2.5" /> {c.campaignId}
+                    </span>
+                  )}
+                  {c.dailyBudget && (
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <DollarSign className="h-2.5 w-2.5" /> ${c.dailyBudget}/day
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Per-campaign metrics placeholder */}
+              <div className="hidden sm:grid grid-cols-3 gap-3 text-center">
+                {[
+                  { label: 'Spend', value: '—' },
+                  { label: 'Impressions', value: '—' },
+                  { label: 'Leads', value: '—' },
+                ].map(m => (
+                  <div key={m.label}>
+                    <p className="text-xs font-semibold text-foreground">{m.value}</p>
+                    <p className="text-[9px] text-muted-foreground">{m.label}</p>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => onRemove(c.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10">
+                <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Business Track ──────────────────────────────────────── */
 interface TrackProps {
   title: string;
@@ -318,11 +455,14 @@ function PowerDAnalyticsPanel({ stats, loading }: { stats: PowerDStats; loading:
 }
 
 /* ─── Channel Detail Panel ────────────────────────────────── */
-function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading }: {
+function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading, campaigns, onAddCampaign, onRemoveCampaign }: {
   channel: Channel;
   onConnect: (id: string, key: string) => void;
   powerDStats: PowerDStats;
   powerDLoading: boolean;
+  campaigns: AdCampaign[];
+  onAddCampaign: (c: Omit<AdCampaign, 'id' | 'created'>) => void;
+  onRemoveCampaign: (id: string) => void;
 }) {
   const [apiKey, setApiKey] = useState('');
   const [connecting, setConnecting] = useState(false);
@@ -454,6 +594,17 @@ function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading }: {
               ))}
             </div>
           )}
+
+          {/* Campaign Manager for Facebook/Google channels */}
+          {!isCraigslist && !isPowerD && (
+            <CampaignManager
+              channelId={channel.id}
+              channelLabel={channel.label}
+              campaigns={campaigns}
+              onAdd={onAddCampaign}
+              onRemove={onRemoveCampaign}
+            />
+          )}
         </>
       )}
     </motion.div>
@@ -478,6 +629,7 @@ export default function Ads() {
   const activeChannel = allChannels.find(c => c.id === selectedChannel) || null;
   const [channelStates, setChannelStates] = useState<Record<string, Channel['status']>>({});
   const { stats: powerDStats, loading: powerDLoading } = usePowerDStats();
+  const { campaigns, add: addCampaign, remove: removeCampaign } = useCampaigns();
 
   const handleConnect = (id: string, _key: string) => {
     setChannelStates(prev => ({ ...prev, [id]: 'connected' }));
@@ -557,6 +709,9 @@ export default function Ads() {
               onConnect={handleConnect}
               powerDStats={powerDStats}
               powerDLoading={powerDLoading}
+              campaigns={campaigns}
+              onAddCampaign={addCampaign}
+              onRemoveCampaign={removeCampaign}
             />
           )}
         </AnimatePresence>
