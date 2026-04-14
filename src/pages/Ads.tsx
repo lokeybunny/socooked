@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Globe, Video, Facebook, Search, Phone, TrendingUp,
-  Settings, CheckCircle2, AlertCircle, ArrowRight, Activity,
+  CheckCircle2, AlertCircle, ArrowRight, Activity,
   DollarSign, BarChart3, Zap, ExternalLink, ChevronRight,
-  Megaphone, Bot, MapPin, Key, Link2, Eye,
+  Megaphone, MapPin, Key, Link2, Eye, Users, PhoneCall,
+  ThumbsUp, ThumbsDown, Clock, Sparkles,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,9 +33,9 @@ interface Channel {
 
 const WEB_CHANNELS: Channel[] = [
   {
-    id: 'facebook',
+    id: 'facebook-web',
     label: 'Facebook Ads',
-    desc: 'Meta Business — Lead Gen & Retargeting',
+    desc: 'Meta Business — Web Design Leads',
     icon: Facebook,
     color: 'from-blue-600 to-blue-700',
     ring: 'ring-blue-500/30',
@@ -45,7 +48,7 @@ const WEB_CHANNELS: Channel[] = [
     features: ['Daily ad spend tracking', 'Lead conversion funnel', 'Audience retargeting', 'Campaign performance metrics'],
   },
   {
-    id: 'craigslist',
+    id: 'craigslist-web',
     label: 'Craigslist',
     desc: 'Organic Outreach — Local Posting',
     icon: MapPin,
@@ -55,12 +58,12 @@ const WEB_CHANNELS: Channel[] = [
     text: 'text-purple-400',
     pulse: 'bg-purple-500',
     status: 'active',
-    features: ['Auto-post to target cities', 'Template rotation', 'Reply monitoring', 'Lead capture integration'],
+    features: ['Check Craigslist for live data', 'Monitor local market activity'],
   },
   {
     id: 'ai-cold-call',
     label: 'AI Cold Calling',
-    desc: 'Vapi.AI — Automated Outreach',
+    desc: 'Power Dialer → Funnels Pipeline',
     icon: Phone,
     color: 'from-emerald-500 to-teal-600',
     ring: 'ring-emerald-500/30',
@@ -68,11 +71,26 @@ const WEB_CHANNELS: Channel[] = [
     text: 'text-emerald-400',
     pulse: 'bg-emerald-500',
     status: 'active',
-    features: ['Power dialer campaigns', 'AI sentiment analysis', 'Scheduled call windows (PST)', 'Auto-funnel routing'],
+    features: ['Successful leads from Power Dialer', 'AI sentiment conversion rate', 'Funnel pipeline routing', 'Campaign performance over time'],
   },
 ];
 
 const VIDEO_CHANNELS: Channel[] = [
+  {
+    id: 'facebook-video',
+    label: 'Facebook Ads',
+    desc: 'Meta Business — Videography Leads',
+    icon: Facebook,
+    color: 'from-blue-600 to-blue-700',
+    ring: 'ring-blue-500/30',
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-400',
+    pulse: 'bg-blue-500',
+    status: 'setup_required',
+    apiKeyName: 'META_ACCESS_TOKEN',
+    setupUrl: 'https://business.facebook.com/settings',
+    features: ['Daily ad spend tracking', 'Video ad performance', 'Audience retargeting', 'Videography lead funnel'],
+  },
   {
     id: 'google-ads',
     label: 'Google Ads',
@@ -88,7 +106,74 @@ const VIDEO_CHANNELS: Channel[] = [
     setupUrl: 'https://ads.google.com',
     features: ['Daily spend & CPC tracking', 'Search term performance', 'Conversion tracking', 'Budget pacing alerts'],
   },
+  {
+    id: 'craigslist-video',
+    label: 'Craigslist',
+    desc: 'Organic Outreach — Videography Posting',
+    icon: MapPin,
+    color: 'from-purple-500 to-violet-600',
+    ring: 'ring-purple-500/30',
+    bg: 'bg-purple-500/10',
+    text: 'text-purple-400',
+    pulse: 'bg-purple-500',
+    status: 'active',
+    features: ['Check Craigslist for live data', 'Monitor local market activity'],
+  },
 ];
+
+/* ─── PowerD Analytics (live data from DB) ────────────────── */
+interface PowerDStats {
+  totalCalls: number;
+  humanAnswered: number;
+  positiveLeads: number;
+  negativeLeads: number;
+  conversionRate: number;
+  recentLeads: { name: string; phone: string; sentiment: string; created_at: string }[];
+}
+
+function usePowerDStats(): { stats: PowerDStats; loading: boolean } {
+  const [stats, setStats] = useState<PowerDStats>({
+    totalCalls: 0, humanAnswered: 0, positiveLeads: 0, negativeLeads: 0, conversionRate: 0, recentLeads: [],
+  });
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const { data: logs } = await supabase
+        .from('powerdial_call_logs')
+        .select('id, phone, twilio_status, amd_result, connected_to_vapi, ai_sentiment, ai_interested, disposition, created_at, meta')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (logs) {
+        const total = logs.length;
+        const human = logs.filter(l => l.connected_to_vapi === true || l.amd_result === 'human').length;
+        const positive = logs.filter(l => l.ai_sentiment === 'positive' || l.ai_interested === true).length;
+        const negative = logs.filter(l => l.ai_sentiment === 'negative').length;
+        const rate = human > 0 ? Math.round((positive / human) * 100) : 0;
+
+        const recent = logs
+          .filter(l => l.ai_interested === true || l.ai_sentiment === 'positive')
+          .slice(0, 5)
+          .map(l => ({
+            name: (l.meta as any)?.customer_name || 'Unknown',
+            phone: l.phone || '',
+            sentiment: l.ai_sentiment || 'positive',
+            created_at: l.created_at,
+          }));
+
+        setStats({ totalCalls: total, humanAnswered: human, positiveLeads: positive, negativeLeads: negative, conversionRate: rate, recentLeads: recent });
+      }
+    } catch (e) {
+      console.warn('PowerD stats load error:', e);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { stats, loading };
+}
 
 /* ─── Business Track ──────────────────────────────────────── */
 interface TrackProps {
@@ -104,7 +189,6 @@ interface TrackProps {
 function BusinessTrack({ title, subtitle, icon: TrackIcon, gradient, channels, selectedChannel, onSelectChannel }: TrackProps) {
   return (
     <div className="space-y-4">
-      {/* Track header */}
       <div className="flex items-center gap-3">
         <div className={cn('p-2.5 rounded-xl bg-gradient-to-br shadow-lg', gradient)}>
           <TrackIcon className="h-5 w-5 text-white" />
@@ -115,7 +199,6 @@ function BusinessTrack({ title, subtitle, icon: TrackIcon, gradient, channels, s
         </div>
       </div>
 
-      {/* Channel cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {channels.map((ch) => {
           const Icon = ch.icon;
@@ -133,7 +216,6 @@ function BusinessTrack({ title, subtitle, icon: TrackIcon, gradient, channels, s
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              {/* Status dot */}
               <div className="absolute top-3 right-3">
                 <span className="relative flex h-2.5 w-2.5">
                   {ch.status === 'active' && <span className={cn('animate-ping absolute inline-flex h-full w-full rounded-full opacity-75', ch.pulse)} />}
@@ -177,22 +259,88 @@ function BusinessTrack({ title, subtitle, icon: TrackIcon, gradient, channels, s
   );
 }
 
+/* ─── PowerD Analytics Panel ──────────────────────────────── */
+function PowerDAnalyticsPanel({ stats, loading }: { stats: PowerDStats; loading: boolean }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="space-y-4">
+      {/* Metrics grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Calls', value: loading ? '…' : String(stats.totalCalls), icon: PhoneCall, accent: 'text-foreground' },
+          { label: 'Human Answered', value: loading ? '…' : String(stats.humanAnswered), icon: Users, accent: 'text-blue-400' },
+          { label: 'Positive (Interested)', value: loading ? '…' : String(stats.positiveLeads), icon: ThumbsUp, accent: 'text-emerald-500' },
+          { label: 'Conversion Rate', value: loading ? '…' : `${stats.conversionRate}%`, icon: TrendingUp, accent: 'text-amber-500' },
+        ].map((m) => (
+          <div key={m.label} className="p-3 rounded-lg bg-muted/40 text-center">
+            <m.icon className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+            <p className={cn('text-lg font-semibold', m.accent)}>{m.value}</p>
+            <p className="text-[10px] text-muted-foreground">{m.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Recent successful leads */}
+      {stats.recentLeads.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Recent Interested Leads → Funnels</p>
+          <div className="space-y-1.5">
+            {stats.recentLeads.map((lead, i) => (
+              <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ThumbsUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-xs text-foreground truncate">{lead.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{lead.phone}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground/70 shrink-0">
+                  {new Date(lead.created_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Quick links */}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => navigate('/powerdial')} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60">
+          <Sparkles className="h-3.5 w-3.5" /> Power Dialer
+          <ArrowRight className="h-3 w-3" />
+        </button>
+        <button onClick={() => navigate('/funnels')} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60">
+          <Zap className="h-3.5 w-3.5" /> Funnels Pipeline
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Channel Detail Panel ────────────────────────────────── */
-function ChannelDetail({ channel, onConnect }: { channel: Channel; onConnect: (id: string, key: string) => void }) {
+function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading }: {
+  channel: Channel;
+  onConnect: (id: string, key: string) => void;
+  powerDStats: PowerDStats;
+  powerDLoading: boolean;
+}) {
   const [apiKey, setApiKey] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const navigate = useNavigate();
   const Icon = channel.icon;
 
   const handleConnect = async () => {
     if (!apiKey.trim()) { toast.error('Please enter an API key'); return; }
     setConnecting(true);
-    // Simulate — in production this stores via edge function
     await new Promise(r => setTimeout(r, 1200));
     onConnect(channel.id, apiKey.trim());
     setApiKey('');
     setConnecting(false);
     toast.success(`${channel.label} connected successfully`);
   };
+
+  const isCraigslist = channel.id === 'craigslist-web' || channel.id === 'craigslist-video';
+  const isPowerD = channel.id === 'ai-cold-call';
 
   return (
     <motion.div
@@ -220,100 +368,99 @@ function ChannelDetail({ channel, onConnect }: { channel: Channel; onConnect: (i
         </div>
       </div>
 
-      {/* Features */}
-      <div>
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Capabilities</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {channel.features.map((f, i) => (
-            <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/40">
-              <ChevronRight className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', channel.text)} />
-              <span className="text-xs text-foreground/80">{f}</span>
+      {/* PowerD: show analytics instead of features */}
+      {isPowerD ? (
+        <PowerDAnalyticsPanel stats={powerDStats} loading={powerDLoading} />
+      ) : isCraigslist ? (
+        /* Craigslist: simple check link */
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 p-4 rounded-lg bg-muted/30 border border-border/50">
+            <MapPin className={cn('h-5 w-5 shrink-0', channel.text)} />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-foreground">Check Craigslist for Live Data</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Monitor local market activity and posting opportunities in your target areas.</p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* API Setup (if needed) */}
-      {channel.apiKeyName && channel.status === 'setup_required' && (
-        <div className="space-y-3 p-4 rounded-lg border border-dashed border-border bg-muted/20">
-          <div className="flex items-center gap-2">
-            <Key className={cn('h-4 w-4', channel.text)} />
-            <p className="text-xs font-medium text-foreground">Connect Your {channel.label} Account</p>
-          </div>
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Enter your API key to enable real-time spend tracking and campaign metrics.
-            {channel.setupUrl && (
-              <> Get your credentials at{' '}
-                <a href={channel.setupUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2 hover:text-primary transition-colors inline-flex items-center gap-0.5">
-                  {channel.label} Dashboard <ExternalLink className="h-3 w-3" />
-                </a>
-              </>
-            )}
-          </p>
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={`Paste your ${channel.apiKeyName}`}
-              className="h-9 text-xs flex-1"
-            />
-            <Button
-              size="sm"
-              onClick={handleConnect}
-              disabled={connecting}
-              className="h-9 text-xs"
+            <a
+              href="https://lasvegas.craigslist.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-foreground/70 hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted/70 shrink-0"
             >
-              {connecting ? 'Connecting…' : 'Connect'}
-              <Link2 className="h-3.5 w-3.5 ml-1" />
-            </Button>
+              Open Craigslist <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
         </div>
-      )}
-
-      {/* Spend placeholder (when connected) */}
-      {(channel.status === 'active' || channel.status === 'connected') && (
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Today Spend', value: '—', icon: DollarSign },
-            { label: 'Impressions', value: '—', icon: Eye },
-            { label: 'Leads', value: '—', icon: TrendingUp },
-          ].map((m) => (
-            <div key={m.label} className="p-3 rounded-lg bg-muted/40 text-center">
-              <m.icon className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-              <p className="text-lg font-semibold text-foreground">{m.value}</p>
-              <p className="text-[10px] text-muted-foreground">{m.label}</p>
+      ) : (
+        /* Standard: features + API setup */
+        <>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-2">Capabilities</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {channel.features.map((f, i) => (
+                <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg bg-muted/40">
+                  <ChevronRight className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', channel.text)} />
+                  <span className="text-xs text-foreground/80">{f}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
 
-      {/* Quick links for active channels */}
-      {channel.id === 'ai-cold-call' && (
-        <div className="flex gap-2">
-          <a href="/powerdial" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60">
-            <Phone className="h-3.5 w-3.5" /> Open Power Dialer
-            <ArrowRight className="h-3 w-3" />
-          </a>
-          <a href="/funnels" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60">
-            <Zap className="h-3.5 w-3.5" /> Funnels Pipeline
-            <ArrowRight className="h-3 w-3" />
-          </a>
-        </div>
-      )}
-      {channel.id === 'craigslist' && (
-        <div className="flex gap-2">
-          <a href="/leads" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-lg bg-muted/40 hover:bg-muted/60">
-            <MapPin className="h-3.5 w-3.5" /> Leads Manager
-            <ArrowRight className="h-3 w-3" />
-          </a>
-        </div>
+          {/* API Setup */}
+          {channel.apiKeyName && channel.status === 'setup_required' && (
+            <div className="space-y-3 p-4 rounded-lg border border-dashed border-border bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Key className={cn('h-4 w-4', channel.text)} />
+                <p className="text-xs font-medium text-foreground">Connect Your {channel.label} Account</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Enter your API key to enable real-time spend tracking and campaign metrics.
+                {channel.setupUrl && (
+                  <> Get your credentials at{' '}
+                    <a href={channel.setupUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2 hover:text-primary transition-colors inline-flex items-center gap-0.5">
+                      {channel.label} Dashboard <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </>
+                )}
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={`Paste your ${channel.apiKeyName}`}
+                  className="h-9 text-xs flex-1"
+                />
+                <Button size="sm" onClick={handleConnect} disabled={connecting} className="h-9 text-xs">
+                  {connecting ? 'Connecting…' : 'Connect'}
+                  <Link2 className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Spend metrics (when connected) */}
+          {(channel.status === 'active' || channel.status === 'connected') && (
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Today Spend', value: '—', icon: DollarSign },
+                { label: 'Impressions', value: '—', icon: Eye },
+                { label: 'Leads', value: '—', icon: TrendingUp },
+              ].map((m) => (
+                <div key={m.label} className="p-3 rounded-lg bg-muted/40 text-center">
+                  <m.icon className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
+                  <p className="text-lg font-semibold text-foreground">{m.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </motion.div>
   );
 }
 
-/* ─── Flow connector SVG ──────────────────────────────────── */
+/* ─── Flow connector ──────────────────────────────────────── */
 function FlowArrow() {
   return (
     <div className="flex items-center justify-center py-2">
@@ -326,12 +473,11 @@ function FlowArrow() {
 
 /* ─── Main page ───────────────────────────────────────────── */
 export default function Ads() {
-  const [selectedChannel, setSelectedChannel] = useState<string | null>('facebook');
+  const [selectedChannel, setSelectedChannel] = useState<string | null>('facebook-web');
   const allChannels = [...WEB_CHANNELS, ...VIDEO_CHANNELS];
   const activeChannel = allChannels.find(c => c.id === selectedChannel) || null;
-
-  // Simulated channel state (would come from Supabase in production)
   const [channelStates, setChannelStates] = useState<Record<string, Channel['status']>>({});
+  const { stats: powerDStats, loading: powerDLoading } = usePowerDStats();
 
   const handleConnect = (id: string, _key: string) => {
     setChannelStates(prev => ({ ...prev, [id]: 'connected' }));
@@ -341,6 +487,10 @@ export default function Ads() {
     ...ch,
     status: channelStates[ch.id] || ch.status,
   });
+
+  // Count active channels (exclude setup_required)
+  const activeCount = allChannels.filter(c => (channelStates[c.id] || c.status) !== 'setup_required').length;
+  const setupCount = allChannels.filter(c => (channelStates[c.id] || c.status) === 'setup_required').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -352,17 +502,17 @@ export default function Ads() {
             <h1 className="text-lg font-semibold text-foreground tracking-tight">Advertisement Hub</h1>
           </div>
           <p className="text-xs text-muted-foreground/70">
-            Marketing channels across Web Design &amp; Videography businesses — connect APIs to track live spend.
+            Marketing channels across Web Design &amp; Videography — connect APIs to track live spend, monitor CRM analytics.
           </p>
         </div>
 
         {/* Summary bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Active Channels', value: String(allChannels.filter(c => (channelStates[c.id] || c.status) !== 'setup_required').length), icon: Activity, accent: 'text-emerald-500' },
-            { label: 'Setup Required', value: String(allChannels.filter(c => (channelStates[c.id] || c.status) === 'setup_required').length), icon: AlertCircle, accent: 'text-amber-500' },
-            { label: 'Total Spend Today', value: '—', icon: DollarSign, accent: 'text-foreground' },
-            { label: 'Total Leads Today', value: '—', icon: BarChart3, accent: 'text-foreground' },
+            { label: 'Active Channels', value: String(activeCount), icon: Activity, accent: 'text-emerald-500' },
+            { label: 'Setup Required', value: String(setupCount), icon: AlertCircle, accent: 'text-amber-500' },
+            { label: 'PowerD Leads', value: powerDLoading ? '…' : String(powerDStats.positiveLeads), icon: ThumbsUp, accent: 'text-emerald-500' },
+            { label: 'PowerD Conversion', value: powerDLoading ? '…' : `${powerDStats.conversionRate}%`, icon: BarChart3, accent: 'text-foreground' },
           ].map((s) => (
             <div key={s.label} className="p-3.5 rounded-xl border border-border/50 bg-card/60">
               <div className="flex items-center gap-2 mb-1">
@@ -377,7 +527,7 @@ export default function Ads() {
         {/* Web Business Track */}
         <BusinessTrack
           title="Web Design Business"
-          subtitle="Facebook Marketing · Craigslist · AI Cold Calling"
+          subtitle="Facebook Ads · Craigslist · AI Cold Calling"
           icon={Globe}
           gradient="from-cyan-500 to-blue-600"
           channels={WEB_CHANNELS.map(getChannel)}
@@ -390,7 +540,7 @@ export default function Ads() {
         {/* Videography Track */}
         <BusinessTrack
           title="Videography Business"
-          subtitle="Google Ads — Search & Display"
+          subtitle="Facebook Ads · Google Ads · Craigslist"
           icon={Video}
           gradient="from-red-500 to-orange-600"
           channels={VIDEO_CHANNELS.map(getChannel)}
@@ -405,6 +555,8 @@ export default function Ads() {
               key={activeChannel.id}
               channel={getChannel(activeChannel)}
               onConnect={handleConnect}
+              powerDStats={powerDStats}
+              powerDLoading={powerDLoading}
             />
           )}
         </AnimatePresence>
