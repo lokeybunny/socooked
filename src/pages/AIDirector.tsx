@@ -209,6 +209,41 @@ export default function AIDirector() {
         </motion.div>
       </section>
 
+      {/* ─── SPOTLIGHT VIDEO ─── */}
+      <section className="py-16 sm:py-20 px-4 relative">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            className="text-center mb-8"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <p className="text-[10px] tracking-[0.3em] uppercase text-emerald-400/60 mb-2">Spotlight</p>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Latest Release</h2>
+          </motion.div>
+          <motion.div
+            className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-emerald-500/5 relative"
+            initial={{ opacity: 0, scale: 0.97 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <video
+              src="/videos/spotlight.mov"
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full aspect-video bg-black"
+            />
+            <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-emerald-500/80 backdrop-blur-sm">
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-white flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> Spotlight
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* ─── 2. VIDEO SHOWCASE ─── */}
       <section className="py-20 sm:py-28 px-4 relative">
         <div className="max-w-7xl mx-auto">
