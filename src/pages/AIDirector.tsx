@@ -144,7 +144,7 @@ export default function AIDirector() {
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.1] mb-4">
               AI Films. Real Emotion.
               <br />
-              <span className="text-emerald-400">Directed by Warren Guru.</span>
+              <span className="text-emerald-400 whitespace-nowrap">Directed by Warren Guru.</span>
             </h1>
             <p className="text-sm sm:text-base text-white/40 font-light max-w-lg mx-auto md:mx-0 mb-8">
               Turn ideas into cinematic AI experiences.
