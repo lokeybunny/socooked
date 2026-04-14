@@ -1839,6 +1839,133 @@ export type Database = {
           },
         ]
       }
+      lh_dnc_registry: {
+        Row: {
+          call_count: number
+          created_at: string
+          id: string
+          last_called_at: string | null
+          phone: string
+          reason: string
+          source_list_id: string | null
+        }
+        Insert: {
+          call_count?: number
+          created_at?: string
+          id?: string
+          last_called_at?: string | null
+          phone: string
+          reason?: string
+          source_list_id?: string | null
+        }
+        Update: {
+          call_count?: number
+          created_at?: string
+          id?: string
+          last_called_at?: string | null
+          phone?: string
+          reason?: string
+          source_list_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lh_dnc_registry_source_list_id_fkey"
+            columns: ["source_list_id"]
+            isOneToOne: false
+            referencedRelation: "lh_saved_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lh_saved_list_items: {
+        Row: {
+          address: string | null
+          category_name: string | null
+          created_at: string
+          gmaps_url: string | null
+          id: string
+          list_id: string
+          meta: Json
+          name: string | null
+          negative_review: string | null
+          phone: string
+          rating: number | null
+          review_count: number | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          category_name?: string | null
+          created_at?: string
+          gmaps_url?: string | null
+          id?: string
+          list_id: string
+          meta?: Json
+          name?: string | null
+          negative_review?: string | null
+          phone: string
+          rating?: number | null
+          review_count?: number | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          category_name?: string | null
+          created_at?: string
+          gmaps_url?: string | null
+          id?: string
+          list_id?: string
+          meta?: Json
+          name?: string | null
+          negative_review?: string | null
+          phone?: string
+          rating?: number | null
+          review_count?: number | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lh_saved_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "lh_saved_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lh_saved_lists: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          lead_count: number
+          meta: Json
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          lead_count?: number
+          meta?: Json
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          lead_count?: number
+          meta?: Json
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lists: {
         Row: {
           board_id: string
