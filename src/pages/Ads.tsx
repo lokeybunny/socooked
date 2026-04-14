@@ -594,6 +594,17 @@ function ChannelDetail({ channel, onConnect, powerDStats, powerDLoading, campaig
               ))}
             </div>
           )}
+
+          {/* Campaign Manager for Facebook/Google channels */}
+          {!isCraigslist && !isPowerD && (
+            <CampaignManager
+              channelId={channel.id}
+              channelLabel={channel.label}
+              campaigns={campaigns}
+              onAdd={onAddCampaign}
+              onRemove={onRemoveCampaign}
+            />
+          )}
         </>
       )}
     </motion.div>
@@ -618,6 +629,7 @@ export default function Ads() {
   const activeChannel = allChannels.find(c => c.id === selectedChannel) || null;
   const [channelStates, setChannelStates] = useState<Record<string, Channel['status']>>({});
   const { stats: powerDStats, loading: powerDLoading } = usePowerDStats();
+  const { campaigns, add: addCampaign, remove: removeCampaign } = useCampaigns();
 
   const handleConnect = (id: string, _key: string) => {
     setChannelStates(prev => ({ ...prev, [id]: 'connected' }));
