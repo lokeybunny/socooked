@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Phone, Play, Pause, Square, SkipForward, Plus, Users, PhoneCall,
   Voicemail, PhoneOff, Clock, CheckCircle, AlertCircle, Loader2,
-  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap,
+  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap, CalendarClock,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
@@ -372,6 +372,33 @@ export default function PowerDial() {
               <Badge className={statusColor[activeCampaign.status] || ''}>
                 {activeCampaign.status.toUpperCase()}
               </Badge>
+
+              {/* Scheduled indicator */}
+              {activeCampaign.schedule_status === 'scheduled' && activeCampaign.scheduled_start && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10">
+                  <CalendarClock className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="text-xs text-amber-300">
+                    Scheduled: {new Date(activeCampaign.scheduled_start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} PST
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px] text-amber-400 hover:text-amber-300"
+                    onClick={async () => {
+                      await supabase.from('powerdial_campaigns').update({ schedule_status: null, scheduled_start: null }).eq('id', activeCampaign.id);
+                      toast.info('Schedule cancelled — campaign is now manual');
+                      loadCampaigns();
+                    }}
+                  >
+                    Cancel Schedule
+                  </Button>
+                </div>
+              )}
+              {activeCampaign.schedule_status === 'triggered' && (
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 text-[10px]">
+                  <CalendarClock className="h-3 w-3 mr-1" /> Auto-started
+                </Badge>
+              )}
 
               {/* 3x Dial Toggle */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10">
