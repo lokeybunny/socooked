@@ -17,15 +17,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apifyToken = Deno.env.get("APIFY_TOKEN");
-    if (!apifyToken) throw new Error("APIFY_TOKEN not configured");
-
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
+
+    // Pull the active Apify key from the apify_config table (API Management)
+    const { data: apifyRow, error: apifyErr } = await sb
+      .from("apify_config")
+      .select("api_key")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (apifyErr) throw new Error(`Failed to fetch Apify config: ${apifyErr.message}`);
+    const apifyToken = apifyRow?.api_key;
+    if (!apifyToken) throw new Error("No active Apify API key found in API Management. Please add one at /api-management.");
 
     // Step 1: Use AI to parse the natural language query
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
