@@ -143,12 +143,39 @@ export default function PowerDial() {
     }
   };
 
+  // Extract phone numbers from messy pasted text (addresses, names, URLs, etc.)
+  const extractPhones = (raw: string): { phone: string; name: string | null }[] => {
+    // Match common US phone formats: (xxx) xxx-xxxx, xxx-xxx-xxxx, xxx.xxx.xxxx, +1xxxxxxxxxx, etc.
+    const phoneRegex = /(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g;
+    const seen = new Set<string>();
+    const results: { phone: string; name: string | null }[] = [];
+    const lines = raw.split('\n');
+
+    for (const line of lines) {
+      const matches = line.match(phoneRegex);
+      if (!matches) continue;
+      for (const match of matches) {
+        const digits = match.replace(/\D/g, '');
+        // Normalize: must be 10 or 11 digits (with leading 1)
+        const normalized = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+        if (normalized.length !== 10) continue;
+        if (seen.has(normalized)) continue;
+        seen.add(normalized);
+
+        // Try to extract a name from the same line (text before the phone number)
+        const idx = line.indexOf(match);
+        const before = line.slice(0, idx).replace(/[^a-zA-Z\s&'.-]/g, '').trim();
+        // Filter out noise: must be 2+ chars, not just whitespace
+        const name = before.length >= 2 && !/^\d+$/.test(before) ? before : null;
+        results.push({ phone: `+1${normalized}`, name });
+      }
+    }
+    return results;
+  };
+
   const handleCreate = async () => {
     if (!user) return;
-    const phones = useLeads ? undefined : phoneInput.split('\n').map(l => l.trim()).filter(Boolean).map(p => {
-      const parts = p.split(',');
-      return parts.length > 1 ? { phone: parts[0].trim(), name: parts[1].trim() } : p;
-    });
+    const phones = useLeads ? undefined : extractPhones(phoneInput);
     const lead_ids = useLeads ? selectedLeadIds : undefined;
 
     if (!phones?.length && !lead_ids?.length) {
