@@ -262,7 +262,7 @@ export default function WebDesignLanding() {
 
       {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: `url(${heroImg})` }} />
+        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${heroImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black" />
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: 'linear-gradient(rgba(0,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,255,0.3) 1px, transparent 1px)',
@@ -328,7 +328,7 @@ export default function WebDesignLanding() {
 
       {/* Parallax mid */}
       <section className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: `url(${midImg})` }} />
+        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${midImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
         <div className="relative max-w-5xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
@@ -470,7 +470,7 @@ export default function WebDesignLanding() {
 
       {/* Lead Form */}
       <section id="get-started" className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center bg-fixed" style={{ backgroundImage: `url(${funnelImg})` }} />
+        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${funnelImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/60" />
         <div className="relative max-w-lg mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-center mb-10">

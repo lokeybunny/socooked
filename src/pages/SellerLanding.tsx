@@ -204,7 +204,7 @@ export default function SellerLanding() {
       {/* ═══════════ HERO with parallax ═══════════ */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxHero})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-slate-950/50" />
@@ -316,7 +316,7 @@ export default function SellerLanding() {
       {/* ═══════════ Parallax: AI Neighborhood ═══════════ */}
       <section className="relative py-24 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxNeighborhood})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/85 to-slate-950/60" />
@@ -369,7 +369,7 @@ export default function SellerLanding() {
       {/* ═══════════ Parallax: AI Command — CTA ═══════════ */}
       <section className="relative py-28 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxCommand})` }}
         />
         <div className="absolute inset-0 bg-slate-950/70" />
@@ -422,7 +422,7 @@ export default function SellerLanding() {
       {/* ═══════════ Parallax: AI Appraisal ═══════════ */}
       <section className="relative py-24 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-cover bg-center md:bg-fixed"
           style={{ backgroundImage: `url(${parallaxAppraisal})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-l from-slate-950/95 via-slate-950/85 to-slate-950/50" />
