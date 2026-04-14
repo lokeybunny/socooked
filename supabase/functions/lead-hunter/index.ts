@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const sb = createClient(supabaseUrl, supabaseKey);
 
     // Step 1: Use AI to parse the natural language query
-    const aiRes = await fetch("https://ai.lovable.dev/api/chat", {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${lovableKey}`,
