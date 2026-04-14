@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   build: {
+    target: "es2020",
+    cssMinify: true,
+    minify: "esbuild",
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -24,6 +29,12 @@ export default defineConfig(({ mode }) => ({
           }
           if (id.includes("jspdf") || id.includes("jszip") || id.includes("xlsx")) {
             return "export-vendor";
+          }
+          if (id.includes("@radix-ui")) {
+            return "radix-vendor";
+          }
+          if (id.includes("lucide-react")) {
+            return "icons-vendor";
           }
         },
       },
