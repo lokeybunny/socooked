@@ -190,6 +190,10 @@ export default function AIDirector() {
               src={warrenHero}
               alt="Warren Guru"
               className="relative w-full h-full object-cover rounded-full border-2 border-emerald-500/20 shadow-2xl shadow-emerald-500/10"
+              fetchPriority="high"
+              decoding="async"
+              width={200}
+              height={200}
             />
           </motion.div>
         </motion.div>
