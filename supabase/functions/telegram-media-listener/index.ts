@@ -1868,7 +1868,7 @@ function buildProposalPdf(clientName: string, email: string, service: string, co
     </div>
   </div>
   <div class="footer">
-    <span>STU25.com | (702) 832-2317</span>
+    <span>STU25.com | (702) 701-6192</span>
     <span>warren@stu25.com</span>
   </div>
 </div>
@@ -1891,7 +1891,7 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
   lines.push('q 0.424 0.388 1.0 rg 0 688 612 4 re f Q')
   lines.push(`BT /F2 28 Tf 1 0 0 1 72 755 Tm 1 1 1 rg (STU25) Tj ET`)
   lines.push(`BT /F1 10 Tf 1 0 0 1 72 733 Tm 0.63 0.63 0.75 rg (Creative Studio & Digital Agency) Tj ET`)
-  lines.push(`BT /F1 10 Tf 1 0 0 1 72 717 Tm 0.63 0.63 0.75 rg (STU25.com  |  \\(702\\) 832-2317  |  warren@stu25.com) Tj ET`)
+  lines.push(`BT /F1 10 Tf 1 0 0 1 72 717 Tm 0.63 0.63 0.75 rg (STU25.com  |  \\(702\\) 701-6192  |  warren@stu25.com) Tj ET`)
   lines.push('0 0 0 rg')
   y = 665
 
@@ -2020,7 +2020,7 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
 
   // ── Footer ──
   lines.push('q 0.059 0.059 0.137 rg 0 0 612 35 re f Q')
-  lines.push(`BT /F1 9 Tf 1 0 0 1 72 12 Tm 0.63 0.63 0.75 rg (STU25.com  |  \\(702\\) 832-2317) Tj ET`)
+  lines.push(`BT /F1 9 Tf 1 0 0 1 72 12 Tm 0.63 0.63 0.75 rg (STU25.com  |  \\(702\\) 701-6192) Tj ET`)
   lines.push(`BT /F1 9 Tf 1 0 0 1 420 12 Tm 0.63 0.63 0.75 rg (warren@stu25.com) Tj ET`)
 
   const stream = lines.join('\n')
@@ -4320,7 +4320,18 @@ Deno.serve(async (req) => {
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '📞 <b>Test Call</b>\n\nEnter a phone number to place a test outbound call.\n\nFormat: <code>7027016192</code>',
+        text: '📞 <b>Test Call</b>\n\nEnter a phone number to place a test outbound call.\n\nExample: <code>7027016192</code>\n\n<i>Tap the button below to copy, or type a number.</i>',
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📋 Copy 7027016192', copy_text: { text: '7027016192' } }],
+          ],
+        },
+      })
+      // Send keyboard separately so user can navigate
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '⌨️ <i>Keyboard ready — type or paste a number:</i>',
         parse_mode: 'HTML',
         reply_markup: PAGE_3_KEYBOARD,
       })

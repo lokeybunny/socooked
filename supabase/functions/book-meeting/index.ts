@@ -52,7 +52,7 @@ const EMAIL_SIGNATURE = `
   <strong style="color:#111;">Warren Thompson</strong><br/>
   <a href="https://stu25.com" style="color:#2754C5;text-decoration:none;">STU25.com</a><br/>
   <a href="tel:+14244651253" style="color:#555;text-decoration:none;">(424) 465-1253</a> (cell) |
-  <a href="tel:+17028322317" style="color:#555;text-decoration:none;">(702) 832-2317</a> (office)<br/>
+  <a href="tel:+17027016192" style="color:#555;text-decoration:none;">(702) 701-6192</a> (office)<br/>
   <a href="https://warren.guru/payme" style="color:#2754C5;text-decoration:none;">💳 Pay Me</a>
 </div>`;
 
