@@ -149,7 +149,7 @@ export default function WarrenVideoPlayer() {
                           Join The Discord
                         </a>
                         <a
-                          href="tel:+17028322317"
+                          href="tel:+17027016192"
                           className="group flex items-center gap-2 px-6 py-2.5 text-xs tracking-[0.25em] uppercase font-medium bg-white text-black rounded-lg hover:bg-white/90 transition-all duration-300"
                         >
                           <Phone className="h-3.5 w-3.5" />

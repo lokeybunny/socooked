@@ -109,11 +109,11 @@ export default function Pricing() {
                 Join the Discord
               </a>
               <a
-                href="tel:+17028322317"
+                href="tel:+17027016192"
                 className="flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-white/70 text-sm font-medium tracking-wider uppercase transition-colors"
               >
                 <Phone className="h-4 w-4" />
-                (702) 832-2317
+                (702) 701-6192
               </a>
             </div>
             <button onClick={() => setShowBanner(false)} className="mt-5 text-xs text-white/20 hover:text-white/40 tracking-wider uppercase transition-colors">
