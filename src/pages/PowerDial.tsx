@@ -390,14 +390,17 @@ export default function PowerDial() {
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10">
                   <CalendarClock className="h-3.5 w-3.5 text-amber-400" />
                   <span className="text-xs text-amber-300">
-                    Scheduled: {new Date(activeCampaign.scheduled_start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })} PST
+                    Scheduled: {new Date(activeCampaign.scheduled_start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                    {activeCampaign.scheduled_end && (
+                      <> → {new Date(activeCampaign.scheduled_end).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</>
+                    )} PST
                   </span>
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-6 px-2 text-[10px] text-amber-400 hover:text-amber-300"
                     onClick={async () => {
-                      await supabase.from('powerdial_campaigns').update({ schedule_status: null, scheduled_start: null }).eq('id', activeCampaign.id);
+                      await supabase.from('powerdial_campaigns').update({ schedule_status: null, scheduled_start: null, scheduled_end: null }).eq('id', activeCampaign.id);
                       toast.info('Schedule cancelled — campaign is now manual');
                       loadCampaigns();
                     }}
