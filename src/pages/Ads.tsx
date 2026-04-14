@@ -9,7 +9,7 @@ import {
   DollarSign, BarChart3, Zap, ExternalLink, ChevronRight,
   Megaphone, MapPin, Key, Link2, Eye, Users, PhoneCall,
   ThumbsUp, ThumbsDown, Clock, Sparkles, Plus, Trash2, Tag,
-  FolderOpen, Hash,
+  FolderOpen, Hash, Instagram, Clapperboard,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,24 @@ interface Channel {
   setupUrl?: string;
   features: string[];
 }
+
+const AI_DIRECTING_CHANNELS: Channel[] = [
+  {
+    id: 'instagram-directing',
+    label: 'Instagram Ads',
+    desc: 'Meta Business — AI Directing Leads',
+    icon: Instagram,
+    color: 'from-pink-500 to-purple-600',
+    ring: 'ring-pink-500/30',
+    bg: 'bg-pink-500/10',
+    text: 'text-pink-400',
+    pulse: 'bg-pink-500',
+    status: 'setup_required',
+    apiKeyName: 'META_ACCESS_TOKEN',
+    setupUrl: 'https://business.facebook.com/settings',
+    features: ['Daily ad spend tracking', 'Instagram story & reel ad performance', 'Audience retargeting', 'Lead conversion funnel'],
+  },
+];
 
 const WEB_CHANNELS: Channel[] = [
   {
@@ -630,7 +648,7 @@ function FlowArrow() {
 /* ─── Main page ───────────────────────────────────────────── */
 export default function Ads() {
   const [selectedChannel, setSelectedChannel] = useState<string | null>('facebook-web');
-  const allChannels = [...WEB_CHANNELS, ...VIDEO_CHANNELS];
+  const allChannels = [...AI_DIRECTING_CHANNELS, ...WEB_CHANNELS, ...VIDEO_CHANNELS];
   const activeChannel = allChannels.find(c => c.id === selectedChannel) || null;
   const [channelStates, setChannelStates] = useState<Record<string, Channel['status']>>({});
   const { stats: powerDStats, loading: powerDLoading } = usePowerDStats();
@@ -659,7 +677,7 @@ export default function Ads() {
             <h1 className="text-lg font-semibold text-foreground tracking-tight">Advertisement Hub</h1>
           </div>
           <p className="text-xs text-muted-foreground/70">
-            Marketing channels across Web Design &amp; Videography — connect APIs to track live spend, monitor CRM analytics.
+            Marketing channels across AI Directing, Web Design &amp; Videography — connect APIs to track live spend, monitor CRM analytics.
           </p>
         </div>
 
@@ -680,6 +698,19 @@ export default function Ads() {
             </div>
           ))}
         </div>
+
+        {/* AI Directing Business Track */}
+        <BusinessTrack
+          title="AI Directing Business"
+          subtitle="Instagram Ads"
+          icon={Clapperboard}
+          gradient="from-pink-500 to-purple-600"
+          channels={AI_DIRECTING_CHANNELS.map(getChannel)}
+          selectedChannel={selectedChannel}
+          onSelectChannel={setSelectedChannel}
+        />
+
+        <FlowArrow />
 
         {/* Web Business Track */}
         <BusinessTrack
