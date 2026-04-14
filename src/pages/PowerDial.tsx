@@ -585,7 +585,7 @@ export default function PowerDial() {
               {scheduleEnabled && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Date</Label>
+                    <Label className="text-xs text-muted-foreground">Start Date</Label>
                     <Input
                       type="date"
                       value={scheduleDate}
@@ -594,15 +594,32 @@ export default function PowerDial() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Time (PST)</Label>
+                    <Label className="text-xs text-muted-foreground">Start Time (PST)</Label>
                     <Input
                       type="time"
                       value={scheduleTime}
                       onChange={e => setScheduleTime(e.target.value)}
                     />
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">End Date</Label>
+                    <Input
+                      type="date"
+                      value={scheduleEndDate}
+                      onChange={e => setScheduleEndDate(e.target.value)}
+                      min={scheduleDate || new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">End Time (PST)</Label>
+                    <Input
+                      type="time"
+                      value={scheduleEndTime}
+                      onChange={e => setScheduleEndTime(e.target.value)}
+                    />
+                  </div>
                   <p className="col-span-2 text-[10px] text-muted-foreground">
-                    Campaign will auto-start at the scheduled time. All times are Pacific Standard Time.
+                    Campaign auto-starts at start time and auto-stops at end time — no after-hours calls. All times PST.
                   </p>
                 </div>
               )}
