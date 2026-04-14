@@ -25,6 +25,7 @@ import { XFeedPanel } from '@/components/research/XFeedPanel';
 import { MarketCapAlerts } from '@/components/research/MarketCapAlerts';
 import { MetaPopup } from '@/components/research/MetaPopup';
 import { DevAIModal } from '@/components/research/DevAIModal';
+import { LeadHunterPro } from '@/components/research/LeadHunterPro';
 
 import type { LucideIcon } from 'lucide-react';
 
@@ -39,6 +40,7 @@ interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ cla
 
 const RESEARCH_SOURCES: SourceCategory[] = [
   { id: 'craigslist', label: 'Craigslist', icon: Search, description: 'Leads sourced from Craigslist postings' },
+  { id: 'lead-hunter', label: 'Lead Hunter Pro', icon: MapPin, description: 'AI-powered Google Maps lead scraper — chat to find businesses' },
 ];
 
 const SOURCE_LABELS: Record<string, string> = Object.fromEntries(RESEARCH_SOURCES.map(s => [s.id, s.label]));
@@ -1141,8 +1143,11 @@ export default function Research() {
           <h1 className="text-2xl font-bold text-foreground">{activeSrc?.label || ''} Leads</h1>
         </div>
 
+        {/* Lead Hunter Pro Panel */}
+        {selectedSource === 'lead-hunter' && <LeadHunterPro />}
+
         {/* Controls — 1 row, 2 columns */}
-        {selectedSource !== 'craigslist' && <div className="grid grid-cols-2 gap-4 items-start">
+        {selectedSource !== 'craigslist' && selectedSource !== 'lead-hunter' && <div className="grid grid-cols-2 gap-4 items-start">
           {/* Column 1: Findings count + Market Cap Alerts label */}
           <div className="space-y-2">
             <p className="text-muted-foreground text-lg">{filtered.length} findings</p>
