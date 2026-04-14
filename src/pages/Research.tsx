@@ -39,6 +39,7 @@ interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ cla
 
 const RESEARCH_SOURCES: SourceCategory[] = [
   { id: 'craigslist', label: 'Craigslist', icon: Search, description: 'Leads sourced from Craigslist postings' },
+  { id: 'lead-hunter', label: 'Lead Hunter Pro', icon: MapPin, description: 'AI-powered Google Maps lead scraper — chat to find businesses' },
 ];
 
 const SOURCE_LABELS: Record<string, string> = Object.fromEntries(RESEARCH_SOURCES.map(s => [s.id, s.label]));
