@@ -256,7 +256,7 @@ export default function VideographyLanding() {
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
             Warren Guru
             <br />
-            <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Las Vegas Videographer</span>
+            <span className="bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">Videographer</span>
           </h1>
 
           <p className="mt-8 text-sm sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light px-1 sm:px-0">
