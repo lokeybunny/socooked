@@ -11,6 +11,7 @@ import {
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
 import { motion } from 'framer-motion';
+import { useVisitorCity } from '@/hooks/useVisitorCity';
 
 import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
@@ -47,6 +48,7 @@ const steps = [
 
 export default function WebDesignLanding() {
   useMetaPixel('3210977432422611');
+  const visitorCity = useVisitorCity();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -272,7 +274,7 @@ export default function WebDesignLanding() {
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }} className="relative text-center max-w-3xl w-full px-5 sm:px-6 pt-14">
           <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05] mb-8">
             <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            <span className="text-[10px] sm:text-xs tracking-[0.2em] sm:tracking-[0.3em] uppercase text-cyan-400/70">Las Vegas AI Web Design</span>
+            <span className="text-[10px] sm:text-xs tracking-[0.2em] sm:tracking-[0.3em] uppercase text-cyan-400/70">{visitorCity} AI Web Design</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
@@ -282,7 +284,7 @@ export default function WebDesignLanding() {
           </h1>
 
           <p className="mt-8 text-sm sm:text-lg text-white/40 max-w-xl mx-auto leading-relaxed font-light px-1 sm:px-0">
-            We build fast, beautiful, AI-generated websites for Las Vegas businesses — custom designed, SEO-optimized, and live in under 48 hours.
+            We build fast, beautiful, AI-generated websites for {visitorCity} businesses — custom designed, SEO-optimized, and live in under 48 hours.
           </p>
 
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -318,7 +320,7 @@ export default function WebDesignLanding() {
               <Star key={i} className="h-5 w-5 sm:h-6 sm:w-6 fill-amber-400 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
             ))}
           </div>
-          <p className="mt-2 text-xs tracking-[0.15em] uppercase text-amber-400/60">Trusted by Las Vegas Businesses</p>
+          <p className="mt-2 text-xs tracking-[0.15em] uppercase text-amber-400/60">Trusted by {visitorCity} Businesses</p>
         </motion.div>
 
         <motion.div className="absolute bottom-8 left-1/2 -translate-x-1/2" animate={{ y: [0, 8, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}>
@@ -334,13 +336,13 @@ export default function WebDesignLanding() {
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/[0.05]">
               <Code className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">Vegas Web Design</span>
+              <span className="text-xs tracking-[0.2em] uppercase text-cyan-400/70">{visitorCity} Web Design</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
-              Vegas Businesses <span className="text-cyan-400">Deserve Better Websites.</span>
+              {visitorCity} Businesses <span className="text-cyan-400">Deserve Better Websites.</span>
             </h2>
             <p className="text-white/40 text-lg leading-relaxed">
-              Traditional web design takes weeks and costs thousands. Our AI builds your Las Vegas business website — with custom branding, responsive layout, and SEO — in under 48 hours.
+              Traditional web design takes weeks and costs thousands. Our AI builds your {visitorCity} business website — with custom branding, responsive layout, and SEO — in under 48 hours.
             </p>
             <div className="space-y-3">
               {['Custom Branding & Color Palette', 'Mobile-Responsive Design', 'SEO-Optimized Copy & Meta Tags', 'Contact Forms & Lead Capture', 'Google Analytics Integration'].map((item, i) => (
@@ -478,7 +480,7 @@ export default function WebDesignLanding() {
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
               Let's Begin <span className="text-cyan-400">Creating Your Website</span>
             </h2>
-            <p className="mt-4 text-sm text-white/30">Tell us about your Las Vegas business and we'll have your site ready in 48 hours.</p>
+            <p className="mt-4 text-sm text-white/30">Tell us about your {visitorCity} business and we'll have your site ready in 48 hours.</p>
           </motion.div>
 
           {submitted ? (
