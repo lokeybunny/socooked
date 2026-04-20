@@ -133,7 +133,7 @@ export default function VideographyLanding() {
       "alternateName": "Warren Guru Videographer",
       "description": "Professional videography, live streaming, and event recording services. Weddings, funerals, corporate events — multi-camera 4K broadcast quality.",
       "url": "https://warren.guru/video",
-      "telephone": "+17023574528",
+      "telephone": "+17474949386",
       "email": "info@warren.guru",
       "image": "https://warren.guru/images/og-video.jpg",
       "priceRange": "$$",
@@ -180,7 +180,7 @@ export default function VideographyLanding() {
     <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
       <SEOHead
         title="Videographer & Live Streaming | Warren Guru"
-        description="Professional videography and live streaming services. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (702) 357-4528."
+        description="Professional videography and live streaming services. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (747) 494-9386."
         canonical="https://warren.guru/video"
         keywords="videographer, live streaming, wedding videography, funeral live stream, event recording, video production, 4K live streaming"
         jsonLd={videoJsonLd}
@@ -251,8 +251,8 @@ export default function VideographyLanding() {
               Book Streaming / Recording
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </a>
-            <a href="tel:+17023574528" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-emerald-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-emerald-500/[0.1] hover:border-emerald-500/30 transition-all">
-              📞 (702) 357-4528
+            <a href="tel:+17474949386" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-emerald-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-emerald-500/[0.1] hover:border-emerald-500/30 transition-all">
+              📞 (747) 494-9386
             </a>
           </div>
 
