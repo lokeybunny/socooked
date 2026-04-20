@@ -11,7 +11,7 @@ import {
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
 import { motion } from 'framer-motion';
-import { useVisitorCity } from '@/hooks/useVisitorCity';
+import { useVisitorLocation } from '@/hooks/useVisitorCity';
 
 import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
@@ -48,7 +48,11 @@ const steps = [
 
 export default function WebDesignLanding() {
   useMetaPixel('3210977432422611');
-  const visitorCity = useVisitorCity();
+  const { city: visitorCity, region: visitorRegion } = useVisitorLocation();
+  // Show LA number for Los Angeles–area visitors; otherwise default to NV number.
+  const isLA = visitorRegion === 'CA' && /los angeles|long beach|burbank|glendale|pasadena|santa monica|hollywood|inglewood|culver/i.test(visitorCity);
+  const phoneDisplay = isLA ? '(818) 463-1007' : '(702) 357-4528';
+  const phoneTel = isLA ? '+18184631007' : '+17023574528';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -273,8 +277,8 @@ export default function WebDesignLanding() {
               Get Your Website
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </a>
-            <a href="tel:+17023574528" className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.05] text-cyan-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-cyan-500/[0.1] hover:border-cyan-500/30 transition-all">
-              📞 (702) 357-4528
+            <a href={`tel:${phoneTel}`} className="group flex items-center gap-3 px-10 py-4 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.05] text-cyan-400 text-sm tracking-[0.2em] uppercase font-medium hover:bg-cyan-500/[0.1] hover:border-cyan-500/30 transition-all">
+              📞 {phoneDisplay}
             </a>
           </div>
 
