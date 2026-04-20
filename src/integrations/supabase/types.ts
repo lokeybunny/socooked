@@ -3595,6 +3595,128 @@ export type Database = {
           },
         ]
       }
+      proposals: {
+        Row: {
+          amount: number | null
+          client_email: string | null
+          client_name: string
+          client_phone: string | null
+          company_name: string | null
+          created_at: string
+          currency: string | null
+          customer_id: string | null
+          deal_id: string | null
+          document_id: string | null
+          expiration_date: string | null
+          id: string
+          invoice_id: string | null
+          lead_id: string | null
+          line_items: Json
+          meta: Json
+          notes: string | null
+          project_id: string | null
+          proposal_body: string | null
+          sent_at: string | null
+          sent_by: string | null
+          signature_required: boolean
+          signed_at: string | null
+          status: string
+          terms: string | null
+          title: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          amount?: number | null
+          client_email?: string | null
+          client_name: string
+          client_phone?: string | null
+          company_name?: string | null
+          created_at?: string
+          currency?: string | null
+          customer_id?: string | null
+          deal_id?: string | null
+          document_id?: string | null
+          expiration_date?: string | null
+          id?: string
+          invoice_id?: string | null
+          lead_id?: string | null
+          line_items?: Json
+          meta?: Json
+          notes?: string | null
+          project_id?: string | null
+          proposal_body?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          signature_required?: boolean
+          signed_at?: string | null
+          status?: string
+          terms?: string | null
+          title: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          amount?: number | null
+          client_email?: string | null
+          client_name?: string
+          client_phone?: string | null
+          company_name?: string | null
+          created_at?: string
+          currency?: string | null
+          customer_id?: string | null
+          deal_id?: string | null
+          document_id?: string | null
+          expiration_date?: string | null
+          id?: string
+          invoice_id?: string | null
+          lead_id?: string | null
+          line_items?: Json
+          meta?: Json
+          notes?: string | null
+          project_id?: string | null
+          proposal_body?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          signature_required?: boolean
+          signed_at?: string | null
+          status?: string
+          terms?: string | null
+          title?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       raiders: {
         Row: {
           created_at: string

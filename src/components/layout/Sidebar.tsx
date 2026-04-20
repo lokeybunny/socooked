@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,13 @@ const navEntries: NavEntry[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
   { to: '/leads', icon: Handshake, label: 'Leads', botIcon: true },
-  { to: '/invoices', icon: Receipt, label: 'Invoices', botIcon: true },
+  {
+    icon: Receipt, label: 'Invoices',
+    children: [
+      { to: '/invoices', icon: Receipt, label: 'Invoices', botIcon: true },
+      { to: '/proposals', icon: FileSignature, label: 'Proposal', botIcon: true },
+    ],
+  },
   { to: '/messages', icon: Mail, label: 'E-Mail', botIcon: true },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar', botIcon: true },
   { to: '/custom-u', icon: Link2, label: 'Custom-U', botIcon: true },

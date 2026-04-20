@@ -74,6 +74,7 @@ const CourseLogin = lazyWithRetry(() => import("./pages/CourseLogin"), "page-cou
 const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-course-learn");
 const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
+const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -120,6 +121,7 @@ const App = () => (
                 <Route path="/content/upload/:customerId" element={<RestrictedGate><CustomerUpload /></RestrictedGate>} />
                 <Route path="/threads" element={<RestrictedGate><Threads /></RestrictedGate>} />
                 <Route path="/invoices" element={<RestrictedGate><Invoices /></RestrictedGate>} />
+                <Route path="/proposals" element={<RestrictedGate><Proposals /></RestrictedGate>} />
                 <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
                 <Route path="/phone" element={<PhonePage />} />
                 <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
