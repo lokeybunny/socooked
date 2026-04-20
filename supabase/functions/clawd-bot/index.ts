@@ -3797,7 +3797,8 @@ IMPORTANT:
     // POST /proposal — create or update (upsert by id)
     if (path === 'proposal' && req.method === 'POST') {
       const v = body as Record<string, any>
-      if (!v.title || !v.client_name) return fail('title and client_name required')
+      console.log('[proposal POST] received body keys:', Object.keys(v), 'body:', JSON.stringify(v).substring(0, 500))
+      if (!v.title || !v.client_name) return fail(`title and client_name required. Received keys: ${Object.keys(v).join(', ') || '(empty body)'}`)
 
       if (v.id) {
         const { data, error } = await supabase.from('proposals').update({
