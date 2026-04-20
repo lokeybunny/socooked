@@ -154,7 +154,7 @@ export default function Proposals() {
   const removeLine = (i: number) => setLineItems(lineItems.filter((_, idx) => idx !== i));
   const updateLine = (i: number, field: keyof LineItem, value: string | number) => {
     const copy = [...lineItems];
-    (copy[i] as Record<string, unknown>)[field] = value;
+    (copy[i] as unknown as Record<string, unknown>)[field] = value;
     setLineItems(copy);
   };
 
@@ -191,7 +191,8 @@ ${itemsTxt || 'N/A'}`;
     if (!form.title || !form.client_name) { toast.error('Title and client name required'); return; }
     setSubmitting(true);
     try {
-      const payload = {
+      const cleanItems = lineItems.filter(li => li.description);
+      const basePayload = {
         title: form.title,
         client_name: form.client_name,
         client_email: form.client_email || null,
@@ -199,7 +200,7 @@ ${itemsTxt || 'N/A'}`;
         company_name: form.company_name || null,
         amount: subtotal,
         currency: form.currency,
-        line_items: lineItems.filter(li => li.description),
+        line_items: cleanItems as unknown as never,
         notes: form.notes || null,
         terms: form.terms || null,
         proposal_body: form.proposal_body || null,
@@ -209,11 +210,11 @@ ${itemsTxt || 'N/A'}`;
       };
 
       if (editing) {
-        const { error } = await supabase.from('proposals').update(payload).eq('id', editing.id);
+        const { error } = await supabase.from('proposals').update(basePayload).eq('id', editing.id);
         if (error) throw error;
         toast.success('Proposal updated');
       } else {
-        const { error } = await supabase.from('proposals').insert({ ...payload, status: 'draft' });
+        const { error } = await supabase.from('proposals').insert({ ...basePayload, status: 'draft' } as never);
         if (error) throw error;
         toast.success('Proposal saved');
       }
