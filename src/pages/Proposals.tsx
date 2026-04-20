@@ -585,7 +585,7 @@ ${itemsTxt || 'N/A'}`;
                 <div className="space-y-1.5 border-l-2 border-border pl-4">
                   <div className="text-xs"><span className="text-muted-foreground">Created:</span> {format(new Date(detail.created_at), 'MMM d, yyyy h:mm a')}</div>
                   {detail.sent_at && <div className="text-xs"><span className="text-muted-foreground">Sent:</span> {format(new Date(detail.sent_at), 'MMM d, yyyy h:mm a')}</div>}
-                  {detail.signed_at && <div className="text-xs text-emerald-600 dark:text-emerald-400"><span className="text-muted-foreground">Signed:</span> {format(new Date(detail.signed_at), 'MMM d, yyyy h:mm a')}</div>}
+                  {detail.signed_at && <div className="text-xs text-primary"><span className="text-muted-foreground">Signed:</span> {format(new Date(detail.signed_at), 'MMM d, yyyy h:mm a')}</div>}
                 </div>
 
                 {detail.line_items?.length > 0 && (
