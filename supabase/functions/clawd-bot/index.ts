@@ -3771,9 +3771,198 @@ IMPORTANT:
       }
     }
 
+    // ─── PROPOSALS (CRM module) ──────────────────────────────
+    // GET /proposals?status=&customer_id=
+    if (path === 'proposals' && req.method === 'GET') {
+      const status = params.get('status')
+      const customerId = params.get('customer_id')
+      let q = supabase.from('proposals').select('*').order('created_at', { ascending: false }).limit(200)
+      if (status) q = q.eq('status', status)
+      if (customerId) q = q.eq('customer_id', customerId)
+      const { data, error } = await q
+      if (error) return fail(error.message)
+      return ok({ proposals: data })
+    }
+
+    // GET /proposal?id=...   |   /proposal/status?id=...
+    if ((path === 'proposal' || path === 'proposal-status') && req.method === 'GET') {
+      const id = params.get('id') || (body.id as string)
+      if (!id) return fail('id required')
+      const { data, error } = await supabase.from('proposals').select('*').eq('id', id).maybeSingle()
+      if (error) return fail(error.message)
+      if (!data) return fail('Proposal not found', 404)
+      return ok({ proposal: data })
+    }
+
+    // POST /proposal — create or update (upsert by id)
+    if (path === 'proposal' && req.method === 'POST') {
+      const v = body as Record<string, any>
+      if (!v.title || !v.client_name) return fail('title and client_name required')
+
+      if (v.id) {
+        const { data, error } = await supabase.from('proposals').update({
+          title: v.title, client_name: v.client_name, client_email: v.client_email || null,
+          client_phone: v.client_phone || null, company_name: v.company_name || null,
+          amount: v.amount || 0, currency: v.currency || 'USD',
+          line_items: v.line_items || [], notes: v.notes || null, terms: v.terms || null,
+          proposal_body: v.proposal_body || null, expiration_date: v.expiration_date || null,
+          signature_required: v.signature_required ?? true,
+          customer_id: v.customer_id || null, deal_id: v.deal_id || null,
+        }).eq('id', v.id).select('*').maybeSingle()
+        if (error) return fail(error.message)
+        await logActivity(supabase, 'proposal', v.id, 'updated', v.title)
+        return ok({ proposal: data })
+      }
+
+      const { data, error } = await supabase.from('proposals').insert({
+        title: v.title, client_name: v.client_name, client_email: v.client_email || null,
+        client_phone: v.client_phone || null, company_name: v.company_name || null,
+        amount: v.amount || 0, currency: v.currency || 'USD',
+        line_items: v.line_items || [], notes: v.notes || null, terms: v.terms || null,
+        proposal_body: v.proposal_body || null, expiration_date: v.expiration_date || null,
+        signature_required: v.signature_required ?? true,
+        customer_id: v.customer_id || null, deal_id: v.deal_id || null,
+        status: 'draft',
+      }).select('*').single()
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'proposal', data.id, 'created', v.title)
+      return ok({ proposal: data })
+    }
+
+    // POST /proposal/send — generate signing doc + email via gmail-api
+    if (path === 'proposal-send' && req.method === 'POST') {
+      const id = (body.id as string) || params.get('id')
+      if (!id) return fail('id required')
+
+      const { data: p, error: pErr } = await supabase.from('proposals').select('*').eq('id', id).maybeSingle()
+      if (pErr) return fail(pErr.message)
+      if (!p) return fail('Proposal not found', 404)
+      if (!p.client_email) return fail('Proposal has no client_email')
+
+      // Build proposal body if missing
+      const body_text = p.proposal_body || buildFallbackBody(p)
+
+      // Find or create a customer to attach (most flows require customer_id on documents)
+      let customerId = p.customer_id
+      if (!customerId) {
+        const { data: existing } = await supabase.from('customers').select('id').eq('email', p.client_email).limit(1).maybeSingle()
+        if (existing) customerId = existing.id
+        else {
+          const { data: created } = await supabase.from('customers').insert({
+            full_name: p.client_name, email: p.client_email, phone: p.client_phone,
+            company: p.company_name, source: 'proposal', status: 'lead',
+          }).select('id').single()
+          customerId = created?.id
+        }
+        if (customerId) await supabase.from('proposals').update({ customer_id: customerId }).eq('id', id)
+      }
+
+      // Create signable document (mirrors wholesale-agreement flow)
+      const { data: doc, error: docErr } = await supabase.from('documents').insert({
+        customer_id: customerId,
+        type: 'proposal',
+        title: p.title,
+        status: p.signature_required ? 'pending_signature' : 'final',
+        file_url: body_text,
+        category: 'proposal',
+      }).select('id').single()
+      if (docErr) return fail(docErr.message)
+
+      const baseUrl = Deno.env.get('PUBLIC_APP_URL') || 'https://stu25.com'
+      const signUrl = `${baseUrl}/sign/agreement/${doc.id}`
+
+      // Email via gmail-api
+      const html = buildProposalEmailHtml(p, signUrl, body_text)
+      const gmailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-api?action=send`
+      try {
+        await fetch(gmailUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({
+            to: p.client_email,
+            subject: `Proposal: ${p.title}`,
+            body: html,
+          }),
+        })
+      } catch (e) { console.error('gmail send failed', e) }
+
+      await supabase.from('proposals').update({
+        status: 'sent', sent_at: new Date().toISOString(), document_id: doc.id,
+      }).eq('id', id)
+
+      await supabase.from('communications').insert({
+        type: 'email', direction: 'outbound', status: 'sent',
+        customer_id: customerId, to_address: p.client_email,
+        subject: `Proposal: ${p.title}`, body: `Proposal sent. Sign URL: ${signUrl}`,
+        provider: 'proposal', metadata: { proposal_id: id, document_id: doc.id },
+      })
+
+      return ok({ proposal_id: id, document_id: doc.id, sign_url: signUrl, sent: true })
+    }
+
+    // DELETE /proposal?id=...
+    if (path === 'proposal' && req.method === 'DELETE') {
+      const id = (body.id as string) || params.get('id')
+      if (!id) return fail('id required')
+      const { error } = await supabase.from('proposals').delete().eq('id', id)
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'proposal', id, 'deleted')
+      return ok({ deleted: true })
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     return fail(msg, 500)
   }
 })
+
+// ───── Proposal helpers ─────────────────────────────────────
+function buildFallbackBody(p: Record<string, any>): string {
+  const items = Array.isArray(p.line_items) ? p.line_items : []
+  const itemsTxt = items.length
+    ? items.map((li: any) => `• ${li.description || 'Item'} — ${li.quantity || 1} × $${Number(li.unit_price || 0).toFixed(2)}`).join('\n')
+    : 'See attached pricing.'
+  return `PROPOSAL — ${p.title}
+
+Prepared for: ${p.client_name}${p.company_name ? ' (' + p.company_name + ')' : ''}
+Date: ${new Date().toLocaleDateString()}
+${p.expiration_date ? 'Valid through: ' + p.expiration_date : ''}
+
+SCOPE OF WORK
+${p.notes || 'See line items below.'}
+
+LINE ITEMS
+${itemsTxt}
+
+INVESTMENT
+Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}
+
+TERMS
+${p.terms || 'Standard terms apply. 50% deposit due upon signature, balance on completion.'}
+
+ACCEPTANCE
+By signing below, the client accepts the scope, pricing, and terms outlined above.`
+}
+
+function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: string): string {
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+  <div style="background:#059669;padding:24px;text-align:center;border-radius:8px 8px 0 0;">
+    <h1 style="color:white;margin:0;font-size:22px;">📄 Proposal Ready for Review</h1>
+  </div>
+  <div style="padding:24px;background:#f9fafb;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+    <p style="font-size:15px;color:#374151;">Hi ${p.client_name},</p>
+    <p style="font-size:14px;color:#374151;">Your proposal "<strong>${p.title}</strong>" is ready. Please review and sign at the link below.</p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${signUrl}" style="display:inline-block;background:#059669;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Sign Proposal</a>
+    </div>
+    <p style="font-size:12px;color:#6b7280;text-align:center;">Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}${p.expiration_date ? ' · Valid through ' + p.expiration_date : ''}</p>
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+    <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:#374151;">${body}</pre>
+  </div>
+</div>`
+}
+
