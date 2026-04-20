@@ -1,34 +1,41 @@
 import { useEffect, useState } from 'react';
 
-const CACHE_KEY = 'visitor_city_v1';
+const CACHE_KEY = 'visitor_city_v2';
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
 const DEFAULT_CITY = 'Las Vegas';
+const DEFAULT_REGION = 'NV';
 
-interface CachedCity {
+interface CachedLocation {
   city: string;
+  region: string; // state/region code, e.g. "NV", "CA"
   ts: number;
 }
 
+export interface VisitorLocation {
+  city: string;
+  region: string;
+}
+
 /**
- * Detects the visitor's city via free IP geolocation (ipapi.co).
- * Falls back to "Las Vegas" if detection fails or is still loading.
- * Result is cached in localStorage for 24h to avoid repeat calls.
+ * Detects the visitor's city + region (state code) via free IP geolocation (ipapi.co).
+ * Falls back to "Las Vegas, NV" if detection fails or is still loading.
+ * Cached in localStorage for 24h.
  */
-export function useVisitorCity(): string {
-  const [city, setCity] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_CITY;
+export function useVisitorLocation(): VisitorLocation {
+  const [loc, setLoc] = useState<VisitorLocation>(() => {
+    if (typeof window === 'undefined') return { city: DEFAULT_CITY, region: DEFAULT_REGION };
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (raw) {
-        const parsed: CachedCity = JSON.parse(raw);
+        const parsed: CachedLocation = JSON.parse(raw);
         if (Date.now() - parsed.ts < CACHE_TTL_MS && parsed.city) {
-          return parsed.city;
+          return { city: parsed.city, region: parsed.region || DEFAULT_REGION };
         }
       }
     } catch {
       // ignore
     }
-    return DEFAULT_CITY;
+    return { city: DEFAULT_CITY, region: DEFAULT_REGION };
   });
 
   useEffect(() => {
@@ -36,7 +43,7 @@ export function useVisitorCity(): string {
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (raw) {
-        const parsed: CachedCity = JSON.parse(raw);
+        const parsed: CachedLocation = JSON.parse(raw);
         if (Date.now() - parsed.ts < CACHE_TTL_MS && parsed.city) return;
       }
     } catch {
@@ -48,13 +55,18 @@ export function useVisitorCity(): string {
         const res = await fetch('https://ipapi.co/json/');
         if (!res.ok) return;
         const data = await res.json();
-        const detected: string | undefined = data?.city;
-        if (!aborted && detected && typeof detected === 'string') {
-          setCity(detected);
+        const detectedCity: string | undefined = data?.city;
+        const detectedRegion: string | undefined = data?.region_code || data?.region;
+        if (!aborted && detectedCity && typeof detectedCity === 'string') {
+          const next = {
+            city: detectedCity,
+            region: (detectedRegion && typeof detectedRegion === 'string') ? detectedRegion : DEFAULT_REGION,
+          };
+          setLoc(next);
           try {
             localStorage.setItem(
               CACHE_KEY,
-              JSON.stringify({ city: detected, ts: Date.now() } satisfies CachedCity),
+              JSON.stringify({ ...next, ts: Date.now() } satisfies CachedLocation),
             );
           } catch {
             // ignore
@@ -70,5 +82,12 @@ export function useVisitorCity(): string {
     };
   }, []);
 
-  return city;
+  return loc;
+}
+
+/**
+ * Backwards-compatible city-only hook.
+ */
+export function useVisitorCity(): string {
+  return useVisitorLocation().city;
 }
