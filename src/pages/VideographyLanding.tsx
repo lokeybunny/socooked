@@ -129,32 +129,14 @@ export default function VideographyLanding() {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
       "@id": "https://warren.guru/video#business",
-      "name": "Warren Guru Las Vegas Videography",
+      "name": "Warren Guru Videography",
       "alternateName": "Warren Guru Videographer",
-      "description": "Professional videography, live streaming, and event recording services in Las Vegas and Henderson, Nevada. Weddings, funerals, corporate events — multi-camera 4K broadcast quality.",
+      "description": "Professional videography, live streaming, and event recording services. Weddings, funerals, corporate events — multi-camera 4K broadcast quality.",
       "url": "https://warren.guru/video",
       "telephone": "+17474949386",
       "email": "info@warren.guru",
       "image": "https://warren.guru/images/og-video.jpg",
       "priceRange": "$$",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Las Vegas",
-        "addressRegion": "NV",
-        "addressCountry": "US"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": 36.1699,
-        "longitude": -115.1398
-      },
-      "areaServed": [
-        { "@type": "City", "name": "Las Vegas", "sameAs": "https://en.wikipedia.org/wiki/Las_Vegas" },
-        { "@type": "City", "name": "Henderson", "sameAs": "https://en.wikipedia.org/wiki/Henderson,_Nevada" },
-        { "@type": "City", "name": "North Las Vegas" },
-        { "@type": "City", "name": "Summerlin" },
-        { "@type": "City", "name": "Paradise" }
-      ],
       "openingHoursSpecification": {
         "@type": "OpeningHoursSpecification",
         "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
@@ -172,15 +154,14 @@ export default function VideographyLanding() {
       "@type": "Service",
       "serviceType": "Videography & Live Streaming",
       "provider": { "@id": "https://warren.guru/video#business" },
-      "areaServed": { "@type": "City", "name": "Las Vegas" },
-      "description": "Professional live streaming and videography for weddings, funerals, corporate events, and special occasions in Las Vegas, NV. Multi-camera 4K coverage with bonded internet.",
+      "description": "Professional live streaming and videography for weddings, funerals, corporate events, and special occasions. Multi-camera 4K coverage with bonded internet.",
       "hasOfferCatalog": {
         "@type": "OfferCatalog",
         "name": "Videography Services",
         "itemListElement": [
-          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Wedding Videography Las Vegas" } },
-          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Funeral Live Streaming Las Vegas" } },
-          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Corporate Event Recording Las Vegas" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Wedding Videography" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Funeral Live Streaming" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Corporate Event Recording" } },
           { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Multi-Camera 4K Live Broadcast" } }
         ]
       }
@@ -198,10 +179,10 @@ export default function VideographyLanding() {
   return (
     <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
       <SEOHead
-        title="Las Vegas Videographer & Live Streaming | Warren Guru"
-        description="Professional videography and live streaming services in Las Vegas, NV. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (747) 494-9386."
+        title="Videographer & Live Streaming | Warren Guru"
+        description="Professional videography and live streaming services. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (747) 494-9386."
         canonical="https://warren.guru/video"
-        keywords="Las Vegas videographer, live streaming Las Vegas, wedding videography Las Vegas, funeral live stream Nevada, event recording Henderson NV, videographer near me, Las Vegas video production, 4K live streaming Las Vegas"
+        keywords="videographer, live streaming, wedding videography, funeral live stream, event recording, video production, 4K live streaming"
         jsonLd={videoJsonLd}
       />
       {/* ─── Sticky header (matches AI Director) ─── */}
