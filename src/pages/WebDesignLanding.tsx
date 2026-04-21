@@ -117,6 +117,17 @@ export default function WebDesignLanding() {
       supabase.functions.invoke('funnel-autoresponder', {
         body: { funnel: 'webdesign', recipientEmail: email.trim(), recipientName: name.trim() },
       }).catch((err) => console.error('Autoresponder failed:', err));
+      // Discord lead notification
+      supabase.functions.invoke('discord-lead-notify', {
+        body: {
+          category: 'web',
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          business: businessName.trim() || null,
+          message: message.trim() || null,
+        },
+      }).catch((err) => console.error('Discord notify failed:', err));
       setSubmitted(true);
       navigate('/thankyou-webdesign');
       toast.success('Request submitted! We\'ll be in touch shortly.');
