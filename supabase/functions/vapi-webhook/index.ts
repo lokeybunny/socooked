@@ -794,6 +794,92 @@ serve(async (req) => {
           },
         });
 
+        // ─── Discord: Send "Call Ended" notification with transcript + recording buttons ───
+        if (funnel) {
+          try {
+            const callerName = customerLead.full_name && !isPlaceholderLeadName(customerLead.full_name)
+              ? customerLead.full_name
+              : `Direct Caller (${customerPhone || "Unknown"})`;
+            const endNotifyBody = {
+              event: "call_ended",
+              category: funnel.tag,
+              name: callerName,
+              phone: customerPhone || customerLead.phone || "Unknown",
+              email: customerLead.email || null,
+              customerId: customerLead.id,
+              callId,
+              recordingUrl: recordingUrl || null,
+              summary: summary || null,
+              transcriptText: transcript || null,
+              duration,
+              disposition,
+              notes: callFailed
+                ? `⚠️ Call did not connect. Reason: ${endedReason}`
+                : `📞 Call complete — ${disposition}.`,
+              extra: {
+                "Ended Reason": endedReason,
+                "Call ID": callId,
+              },
+            };
+            let endNotifyOk = false;
+            try {
+              const { error: endInvokeErr } = await sb.functions.invoke("discord-lead-notify", { body: endNotifyBody });
+              if (endInvokeErr) throw endInvokeErr;
+              endNotifyOk = true;
+              console.log(`[end-of-call] Discord 'call_ended' notify sent for call ${callId}`);
+            } catch (endNotifyErr) {
+              console.error("[end-of-call] Discord invoke failed, using direct webhook fallback:", endNotifyErr);
+            }
+            if (!endNotifyOk) {
+              try {
+                const DIRECT_WEBHOOK = "https://discord.com/api/webhooks/1496195405199835388/TSjesn8TtD3RV6TJtcWXT7UyfXJ4mkmo3jFRXhUbaC_bIhj5lBsXPn0CUWTVYiSjM__F";
+                const MENTION_USER_ID = "1044533644347330580";
+                const transcriptHref = `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}`;
+                const recordingHref = recordingUrl || `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}&include=recording`;
+                const notesHref = `https://stu25.com/customers?customer=${encodeURIComponent(customerLead.id)}`;
+                const summaryClip = (summary || transcript || "").slice(0, 900);
+                const fallbackPayload = {
+                  content: `<@${MENTION_USER_ID}> 📞 **${funnel.label}** call ended — review below.`,
+                  allowed_mentions: { users: [MENTION_USER_ID] },
+                  embeds: [{
+                    title: `✅ Call Ended — ${funnel.label}`,
+                    description: `Call with **${callerName}** just wrapped.`,
+                    color: funnel.tag === "web" ? 0x3b82f6 : 0xa855f7,
+                    fields: [
+                      { name: "Phone", value: customerPhone || "Unknown", inline: true },
+                      { name: "Duration", value: `${Math.round(duration)}s`, inline: true },
+                      { name: "Disposition", value: disposition, inline: true },
+                      ...(summaryClip ? [{ name: "Summary", value: summaryClip, inline: false }] : []),
+                      { name: "Call ID", value: callId, inline: false },
+                    ],
+                    timestamp: new Date().toISOString(),
+                    footer: { text: "Warren Guru • Call Ended (fallback)" },
+                  }],
+                  components: [{
+                    type: 1,
+                    components: [
+                      { type: 2, style: 5, label: "📄 Download Transcript", url: transcriptHref },
+                      { type: 2, style: 5, label: "🎧 Listen to Recording", url: recordingHref },
+                      { type: 2, style: 5, label: "📒 View Caller Notes", url: notesHref },
+                    ],
+                  }],
+                };
+                const dRes = await fetch(DIRECT_WEBHOOK, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(fallbackPayload),
+                });
+                if (!dRes.ok) console.error("[end-of-call] Direct Discord webhook failed:", dRes.status, await dRes.text());
+                else console.log(`[end-of-call] Discord 'call_ended' direct fallback sent for call ${callId}`);
+              } catch (dErr) {
+                console.error("[end-of-call] Direct Discord webhook threw:", dErr);
+              }
+            }
+          } catch (notifyErr) {
+            console.error("[end-of-call] Discord call_ended notify error:", notifyErr);
+          }
+        }
+
         // ─── Videography: Auto-create tentative booking from transcript ───
         const isVideography = customerLead.source === "videography-landing";
         if (isVideography && !callFailed) {
