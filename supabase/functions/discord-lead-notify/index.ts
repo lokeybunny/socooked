@@ -120,36 +120,21 @@ serve(async (req) => {
       }
     }
 
-    // Build link buttons (Discord allows webhooks to send link-style buttons)
-    const buttons: any[] = [];
+    // Build action links. NOTE: Standard channel webhooks cannot send Discord
+    // `components` (link buttons) — that's an application/bot-only feature. So we
+    // render the actions as a markdown link row inside the embed instead, which
+    // works for ANY webhook and shows up as tappable links on mobile + desktop.
+    const actionLinks: string[] = [];
     if (callId) {
-      // Download full transcript as .txt
-      buttons.push({
-        type: COMPONENT_BUTTON,
-        style: BUTTON_LINK,
-        label: "📄 Download Transcript",
-        url: `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}`,
-      });
-      // 🎧 Listen to Recording — ALWAYS render this button when we have a callId.
-      // Prefer the direct recordingUrl when present; otherwise redirect via call-transcript
-      // (which will return the recording once Vapi has uploaded it).
+      const transcriptUrl = `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}`;
       const recHref = recordingUrl && /^https?:\/\//i.test(String(recordingUrl))
         ? String(recordingUrl)
         : `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}&include=recording`;
-      buttons.push({
-        type: COMPONENT_BUTTON,
-        style: BUTTON_LINK,
-        label: "🎧 Listen to Recording",
-        url: recHref,
-      });
+      actionLinks.push(`[📄 Download Transcript](${transcriptUrl})`);
+      actionLinks.push(`[🎧 Listen to Recording](${recHref})`);
     }
     if (customerId) {
-      buttons.push({
-        type: COMPONENT_BUTTON,
-        style: BUTTON_LINK,
-        label: "📒 View Caller Notes",
-        url: `${APP_BASE}/customers?customer=${encodeURIComponent(customerId)}`,
-      });
+      actionLinks.push(`[📒 View Caller Notes](${APP_BASE}/customers?customer=${encodeURIComponent(customerId)})`);
     }
 
     // Tailor headline based on event
@@ -170,6 +155,11 @@ serve(async (req) => {
       contentText = `<@${MENTION_USER_ID}> 📞 **${meta.label}** call ended — review below.`;
     }
 
+    // Append action links to the description so they render as tappable links
+    if (actionLinks.length > 0) {
+      descText += `\n\n${actionLinks.join("  •  ")}`;
+    }
+
     const payload: any = {
       content: contentText,
       allowed_mentions: { users: [MENTION_USER_ID] },
@@ -184,13 +174,6 @@ serve(async (req) => {
         },
       ],
     };
-
-    if (buttons.length > 0) {
-      // Discord allows up to 5 buttons per action row
-      payload.components = [
-        { type: COMPONENT_ACTION_ROW, components: buttons.slice(0, 5) },
-      ];
-    }
 
     const res = await fetch(WEBHOOK_URL, {
       method: "POST",
