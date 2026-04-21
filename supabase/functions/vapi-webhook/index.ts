@@ -883,32 +883,73 @@ serve(async (req) => {
             const notifyKey = `discord_notified_${callId}`;
             const alreadyNotified = (custByCall?.meta as any)?.[notifyKey];
             if (!alreadyNotified) {
+              const callerName = custByCall?.full_name && !isPlaceholderLeadName(custByCall.full_name)
+                ? custByCall.full_name
+                : `Direct Caller (${customerPhone || "Unknown"})`;
+              const notifyBody = {
+                category: funnel.tag,
+                name: callerName,
+                phone: customerPhone || "Unknown",
+                email: custByCall?.email || null,
+                notes: `📞 Live inbound call in progress on the ${funnel.label} AI line.`,
+                extra: {
+                  "Call Status": mappedStatus === "in_call" ? "🟢 LIVE — On Call Now" : "📞 Ringing",
+                  "Call ID": callId,
+                },
+              };
+
+              let notifyOk = false;
               try {
-                const callerName = custByCall?.full_name && !isPlaceholderLeadName(custByCall.full_name)
-                  ? custByCall.full_name
-                  : `Direct Caller (${customerPhone || "Unknown"})`;
-                await sb.functions.invoke("discord-lead-notify", {
-                  body: {
-                    category: funnel.tag,
-                    name: callerName,
-                    phone: customerPhone || "Unknown",
-                    email: custByCall?.email || null,
-                    notes: `📞 Live inbound call in progress on the ${funnel.label} AI line.`,
-                    extra: {
-                      "Call Status": mappedStatus === "in_call" ? "🟢 LIVE — On Call Now" : "📞 Ringing",
-                      "Call ID": callId,
-                    },
-                  },
-                });
-                if (custByCall) {
-                  const em = (custByCall.meta as any) || {};
-                  await sb.from("customers").update({
-                    meta: { ...em, [notifyKey]: new Date().toISOString() },
-                  }).eq("id", custByCall.id);
-                }
-                console.log(`[status-update] Discord notify sent for ${funnel.tag} call ${callId}`);
+                const { error: invokeErr } = await sb.functions.invoke("discord-lead-notify", { body: notifyBody });
+                if (invokeErr) throw invokeErr;
+                notifyOk = true;
+                console.log(`[status-update] Discord notify (invoke) sent for ${funnel.tag} call ${callId}`);
               } catch (notifyErr) {
-                console.error("[status-update] Discord notify failed:", notifyErr);
+                console.error("[status-update] Discord invoke failed, falling back to direct webhook:", notifyErr);
+              }
+
+              // Fallback: post directly to Discord webhook so we never miss a live call
+              if (!notifyOk) {
+                try {
+                  const DIRECT_WEBHOOK = "https://discord.com/api/webhooks/1496195405199835388/TSjesn8TtD3RV6TJtcWXT7UyfXJ4mkmo3jFRXhUbaC_bIhj5lBsXPn0CUWTVYiSjM__F";
+                  const MENTION_USER_ID = "1044533644347330580";
+                  const fallbackPayload = {
+                    content: `<@${MENTION_USER_ID}> 🚨 LIVE **${funnel.label}** call right now!`,
+                    allowed_mentions: { users: [MENTION_USER_ID] },
+                    embeds: [{
+                      title: `📞 Live Call — ${funnel.label}`,
+                      description: `**${callerName}** is on the ${funnel.label} AI line.`,
+                      color: funnel.tag === "web" ? 0x3b82f6 : 0xa855f7,
+                      fields: [
+                        { name: "Phone", value: customerPhone || "Unknown", inline: true },
+                        { name: "Status", value: notifyBody.extra["Call Status"], inline: true },
+                        { name: "Call ID", value: callId, inline: false },
+                      ],
+                      timestamp: new Date().toISOString(),
+                      footer: { text: "Warren Guru • Live Call (fallback)" },
+                    }],
+                  };
+                  const dRes = await fetch(DIRECT_WEBHOOK, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(fallbackPayload),
+                  });
+                  if (dRes.ok) {
+                    notifyOk = true;
+                    console.log(`[status-update] Discord notify (direct fallback) sent for call ${callId}`);
+                  } else {
+                    console.error("[status-update] Direct Discord webhook failed:", dRes.status, await dRes.text());
+                  }
+                } catch (fallbackErr) {
+                  console.error("[status-update] Direct Discord webhook threw:", fallbackErr);
+                }
+              }
+
+              if (notifyOk && custByCall) {
+                const em = (custByCall.meta as any) || {};
+                await sb.from("customers").update({
+                  meta: { ...em, [notifyKey]: new Date().toISOString() },
+                }).eq("id", custByCall.id);
               }
             }
           }
