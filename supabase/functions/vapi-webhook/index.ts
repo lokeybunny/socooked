@@ -846,8 +846,7 @@ serve(async (req) => {
                     description: `Call with **${callerName}** just wrapped.`,
                     color: funnel.tag === "web" ? 0x3b82f6 : 0xa855f7,
                     fields: [
-                      { name: "Phone", value: customerPhone || "Unknown", inline: true },
-                      { name: "Duration", value: `${Math.round(duration)}s`, inline: true },
+                      { name: "Phone (tap to copy)", value: customerPhone ? `\`${customerPhone}\` · [📞 Call](tel:${customerPhone.replace(/[^\d+]/g, "")})` : "Unknown", inline: true },
                       { name: "Disposition", value: disposition, inline: true },
                       ...(summaryClip ? [{ name: "Summary", value: summaryClip, inline: false }] : []),
                       { name: "Call ID", value: callId, inline: false },
@@ -1007,8 +1006,7 @@ serve(async (req) => {
                       description: `**${callerName}** is on the ${funnel.label} AI line.`,
                       color: funnel.tag === "web" ? 0x3b82f6 : 0xa855f7,
                       fields: [
-                        { name: "Phone", value: customerPhone || "Unknown", inline: true },
-                        { name: "Status", value: notifyBody.extra["Call Status"], inline: true },
+                        { name: "Phone (tap to copy)", value: customerPhone ? `\`${customerPhone}\` · [📞 Call](tel:${customerPhone.replace(/[^\d+]/g, "")})` : "Unknown", inline: true },
                         { name: "Call ID", value: callId, inline: false },
                       ],
                       timestamp: new Date().toISOString(),
