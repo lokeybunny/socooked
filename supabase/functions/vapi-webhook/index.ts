@@ -843,7 +843,7 @@ serve(async (req) => {
                   allowed_mentions: { users: [MENTION_USER_ID] },
                   embeds: [{
                     title: `✅ Call Ended — ${funnel.label}`,
-                    description: `Call with **${callerName}** just wrapped.`,
+                    description: `Call with **${callerName}** just wrapped.\n\n[📄 Download Transcript](${transcriptHref})  •  [🎧 Listen to Recording](${recordingHref})  •  [📒 View Caller Notes](${notesHref})`,
                     color: funnel.tag === "web" ? 0x3b82f6 : 0xa855f7,
                     fields: [
                       { name: "Phone (tap to copy)", value: customerPhone ? `\`${customerPhone}\` · [📞 Call](tel:${customerPhone.replace(/[^\d+]/g, "")})` : "Unknown", inline: true },
@@ -853,14 +853,6 @@ serve(async (req) => {
                     ],
                     timestamp: new Date().toISOString(),
                     footer: { text: "Warren Guru • Call Ended (fallback)" },
-                  }],
-                  components: [{
-                    type: 1,
-                    components: [
-                      { type: 2, style: 5, label: "📄 Download Transcript", url: transcriptHref },
-                      { type: 2, style: 5, label: "🎧 Listen to Recording", url: recordingHref },
-                      { type: 2, style: 5, label: "📒 View Caller Notes", url: notesHref },
-                    ],
                   }],
                 };
                 const dRes = await fetch(DIRECT_WEBHOOK, {
