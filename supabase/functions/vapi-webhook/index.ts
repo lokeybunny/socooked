@@ -972,10 +972,13 @@ serve(async (req) => {
                 ? custByCall.full_name
                 : `Direct Caller (${customerPhone || "Unknown"})`;
               const notifyBody = {
+                event: "call_started",
                 category: funnel.tag,
                 name: callerName,
                 phone: customerPhone || "Unknown",
                 email: custByCall?.email || null,
+                customerId: custByCall?.id || null,
+                callId,
                 notes: `📞 Live inbound call in progress on the ${funnel.label} AI line.`,
                 extra: {
                   "Call Status": mappedStatus === "in_call" ? "🟢 LIVE — On Call Now" : "📞 Ringing",

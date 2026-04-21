@@ -130,9 +130,11 @@ serve(async (req) => {
         label: "📄 Download Transcript",
         url: `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}`,
       });
-      // Direct recording link (prefer recordingUrl; fallback to redirect)
-      const recHref = recordingUrl
-        ? recordingUrl
+      // 🎧 Listen to Recording — ALWAYS render this button when we have a callId.
+      // Prefer the direct recordingUrl when present; otherwise redirect via call-transcript
+      // (which will return the recording once Vapi has uploaded it).
+      const recHref = recordingUrl && /^https?:\/\//i.test(String(recordingUrl))
+        ? String(recordingUrl)
         : `${SUPABASE_URL}/functions/v1/call-transcript?call_id=${encodeURIComponent(callId)}&include=recording`;
       buttons.push({
         type: COMPONENT_BUTTON,
