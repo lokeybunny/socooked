@@ -52,6 +52,198 @@ export type Database = {
           },
         ]
       }
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_label: string | null
+          event_name: string
+          event_value: number | null
+          id: string
+          meta: Json
+          path: string | null
+          session_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_label?: string | null
+          event_name: string
+          event_value?: number | null
+          id?: string
+          meta?: Json
+          path?: string | null
+          session_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          event_label?: string | null
+          event_name?: string
+          event_value?: number | null
+          id?: string
+          meta?: Json
+          path?: string | null
+          session_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_pageviews: {
+        Row: {
+          created_at: string
+          id: string
+          path: string
+          referrer: string | null
+          scroll_depth_pct: number | null
+          session_id: string
+          time_on_page_seconds: number | null
+          title: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          path: string
+          referrer?: string | null
+          scroll_depth_pct?: number | null
+          session_id: string
+          time_on_page_seconds?: number | null
+          title?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          path?: string
+          referrer?: string | null
+          scroll_depth_pct?: number | null
+          session_id?: string
+          time_on_page_seconds?: number | null
+          title?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_pageviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_sessions: {
+        Row: {
+          browser: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          customer_id: string | null
+          device_type: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          events_count: number | null
+          exit_path: string | null
+          id: string
+          ip_hash: string | null
+          is_bounce: boolean | null
+          landing_path: string | null
+          last_seen_at: string
+          meta: Json
+          os: string | null
+          page_views_count: number | null
+          referrer: string | null
+          referrer_domain: string | null
+          region: string | null
+          started_at: string
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          visitor_id: string
+        }
+        Insert: {
+          browser?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          customer_id?: string | null
+          device_type?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          events_count?: number | null
+          exit_path?: string | null
+          id?: string
+          ip_hash?: string | null
+          is_bounce?: boolean | null
+          landing_path?: string | null
+          last_seen_at?: string
+          meta?: Json
+          os?: string | null
+          page_views_count?: number | null
+          referrer?: string | null
+          referrer_domain?: string | null
+          region?: string | null
+          started_at?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id: string
+        }
+        Update: {
+          browser?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          customer_id?: string | null
+          device_type?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          events_count?: number | null
+          exit_path?: string | null
+          id?: string
+          ip_hash?: string | null
+          is_bounce?: boolean | null
+          landing_path?: string | null
+          last_seen_at?: string
+          meta?: Json
+          os?: string | null
+          page_views_count?: number | null
+          referrer?: string | null
+          referrer_domain?: string | null
+          region?: string | null
+          started_at?: string
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_sessions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_previews: {
         Row: {
           archived_at: string | null
