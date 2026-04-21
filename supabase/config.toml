@@ -158,3 +158,10 @@ verify_jwt = false
 
 [functions.powerdial-webhook]
 verify_jwt = false
+
+[functions.call-transcript]
+verify_jwt = false
+
+[functions.discord-lead-notify]
+verify_jwt = false
+
