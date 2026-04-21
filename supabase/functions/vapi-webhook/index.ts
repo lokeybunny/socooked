@@ -878,6 +878,41 @@ serve(async (req) => {
             source: funnel?.source || null,
           });
 
+          // ──── Real-time Discord notification when call starts ────
+          if ((mappedStatus === "in_call" || mappedStatus === "calling") && funnel) {
+            const notifyKey = `discord_notified_${callId}`;
+            const alreadyNotified = (custByCall?.meta as any)?.[notifyKey];
+            if (!alreadyNotified) {
+              try {
+                const callerName = custByCall?.full_name && !isPlaceholderLeadName(custByCall.full_name)
+                  ? custByCall.full_name
+                  : `Direct Caller (${customerPhone || "Unknown"})`;
+                await sb.functions.invoke("discord-lead-notify", {
+                  body: {
+                    category: funnel.tag,
+                    name: callerName,
+                    phone: customerPhone || "Unknown",
+                    email: custByCall?.email || null,
+                    notes: `📞 Live inbound call in progress on the ${funnel.label} AI line.`,
+                    extra: {
+                      "Call Status": mappedStatus === "in_call" ? "🟢 LIVE — On Call Now" : "📞 Ringing",
+                      "Call ID": callId,
+                    },
+                  },
+                });
+                if (custByCall) {
+                  const em = (custByCall.meta as any) || {};
+                  await sb.from("customers").update({
+                    meta: { ...em, [notifyKey]: new Date().toISOString() },
+                  }).eq("id", custByCall.id);
+                }
+                console.log(`[status-update] Discord notify sent for ${funnel.tag} call ${callId}`);
+              } catch (notifyErr) {
+                console.error("[status-update] Discord notify failed:", notifyErr);
+              }
+            }
+          }
+
         // Update lw_landing_leads
         await sb.from("lw_landing_leads").update({ vapi_call_status: mappedStatus }).eq("vapi_call_id", callId);
 
