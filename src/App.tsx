@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthLayoutGate } from "./components/layout/AuthLayoutGate";
 import { AppLoadingScreen } from "@/components/app/AppLoadingScreen";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { AnalyticsMount } from "@/components/analytics/AnalyticsMount";
 
 const Auth = lazyWithRetry(() => import("./pages/Auth"), "page-auth");
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"), "page-dashboard");
@@ -75,6 +76,7 @@ const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-cou
 const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
+const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,6 +109,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <AnalyticsMount />
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
                 <Route path="/" element={<AIDirector />} />
@@ -186,6 +189,7 @@ const App = () => (
                 <Route path="/course/login" element={<CourseLogin />} />
                 <Route path="/course/learn" element={<CourseLearn />} />
                 <Route path="/payme" element={<PayMe />} />
+                <Route path="/analytics" element={<WarrenOnlyGate><AuthLayoutGate><Analytics /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
