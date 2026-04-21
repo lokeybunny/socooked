@@ -74,7 +74,17 @@ serve(async (req) => {
       { name: "Name", value: String(name), inline: true },
       { name: "Category", value: `${meta.emoji} ${meta.label}`, inline: true },
     ];
-    if (phone) fields.push({ name: "Phone", value: String(phone), inline: true });
+    if (phone) {
+      // Wrap in backticks so Discord mobile shows a native "Copy" option on tap.
+      // Also include a tel: link for one-tap dialing on mobile.
+      const rawPhone = String(phone).trim();
+      const telDigits = rawPhone.replace(/[^\d+]/g, "");
+      fields.push({
+        name: "Phone (tap to copy)",
+        value: `\`${rawPhone}\`${telDigits ? ` · [📞 Call](tel:${telDigits})` : ""}`,
+        inline: true,
+      });
+    }
     if (email) fields.push({ name: "Email", value: String(email), inline: true });
     if (business) fields.push({ name: "Business", value: String(business), inline: true });
     if (eventType) fields.push({ name: "Event Type", value: String(eventType), inline: true });
