@@ -102,6 +102,17 @@ export default function VideographyLanding() {
       supabase.functions.invoke('funnel-autoresponder', {
         body: { funnel: 'videography', recipientEmail: email.trim(), recipientName: name.trim() },
       }).catch((err) => console.error('Autoresponder failed:', err));
+      // Discord lead notification
+      supabase.functions.invoke('discord-lead-notify', {
+        body: {
+          category: 'video',
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          eventType: eventType || null,
+          message: message || null,
+        },
+      }).catch((err) => console.error('Discord notify failed:', err));
 
       supabase.functions.invoke('vapi-videography-outbound', {
         body: {
