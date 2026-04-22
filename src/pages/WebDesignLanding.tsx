@@ -215,7 +215,7 @@ export default function WebDesignLanding() {
   ], []);
 
   return (
-    <div className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
+    <div id="top" className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
       <SEOHead
         title="Web Design & Development | Warren Guru"
         description="AI-powered web design for businesses everywhere. Custom responsive websites with SEO, branding, and lead capture — built in 48 hours. 200+ sites delivered. Call (702) 357-4528."
@@ -231,6 +231,9 @@ export default function WebDesignLanding() {
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
+            <a href="#top" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
+              Home
+            </a>
             <a href="#how-it-works" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
               Process
             </a>

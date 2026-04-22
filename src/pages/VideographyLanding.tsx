@@ -204,7 +204,7 @@ export default function VideographyLanding() {
   ], []);
 
   return (
-    <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
+    <div id="top" className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
       <SEOHead
         title="Videographer & Live Streaming | Warren Guru"
         description="Professional videography and live streaming services. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (747) 494-9386."
@@ -220,6 +220,9 @@ export default function VideographyLanding() {
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
+            <a href="#top" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Home
+            </a>
             <a href="#how-it-works" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Process
             </a>
