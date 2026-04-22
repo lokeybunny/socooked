@@ -165,16 +165,16 @@ export default function Landing() {
       <div className="fixed inset-0 z-10 flex flex-col">
         {/* Nav */}
         <header className="flex items-center justify-between px-4 sm:px-6 md:px-12 py-4 md:py-5 relative z-30">
-          <div className="flex items-center">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div className="flex flex-col leading-none">
               <span className="text-foreground/40 font-light text-[9px] sm:text-[10px] md:text-xs tracking-[0.25em] uppercase">Warren</span>
               <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase -mt-0.5">GURU</span>
             </div>
-          </div>
-          <div className="flex items-center gap-3 sm:gap-5">
             <a href="#top" className="text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
               Home
             </a>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-5">
             <Link to="/video" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
