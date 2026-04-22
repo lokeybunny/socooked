@@ -1025,6 +1025,7 @@ warren@stu25.com</p>`;
               <SelectItem value="lead">Leads Only</SelectItem>
               <SelectItem value="prospect">Prospects Only</SelectItem>
               <SelectItem value="prospect_emailed">AI Site Completed Only</SelectItem>
+              <SelectItem value="completed">Completed &amp; Paid Only</SelectItem>
               <SelectItem value="active">New Clients Only</SelectItem>
               <SelectItem value="monthly">Monthly Clients Only</SelectItem>
             </SelectContent>
