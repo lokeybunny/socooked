@@ -16,6 +16,7 @@ import { useVisitorLocation } from '@/hooks/useVisitorCity';
 import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
+import funnelImgLA from '@/assets/landing/parallax-webdesign-funnel-la.jpg';
 import web3dWireframe from '@/assets/landing/web-3d-wireframe.png';
 import nysonThumb from '@/assets/portfolio/nysonblack-thumb.jpg';
 import xitThumb from '@/assets/portfolio/xitcash-thumb.jpg';
@@ -468,7 +469,7 @@ export default function WebDesignLanding() {
 
       {/* Lead Form */}
       <section id="get-started" className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${funnelImg})` }} />
+        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${isLA ? funnelImgLA : funnelImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/60" />
         <div className="relative max-w-lg mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-center mb-10">

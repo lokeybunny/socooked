@@ -12,11 +12,12 @@ import {
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
 import { motion } from 'framer-motion';
-import { useVisitorCity } from '@/hooks/useVisitorCity';
+import { useVisitorLocation } from '@/hooks/useVisitorCity';
 
 import heroImg from '@/assets/landing/parallax-videography-hero.jpg';
 import midImg from '@/assets/landing/parallax-videography-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-videography-funnel.jpg';
+import funnelImgLA from '@/assets/landing/parallax-videography-funnel-la.jpg';
 import videoThumb from '@/assets/landing/video-demo-thumbnail.jpg';
 import VideoPortfolioSection from '@/components/landing/VideoPortfolioSection';
 
@@ -47,7 +48,9 @@ const steps = [
 
 export default function VideographyLanding() {
   useMetaPixel('945218684863625');
-  const visitorCity = useVisitorCity();
+  const { city: visitorCity, region: visitorRegion } = useVisitorLocation();
+  const isLA = visitorRegion === 'CA' && /los angeles|long beach|burbank|glendale|pasadena|santa monica|hollywood|inglewood|culver/i.test(visitorCity);
+  const funnelBgImg = isLA ? funnelImgLA : funnelImg;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -407,7 +410,7 @@ export default function VideographyLanding() {
 
       {/* ─── Lead Form ─── */}
       <section id="get-started" className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${funnelImg})` }} />
+        <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${funnelBgImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/60" />
         <div className="relative max-w-lg mx-auto px-6">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-center mb-10">
