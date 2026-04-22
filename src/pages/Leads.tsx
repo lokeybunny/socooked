@@ -452,6 +452,7 @@ export default function Leads() {
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllProspectEmailed(prospectEmailedRes.data || []);
+    setAllCompleted(completedRes.data || []);
     setAllClients(clientRes.data || []);
     setAllMonthly(monthlyRes.data || []);
     setLoading(false);
