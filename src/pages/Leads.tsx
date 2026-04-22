@@ -1056,6 +1056,28 @@ warren@stu25.com</p>`;
             </div>
             )}
 
+            {showCompleted && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <CircleCheckBig className="h-4 w-4 text-emerald-500" />
+                <h2 className="text-sm font-semibold text-emerald-500 uppercase tracking-wider">Completed &amp; Paid</h2>
+                <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">{completed.length}</span>
+              </div>
+              <DroppableColumn id="completed-column">
+                {pagedCompleted.map(c => (
+                  <DraggableContactCard key={c.id} contact={c} onClick={() => { setSelected(c); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid recordingUrl={recordingMap.get(c.id)} bookingStatus={bookingStatusMap.get(c.id)} onToggleBusy={handleToggleBusy} />
+                ))}
+                {completed.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <CircleCheckBig className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Drag here when project is paid in full</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={completedPage} total={completedPageCount} onChange={setCompletedPage} />
+            </div>
+            )}
+
             {showProspects && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
