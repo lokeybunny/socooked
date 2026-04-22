@@ -371,11 +371,12 @@ export default function Leads() {
   };
 
   const loadAll = async () => {
-    setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes, websiteEmailRes] = await Promise.all([
+    setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setCompletedPage(1); setClientsPage(1); setMonthlyPage(1);
+    const [leadRes, prospectRes, prospectEmailedRes, completedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes, websiteEmailRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('prospect_emailed'),
+      buildQuery('completed'),
       buildQuery('active'),
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
