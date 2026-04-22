@@ -230,14 +230,14 @@ export default function WebDesignLanding() {
             <span className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.25em] uppercase text-emerald-400/70">Warren</span>
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
-          <nav className="flex items-center gap-3 sm:gap-5">
+          <nav className="flex items-center gap-2 sm:gap-5">
             <a href="#top" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
               Home
             </a>
-            <a href="#how-it-works" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
+            <a href="#how-it-works" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
               Process
             </a>
-            <a href="#portfolio" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
+            <a href="#portfolio" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-cyan-400 transition-colors">
               Portfolio
             </a>
             <a href="#get-started" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-cyan-400 hover:text-cyan-300 transition-colors">
