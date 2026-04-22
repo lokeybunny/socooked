@@ -502,9 +502,10 @@ export default function Leads() {
       return bDate.getTime() - aDate.getTime();
     });
     setProspectEmailed(sorted);
+    setCompleted(sortNewestFirst(allCompleted));
     setClients(sortNewestFirst(allClients));
     setMonthly(sortNewestFirst(allMonthly));
-  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly, websiteEmailedIds, paidCustomerIds, bookingStatusMap]);
+  }, [allLeads, allProspects, allProspectEmailed, allCompleted, allClients, allMonthly, websiteEmailedIds, paidCustomerIds, bookingStatusMap]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
