@@ -12,6 +12,7 @@ interface Stats {
   customers: number;
   prospectCount: number;
   prospectEmailedCount: number;
+  completedPaidCount: number;
   monthlyCount: number;
   clientCount: number;
   actualTotalCustomers: number;
