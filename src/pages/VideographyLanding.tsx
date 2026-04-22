@@ -7,7 +7,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Video, Camera, Film, Sparkles,
   Heart, Clock, Users, Star, CheckCircle, Loader2, MessageCircle,
-  DoorOpen, Wifi, Radio
+  DoorOpen, Wifi, Radio, X
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
@@ -327,32 +327,20 @@ export default function VideographyLanding() {
               ))}
             </div>
           </div>
-          <div className="hidden md:flex items-center justify-center mt-6">
-            <div className="relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/10 border border-emerald-500/10 group cursor-pointer"
-              onClick={(e) => {
-                const video = e.currentTarget.querySelector('video');
-                const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
-                if (video && overlay) {
-                  video.play();
-                  overlay.style.display = 'none';
-                  video.controls = true;
-                }
-              }}
+          <div className="flex items-center justify-center mt-6">
+            <button
+              type="button"
+              onClick={() => setReelOpen(true)}
+              className="relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/10 border border-emerald-500/10 group cursor-pointer aspect-video bg-black"
+              aria-label="Play events reel"
             >
-              <video
-                className="w-full h-auto"
-                poster={videoThumb}
-                preload="none"
-                playsInline
-              >
-                <source src="" type="video/mp4" />
-              </video>
-              <div data-play-overlay className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+              <img src={videoThumb} alt="Events reel preview" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
                 <div className="w-16 h-16 rounded-full bg-emerald-500/90 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform">
                   <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><polygon points="5,3 19,12 5,21" /></svg>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </section>
