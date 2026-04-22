@@ -58,6 +58,19 @@ export default function VideographyLanding() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [reelOpen, setReelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!reelOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setReelOpen(false); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [reelOpen]);
   const navigate = useNavigate();
   const location = useLocation();
 
