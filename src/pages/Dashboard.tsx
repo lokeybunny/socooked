@@ -12,6 +12,7 @@ interface Stats {
   customers: number;
   prospectCount: number;
   prospectEmailedCount: number;
+  completedPaidCount: number;
   monthlyCount: number;
   clientCount: number;
   actualTotalCustomers: number;
@@ -26,7 +27,7 @@ const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, prospectTotalValue: 0, aiCourseRevenue: 0, aiCourseCount: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, completedPaidCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, prospectTotalValue: 0, aiCourseRevenue: 0, aiCourseCount: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -157,9 +158,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc, aiCourseRes] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, completedPaidRes, monthlyRes, clientRes, comms, invoicesRes, rc, aiCourseRes] = await Promise.all([
         supabase.from('customers').select('id, meta').eq('status', 'prospect'),
         supabase.from('customers').select('id, meta').eq('status', 'prospect_emailed'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('communications').select('type, created_at'),
