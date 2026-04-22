@@ -207,15 +207,15 @@ export default function VideographyLanding() {
             <span className="text-base sm:text-lg md:text-xl font-light tracking-[0.15em] uppercase text-white/80 -mt-0.5">GURU</span>
           </Link>
           <nav className="flex items-center gap-3 sm:gap-5">
-            <Link to="/" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
-              AI
-            </Link>
-            <span className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400">
-              Video
-            </span>
-            <Link to="/web" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
-              Web
-            </Link>
+            <a href="#how-it-works" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Process
+            </a>
+            <a href="#portfolio" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Portfolio
+            </a>
+            <a href="#get-started" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-emerald-400 hover:text-emerald-300 transition-colors">
+              Get Started
+            </a>
             <a
               href="https://discord.gg/warrenguru"
               target="_blank"
@@ -228,6 +228,7 @@ export default function VideographyLanding() {
             <button
               onClick={() => navigate('/auth')}
               className="text-white/40 hover:text-white transition-colors"
+              aria-label="Login"
             >
               <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
@@ -357,10 +358,10 @@ export default function VideographyLanding() {
       </section>
 
       {/* ─── Portfolio / Behind the Scenes ─── */}
-      <VideoPortfolioSection />
+      <div id="portfolio" className="scroll-mt-20"><VideoPortfolioSection /></div>
 
       {/* ─── How It Works ─── */}
-      <section className="py-24 px-6 border-t border-emerald-500/[0.08]">
+      <section id="how-it-works" className="py-24 px-6 border-t border-emerald-500/[0.08] scroll-mt-20">
         <div className="max-w-4xl mx-auto">
           <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} custom={0} className="text-xs tracking-[0.4em] uppercase text-emerald-400/50 mb-5 text-center">
             The Process
@@ -409,7 +410,7 @@ export default function VideographyLanding() {
       </section>
 
       {/* ─── Lead Form ─── */}
-      <section id="get-started" className="relative py-32 overflow-hidden">
+      <section id="get-started" className="relative py-32 overflow-hidden scroll-mt-20">
         <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${funnelBgImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/60" />
         <div className="relative max-w-lg mx-auto px-6">
