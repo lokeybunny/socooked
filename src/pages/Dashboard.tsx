@@ -214,6 +214,7 @@ export default function Dashboard() {
         customers: prospectCount,
         prospectCount,
         prospectEmailedCount,
+        completedPaidCount: completedPaidRes.count || 0,
         monthlyCount,
         clientCount,
         actualTotalCustomers: convertedIds.size,
@@ -231,6 +232,7 @@ export default function Dashboard() {
   }, []);
 
   const metricCards = [
+    { label: 'Completed & Paid', value: stats.completedPaidCount, subtitle: `${stats.completedPaidCount} project${stats.completedPaidCount === 1 ? '' : 's'} paid in full`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
     { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
