@@ -148,7 +148,7 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '200vh' }}>
+    <div ref={containerRef} id="top" className="relative bg-background text-foreground" style={{ height: '200vh' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
         <div
@@ -172,6 +172,9 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-5">
+            <a href="#top" className="text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
+              Home
+            </a>
             <Link to="/video" className="hidden sm:block text-muted-foreground/50 hover:text-foreground text-[10px] sm:text-xs tracking-[0.15em] uppercase transition-colors">
               Videography
             </Link>
