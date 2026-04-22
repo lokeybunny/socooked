@@ -846,7 +846,7 @@ warren@stu25.com</p>`;
     const { active, over } = event;
     if (!over) return;
     const draggedId = active.id as string;
-    const allContacts = [...leads, ...prospects, ...prospectEmailed, ...clients, ...monthly];
+    const allContacts = [...leads, ...prospects, ...prospectEmailed, ...completed, ...clients, ...monthly];
     const draggedContact = allContacts.find(c => c.id === draggedId);
     if (!draggedContact) return;
 
@@ -855,6 +855,7 @@ warren@stu25.com</p>`;
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
     else if (overId === 'prospect-emailed-column') targetStatus = 'prospect_emailed';
+    else if (overId === 'completed-column') targetStatus = 'completed';
     else if (overId === 'clients-column') targetStatus = 'active';
     else if (overId === 'monthly-column') targetStatus = 'monthly';
     else {
@@ -870,10 +871,11 @@ warren@stu25.com</p>`;
     setLeads(targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads));
     setProspects(targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects));
     setProspectEmailed(targetStatus === 'prospect_emailed' ? addToList(removeFromList(prospectEmailed)) : removeFromList(prospectEmailed));
+    setCompleted(targetStatus === 'completed' ? addToList(removeFromList(completed)) : removeFromList(completed));
     setClients(targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients));
     setMonthly(targetStatus === 'monthly' ? addToList(removeFromList(monthly)) : removeFromList(monthly));
 
-    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', prospect_emailed: 'Moved to AI Site Completed', active: 'Converted to client', monthly: 'Moved to monthly client' };
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', prospect_emailed: 'Moved to AI Site Completed', completed: 'Marked Completed & Paid', active: 'Converted to client', monthly: 'Moved to monthly client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
     const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
@@ -881,16 +883,18 @@ warren@stu25.com</p>`;
     else { await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category); }
   };
 
-  const activeContact = activeId ? [...leads, ...prospects, ...prospectEmailed, ...clients, ...monthly].find(c => c.id === activeId) : null;
+  const activeContact = activeId ? [...leads, ...prospects, ...prospectEmailed, ...completed, ...clients, ...monthly].find(c => c.id === activeId) : null;
 
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
   const prospectEmailedPageCount = Math.ceil(prospectEmailed.length / PAGE_SIZE);
+  const completedPageCount = Math.ceil(completed.length / PAGE_SIZE);
   const clientsPageCount = Math.ceil(clients.length / PAGE_SIZE);
   const monthlyPageCount = Math.ceil(monthly.length / PAGE_SIZE);
   const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
   const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
   const pagedProspectEmailed = prospectEmailed.slice((prospectEmailedPage - 1) * PAGE_SIZE, prospectEmailedPage * PAGE_SIZE);
+  const pagedCompleted = completed.slice((completedPage - 1) * PAGE_SIZE, completedPage * PAGE_SIZE);
   const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
   const pagedMonthly = monthly.slice((monthlyPage - 1) * PAGE_SIZE, monthlyPage * PAGE_SIZE);
 
