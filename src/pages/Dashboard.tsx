@@ -13,6 +13,7 @@ interface Stats {
   prospectCount: number;
   prospectEmailedCount: number;
   completedPaidCount: number;
+  completedPaidValue: number;
   monthlyCount: number;
   clientCount: number;
   actualTotalCustomers: number;
@@ -27,7 +28,7 @@ const CRYPTO_TOKEN_ADDRESS = '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, completedPaidCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, prospectTotalValue: 0, aiCourseRevenue: 0, aiCourseCount: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, completedPaidCount: 0, completedPaidValue: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0, prospectTotalValue: 0, aiCourseRevenue: 0, aiCourseCount: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -161,7 +162,7 @@ export default function Dashboard() {
       const [prospectsRes, prospectEmailedRes, completedPaidRes, monthlyRes, clientRes, comms, invoicesRes, rc, aiCourseRes] = await Promise.all([
         supabase.from('customers').select('id, meta').eq('status', 'prospect'),
         supabase.from('customers').select('id, meta').eq('status', 'prospect_emailed'),
-        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
+        supabase.from('customers').select('id, meta').eq('status', 'completed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('communications').select('type, created_at'),
@@ -210,11 +211,20 @@ export default function Dashboard() {
       const aiCourseCount = aiCourseRows.length;
       const aiCourseRevenue = aiCourseCount * 299;
 
+      const completedPaidList = completedPaidRes.data || [];
+      const completedPaidCount = completedPaidList.length;
+      const completedPaidValue = completedPaidList.reduce((sum, c: any) => {
+        const meta = c.meta && typeof c.meta === 'object' ? c.meta as Record<string, unknown> : {};
+        const val = meta.job_value ? Number(meta.job_value) : 250;
+        return sum + (isNaN(val) ? 250 : val);
+      }, 0);
+
       setStats({
         customers: prospectCount,
         prospectCount,
         prospectEmailedCount,
-        completedPaidCount: completedPaidRes.count || 0,
+        completedPaidCount,
+        completedPaidValue,
         monthlyCount,
         clientCount,
         actualTotalCustomers: convertedIds.size,
@@ -232,7 +242,7 @@ export default function Dashboard() {
   }, []);
 
   const metricCards = [
-    { label: 'Completed & Paid', value: stats.completedPaidCount, subtitle: `${stats.completedPaidCount} project${stats.completedPaidCount === 1 ? '' : 's'} paid in full`, icon: CircleCheckBig, color: 'text-emerald-500' },
+    { label: 'Completed & Paid', value: `$${stats.completedPaidValue.toLocaleString()}`, subtitle: `${stats.completedPaidCount} project${stats.completedPaidCount === 1 ? '' : 's'} paid in full`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Prospects in Pipeline', value: stats.prospectCount + stats.prospectEmailedCount, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed`, icon: Users, color: 'text-blue-500' },
     { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
