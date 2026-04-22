@@ -614,19 +614,19 @@ export default function Leads() {
   };
 
   const promote = async (id: string) => {
-    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...completed, ...clients, ...monthly].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
     if (contact) await logStatusMove(contact.full_name, id, contact.status, 'prospect', contact.category);
     toast.success('Promoted to prospect'); setSelected(null); loadAll();
   };
   const demote = async (id: string) => {
-    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...completed, ...clients, ...monthly].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'lead' }).eq('id', id);
     if (contact) await logStatusMove(contact.full_name, id, contact.status, 'lead', contact.category);
     toast.success('Moved back to lead'); setSelected(null); loadAll();
   };
   const dismiss = async (id: string) => {
-    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...completed, ...clients, ...monthly].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
     if (contact) {
       await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
