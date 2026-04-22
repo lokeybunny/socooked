@@ -484,6 +484,39 @@ export default function VideographyLanding() {
       </footer>
       <FloatingBookNow />
       <ScrollToTopButton />
+
+      {/* Reel Video Popup */}
+      {reelOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-6 animate-fade-in"
+          onClick={() => setReelOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Events reel video"
+        >
+          <button
+            type="button"
+            onClick={() => setReelOpen(false)}
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
+            aria-label="Close video"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div
+            className="relative w-full max-w-4xl mx-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <video
+              src="/videos/events-reel.mp4"
+              className="w-full h-auto max-h-[85vh] rounded-2xl shadow-2xl bg-black"
+              controls
+              autoPlay
+              playsInline
+              preload="auto"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
