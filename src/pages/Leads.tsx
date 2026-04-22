@@ -306,6 +306,7 @@ export default function Leads() {
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [prospectEmailedPage, setProspectEmailedPage] = useState(1);
+  const [completedPage, setCompletedPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
   const [monthlyPage, setMonthlyPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
