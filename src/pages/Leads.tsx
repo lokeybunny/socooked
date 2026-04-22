@@ -406,7 +406,7 @@ export default function Leads() {
     setRecordingMap(recMap);
 
     // Build booking status map: match bookings to customers by email, name, or phone
-    const allCustomers = [...(leadRes.data || []), ...(prospectRes.data || []), ...(prospectEmailedRes.data || []), ...(clientRes.data || []), ...(monthlyRes.data || [])];
+    const allCustomers = [...(leadRes.data || []), ...(prospectRes.data || []), ...(prospectEmailedRes.data || []), ...(completedRes.data || []), ...(clientRes.data || []), ...(monthlyRes.data || [])];
     const emailToCustomerId = new Map<string, string>();
     const nameToCustomerId = new Map<string, string>();
     const phoneToCustomerId = new Map<string, string>();
