@@ -16,6 +16,7 @@ import { useVisitorLocation } from '@/hooks/useVisitorCity';
 import heroImg from '@/assets/landing/web-hero.jpg';
 import midImg from '@/assets/landing/parallax-webdesign-mid.jpg';
 import funnelImg from '@/assets/landing/parallax-webdesign-funnel.jpg';
+import funnelImgLA from '@/assets/landing/parallax-webdesign-funnel-la.jpg';
 import web3dWireframe from '@/assets/landing/web-3d-wireframe.png';
 import nysonThumb from '@/assets/portfolio/nysonblack-thumb.jpg';
 import xitThumb from '@/assets/portfolio/xitcash-thumb.jpg';
