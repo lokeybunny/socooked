@@ -223,6 +223,9 @@ export default function VideographyLanding() {
             <a href="#how-it-works" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Process
             </a>
+            <a href="#reel" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
+              Reel
+            </a>
             <a href="#portfolio" className="hidden sm:inline text-[10px] sm:text-xs tracking-[0.15em] uppercase text-white/40 hover:text-emerald-400 transition-colors">
               Portfolio
             </a>
@@ -307,7 +310,7 @@ export default function VideographyLanding() {
       </section>
 
       {/* ─── Parallax mid ─── */}
-      <section className="relative py-32 overflow-hidden">
+      <section id="reel" className="relative py-32 overflow-hidden scroll-mt-20">
         <div className="absolute inset-0 bg-cover bg-center md:bg-fixed" style={{ backgroundImage: `url(${midImg})` }} />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/60" />
         <div className="relative max-w-5xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-center">
