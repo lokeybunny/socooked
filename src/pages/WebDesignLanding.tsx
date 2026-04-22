@@ -240,15 +240,6 @@ export default function WebDesignLanding() {
             <a href="#get-started" className="text-[10px] sm:text-xs tracking-[0.15em] uppercase text-cyan-400 hover:text-cyan-300 transition-colors">
               Get Started
             </a>
-            <a
-              href="https://discord.gg/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] sm:text-xs tracking-wider uppercase hover:bg-cyan-500/20 transition-all"
-            >
-              <MessageCircle className="h-3 w-3" />
-              <span className="hidden sm:inline">Discord</span>
-            </a>
             <button
               onClick={() => navigate('/auth')}
               className="text-white/40 hover:text-white transition-colors"
