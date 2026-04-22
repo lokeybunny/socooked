@@ -55,7 +55,7 @@ export default function AIDirector() {
   };
 
   return (
-    <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
+    <div id="top" className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
       <SEOHead
         title="Warren Guru — AI Filmmaking & Video Production | Las Vegas"
         description="Warren Guru is a Las Vegas AI filmmaker and video producer. Over 100 projects completed including music videos, short films, and AI-generated content. Book now or enroll in the AI filmmaking course."
