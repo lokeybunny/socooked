@@ -285,11 +285,13 @@ export default function Leads() {
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
   const [allProspectEmailed, setAllProspectEmailed] = useState<any[]>([]);
+  const [allCompleted, setAllCompleted] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
   const [allMonthly, setAllMonthly] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
   const [prospectEmailed, setProspectEmailed] = useState<any[]>([]);
+  const [completed, setCompleted] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [monthly, setMonthly] = useState<any[]>([]);
   const [search, setSearch] = useState('');
