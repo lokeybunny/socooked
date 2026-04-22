@@ -7,7 +7,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import {
   ArrowRight, ChevronDown, Video, Camera, Film, Sparkles,
   Heart, Clock, Users, Star, CheckCircle, Loader2, MessageCircle,
-  DoorOpen, Wifi, Radio
+  DoorOpen, Wifi, Radio, X
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
@@ -58,6 +58,19 @@ export default function VideographyLanding() {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [reelOpen, setReelOpen] = useState(false);
+
+  useEffect(() => {
+    if (!reelOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setReelOpen(false); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [reelOpen]);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -327,32 +340,20 @@ export default function VideographyLanding() {
               ))}
             </div>
           </div>
-          <div className="hidden md:flex items-center justify-center mt-6">
-            <div className="relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/10 border border-emerald-500/10 group cursor-pointer"
-              onClick={(e) => {
-                const video = e.currentTarget.querySelector('video');
-                const overlay = e.currentTarget.querySelector('[data-play-overlay]') as HTMLElement;
-                if (video && overlay) {
-                  video.play();
-                  overlay.style.display = 'none';
-                  video.controls = true;
-                }
-              }}
+          <div className="flex items-center justify-center mt-6">
+            <button
+              type="button"
+              onClick={() => setReelOpen(true)}
+              className="relative w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl shadow-emerald-500/10 border border-emerald-500/10 group cursor-pointer aspect-video bg-black"
+              aria-label="Play events reel"
             >
-              <video
-                className="w-full h-auto"
-                poster={videoThumb}
-                preload="none"
-                playsInline
-              >
-                <source src="" type="video/mp4" />
-              </video>
-              <div data-play-overlay className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+              <img src={videoThumb} alt="Events reel preview" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
                 <div className="w-16 h-16 rounded-full bg-emerald-500/90 flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform">
                   <svg viewBox="0 0 24 24" fill="white" className="w-7 h-7 ml-1"><polygon points="5,3 19,12 5,21" /></svg>
                 </div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </section>
@@ -483,6 +484,39 @@ export default function VideographyLanding() {
       </footer>
       <FloatingBookNow />
       <ScrollToTopButton />
+
+      {/* Reel Video Popup */}
+      {reelOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-6 animate-fade-in"
+          onClick={() => setReelOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Events reel video"
+        >
+          <button
+            type="button"
+            onClick={() => setReelOpen(false)}
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
+            aria-label="Close video"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div
+            className="relative w-full max-w-4xl mx-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <video
+              src="/videos/events-reel.mp4"
+              className="w-full h-auto max-h-[85vh] rounded-2xl shadow-2xl bg-black"
+              controls
+              autoPlay
+              playsInline
+              preload="auto"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
