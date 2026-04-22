@@ -215,7 +215,7 @@ export default function WebDesignLanding() {
   ], []);
 
   return (
-    <div className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
+    <div id="top" className="bg-black text-white min-h-screen selection:bg-cyan-500/20">
       <SEOHead
         title="Web Design & Development | Warren Guru"
         description="AI-powered web design for businesses everywhere. Custom responsive websites with SEO, branding, and lead capture — built in 48 hours. 200+ sites delivered. Call (702) 357-4528."

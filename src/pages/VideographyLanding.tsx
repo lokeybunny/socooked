@@ -204,7 +204,7 @@ export default function VideographyLanding() {
   ], []);
 
   return (
-    <div className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
+    <div id="top" className="min-h-screen bg-[hsl(0,0%,3%)] text-white selection:bg-emerald-500/30">
       <SEOHead
         title="Videographer & Live Streaming | Warren Guru"
         description="Professional videography and live streaming services. Wedding videography, funeral live streams, corporate event recording — multi-camera 4K broadcast quality. Call (747) 494-9386."
