@@ -9,8 +9,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
   Sparkles, TrendingUp, Zap, Lock, Crown, ExternalLink, RefreshCw,
-  Flame, Skull, Activity, Trophy, ArrowUpRight,
+  Flame, Skull, Activity, Trophy, ArrowUpRight, Receipt,
 } from "lucide-react";
+import { SignalDetailDrawer } from "@/components/poly/SignalDetailDrawer";
+import { PolyInvoices } from "@/components/poly/PolyInvoices";
 
 const REF_LINK = "https://polymarket.com/?ref=VIBECODER";
 const REF_CTA = `Trade this edge on Polymarket → ${REF_LINK} (use code VIBECODER for fee discount)`;
@@ -52,6 +54,7 @@ export default function Poly() {
   const [isMember, setIsMember] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState<string | null>(null);
+  const [activeSignal, setActiveSignal] = useState<Signal | null>(null);
 
   useEffect(() => {
     document.title = "PolyVibe InnerEdge — Alpha Signals";
@@ -161,6 +164,7 @@ export default function Poly() {
             <TabsTrigger value="dashboard"><Sparkles className="h-4 w-4 mr-1.5" /> Signals</TabsTrigger>
             <TabsTrigger value="markets"><TrendingUp className="h-4 w-4 mr-1.5" /> Markets</TabsTrigger>
             <TabsTrigger value="pricing"><Crown className="h-4 w-4 mr-1.5" /> Pricing</TabsTrigger>
+            <TabsTrigger value="invoices"><Receipt className="h-4 w-4 mr-1.5" /> Invoices & Status</TabsTrigger>
             <TabsTrigger value="referral"><Trophy className="h-4 w-4 mr-1.5" /> Referral</TabsTrigger>
           </TabsList>
 
@@ -208,7 +212,11 @@ export default function Poly() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {signals.map(s => (
-                  <Card key={s.id} className="border-primary/20 bg-gradient-to-br from-card to-card/50 hover:border-primary/40 transition-all">
+                  <Card
+                    key={s.id}
+                    onClick={() => setActiveSignal(s)}
+                    className="border-primary/20 bg-gradient-to-br from-card to-card/50 hover:border-primary/40 transition-all cursor-pointer"
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-3">
                         <CardTitle className="text-base leading-snug">{s.title}</CardTitle>
@@ -233,6 +241,7 @@ export default function Poly() {
                       <a
                         href={`https://polymarket.com/event/${s.market_slug}?ref=VIBECODER`}
                         target="_blank" rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1.5 text-xs text-primary hover:underline"
                       >
                         Trade on Polymarket <ArrowUpRight className="h-3 w-3" />
@@ -353,7 +362,19 @@ export default function Poly() {
             </p>
           </TabsContent>
 
-          {/* REFERRAL */}
+          {/* INVOICES & STATUS */}
+          <TabsContent value="invoices" className="space-y-4 mt-6">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Receipt className="h-6 w-6 text-primary" /> Invoices & Status
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Latest NowPayments invoice, on-chain payment state, and when your InnerEdge membership activates.
+              </p>
+            </div>
+            <PolyInvoices />
+          </TabsContent>
+
           <TabsContent value="referral" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -384,6 +405,13 @@ export default function Poly() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <SignalDetailDrawer
+        signal={activeSignal}
+        open={!!activeSignal}
+        onOpenChange={(o) => { if (!o) setActiveSignal(null); }}
+        isMember={isMember}
+      />
     </div>
   );
 }
