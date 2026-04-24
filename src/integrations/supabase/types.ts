@@ -3462,6 +3462,316 @@ export type Database = {
         }
         Relationships: []
       }
+      poly_admins: {
+        Row: {
+          created_at: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      poly_market_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+          payload: Json
+          slug: string | null
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          payload: Json
+          slug?: string | null
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          payload?: Json
+          slug?: string | null
+        }
+        Relationships: []
+      }
+      poly_memberships: {
+        Row: {
+          created_at: string
+          discord_id: string | null
+          expires_at: string
+          id: string
+          last_payment_id: string | null
+          poly_user_id: string | null
+          role: string
+          started_at: string
+          tier: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discord_id?: string | null
+          expires_at: string
+          id?: string
+          last_payment_id?: string | null
+          poly_user_id?: string | null
+          role?: string
+          started_at?: string
+          tier?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discord_id?: string | null
+          expires_at?: string
+          id?: string
+          last_payment_id?: string | null
+          poly_user_id?: string | null
+          role?: string
+          started_at?: string
+          tier?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poly_memberships_last_payment_id_fkey"
+            columns: ["last_payment_id"]
+            isOneToOne: false
+            referencedRelation: "poly_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "poly_memberships_poly_user_id_fkey"
+            columns: ["poly_user_id"]
+            isOneToOne: true
+            referencedRelation: "poly_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poly_payments: {
+        Row: {
+          amount_sol: number
+          amount_usd: number | null
+          created_at: string
+          discord_id: string | null
+          expires_at: string | null
+          id: string
+          invoice_url: string | null
+          nowpayments_invoice_id: string | null
+          order_id: string
+          pay_address: string | null
+          poly_user_id: string | null
+          qr_code_url: string | null
+          raw_payload: Json
+          status: string
+          tier: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_sol: number
+          amount_usd?: number | null
+          created_at?: string
+          discord_id?: string | null
+          expires_at?: string | null
+          id?: string
+          invoice_url?: string | null
+          nowpayments_invoice_id?: string | null
+          order_id: string
+          pay_address?: string | null
+          poly_user_id?: string | null
+          qr_code_url?: string | null
+          raw_payload?: Json
+          status?: string
+          tier: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_sol?: number
+          amount_usd?: number | null
+          created_at?: string
+          discord_id?: string | null
+          expires_at?: string | null
+          id?: string
+          invoice_url?: string | null
+          nowpayments_invoice_id?: string | null
+          order_id?: string
+          pay_address?: string | null
+          poly_user_id?: string | null
+          qr_code_url?: string | null
+          raw_payload?: Json
+          status?: string
+          tier?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poly_payments_poly_user_id_fkey"
+            columns: ["poly_user_id"]
+            isOneToOne: false
+            referencedRelation: "poly_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poly_referrals: {
+        Row: {
+          created_at: string
+          id: string
+          payment_id: string | null
+          referred_user_id: string | null
+          referrer_user_id: string | null
+          reward_sol: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payment_id?: string | null
+          referred_user_id?: string | null
+          referrer_user_id?: string | null
+          reward_sol?: number | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payment_id?: string | null
+          referred_user_id?: string | null
+          referrer_user_id?: string | null
+          reward_sol?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "poly_referrals_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "poly_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poly_signals: {
+        Row: {
+          confidence: string | null
+          created_at: string
+          edge_probability: number | null
+          edge_score: number | null
+          id: string
+          is_published: boolean
+          market_probability: number | null
+          market_question: string | null
+          market_slug: string | null
+          market_url: string | null
+          outcome: string | null
+          probability_mismatch: number | null
+          raw: Json
+          recommendation: string | null
+          risk_level: string | null
+          suggested_size: string | null
+          title: string
+          updated_at: string
+          vibe: string | null
+        }
+        Insert: {
+          confidence?: string | null
+          created_at?: string
+          edge_probability?: number | null
+          edge_score?: number | null
+          id?: string
+          is_published?: boolean
+          market_probability?: number | null
+          market_question?: string | null
+          market_slug?: string | null
+          market_url?: string | null
+          outcome?: string | null
+          probability_mismatch?: number | null
+          raw?: Json
+          recommendation?: string | null
+          risk_level?: string | null
+          suggested_size?: string | null
+          title: string
+          updated_at?: string
+          vibe?: string | null
+        }
+        Update: {
+          confidence?: string | null
+          created_at?: string
+          edge_probability?: number | null
+          edge_score?: number | null
+          id?: string
+          is_published?: boolean
+          market_probability?: number | null
+          market_question?: string | null
+          market_slug?: string | null
+          market_url?: string | null
+          outcome?: string | null
+          probability_mismatch?: number | null
+          raw?: Json
+          recommendation?: string | null
+          risk_level?: string | null
+          suggested_size?: string | null
+          title?: string
+          updated_at?: string
+          vibe?: string | null
+        }
+        Relationships: []
+      }
+      poly_users: {
+        Row: {
+          created_at: string
+          discord_avatar_url: string | null
+          discord_id: string | null
+          discord_username: string | null
+          email: string | null
+          id: string
+          referral_code: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discord_avatar_url?: string | null
+          discord_id?: string | null
+          discord_username?: string | null
+          email?: string | null
+          id?: string
+          referral_code?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discord_avatar_url?: string | null
+          discord_id?: string | null
+          discord_username?: string | null
+          email?: string | null
+          id?: string
+          referral_code?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       powerdial_call_logs: {
         Row: {
           ai_interested: boolean | null
@@ -5377,6 +5687,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      poly_is_admin: { Args: { _user_id: string }; Returns: boolean }
+      poly_is_member: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "manager" | "staff"
