@@ -241,6 +241,7 @@ export default function Poly() {
                       <a
                         href={`https://polymarket.com/event/${s.market_slug}?ref=VIBECODER`}
                         target="_blank" rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1.5 text-xs text-primary hover:underline"
                       >
                         Trade on Polymarket <ArrowUpRight className="h-3 w-3" />
