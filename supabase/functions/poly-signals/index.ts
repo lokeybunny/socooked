@@ -106,16 +106,22 @@ ${JSON.stringify(compact, null, 2)}`;
 
     // Persist signals
     if (signals.length) {
-      const rows = signals.map((s: any) => ({
-        title: s.title,
-        market_slug: s.market_slug,
-        edge_score: s.edge_score,
-        probability_mismatch: s.probability_mismatch,
-        confidence: s.confidence,
-        recommendation: s.recommendation,
-        vibe: s.vibe,
-        is_published: true,
-      }));
+      const rows = signals.map((s: any) => {
+        // probability_mismatch may be "+18%" or "-12%" — store numeric percent
+        const numMismatch = typeof s.probability_mismatch === "string"
+          ? parseFloat(String(s.probability_mismatch).replace(/[^0-9.\-]/g, "")) || 0
+          : Number(s.probability_mismatch) || 0;
+        return {
+          title: s.title,
+          market_slug: s.market_slug,
+          edge_score: s.edge_score,
+          probability_mismatch: numMismatch,
+          confidence: s.confidence,
+          recommendation: s.recommendation,
+          vibe: s.vibe,
+          is_published: true,
+        };
+      });
       await supabase.from("poly_signals").insert(rows);
     }
 

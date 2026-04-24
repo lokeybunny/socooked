@@ -227,7 +227,7 @@ export default function Poly() {
                       <div className="flex flex-wrap gap-2 text-xs">
                         <Badge variant="outline" className="border-primary/40 text-primary">{s.recommendation}</Badge>
                         <Badge variant="outline">{s.confidence}</Badge>
-                        <Badge variant="outline" className="text-emerald-400 border-emerald-500/40">{s.probability_mismatch}</Badge>
+                        <Badge variant="outline" className="text-emerald-400 border-emerald-500/40">{typeof s.probability_mismatch === "number" ? `${s.probability_mismatch > 0 ? "+" : ""}${s.probability_mismatch}%` : s.probability_mismatch}</Badge>
                       </div>
                       <p className="text-sm italic text-muted-foreground">"{s.vibe}"</p>
                       <a
