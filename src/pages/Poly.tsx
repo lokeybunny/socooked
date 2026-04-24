@@ -362,7 +362,19 @@ export default function Poly() {
             </p>
           </TabsContent>
 
-          {/* REFERRAL */}
+          {/* INVOICES & STATUS */}
+          <TabsContent value="invoices" className="space-y-4 mt-6">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Receipt className="h-6 w-6 text-primary" /> Invoices & Status
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Latest NowPayments invoice, on-chain payment state, and when your InnerEdge membership activates.
+              </p>
+            </div>
+            <PolyInvoices />
+          </TabsContent>
+
           <TabsContent value="referral" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -393,6 +405,13 @@ export default function Poly() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <SignalDetailDrawer
+        signal={activeSignal}
+        open={!!activeSignal}
+        onOpenChange={(o) => { if (!o) setActiveSignal(null); }}
+        isMember={isMember}
+      />
     </div>
   );
 }
