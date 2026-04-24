@@ -30,7 +30,7 @@ type Signal = {
   title: string;
   market_slug: string;
   edge_score: number;
-  probability_mismatch: string;
+  probability_mismatch: number | string;
   confidence: string;
   recommendation: string;
   vibe: string;
@@ -85,7 +85,7 @@ export default function Poly() {
       .eq("is_published", true)
       .order("created_at", { ascending: false })
       .limit(20);
-    setSignals((data ?? []) as Signal[]);
+    setSignals((data ?? []) as unknown as Signal[]);
     setSignalsLoading(false);
   };
 
