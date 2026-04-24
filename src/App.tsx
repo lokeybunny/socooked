@@ -77,6 +77,7 @@ const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
+const Poly = lazyWithRetry(() => import("./pages/Poly"), "page-poly");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -190,6 +191,7 @@ const App = () => (
                 <Route path="/course/learn" element={<CourseLearn />} />
                 <Route path="/payme" element={<PayMe />} />
                 <Route path="/analytics" element={<WarrenOnlyGate><AuthLayoutGate><Analytics /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/poly" element={<AuthLayoutGate><Poly /></AuthLayoutGate>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
