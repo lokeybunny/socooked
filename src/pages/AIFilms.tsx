@@ -11,13 +11,11 @@ import heroAfter from '@/assets/ai-films/hero-after.png';
 
 const demos = [
   {
-    title: '4920 Shady Rim',
-    caption: 'AI-enhanced cinematic listing reel — built for Reels, TikTok, and Zillow short-form.',
+    title: 'Example A',
     src: '/videos/demo-shady-rim.mp4',
   },
   {
-    title: 'Listing Showcase 02',
-    caption: 'Vertical-first delivery. Drops straight into your social ad funnel.',
+    title: 'Example B',
     src: '/videos/hero-ai-films.mp4',
   },
 ];
