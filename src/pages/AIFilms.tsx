@@ -11,13 +11,11 @@ import heroAfter from '@/assets/ai-films/hero-after.png';
 
 const demos = [
   {
-    title: '4920 Shady Rim',
-    caption: 'AI-enhanced cinematic listing reel — built for Reels, TikTok, and Zillow short-form.',
+    title: 'Example A',
     src: '/videos/demo-shady-rim.mp4',
   },
   {
-    title: 'Listing Showcase 02',
-    caption: 'Vertical-first delivery. Drops straight into your social ad funnel.',
+    title: 'Example B',
     src: '/videos/hero-ai-films.mp4',
   },
 ];
@@ -194,11 +192,23 @@ export default function AIFilms() {
                   </span>
                 </div>
                 <div className="mt-5 px-1">
-                  <h3 className="text-xl sm:text-2xl font-light tracking-tight mb-2">{demo.title}</h3>
-                  <p className="text-sm text-muted-foreground font-light leading-relaxed">{demo.caption}</p>
+                  <h3 className="text-xl sm:text-2xl font-light tracking-tight">{demo.title}</h3>
                 </div>
               </motion.div>
             ))}
+          </div>
+
+          <div className="mt-14 flex flex-col items-center gap-3">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground">More work on Instagram</p>
+            <a
+              href="https://instagram.com/w4rr3nguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3.5 border border-border rounded-full text-sm tracking-[0.15em] uppercase hover:bg-accent transition-colors"
+            >
+              @w4rr3nguru on Instagram
+              <ArrowRight className="h-4 w-4" />
+            </a>
           </div>
         </div>
       </section>
