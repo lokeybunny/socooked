@@ -216,7 +216,7 @@ export default function AIFilms() {
               </div>
               <p className="text-xs text-muted-foreground mb-8">One-time, per property.</p>
               <ul className="space-y-3 mb-10 flex-1">
-                {['AI furniture removal', 'Visual enhancements', 'Cinematic delivery', '48-72 hour turnaround'].map((f) => (
+                {['AI furniture removal', 'Visual enhancements', 'Cinematic delivery', 'Up to 1 minute final cut', '48-72 hour turnaround'].map((f) => (
                   <li key={f} className="flex items-start gap-3 text-sm">
                     <Check className="h-4 w-4 mt-0.5 text-foreground/70 shrink-0" />
                     <span className="text-foreground/80">{f}</span>
@@ -246,6 +246,7 @@ export default function AIFilms() {
               <ul className="space-y-3 mb-10 flex-1">
                 {[
                   '10 AI-enhanced listing videos / month',
+                  'Up to 1 minute per video',
                   'Priority turnaround',
                   'Consistent listing domination',
                   'Designed for agents closing multiple deals monthly',
@@ -264,6 +265,27 @@ export default function AIFilms() {
                 Start Monthly Package
                 <ArrowRight className="h-4 w-4" />
               </a>
+            </div>
+          </div>
+
+          {/* Add-ons / fine print */}
+          <div className="mt-12 max-w-3xl mx-auto rounded-2xl border border-border bg-background p-6 sm:p-8">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground mb-4">Add-ons</p>
+            <div className="grid sm:grid-cols-2 gap-5 text-sm">
+              <div className="flex items-start gap-3">
+                <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-medium">+</span>
+                <div>
+                  <p className="font-medium">Extra bedrooms</p>
+                  <p className="text-muted-foreground font-light leading-relaxed">$50 per bedroom over 4 bedrooms.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 text-[10px] font-medium">⏱</span>
+                <div>
+                  <p className="font-medium">Final cut length</p>
+                  <p className="text-muted-foreground font-light leading-relaxed">Videos are capped at 1 minute for max engagement.</p>
+                </div>
+              </div>
             </div>
           </div>
 
