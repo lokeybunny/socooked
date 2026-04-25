@@ -1,36 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Sparkles, Zap, TrendingUp, Eye, Mail, Phone as PhoneIcon, Home as HomeIcon, Lock } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Zap, TrendingUp, Eye, Mail, Phone as PhoneIcon, Home as HomeIcon, Lock, Instagram } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
+import { VerticalVideo } from '@/components/ai-films/VerticalVideo';
 import SEOHead from '@/components/SEOHead';
 import { toast } from 'sonner';
 
 import beforeFurniture from '@/assets/ai-films/before-furniture.jpg';
 import afterFurniture from '@/assets/ai-films/after-furniture.jpg';
-import beforeStaging from '@/assets/ai-films/before-staging.jpg';
-import afterStaging from '@/assets/ai-films/after-staging.jpg';
-import beforeDrone from '@/assets/ai-films/before-drone.jpg';
-import afterDrone from '@/assets/ai-films/after-drone.jpg';
 
 const demos = [
   {
-    title: 'AI Furniture Removal',
-    caption: 'Declutter instantly. Let buyers imagine the space.',
-    before: beforeFurniture,
-    after: afterFurniture,
+    label: 'Example A',
+    src: '/videos/demo-shady-rim.mp4',
   },
   {
-    title: 'AI 360 → Cinematic Drone',
-    caption: 'Turn basic tours into cinematic experiences.',
-    before: beforeDrone,
-    after: afterDrone,
-  },
-  {
-    title: 'Virtual Staging Enhancement',
-    caption: 'Sell lifestyle, not just square footage.',
-    before: beforeStaging,
-    after: afterStaging,
+    label: 'Example B',
+    src: '/videos/hero-ai-films.mp4',
   },
 ];
 
@@ -175,47 +162,37 @@ export default function AIFilms() {
           <div className="text-center mb-16">
             <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground mb-4">Proof, not portfolio</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-tight">
-              Three transformations that close deals.
+              Real listings. Real results.
             </h2>
           </div>
 
-          <div className="space-y-20 lg:space-y-28">
+          <div className="grid sm:grid-cols-2 gap-6 lg:gap-10 max-w-4xl mx-auto">
             {demos.map((demo, i) => (
               <motion.div
-                key={demo.title}
+                key={demo.label}
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-                className={`grid lg:grid-cols-5 gap-8 items-center ${i % 2 === 1 ? 'lg:[&>div:first-child]:order-2' : ''}`}
+                viewport={{ once: true, margin: '-80px' }}
+                transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
               >
-                <div className="lg:col-span-3">
-                  <BeforeAfterSlider before={demo.before} after={demo.after} alt={demo.title} />
-                </div>
-                <div className="lg:col-span-2 lg:px-6">
-                  <span className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground">0{i + 1} / 03</span>
-                  <h3 className="text-2xl sm:text-3xl font-light tracking-tight mt-3 mb-4">{demo.title}</h3>
-                  <p className="text-lg text-muted-foreground font-light leading-relaxed">{demo.caption}</p>
-                </div>
+                <VerticalVideo src={demo.src} label={demo.label} />
               </motion.div>
             ))}
           </div>
 
-          {/* Sample reel */}
-          <div className="mt-24">
-            <div className="text-center mb-8">
-              <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground mb-3">Sample reel</p>
-              <h3 className="text-2xl sm:text-3xl font-light tracking-tight">4920 Shady Rim — full cinematic listing</h3>
-            </div>
-            <div className="rounded-2xl overflow-hidden border border-border/40 bg-black aspect-video max-w-5xl mx-auto">
-              <video
-                src="/videos/demo-shady-rim.mp4"
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full h-full object-cover"
-              />
-            </div>
+          {/* Instagram CTA */}
+          <div className="text-center mt-14">
+            <a
+              href="https://instagram.com/w4rr3nguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 px-6 py-3.5 rounded-full border border-border hover:border-foreground/40 hover:bg-accent transition-all text-sm tracking-[0.15em] uppercase group"
+            >
+              <Instagram className="h-4 w-4" />
+              See more reels on Instagram
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </a>
+            <p className="text-xs text-muted-foreground/70 mt-3 tracking-wide">@w4rr3nguru</p>
           </div>
         </div>
       </section>
