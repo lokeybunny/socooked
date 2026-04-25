@@ -78,6 +78,7 @@ const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdi
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
 const Poly = lazyWithRetry(() => import("./pages/Poly"), "page-poly");
+const AIFilms = lazyWithRetry(() => import("./pages/AIFilms"), "page-ai-films");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,7 +114,8 @@ const App = () => (
             <AnalyticsMount />
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
-                <Route path="/" element={<AIDirector />} />
+                <Route path="/" element={<AIFilms />} />
+                <Route path="/ai-director" element={<AIDirector />} />
                 <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
