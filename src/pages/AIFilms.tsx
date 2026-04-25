@@ -6,8 +6,8 @@ import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
 import SEOHead from '@/components/SEOHead';
 import { toast } from 'sonner';
 
-import beforeFurniture from '@/assets/ai-films/before-furniture.jpg';
-import afterFurniture from '@/assets/ai-films/after-furniture.jpg';
+import heroBefore from '@/assets/ai-films/hero-before.webp';
+import heroAfter from '@/assets/ai-films/hero-after.png';
 
 const demos = [
   {
@@ -144,7 +144,7 @@ export default function AIFilms() {
             transition={{ duration: 1, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="relative"
           >
-            <BeforeAfterSlider before={beforeFurniture} after={afterFurniture} alt="Listing transformation" />
+            <BeforeAfterSlider before={heroBefore} after={heroAfter} alt="Listing transformation" />
             <p className="text-center text-[10px] tracking-[0.3em] uppercase text-muted-foreground/70 mt-4">
               Drag to reveal · Real transformation
             </p>
