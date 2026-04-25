@@ -118,7 +118,7 @@ export default function AIFilms() {
             <p className="text-lg sm:text-xl text-muted-foreground font-light max-w-xl mb-8 leading-relaxed">
               Remove furniture. Add staging. Simulate drone tours. All powered by AI.
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
               <a
                 href="#pricing"
                 className="group inline-flex items-center gap-2 px-6 py-4 bg-foreground text-background rounded-full text-sm tracking-[0.15em] uppercase hover:bg-foreground/90 transition-all hover:scale-[1.02]"
