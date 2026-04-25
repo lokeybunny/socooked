@@ -8,10 +8,6 @@ import { toast } from 'sonner';
 
 import beforeFurniture from '@/assets/ai-films/before-furniture.jpg';
 import afterFurniture from '@/assets/ai-films/after-furniture.jpg';
-import beforeStaging from '@/assets/ai-films/before-staging.jpg';
-import afterStaging from '@/assets/ai-films/after-staging.jpg';
-import beforeDrone from '@/assets/ai-films/before-drone.jpg';
-import afterDrone from '@/assets/ai-films/after-drone.jpg';
 
 const demos = [
   {
