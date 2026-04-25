@@ -15,24 +15,17 @@ import afterDrone from '@/assets/ai-films/after-drone.jpg';
 
 const demos = [
   {
-    title: 'AI Furniture Removal',
-    caption: 'Declutter instantly. Let buyers imagine the space.',
-    before: beforeFurniture,
-    after: afterFurniture,
+    title: '4920 Shady Rim',
+    caption: 'AI-enhanced cinematic listing reel — built for Reels, TikTok, and Zillow short-form.',
+    src: '/videos/demo-shady-rim.mp4',
   },
   {
-    title: 'AI 360 → Cinematic Drone',
-    caption: 'Turn basic tours into cinematic experiences.',
-    before: beforeDrone,
-    after: afterDrone,
-  },
-  {
-    title: 'Virtual Staging Enhancement',
-    caption: 'Sell lifestyle, not just square footage.',
-    before: beforeStaging,
-    after: afterStaging,
+    title: 'Listing Showcase 02',
+    caption: 'Vertical-first delivery. Drops straight into your social ad funnel.',
+    src: '/videos/hero-ai-films.mp4',
   },
 ];
+
 
 const benefits = [
   { icon: Eye, title: 'Listings stand out instantly', desc: 'Cut through the noise on Zillow, MLS and the feed.' },
@@ -175,47 +168,41 @@ export default function AIFilms() {
           <div className="text-center mb-16">
             <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground mb-4">Proof, not portfolio</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-light tracking-tight">
-              Three transformations that close deals.
+              Real listings. Real results.
             </h2>
           </div>
 
-          <div className="space-y-20 lg:space-y-28">
+          <div className="grid sm:grid-cols-2 gap-6 lg:gap-10 max-w-5xl mx-auto">
             {demos.map((demo, i) => (
               <motion.div
                 key={demo.title}
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-                className={`grid lg:grid-cols-5 gap-8 items-center ${i % 2 === 1 ? 'lg:[&>div:first-child]:order-2' : ''}`}
+                viewport={{ once: true, margin: '-80px' }}
+                transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
+                className="group"
               >
-                <div className="lg:col-span-3">
-                  <BeforeAfterSlider before={demo.before} after={demo.after} alt={demo.title} />
+                <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-black border border-border/40 shadow-2xl">
+                  <video
+                    src={demo.src}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    controls
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute top-4 left-4 px-2.5 py-1 text-[10px] tracking-[0.25em] uppercase bg-black/70 backdrop-blur-sm text-white rounded-full pointer-events-none">
+                    0{i + 1} / 0{demos.length}
+                  </span>
                 </div>
-                <div className="lg:col-span-2 lg:px-6">
-                  <span className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground">0{i + 1} / 03</span>
-                  <h3 className="text-2xl sm:text-3xl font-light tracking-tight mt-3 mb-4">{demo.title}</h3>
-                  <p className="text-lg text-muted-foreground font-light leading-relaxed">{demo.caption}</p>
+                <div className="mt-5 px-1">
+                  <h3 className="text-xl sm:text-2xl font-light tracking-tight mb-2">{demo.title}</h3>
+                  <p className="text-sm text-muted-foreground font-light leading-relaxed">{demo.caption}</p>
                 </div>
               </motion.div>
             ))}
-          </div>
-
-          {/* Sample reel */}
-          <div className="mt-24">
-            <div className="text-center mb-8">
-              <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground mb-3">Sample reel</p>
-              <h3 className="text-2xl sm:text-3xl font-light tracking-tight">4920 Shady Rim — full cinematic listing</h3>
-            </div>
-            <div className="rounded-2xl overflow-hidden border border-border/40 bg-black aspect-video max-w-5xl mx-auto">
-              <video
-                src="/videos/demo-shady-rim.mp4"
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full h-full object-cover"
-              />
-            </div>
           </div>
         </div>
       </section>
