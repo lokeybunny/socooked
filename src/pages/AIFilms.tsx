@@ -131,18 +131,17 @@ export default function AIFilms() {
 
       {/* HERO */}
       <section id="top" ref={heroRef} className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-        {/* Background video */}
+        {/* Full-screen hero image */}
         <motion.div className="absolute inset-0 -z-10" style={{ y: heroY, opacity: heroOpacity }}>
-          <video
-            src="/videos/hero-ai-films.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            className="w-full h-full object-cover"
+          <img
+            src={heroVideographer3D}
+            alt="AI-augmented real estate videographer with cinema rig, drones, and HUD overlays"
+            loading="eager"
+            className="w-full h-full object-cover object-center"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
+          {/* Cinematic gradient for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/20 to-background/70" />
         </motion.div>
 
         <div className="max-w-7xl mx-auto px-5 sm:px-8 w-full grid lg:grid-cols-2 gap-12 items-center py-20">
