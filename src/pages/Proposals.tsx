@@ -12,7 +12,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Plus, Search, Send, FileText, Trash2, Pencil, Eye, ExternalLink, Sparkles,
-  Copy, RotateCcw, X, ArrowLeft,
+  Copy, RotateCcw, X, ArrowLeft, Film,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
