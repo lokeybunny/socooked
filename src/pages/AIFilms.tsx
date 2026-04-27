@@ -438,7 +438,7 @@ export default function AIFilms() {
 
       {/* Footer */}
       <footer className="py-10 px-5 sm:px-8 border-t border-border/40">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] tracking-[0.25em] uppercase text-muted-foreground">
+        <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-4 text-center text-[10px] tracking-[0.25em] uppercase text-muted-foreground">
           <div>AI Films Real Motion · Directed by Warren Guru</div>
           <div className="flex items-center gap-6">
             <Link to="/auth" className="hover:text-foreground transition-colors">Client Login</Link>
