@@ -8,7 +8,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import VideoPlayer from '@/components/landing/VideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
-import heroVideographer3D from '@/assets/landing/hero-videographer-3d.png';
+
 
 const services = [
   {
