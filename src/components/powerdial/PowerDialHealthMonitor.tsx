@@ -39,6 +39,8 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
   const scrollRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const analyzedRef = useRef<Set<string>>(new Set());
+  const autoAdvanceInFlightRef = useRef(false);
+  const lastAutoAdvanceAtRef = useRef(0);
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
     setLogs(prev => [...prev.slice(-200), { id: crypto.randomUUID(), ts: new Date(), level, message }]);
@@ -224,7 +226,13 @@ ${transcript.slice(0, 3000)}`,
         .eq('status', 'pending');
       const pendingCount = rawPendingCount || 0;
 
-      const isRunning = campaignStatus === 'running';
+      const { data: freshCampaign } = await supabase
+        .from('powerdial_campaigns')
+        .select('status')
+        .eq('id', campaignId)
+        .maybeSingle();
+      const liveStatus = String(freshCampaign?.status || campaignStatus);
+      const isRunning = liveStatus === 'running';
       const stalled = isRunning && dialingCount === 0 && pendingCount > 0;
       const completed = isRunning && dialingCount === 0 && pendingCount === 0;
 
@@ -254,9 +262,23 @@ ${transcript.slice(0, 3000)}`,
       }
 
       // AUTO-FIX: re-advance stalled campaign
-      if (autoFix && stalled && isRunning) {
+      const canAutoAdvance = Date.now() - lastAutoAdvanceAtRef.current > 20_000;
+      if (autoFix && stalled && isRunning && canAutoAdvance && !autoAdvanceInFlightRef.current) {
+        autoAdvanceInFlightRef.current = true;
+        lastAutoAdvanceAtRef.current = Date.now();
         addLog('fix', '🔧 Auto-advancing stalled campaign…');
         try {
+          const { data: campaignBeforeAdvance } = await supabase
+            .from('powerdial_campaigns')
+            .select('status')
+            .eq('id', campaignId)
+            .maybeSingle();
+
+          if (campaignBeforeAdvance?.status !== 'running') {
+            addLog('warn', `⏭ Auto-advance skipped — campaign is ${campaignBeforeAdvance?.status || 'not running'}`);
+            return;
+          }
+
           const { data, error } = await supabase.functions.invoke('powerdial-engine', {
             body: { action: 'advance', campaign_id: campaignId },
           });
@@ -267,6 +289,8 @@ ${transcript.slice(0, 3000)}`,
           }
         } catch (e: any) {
           addLog('error', `✗ Advance error: ${e.message}`);
+        } finally {
+          autoAdvanceInFlightRef.current = false;
         }
       }
 

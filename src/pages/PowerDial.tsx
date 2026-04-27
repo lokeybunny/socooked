@@ -486,7 +486,15 @@ export default function PowerDial() {
               </div>
 
               {(activeCampaign.status === 'idle' || activeCampaign.status === 'stopped') && (
-                <Button size="sm" onClick={() => invokeEngine({ action: 'start', campaign_id: activeCampaign.id })} disabled={actionLoading}>
+                <Button size="sm" onClick={async () => {
+                  await supabase.from('powerdial_campaigns').update({
+                    schedule_status: null,
+                    scheduled_start: null,
+                    scheduled_end: null,
+                    ended_at: null,
+                  }).eq('id', activeCampaign.id);
+                  await invokeEngine({ action: 'start', campaign_id: activeCampaign.id });
+                }} disabled={actionLoading}>
                   {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
                   Start Campaign
                 </Button>
@@ -516,7 +524,14 @@ export default function PowerDial() {
                           completed_count: 0,
                           human_count: 0,
                           voicemail_count: 0,
+                          busy_count: 0,
+                          no_answer_count: 0,
                           failed_count: 0,
+                          current_index: 0,
+                          schedule_status: null,
+                          scheduled_start: null,
+                          scheduled_end: null,
+                          started_at: null,
                           ended_at: null,
                         })
                         .eq('id', activeCampaign.id);
