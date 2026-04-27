@@ -1,6 +1,7 @@
 import {
   advanceCampaign,
   cancelSiblingCalls,
+  DEFAULT_POWERDIAL_SETTINGS,
   normalizePhone,
   prepareVapiOutboundAssistant,
   resolvePowerDialAssistantId,
@@ -628,7 +629,8 @@ Deno.serve(async (req) => {
       if (!bytes) {
         return new Response("TTS unavailable", { status: 502 });
       }
-      return new Response(bytes, {
+      const audioBody = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      return new Response(audioBody, {
         status: 200,
         headers: {
           ...CORS,
@@ -715,7 +717,10 @@ Deno.serve(async (req) => {
           ? existingLog.meta as Record<string, unknown>
           : {};
 
-        const settingsObj = (campSettings?.settings || {}) as Record<string, unknown>;
+        const settingsObj = {
+          ...DEFAULT_POWERDIAL_SETTINGS,
+          ...((campSettings?.settings || {}) as Record<string, unknown>),
+        } as Record<string, unknown>;
         const aiEnabled = settingsObj.ai_enabled !== false; // default true
         const humanTransferPhoneRaw = typeof settingsObj.human_transfer_phone === "string"
           ? settingsObj.human_transfer_phone
@@ -770,7 +775,7 @@ Deno.serve(async (req) => {
         // When ai_assist is true and a human transfer number is configured,
         // we play a short greeting via Twilio TTS to the lead while we silently
         // bridge the live agent in — the lead never hears a ring.
-        const aiAssistEnabled = settingsObj.ai_assist === true;
+        const aiAssistEnabled = settingsObj.ai_assist !== false;
         const aiAssistGreetingRaw = typeof settingsObj.ai_assist_greeting === "string"
           ? settingsObj.ai_assist_greeting
           : "";
@@ -966,7 +971,7 @@ Deno.serve(async (req) => {
         console.log(`[powerdial-webhook] Advance after busy for ${campaignId}:`, advanceResult);
       } else if (callStatus === "no-answer") {
         const [{ data: qItem }, { data: campaign }] = await Promise.all([
-          sb.from("powerdial_queue").select("retry_count").eq("id", queueItemId).single(),
+          sb.from("powerdial_queue").select("retry_count, phone").eq("id", queueItemId).single(),
           sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
         ]);
 
@@ -995,7 +1000,7 @@ Deno.serve(async (req) => {
           await bumpCampaignCount(campaignId, "no_answer_count");
 
           // Auto-register in DNC registry after max attempts exhausted
-          if (!willRetry) {
+          if (!willRetry && qItem?.phone) {
             const totalAttempts = currentRetryCount + 1;
             await sb.from("lh_dnc_registry").upsert({
               phone: qItem.phone,
