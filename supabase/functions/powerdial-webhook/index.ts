@@ -93,9 +93,17 @@ async function redirectCallToVapi(
       options.callLogId,
     );
 
+    // For live human transfer, suppress the ringback the lead hears while
+    // we connect the human agent. We do this by NOT using answerOnBridge —
+    // Twilio answers the inbound leg immediately (silent), then bridges to
+    // the agent. The lead hears silence instead of ringing, giving a fluid
+    // "instant connect" power-dialer feel.
+    const isHumanTransfer = assistantId === "live-human-transfer";
+    const answerOnBridge = isHumanTransfer ? "false" : "true";
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial timeout="30" answerOnBridge="true" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
+  <Dial timeout="30" answerOnBridge="${answerOnBridge}" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(vapiPhoneNumber)}</Number>
   </Dial>
 </Response>`;
