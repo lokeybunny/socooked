@@ -185,7 +185,7 @@ function DemoVideo({ src }: { src: string }) {
 export default function AIFilms() {
   const [form, setForm] = useState({ name: '', phone: '', property: '' });
   const [submitting, setSubmitting] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const faqs = [
     {
