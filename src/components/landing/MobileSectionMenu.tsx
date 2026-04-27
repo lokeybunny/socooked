@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,14 +15,6 @@ const sections: Section[] = [
 
 export default function MobileSectionMenu() {
   const [open, setOpen] = useState(false);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 200);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   const jump = (id: string) => {
     setOpen(false);
@@ -32,21 +24,16 @@ export default function MobileSectionMenu() {
 
   return (
     <div className="md:hidden">
-      <AnimatePresence>
-        {visible && (
-          <motion.button
-            key="trigger"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            onClick={() => setOpen(true)}
-            aria-label="Open quick navigation"
-            className="fixed bottom-6 left-4 z-40 p-3.5 rounded-full border-2 border-foreground/20 bg-background/80 backdrop-blur-md text-foreground/80 hover:text-foreground shadow-lg"
-          >
-            <Menu className="h-5 w-5" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+      <motion.button
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.4 }}
+        onClick={() => setOpen(true)}
+        aria-label="Open quick navigation"
+        className="fixed bottom-6 left-4 z-[60] p-3.5 rounded-full border-2 border-foreground/30 bg-background/90 backdrop-blur-md text-foreground shadow-xl"
+      >
+        <Menu className="h-5 w-5" />
+      </motion.button>
 
       <AnimatePresence>
         {open && (
