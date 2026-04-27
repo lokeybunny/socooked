@@ -121,6 +121,57 @@ function HeroShowcaseVideo() {
   );
 }
 
+function DemoVideo({ src }: { src: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const toggleSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.muted) {
+      v.muted = false;
+      v.volume = 1;
+      setIsMuted(false);
+      v.play().catch(() => {});
+    } else {
+      v.muted = true;
+      setIsMuted(true);
+    }
+  };
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="w-full h-full object-cover"
+      />
+      <button
+        type="button"
+        onClick={toggleSound}
+        aria-label={isMuted ? 'Unmute' : 'Mute'}
+        className="absolute inset-0 m-auto w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/20 transition-all hover:scale-110 hover:opacity-90 z-10"
+        style={{ backgroundColor: 'rgba(178, 34, 52, 0.5)' }}
+      >
+        {isMuted ? (
+          <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-lg ml-1" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        ) : (
+          <svg className="w-8 h-8 sm:w-10 sm:h-10 text-white drop-shadow-lg" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+          </svg>
+        )}
+      </button>
+    </>
+  );
+}
+
 export default function AIFilms() {
   const [form, setForm] = useState({ name: '', phone: '', property: '' });
   const [submitting, setSubmitting] = useState(false);
