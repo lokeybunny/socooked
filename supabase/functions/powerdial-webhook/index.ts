@@ -141,14 +141,26 @@ const DEFAULT_AI_ASSIST_GREETING =
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
 
 /**
- * Renders the warm-handoff greeting through ElevenLabs (μ-law 8kHz, telephony-grade)
- * and caches it in the public `site-assets` bucket keyed by voice + text hash.
- * Returns a public URL Twilio can <Play>, or null if generation/upload fails.
+ * Renders a warm-handoff greeting through ElevenLabs as MP3 bytes.
+ * Uses an in-memory cache keyed by (voice + text) hash so repeat calls
+ * don't re-hit the API. Returns null if generation fails.
  */
-async function getOrCreateElevenLabsGreetingUrl(
+const elevenAudioCache = new Map<string, Uint8Array>();
+
+async function fingerprintGreeting(voiceId: string, text: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${voiceId}::${text}`),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function generateElevenLabsGreetingBytes(
   voiceId: string,
   greetingText: string,
-): Promise<string | null> {
+): Promise<Uint8Array | null> {
   const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
   if (!apiKey) {
     console.warn("[powerdial-webhook] ELEVENLABS_API_KEY missing — falling back to Polly");
@@ -156,20 +168,10 @@ async function getOrCreateElevenLabsGreetingUrl(
   }
 
   try {
-    // Stable cache key per (voice + text) so the same greeting reuses the same MP3.
-    const fingerprint = `${voiceId}::${greetingText}`;
-    const hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprint));
-    const hashHex = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-    const objectPath = `powerdial/ai-assist/${hashHex}.mp3`;
-    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/site-assets/${objectPath}`;
+    const hash = await fingerprintGreeting(voiceId, greetingText);
+    const cached = elevenAudioCache.get(hash);
+    if (cached) return cached;
 
-    // 1) Cache hit?
-    const head = await fetch(publicUrl, { method: "HEAD" });
-    if (head.ok) {
-      return publicUrl;
-    }
-
-    // 2) Render via ElevenLabs (use turbo model for speed; mp3 plays natively in Twilio).
     const ttsResp = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
       {
@@ -197,29 +199,32 @@ async function getOrCreateElevenLabsGreetingUrl(
       return null;
     }
 
-    const audioBuf = await ttsResp.arrayBuffer();
-
-    // 3) Upload to public site-assets bucket via Supabase Storage SDK
-    //    (the SDK handles both legacy JWT and new signing-key formats correctly).
-    const { error: uploadErr } = await sb.storage
-      .from("site-assets")
-      .upload(objectPath, new Uint8Array(audioBuf), {
-        contentType: "audio/mpeg",
-        cacheControl: "31536000",
-        upsert: true,
-      });
-
-    if (uploadErr) {
-      console.error("[powerdial-webhook] Storage upload failed:", uploadErr.message);
-      return null;
-    }
-
-    console.log(`[powerdial-webhook] Cached AI Assist greeting at ${publicUrl}`);
-    return publicUrl;
+    const bytes = new Uint8Array(await ttsResp.arrayBuffer());
+    elevenAudioCache.set(hash, bytes);
+    console.log(`[powerdial-webhook] ElevenLabs greeting generated (${bytes.length} bytes)`);
+    return bytes;
   } catch (err) {
     console.error("[powerdial-webhook] ElevenLabs greeting generation error:", err);
     return null;
   }
+}
+
+/**
+ * Builds a public URL pointing back at this webhook that, when fetched by Twilio,
+ * streams the ElevenLabs MP3 inline. No storage bucket required.
+ */
+async function buildAIGreetingUrl(voiceId: string, greetingText: string): Promise<string> {
+  const hash = await fingerprintGreeting(voiceId, greetingText);
+  // Pre-warm cache so the audio request doesn't have to wait on TTS round-trip
+  // (Twilio will fetch it within ~200ms).
+  await generateElevenLabsGreetingBytes(voiceId, greetingText);
+
+  const url = new URL(`${SUPABASE_URL}/functions/v1/powerdial-webhook`);
+  url.searchParams.set("type", "ai-greeting");
+  url.searchParams.set("voice", voiceId);
+  url.searchParams.set("hash", hash);
+  url.searchParams.set("text", greetingText);
+  return url.toString();
 }
 
 /**
@@ -254,10 +259,16 @@ async function redirectCallToAIAssistTransfer(
 
     // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
     // so the warm hand-off never breaks even if ElevenLabs is down.
-    const elevenUrl = await getOrCreateElevenLabsGreetingUrl(
+    // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
+    // so the warm hand-off never breaks even if ElevenLabs is down.
+    // Audio is streamed inline from this same edge function — no storage bucket needed.
+    const elevenBytes = await generateElevenLabsGreetingBytes(
       AI_ASSIST_ELEVENLABS_VOICE_ID,
       sayText,
     );
+    const elevenUrl = elevenBytes
+      ? await buildAIGreetingUrl(AI_ASSIST_ELEVENLABS_VOICE_ID, sayText)
+      : null;
 
     const greetingTwiml = elevenUrl
       ? `<Play>${escapeXml(elevenUrl)}</Play>`
@@ -582,6 +593,29 @@ Deno.serve(async (req) => {
   const callLogId = url.searchParams.get("call_log_id") || "";
 
   try {
+    // Inline ElevenLabs MP3 streaming endpoint that Twilio <Play> hits.
+    // No storage bucket / no auth — pure pass-through with in-memory cache.
+    if (type === "ai-greeting") {
+      const voice = url.searchParams.get("voice") || "";
+      const text = url.searchParams.get("text") || "";
+      if (!voice || !text) {
+        return new Response("Missing voice or text", { status: 400 });
+      }
+      const bytes = await generateElevenLabsGreetingBytes(voice, text);
+      if (!bytes) {
+        return new Response("TTS unavailable", { status: 502 });
+      }
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          ...CORS,
+          "Content-Type": "audio/mpeg",
+          "Cache-Control": "public, max-age=86400",
+          "Content-Length": String(bytes.length),
+        },
+      });
+    }
+
     if (type === "twiml") {
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
