@@ -332,6 +332,95 @@ ${itemsTxt || 'N/A'}`;
     toast.success('Sign link copied');
   };
 
+  const handleDownloadSigned = async (p: Proposal) => {
+    if (!p.document_id) { toast.error('No signed document available'); return; }
+    try {
+      toast.loading('Generating signed PDF…', { id: `dl-${p.id}` });
+
+      // Load document + signature in parallel
+      const [docRes, sigRes] = await Promise.all([
+        supabase.from('documents').select('*').eq('id', p.document_id).single(),
+        supabase.from('signatures').select('*').eq('document_id', p.document_id).order('signed_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+
+      if (docRes.error || !docRes.data) throw new Error('Document not found');
+      if (sigRes.error || !sigRes.data) throw new Error('No signature found for this proposal');
+
+      const doc = docRes.data;
+      const sig = sigRes.data;
+
+      // Resolve agreement text
+      let agreementText = '';
+      if (doc.file_url) {
+        agreementText = doc.file_url;
+      } else if (doc.storage_path) {
+        const { data: fileData } = await supabase.storage.from('documents').download(doc.storage_path);
+        if (fileData) agreementText = await fileData.text();
+      }
+
+      const pdf = new jsPDF({ unit: 'pt', format: 'letter' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 50;
+      const maxWidth = pageWidth - margin * 2;
+      let y = 50;
+
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(doc.title || p.title || 'Signed Agreement', margin, y);
+      y += 30;
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      const lines = pdf.splitTextToSize(agreementText || 'Agreement text not available.', maxWidth);
+      for (const line of lines) {
+        if (y > pdf.internal.pageSize.getHeight() - 100) { pdf.addPage(); y = 50; }
+        pdf.text(line, margin, y);
+        y += 14;
+      }
+
+      if (y > pdf.internal.pageSize.getHeight() - 220) { pdf.addPage(); y = 50; }
+      y += 20;
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 25;
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('SIGNATURE', margin, y);
+      y += 22;
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Signed by: ${sig.signer_name}`, margin, y); y += 16;
+      pdf.text(`Email: ${sig.signer_email || 'N/A'}`, margin, y); y += 16;
+      pdf.text(`Date: ${new Date(sig.signed_at).toLocaleString()}`, margin, y); y += 16;
+      pdf.text(`Method: ${sig.signature_type === 'drawn' ? 'Hand-drawn signature' : 'Typed signature'}`, margin, y); y += 24;
+
+      if (sig.signature_type === 'drawn' && sig.signature_data) {
+        try { pdf.addImage(sig.signature_data, 'PNG', margin, y, 250, 80); y += 90; } catch { /* skip */ }
+      } else if (sig.signature_type === 'typed' && sig.signature_data) {
+        pdf.setFontSize(24);
+        pdf.setFont('times', 'italic');
+        pdf.text(sig.signature_data, margin, y + 20);
+        y += 40;
+      }
+
+      y += 10;
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, margin + 260, y);
+      y += 14;
+      pdf.setFontSize(8);
+      pdf.text('Signature', margin, y);
+
+      const safeTitle = (doc.title || p.title || 'Agreement').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60);
+      pdf.save(`${safeTitle}_SIGNED.pdf`);
+
+      toast.success('Signed PDF downloaded', { id: `dl-${p.id}` });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Download failed', { id: `dl-${p.id}` });
+    }
+  };
+
   return (
     <AppLayout>
       <div className="px-6 py-6 space-y-6">
