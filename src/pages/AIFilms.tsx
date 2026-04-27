@@ -303,17 +303,8 @@ export default function AIFilms() {
                 className="group"
               >
                 <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-black border border-border/40 shadow-2xl">
-                  <video
-                    src={demo.src}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    controls
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute top-4 left-4 px-2.5 py-1 text-[10px] tracking-[0.25em] uppercase bg-black/70 backdrop-blur-sm text-white rounded-full pointer-events-none">
+                  <DemoVideo src={demo.src} />
+                  <span className="absolute top-4 left-4 px-2.5 py-1 text-[10px] tracking-[0.25em] uppercase bg-black/70 backdrop-blur-sm text-white rounded-full pointer-events-none z-10">
                     0{i + 1} / 0{demos.length}
                   </span>
                 </div>
