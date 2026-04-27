@@ -132,19 +132,19 @@ export default function AIFilms() {
       {/* HERO */}
       <section id="top" ref={heroRef} className="relative min-h-screen flex items-center pt-20 overflow-hidden">
         {/* Full-screen hero image */}
-        <motion.div className="absolute inset-0 -z-10" style={{ y: heroY, opacity: heroOpacity }}>
+        <motion.div className="absolute inset-0 z-0 pointer-events-none" style={{ y: heroY, opacity: heroOpacity }}>
           <img
             src={heroVideographer3D}
             alt="AI-augmented real estate videographer with cinema rig, drones, and HUD overlays"
             loading="eager"
             className="w-full h-full object-cover object-center"
           />
-          {/* Cinematic gradient for text legibility */}
-          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/20 to-background/70" />
+          {/* Cinematic gradient overlays — keep image visible while ensuring text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-background/20 via-background/10 to-background" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-background/60" />
         </motion.div>
 
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 w-full grid lg:grid-cols-2 gap-12 items-center py-20">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full grid lg:grid-cols-2 gap-12 items-center py-20">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
