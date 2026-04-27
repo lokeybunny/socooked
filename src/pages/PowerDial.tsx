@@ -465,15 +465,21 @@ export default function PowerDial() {
                 <Switch
                   checked={activeCampaign.settings?.ai_enabled !== false}
                   onCheckedChange={async (checked) => {
-                    const transfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
-                    if (!checked && !transfer) {
-                      toast.error('Set a Live Transfer Phone in Settings before disabling AI.');
-                      return;
-                    }
-                    const newSettings = { ...(activeCampaign.settings || {}), ai_enabled: checked };
+                    const DEFAULT_TRANSFER = '+17027016192';
+                    const existingTransfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
+                    const transfer = existingTransfer || (!checked ? DEFAULT_TRANSFER : '');
+                    const newSettings = {
+                      ...(activeCampaign.settings || {}),
+                      ai_enabled: checked,
+                      human_transfer_phone: transfer || existingTransfer,
+                    };
                     await supabase.from('powerdial_campaigns').update({ settings: newSettings }).eq('id', activeCampaign.id);
                     setActiveCampaign({ ...activeCampaign, settings: newSettings });
-                    toast.success(checked ? 'AI enabled — Vapi will handle answered calls' : 'AI disabled — answered calls will ring your phone');
+                    if (!checked && !existingTransfer) {
+                      toast.success(`AI disabled — calls will ring ${DEFAULT_TRANSFER} (change in Settings)`);
+                    } else {
+                      toast.success(checked ? 'AI enabled — Vapi will handle answered calls' : 'AI disabled — answered calls will ring your phone');
+                    }
                   }}
                   className="data-[state=checked]:bg-emerald-500"
                 />
