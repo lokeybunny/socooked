@@ -496,6 +496,35 @@ export default function PowerDial() {
                 />
               </div>
 
+              {/* AI Assist Toggle — warm handoff: AI greets, silently bridge to human */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10">
+                <Sparkles className="h-3.5 w-3.5 text-sky-400" />
+                <span className="text-xs font-medium text-sky-300">AI Assist</span>
+                <Switch
+                  checked={Boolean(activeCampaign.settings?.ai_assist)}
+                  onCheckedChange={async (checked) => {
+                    const DEFAULT_TRANSFER = '+17027016192';
+                    const existingTransfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
+                    const transfer = existingTransfer || (checked ? DEFAULT_TRANSFER : '');
+                    const newSettings = {
+                      ...(activeCampaign.settings || {}),
+                      ai_assist: checked,
+                      // AI Assist requires AI Enabled to remain ON (it runs inside the AI-enabled branch)
+                      ai_enabled: checked ? true : (activeCampaign.settings?.ai_enabled !== false),
+                      human_transfer_phone: transfer || existingTransfer,
+                    };
+                    await supabase.from('powerdial_campaigns').update({ settings: newSettings }).eq('id', activeCampaign.id);
+                    setActiveCampaign({ ...activeCampaign, settings: newSettings });
+                    if (checked) {
+                      toast.success(`AI Assist on — AI greets, then silently bridges to ${transfer || existingTransfer || 'your transfer line'}`);
+                    } else {
+                      toast.success('AI Assist off — answered calls follow normal AI flow');
+                    }
+                  }}
+                  className="data-[state=checked]:bg-sky-500"
+                />
+              </div>
+
               {(activeCampaign.status === 'idle' || activeCampaign.status === 'stopped') && (
                 <Button size="sm" onClick={async () => {
                   await supabase.from('powerdial_campaigns').update({
