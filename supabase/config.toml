@@ -177,3 +177,6 @@ verify_jwt = false
 [functions.poly-nowpayments-webhook]
 verify_jwt = false
 
+
+[functions.proposal-deposit-track]
+verify_jwt = false

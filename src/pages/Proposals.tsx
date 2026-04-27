@@ -467,6 +467,7 @@ ${itemsTxt || 'N/A'}`;
             <span style="color: #6b7280; font-size: 13px;">(424) 465-1253 (cell) · (702) 701-6192 (office)</span>
           </p>
         </div>
+        <img src="${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proposal-deposit-track?id=${p.id}&t=${Date.now()}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;" />
       </div>
     `;
 
@@ -601,11 +602,22 @@ ${itemsTxt || 'N/A'}`;
                           <Download className="h-3.5 w-3.5 text-primary" />
                         </Button>
                       )}
-                      {p.status === 'signed' && (
-                        <Button size="sm" variant="ghost" onClick={() => handleSendDepositRequest(p)} disabled={!p.client_email} title="Send $150 deposit request (Zelle / Cash App)">
-                          <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                        </Button>
-                      )}
+                      {p.status === 'signed' && (() => {
+                        const opened = !!(p.meta as Record<string, unknown> | null)?.['deposit_email_opened_at'];
+                        return (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleSendDepositRequest(p)}
+                            disabled={!p.client_email}
+                            title={opened
+                              ? `Client opened the deposit email — click to resend`
+                              : `Send $150 deposit request (Zelle / Cash App)`}
+                          >
+                            <DollarSign className={`h-3.5 w-3.5 ${opened ? 'text-blue-500' : 'text-emerald-500'}`} />
+                          </Button>
+                        );
+                      })()}
                       <Button size="sm" variant="ghost" onClick={() => openEdit(p)} title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
