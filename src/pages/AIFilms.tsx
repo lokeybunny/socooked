@@ -333,7 +333,7 @@ export default function AIFilms() {
 
           <div className="grid sm:grid-cols-2 gap-5">
             {benefits.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="p-7 rounded-2xl border border-border bg-card hover:border-foreground/20 transition-colors group">
+              <div key={title} className="p-7 rounded-2xl border border-border bg-card hover:border-foreground/20 transition-colors group text-center flex flex-col items-center">
                 <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-5 group-hover:bg-foreground group-hover:text-background transition-colors">
                   <Icon className="h-4 w-4" />
                 </div>
