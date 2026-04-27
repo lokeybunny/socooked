@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
 import SEOHead from '@/components/SEOHead';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 import heroBefore from '@/assets/ai-films/hero-before.webp';
 import heroAfter from '@/assets/ai-films/hero-after.png';
