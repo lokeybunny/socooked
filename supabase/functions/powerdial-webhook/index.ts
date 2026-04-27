@@ -629,7 +629,7 @@ Deno.serve(async (req) => {
       if (!bytes) {
         return new Response("TTS unavailable", { status: 502 });
       }
-      const audioBody = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      const audioBody = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
       return new Response(audioBody, {
         status: 200,
         headers: {
@@ -1000,7 +1000,7 @@ Deno.serve(async (req) => {
           await bumpCampaignCount(campaignId, "no_answer_count");
 
           // Auto-register in DNC registry after max attempts exhausted
-          if (!willRetry) {
+          if (!willRetry && qItem?.phone) {
             const totalAttempts = currentRetryCount + 1;
             await sb.from("lh_dnc_registry").upsert({
               phone: qItem.phone,
