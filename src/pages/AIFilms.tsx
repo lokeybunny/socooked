@@ -48,11 +48,37 @@ export default function AIFilms() {
       return;
     }
     setSubmitting(true);
-    // Placeholder: wire up to Supabase later
-    await new Promise((r) => setTimeout(r, 700));
-    toast.success("Got it. Warren will reach out within 24 hours.");
-    setForm({ name: '', phone: '', property: '' });
-    setSubmitting(false);
+    try {
+      const subject = `🎬 New AI Films Request — ${form.name}`;
+      const body = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px;">
+          <h2 style="color: #111;">New Project Request — AI Films Real Motion</h2>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Name:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${form.name}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="tel:${form.phone}">${form.phone}</a></td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Property:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${form.property || '(not provided)'}</td></tr>
+            <tr><td style="padding: 8px;"><strong>Submitted:</strong></td><td style="padding: 8px;">${new Date().toLocaleString()}</td></tr>
+          </table>
+          <p style="color: #666; font-size: 12px; margin-top: 24px;">Sent from the AI Films Real Motion landing page (warren.guru / stu25.com)</p>
+        </div>
+      `.trim();
+
+      const { data, error } = await supabase.functions.invoke('gmail-api?action=send', {
+        body: { to: 'warren@stu25.com', subject, body },
+      });
+
+      if (error || (data as any)?.blocked) {
+        throw new Error((data as any)?.error || error?.message || 'Send failed');
+      }
+
+      toast.success("Got it. Warren will reach out within 24 hours.");
+      setForm({ name: '', phone: '', property: '' });
+    } catch (err: any) {
+      console.error('[AIFilms] Request submission error:', err);
+      toast.error(err?.message || 'Could not send your request. Please call (424) 465-1253.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
