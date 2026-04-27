@@ -157,14 +157,25 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       </div>
 
       <div>
-        <Label>Live Transfer Phone (when AI is OFF)</Label>
+        <Label>Live Transfer Phone (used by AI Off & AI Assist)</Label>
         <Input
           type="tel"
           placeholder="+1 555 555 5555"
           value={humanTransferPhone}
           onChange={(event) => setHumanTransferPhone(event.target.value)}
         />
-        <p className="text-[10px] text-muted-foreground mt-1">When AI is disabled on the campaign, answered calls are forwarded to this number so you can take them live.</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Where to ring the live agent. Used by both AI-Off transfers and the AI Assist warm-handoff.</p>
+      </div>
+
+      <div>
+        <Label>AI Assist Greeting</Label>
+        <textarea
+          className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          placeholder="Hey, I'm calling in regards to your property listings. Do you have a second to talk?"
+          value={aiAssistGreeting}
+          onChange={(event) => setAiAssistGreeting(event.target.value)}
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">Spoken to the lead by Twilio TTS to stall while we silently bridge in the live agent. Only used when <strong>AI Assist</strong> is on.</p>
       </div>
 
       <div>
