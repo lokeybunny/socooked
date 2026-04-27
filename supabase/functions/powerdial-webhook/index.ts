@@ -858,6 +858,46 @@ Deno.serve(async (req) => {
 
         if (!redirected) {
           console.error("[powerdial-webhook] Failed to redirect human call to Vapi");
+
+          // ===== AUTO-FALLBACK: if Vapi setup fails (e.g., expired phone-number-id),
+          // gracefully fall through to AI Assist warm hand-off so the lead never
+          // hears dead silence. Requires a configured human_transfer_phone.
+          if (humanTransferPhone) {
+            console.log(`[powerdial-webhook] Vapi failed — falling back to AI Assist warm handoff for ${humanTransferPhone}`);
+            const fallbackOk = await redirectCallToAIAssistTransfer(
+              callSid,
+              humanTransferPhone,
+              aiAssistGreetingRaw,
+              { campaignId, queueItemId, callLogId, twilioFrom, answeredBy },
+            );
+
+            await sb.from("powerdial_call_logs").update({
+              connected_to_vapi: false,
+              disposition: fallbackOk ? "transferred_to_human" : null,
+              meta: {
+                ...existingMeta,
+                transfer_method: "ai_assist_warm_handoff_fallback",
+                fallback_reason: "vapi_redirect_failed",
+                ai_enabled: true,
+                ai_assist: true,
+                ai_assist_greeting: aiAssistGreetingRaw || (answeredBy === "human" ? SHORT_AI_ASSIST_GREETING : DEFAULT_AI_ASSIST_GREETING),
+                ai_assist_greeting_variant: aiAssistGreetingRaw
+                  ? "custom"
+                  : (answeredBy === "human" ? "short" : "default"),
+                human_transfer_phone: humanTransferPhone,
+                vapi_phone: vapiPhoneNumber,
+                twilio_from: normalizePhone(twilioFrom) || null,
+              },
+            }).eq("id", callLogId);
+
+            return json({
+              ok: true,
+              amd_result: amdResult,
+              redirected: fallbackOk,
+              mode: "ai_assist_warm_handoff_fallback",
+              to: humanTransferPhone,
+            });
+          }
         }
 
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
