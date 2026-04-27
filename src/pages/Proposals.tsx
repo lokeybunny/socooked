@@ -492,7 +492,7 @@ ${itemsTxt || 'N/A'}`;
     }
   };
 
-
+  return (
     <AppLayout>
       <div className="px-6 py-6 space-y-6">
         <div className="flex items-center justify-between">
