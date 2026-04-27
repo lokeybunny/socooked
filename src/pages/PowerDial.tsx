@@ -504,7 +504,6 @@ export default function PowerDial() {
                           status: 'pending',
                           last_result: null,
                           retry_at: null,
-                          attempted_at: null,
                         })
                         .eq('campaign_id', activeCampaign.id);
                       if (qErr) throw qErr;
