@@ -41,6 +41,11 @@ export default function PowerDialHealthMonitor({ campaignId, campaignStatus, set
   const analyzedRef = useRef<Set<string>>(new Set());
   const autoAdvanceInFlightRef = useRef(false);
   const lastAutoAdvanceAtRef = useRef(0);
+  const autoAdvanceAttemptsRef = useRef(0);
+  const autoAdvanceBackoffUntilRef = useRef(0);
+  const lastSuccessfulAdvanceAtRef = useRef(0);
+  const MAX_AUTO_ADVANCE_ATTEMPTS = 5;
+  const BASE_BACKOFF_MS = 20_000; // 20s, then 40s, 80s, 160s, 320s
 
   const addLog = useCallback((level: LogEntry['level'], message: string) => {
     setLogs(prev => [...prev.slice(-200), { id: crypto.randomUUID(), ts: new Date(), level, message }]);
