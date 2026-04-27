@@ -615,6 +615,9 @@ export default function PowerDial() {
               </TabsContent>
             </Tabs>
 
+            {/* Stall Diagnostics — explains health monitor decisions */}
+            <PowerDialStallDiagnostics campaignId={activeCampaign.id} />
+
             {/* Pipeline Health Monitor */}
             <PowerDialHealthMonitor
               campaignId={activeCampaign.id}
