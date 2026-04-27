@@ -491,6 +491,51 @@ export default function PowerDial() {
                   Start Campaign
                 </Button>
               )}
+              {activeCampaign.status === 'completed' && (
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!confirm('Restart this campaign? All queued numbers will be re-dialed from the start.')) return;
+                    try {
+                      // Reset all queue items back to pending
+                      const { error: qErr } = await supabase
+                        .from('powerdial_queue')
+                        .update({
+                          status: 'pending',
+                          last_result: null,
+                          retry_at: null,
+                          attempted_at: null,
+                        })
+                        .eq('campaign_id', activeCampaign.id);
+                      if (qErr) throw qErr;
+
+                      // Reset campaign counters and status
+                      const { error: cErr } = await supabase
+                        .from('powerdial_campaigns')
+                        .update({
+                          status: 'idle',
+                          completed_count: 0,
+                          human_count: 0,
+                          voicemail_count: 0,
+                          failed_count: 0,
+                          ended_at: null,
+                        })
+                        .eq('id', activeCampaign.id);
+                      if (cErr) throw cErr;
+
+                      toast.success('Campaign reset — starting now…');
+                      await invokeEngine({ action: 'start', campaign_id: activeCampaign.id });
+                    } catch (err: any) {
+                      toast.error(err?.message || 'Restart failed');
+                    }
+                  }}
+                  disabled={actionLoading}
+                  className="bg-purple-500 hover:bg-purple-600"
+                >
+                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                  Restart Campaign
+                </Button>
+              )}
               {activeCampaign.status === 'running' && (
                 <>
                   <Button size="sm" variant="secondary" onClick={() => invokeEngine({ action: 'pause', campaign_id: activeCampaign.id })} disabled={actionLoading}>
