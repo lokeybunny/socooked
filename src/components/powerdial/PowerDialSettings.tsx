@@ -73,6 +73,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [vapiAssistantId, setVapiAssistantId] = useState(initialState.vapiAssistantId);
   const [customAssistantId, setCustomAssistantId] = useState(initialState.customAssistantId);
   const [humanTransferPhone, setHumanTransferPhone] = useState(initialState.humanTransferPhone);
+  const [aiAssistGreeting, setAiAssistGreeting] = useState(initialState.aiAssistGreeting);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
