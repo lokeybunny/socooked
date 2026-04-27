@@ -628,12 +628,20 @@ export async function dialNext(campaignId: string, logPrefix = "[powerdial]"): P
   return { dialed: false, reason: "campaign_completed" };
 }
 
+// Twilio call statuses that indicate the lead actually answered the phone.
+// If a sibling has reached one of these states when we cancel, the lead picked
+// up but won't be talked to — they get a 1-hour cooldown + callback flag.
+const TWILIO_ANSWERED_STATUSES = new Set(["in-progress", "answered", "completed"]);
+
+// 1 hour cooldown for leads that picked up but were dropped (warm hand-off lost the race).
+const HUMAN_PICKUP_COOLDOWN_MS = 60 * 60 * 1000;
+
 export async function cancelSiblingCalls(batchId: string, winnerCallLogId: string, campaignId: string) {
   if (!batchId) return;
 
   const { data: siblings } = await sb
     .from("powerdial_call_logs")
-    .select("id, twilio_call_sid, queue_item_id")
+    .select("id, twilio_call_sid, queue_item_id, amd_result, phone")
     .eq("batch_id", batchId)
     .neq("id", winnerCallLogId);
 
@@ -641,16 +649,47 @@ export async function cancelSiblingCalls(batchId: string, winnerCallLogId: strin
 
   const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
   const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+  const twilioAuthHeader = `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`;
+
+  let answeredCount = 0;
+  let unansweredCount = 0;
 
   for (const sibling of siblings) {
-    // Mark call log as cancelled FIRST (before Twilio cancel, so webhook sees it)
+    // 1) Probe Twilio FIRST to figure out whether the lead actually answered before we kill the call.
+    let leadAnswered = sibling.amd_result === "human";
+    if (!leadAnswered && sibling.twilio_call_sid) {
+      try {
+        const probe = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${sibling.twilio_call_sid}.json`,
+          { headers: { Authorization: twilioAuthHeader } },
+        );
+        if (probe.ok) {
+          const data = await probe.json();
+          const status = String(data?.status || "").toLowerCase();
+          const answeredBy = String(data?.answered_by || "").toLowerCase();
+          if (TWILIO_ANSWERED_STATUSES.has(status) || answeredBy === "human") {
+            leadAnswered = true;
+          }
+        }
+      } catch (err) {
+        console.error(`[powerdial] Failed to probe sibling ${sibling.twilio_call_sid}:`, err);
+      }
+    }
+
+    // 2) Mark call log so the webhook knows this was a triple-dial cancellation
+    //    (and remembers whether the lead picked up).
     await sb.from("powerdial_call_logs").update({
       amd_result: "cancelled_triple_dial",
       twilio_status: "canceled",
       connected_to_vapi: false,
+      meta: {
+        cancelled_due_to_triple_dial: true,
+        lead_answered_during_race: leadAnswered,
+        cancelled_at: new Date().toISOString(),
+      },
     }).eq("id", sibling.id);
 
-    // Hang up the Twilio call
+    // 3) Hang up the Twilio call (we already inspected its state above).
     if (sibling.twilio_call_sid) {
       try {
         await fetch(
@@ -658,7 +697,7 @@ export async function cancelSiblingCalls(batchId: string, winnerCallLogId: strin
           {
             method: "POST",
             headers: {
-              Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+              Authorization: twilioAuthHeader,
               "Content-Type": "application/x-www-form-urlencoded",
             },
             body: new URLSearchParams({ Status: "completed" }).toString(),
@@ -669,16 +708,46 @@ export async function cancelSiblingCalls(batchId: string, winnerCallLogId: strin
       }
     }
 
-    // Put queue item back to pending (match ANY non-completed status)
+    // 4) Decide queue fate:
+    //    - Lead answered → push to "callback later" with a 1-hour cooldown so we don't spam them.
+    //    - Lead never answered → safe to drop straight back to pending for the next batch.
     if (sibling.queue_item_id) {
-      await sb.from("powerdial_queue").update({
-        status: "pending",
-        last_result: null,
-      }).eq("id", sibling.queue_item_id);
+      if (leadAnswered) {
+        const retryAt = new Date(Date.now() + HUMAN_PICKUP_COOLDOWN_MS).toISOString();
+        await sb.from("powerdial_queue").update({
+          status: "retry_later",
+          last_result: "callback_human_pickup",
+          retry_at: retryAt,
+        }).eq("id", sibling.queue_item_id);
+
+        // Lightweight DNC log entry for audit / cross-campaign visibility.
+        if (sibling.phone) {
+          try {
+            await sb.from("lh_dnc_registry").upsert({
+              phone: sibling.phone,
+              reason: "cooldown_human_pickup",
+              call_count: 1,
+              last_called_at: new Date().toISOString(),
+              source_list_id: null,
+            }, { onConflict: "phone" });
+          } catch (err) {
+            console.error(`[powerdial] DNC cooldown log failed for ${sibling.phone}:`, err);
+          }
+        }
+
+        answeredCount++;
+        console.log(`[powerdial] Sibling ${sibling.phone || sibling.queue_item_id} answered during race — scheduled callback at ${retryAt}`);
+      } else {
+        await sb.from("powerdial_queue").update({
+          status: "pending",
+          last_result: null,
+        }).eq("id", sibling.queue_item_id);
+        unansweredCount++;
+      }
     }
   }
 
-  console.log(`[powerdial] Cancelled ${siblings.length} sibling calls for batch ${batchId}`);
+  console.log(`[powerdial] Cancelled ${siblings.length} sibling calls for batch ${batchId} (callback: ${answeredCount}, requeued: ${unansweredCount})`);
 }
 
 export async function dialNextBatch(campaignId: string, batchSize: number, logPrefix = "[powerdial]"): Promise<DialNextResult> {
