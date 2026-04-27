@@ -284,8 +284,15 @@ ${transcript.slice(0, 3000)}`,
           });
           if (error) {
             addLog('error', `✗ Advance failed: ${error.message}`);
+            window.dispatchEvent(new CustomEvent('powerdial:engine', {
+              detail: { action: 'advance (auto)', result: 'error', detail: error.message },
+            }));
           } else {
-            addLog('fix', `✓ Campaign re-advanced: ${data?.dialed ? 'dialing next' : data?.reason || 'ok'}`);
+            const resultLabel = data?.dialed ? 'dialed next' : (data?.reason || 'ok');
+            addLog('fix', `✓ Campaign re-advanced: ${resultLabel}`);
+            window.dispatchEvent(new CustomEvent('powerdial:engine', {
+              detail: { action: 'advance (auto)', result: resultLabel, detail: 'triggered by stall detection' },
+            }));
           }
         } catch (e: any) {
           addLog('error', `✗ Advance error: ${e.message}`);
