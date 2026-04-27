@@ -259,10 +259,16 @@ async function redirectCallToAIAssistTransfer(
 
     // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
     // so the warm hand-off never breaks even if ElevenLabs is down.
-    const elevenUrl = await getOrCreateElevenLabsGreetingUrl(
+    // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
+    // so the warm hand-off never breaks even if ElevenLabs is down.
+    // Audio is streamed inline from this same edge function — no storage bucket needed.
+    const elevenBytes = await generateElevenLabsGreetingBytes(
       AI_ASSIST_ELEVENLABS_VOICE_ID,
       sayText,
     );
+    const elevenUrl = elevenBytes
+      ? await buildAIGreetingUrl(AI_ASSIST_ELEVENLABS_VOICE_ID, sayText)
+      : null;
 
     const greetingTwiml = elevenUrl
       ? `<Play>${escapeXml(elevenUrl)}</Play>`
