@@ -41,6 +41,7 @@ function getSettingsFormState(settings: any) {
     hoursEnd: nextSettings.calling_hours_end || '17:00',
     vapiAssistantId: knownAssistant ? persistedAssistantId : 'custom',
     customAssistantId: knownAssistant ? '' : persistedAssistantId,
+    humanTransferPhone: String(nextSettings.human_transfer_phone || ''),
   };
 }
 
@@ -67,6 +68,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [hoursEnd, setHoursEnd] = useState(initialState.hoursEnd);
   const [vapiAssistantId, setVapiAssistantId] = useState(initialState.vapiAssistantId);
   const [customAssistantId, setCustomAssistantId] = useState(initialState.customAssistantId);
+  const [humanTransferPhone, setHumanTransferPhone] = useState(initialState.humanTransferPhone);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -79,6 +81,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setHoursEnd(nextState.hoursEnd);
     setVapiAssistantId(nextState.vapiAssistantId);
     setCustomAssistantId(nextState.customAssistantId);
+    setHumanTransferPhone(nextState.humanTransferPhone);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -95,6 +98,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       calling_hours_start: hoursStart,
       calling_hours_end: hoursEnd,
       vapi_assistant_id: resolvedAssistantId,
+      human_transfer_phone: humanTransferPhone.trim(),
     };
 
     const { error } = await supabase
@@ -143,6 +147,17 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
           />
         )}
         <p className="text-[10px] text-muted-foreground mt-1">PowerDial only uses outbound assistants and defaults to Web Design – Outbound for calls.</p>
+      </div>
+
+      <div>
+        <Label>Live Transfer Phone (when AI is OFF)</Label>
+        <Input
+          type="tel"
+          placeholder="+1 555 555 5555"
+          value={humanTransferPhone}
+          onChange={(event) => setHumanTransferPhone(event.target.value)}
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">When AI is disabled on the campaign, answered calls are forwarded to this number so you can take them live.</p>
       </div>
 
       <div>

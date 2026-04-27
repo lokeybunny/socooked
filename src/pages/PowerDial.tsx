@@ -458,6 +458,27 @@ export default function PowerDial() {
                 />
               </div>
 
+              {/* AI Enabled Toggle */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-xs font-medium text-emerald-300">AI</span>
+                <Switch
+                  checked={activeCampaign.settings?.ai_enabled !== false}
+                  onCheckedChange={async (checked) => {
+                    const transfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
+                    if (!checked && !transfer) {
+                      toast.error('Set a Live Transfer Phone in Settings before disabling AI.');
+                      return;
+                    }
+                    const newSettings = { ...(activeCampaign.settings || {}), ai_enabled: checked };
+                    await supabase.from('powerdial_campaigns').update({ settings: newSettings }).eq('id', activeCampaign.id);
+                    setActiveCampaign({ ...activeCampaign, settings: newSettings });
+                    toast.success(checked ? 'AI enabled — Vapi will handle answered calls' : 'AI disabled — answered calls will ring your phone');
+                  }}
+                  className="data-[state=checked]:bg-emerald-500"
+                />
+              </div>
+
               {(activeCampaign.status === 'idle' || activeCampaign.status === 'stopped') && (
                 <Button size="sm" onClick={() => invokeEngine({ action: 'start', campaign_id: activeCampaign.id })} disabled={actionLoading}>
                   {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
