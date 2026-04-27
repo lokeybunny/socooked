@@ -354,34 +354,41 @@ export default function AIFilms() {
             <h2 className="text-3xl sm:text-4xl font-light tracking-tight">What's included, explained.</h2>
           </div>
 
-          <div className="space-y-4">
-            <div className="p-6 sm:p-7 rounded-2xl border border-border bg-background">
-              <h3 className="text-base font-medium mb-2">What does "full edit included" cover?</h3>
-              <p className="text-sm text-muted-foreground font-light leading-relaxed">
-                Every video is fully edited end-to-end — color grading, cinematic transitions, music sync, AI furniture
-                removal, and visual enhancements. You receive a finished, ready-to-post video. No additional editing fees,
-                no extra charges for music or color work.
-              </p>
-            </div>
-
-            <div className="p-6 sm:p-7 rounded-2xl border border-border bg-background">
-              <h3 className="text-base font-medium mb-2">Why a 1-minute max length?</h3>
-              <p className="text-sm text-muted-foreground font-light leading-relaxed">
-                Videos are delivered in 9:16 Instagram format and capped at 60 seconds — the optimal length for Reels,
-                TikTok, and Stories engagement. Shorter, punchier listings consistently outperform longer walkthroughs on
-                social platforms where buyers actually scroll.
-              </p>
-            </div>
-
-            <div className="p-6 sm:p-7 rounded-2xl border border-border bg-background">
-              <h3 className="text-base font-medium mb-2">How is the +$50 per additional bedroom calculated?</h3>
-              <p className="text-sm text-muted-foreground font-light leading-relaxed">
-                Each package covers up to 4 bedrooms. For each bedroom beyond that, $50 is added to cover the extra
-                shoot, AI processing, and edit time. Example: a 6-bedroom listing on the Single Listing tier is
-                $299 + (2 × $50) = <span className="text-foreground font-medium">$399</span>. The same math applies per
-                listing on the Monthly Package.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {faqs.map((item, i) => {
+              const isOpen = openFaq === i;
+              return (
+                <div
+                  key={item.q}
+                  className="rounded-2xl border border-border bg-background overflow-hidden transition-colors hover:border-foreground/20"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left"
+                  >
+                    <h3 className="text-base font-medium pr-2">{item.q}</h3>
+                    <ChevronDown
+                      className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-300 ${
+                        isOpen ? 'rotate-180 text-foreground' : ''
+                      }`}
+                    />
+                  </button>
+                  <div
+                    className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                      isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <p className="px-5 sm:px-6 pb-5 sm:pb-6 text-sm text-muted-foreground font-light leading-relaxed">
+                        {item.a}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
