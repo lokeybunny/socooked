@@ -161,7 +161,7 @@ async function getOrCreateElevenLabsGreetingUrl(
     const hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprint));
     const hashHex = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
     const objectPath = `powerdial/ai-assist/${hashHex}.mp3`;
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/site-assets/${objectPath}`;
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/site-assets/${objectPath}`;
 
     // 1) Cache hit?
     const head = await fetch(publicUrl, { method: "HEAD" });
@@ -202,7 +202,7 @@ async function getOrCreateElevenLabsGreetingUrl(
     // 3) Upload to public site-assets bucket via Supabase storage REST.
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const uploadResp = await fetch(
-      `${supabaseUrl}/storage/v1/object/site-assets/${objectPath}`,
+      `${SUPABASE_URL}/storage/v1/object/site-assets/${objectPath}`,
       {
         method: "POST",
         headers: {
