@@ -75,6 +75,7 @@ const CourseLogin = lazyWithRetry(() => import("./pages/CourseLogin"), "page-cou
 const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-course-learn");
 const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
+const CallTest = lazyWithRetry(() => import("./pages/CallTest"), "page-call-test");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
 const Poly = lazyWithRetry(() => import("./pages/Poly"), "page-poly");
