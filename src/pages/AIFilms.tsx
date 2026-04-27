@@ -251,18 +251,18 @@ export default function AIFilms() {
 
           <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
             {/* Single Listing */}
-            <div className="relative p-8 sm:p-10 rounded-2xl border border-border bg-background flex flex-col">
+            <div className="relative p-8 sm:p-10 rounded-2xl border border-border bg-background flex flex-col items-center text-center">
               <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground">Single Listing</p>
               <h3 className="text-2xl font-light tracking-tight mt-2 mb-6">Listing Video</h3>
-              <div className="flex items-baseline gap-2 mb-1">
+              <div className="flex items-baseline justify-center gap-2 mb-1">
                 <span className="text-5xl font-light tracking-tight">$299</span>
                 <span className="text-sm text-muted-foreground">per video</span>
               </div>
               <p className="text-xs text-muted-foreground mb-8">One-time, per property.</p>
-              <ul className="space-y-3 mb-10 flex-1">
+              <ul className="space-y-3 mb-10 flex-1 w-full">
                 {['AI furniture removal', 'Visual enhancements', 'Cinematic delivery', '48-72 hour turnaround'].map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-sm">
-                    <Check className="h-4 w-4 mt-0.5 text-foreground/70 shrink-0" />
+                  <li key={f} className="flex items-center justify-center gap-3 text-sm">
+                    <Check className="h-4 w-4 text-foreground/70 shrink-0" />
                     <span className="text-foreground/80">{f}</span>
                   </li>
                 ))}
@@ -276,18 +276,18 @@ export default function AIFilms() {
             </div>
 
             {/* Pro Package — featured */}
-            <div className="relative p-8 sm:p-10 rounded-2xl border-2 border-foreground bg-foreground text-background flex flex-col shadow-2xl">
+            <div className="relative p-8 sm:p-10 rounded-2xl border-2 border-foreground bg-foreground text-background flex flex-col items-center text-center shadow-2xl">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-emerald-500 text-black text-[10px] tracking-[0.25em] uppercase font-medium">
                 Most Popular
               </div>
               <p className="text-[10px] tracking-[0.4em] uppercase text-background/60">Pro Realtor</p>
               <h3 className="text-2xl font-light tracking-tight mt-2 mb-6">Monthly Package</h3>
-              <div className="flex items-baseline gap-2 mb-1">
+              <div className="flex items-baseline justify-center gap-2 mb-1">
                 <span className="text-5xl font-light tracking-tight">$2,500</span>
                 <span className="text-sm text-background/60">/month</span>
               </div>
               <p className="text-xs text-background/50 mb-8">Less than $250 per listing when fully utilized.</p>
-              <ul className="space-y-3 mb-10 flex-1">
+              <ul className="space-y-3 mb-10 flex-1 w-full">
                 {[
                   '10 AI-enhanced listing videos / month',
                   'Priority turnaround',
@@ -295,8 +295,8 @@ export default function AIFilms() {
                   'Designed for agents closing multiple deals monthly',
                   'Dedicated WhatsApp line',
                 ].map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-sm">
-                    <Check className="h-4 w-4 mt-0.5 text-emerald-400 shrink-0" />
+                  <li key={f} className="flex items-center justify-center gap-3 text-sm">
+                    <Check className="h-4 w-4 text-emerald-400 shrink-0" />
                     <span className="text-background/90">{f}</span>
                   </li>
                 ))}
