@@ -35,6 +35,7 @@ function HeroShowcaseVideo() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [showHint, setShowHint] = useState(true);
+  const [userLocked, setUserLocked] = useState(false);
 
   const enableSound = () => {
     const v = videoRef.current;
@@ -54,17 +55,25 @@ function HeroShowcaseVideo() {
     setIsMuted(true);
   };
 
-  const togglePlay = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) {
-      v.play().catch(() => {});
-      setIsPlaying(true);
-    } else {
-      v.pause();
-      setIsPlaying(false);
-    }
+  const handleMouseEnter = () => {
+    if (userLocked) return;
+    enableSound();
+  };
+
+  const handleMouseLeave = () => {
+    if (userLocked) return;
+    muteSound();
+  };
+
+  const handleClick = () => {
     setShowHint(false);
+    if (isMuted) {
+      enableSound();
+      setUserLocked(true);
+    } else {
+      muteSound();
+      setUserLocked(false);
+    }
   };
 
   return (
@@ -73,8 +82,8 @@ function HeroShowcaseVideo() {
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 1, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
       className="relative group mx-auto w-full flex justify-center"
-      onMouseEnter={enableSound}
-      onMouseLeave={muteSound}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <video
         ref={videoRef}
@@ -84,7 +93,7 @@ function HeroShowcaseVideo() {
         loop
         playsInline
         preload="metadata"
-        onClick={togglePlay}
+        onClick={handleClick}
         className="rounded-2xl border border-white/10 shadow-2xl cursor-pointer w-auto h-auto max-w-full max-h-[85vh] object-contain"
         style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.25)' }}
       />
