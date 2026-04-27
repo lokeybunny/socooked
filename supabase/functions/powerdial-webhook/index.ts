@@ -137,14 +137,21 @@ async function redirectCallToVapi(
 const DEFAULT_AI_ASSIST_GREETING =
   "Hi, I'm calling you in regards to one of your property listings. Can I transfer you over to Warren?";
 
+// Snappier greeting used when AMD reports a confident, fast human answer
+// (Twilio AnsweredBy === "human"). Shaves ~2s of audio off the first words.
+const SHORT_AI_ASSIST_GREETING =
+  "Hi! Quick call about your property listing — connecting you to Warren now.";
+
 // ElevenLabs voice used for the AI Assist warm hand-off greeting.
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
 
-// Pre-warm the default greeting at module boot so the very first call
-// after a cold start doesn't pay the ~800ms TTS round-trip.
+// Pre-warm both greetings at module boot so the very first call after a
+// cold start doesn't pay the ~800ms TTS round-trip.
 queueMicrotask(() => {
   generateElevenLabsGreetingBytes(AI_ASSIST_ELEVENLABS_VOICE_ID, DEFAULT_AI_ASSIST_GREETING)
     .catch(() => {/* swallow — fallback path handles failures */});
+  generateElevenLabsGreetingBytes(AI_ASSIST_ELEVENLABS_VOICE_ID, SHORT_AI_ASSIST_GREETING)
+    .catch(() => {/* swallow */});
 });
 
 /**
@@ -250,6 +257,8 @@ async function redirectCallToAIAssistTransfer(
     queueItemId: string;
     callLogId: string;
     twilioFrom?: string;
+    /** Twilio AnsweredBy value — when "human" we use the snappier greeting. */
+    answeredBy?: string;
   },
 ): Promise<boolean> {
   try {
@@ -262,7 +271,15 @@ async function redirectCallToAIAssistTransfer(
       options.callLogId,
     );
 
-    const sayText = (greetingText && greetingText.trim()) || DEFAULT_AI_ASSIST_GREETING;
+    // Adaptive greeting: if AMD is highly confident the lead just said "hello"
+    // (AnsweredBy === "human"), use the shorter greeting to start speaking ~2s
+    // sooner. Otherwise use the user-configured / default greeting.
+    const customGreeting = greetingText && greetingText.trim();
+    const sayText = customGreeting
+      ? customGreeting
+      : (options.answeredBy === "human"
+        ? SHORT_AI_ASSIST_GREETING
+        : DEFAULT_AI_ASSIST_GREETING);
 
     // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
     // so the warm hand-off never breaks even if ElevenLabs is down.
@@ -763,7 +780,7 @@ Deno.serve(async (req) => {
             callSid,
             humanTransferPhone,
             aiAssistGreetingRaw,
-            { campaignId, queueItemId, callLogId, twilioFrom },
+            { campaignId, queueItemId, callLogId, twilioFrom, answeredBy },
           );
 
           await sb.from("powerdial_call_logs").update({
@@ -774,7 +791,10 @@ Deno.serve(async (req) => {
               transfer_method: "ai_assist_warm_handoff",
               ai_enabled: true,
               ai_assist: true,
-              ai_assist_greeting: aiAssistGreetingRaw || DEFAULT_AI_ASSIST_GREETING,
+              ai_assist_greeting: aiAssistGreetingRaw || (answeredBy === "human" ? SHORT_AI_ASSIST_GREETING : DEFAULT_AI_ASSIST_GREETING),
+              ai_assist_greeting_variant: aiAssistGreetingRaw
+                ? "custom"
+                : (answeredBy === "human" ? "short" : "default"),
               human_transfer_phone: humanTransferPhone,
               twilio_from: normalizePhone(twilioFrom) || null,
             },
@@ -838,6 +858,46 @@ Deno.serve(async (req) => {
 
         if (!redirected) {
           console.error("[powerdial-webhook] Failed to redirect human call to Vapi");
+
+          // ===== AUTO-FALLBACK: if Vapi setup fails (e.g., expired phone-number-id),
+          // gracefully fall through to AI Assist warm hand-off so the lead never
+          // hears dead silence. Requires a configured human_transfer_phone.
+          if (humanTransferPhone) {
+            console.log(`[powerdial-webhook] Vapi failed — falling back to AI Assist warm handoff for ${humanTransferPhone}`);
+            const fallbackOk = await redirectCallToAIAssistTransfer(
+              callSid,
+              humanTransferPhone,
+              aiAssistGreetingRaw,
+              { campaignId, queueItemId, callLogId, twilioFrom, answeredBy },
+            );
+
+            await sb.from("powerdial_call_logs").update({
+              connected_to_vapi: false,
+              disposition: fallbackOk ? "transferred_to_human" : null,
+              meta: {
+                ...existingMeta,
+                transfer_method: "ai_assist_warm_handoff_fallback",
+                fallback_reason: "vapi_redirect_failed",
+                ai_enabled: true,
+                ai_assist: true,
+                ai_assist_greeting: aiAssistGreetingRaw || (answeredBy === "human" ? SHORT_AI_ASSIST_GREETING : DEFAULT_AI_ASSIST_GREETING),
+                ai_assist_greeting_variant: aiAssistGreetingRaw
+                  ? "custom"
+                  : (answeredBy === "human" ? "short" : "default"),
+                human_transfer_phone: humanTransferPhone,
+                vapi_phone: vapiPhoneNumber,
+                twilio_from: normalizePhone(twilioFrom) || null,
+              },
+            }).eq("id", callLogId);
+
+            return json({
+              ok: true,
+              amd_result: amdResult,
+              redirected: fallbackOk,
+              mode: "ai_assist_warm_handoff_fallback",
+              to: humanTransferPhone,
+            });
+          }
         }
 
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
