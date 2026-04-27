@@ -137,14 +137,21 @@ async function redirectCallToVapi(
 const DEFAULT_AI_ASSIST_GREETING =
   "Hi, I'm calling you in regards to one of your property listings. Can I transfer you over to Warren?";
 
+// Snappier greeting used when AMD reports a confident, fast human answer
+// (Twilio AnsweredBy === "human"). Shaves ~2s of audio off the first words.
+const SHORT_AI_ASSIST_GREETING =
+  "Hi! Quick call about your property listing — connecting you to Warren now.";
+
 // ElevenLabs voice used for the AI Assist warm hand-off greeting.
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
 
-// Pre-warm the default greeting at module boot so the very first call
-// after a cold start doesn't pay the ~800ms TTS round-trip.
+// Pre-warm both greetings at module boot so the very first call after a
+// cold start doesn't pay the ~800ms TTS round-trip.
 queueMicrotask(() => {
   generateElevenLabsGreetingBytes(AI_ASSIST_ELEVENLABS_VOICE_ID, DEFAULT_AI_ASSIST_GREETING)
     .catch(() => {/* swallow — fallback path handles failures */});
+  generateElevenLabsGreetingBytes(AI_ASSIST_ELEVENLABS_VOICE_ID, SHORT_AI_ASSIST_GREETING)
+    .catch(() => {/* swallow */});
 });
 
 /**
