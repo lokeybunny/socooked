@@ -68,6 +68,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [hoursEnd, setHoursEnd] = useState(initialState.hoursEnd);
   const [vapiAssistantId, setVapiAssistantId] = useState(initialState.vapiAssistantId);
   const [customAssistantId, setCustomAssistantId] = useState(initialState.customAssistantId);
+  const [humanTransferPhone, setHumanTransferPhone] = useState(initialState.humanTransferPhone);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setHoursEnd(nextState.hoursEnd);
     setVapiAssistantId(nextState.vapiAssistantId);
     setCustomAssistantId(nextState.customAssistantId);
+    setHumanTransferPhone(nextState.humanTransferPhone);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -96,6 +98,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       calling_hours_start: hoursStart,
       calling_hours_end: hoursEnd,
       vapi_assistant_id: resolvedAssistantId,
+      human_transfer_phone: humanTransferPhone.trim(),
     };
 
     const { error } = await supabase
