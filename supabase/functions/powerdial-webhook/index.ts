@@ -280,7 +280,6 @@ async function redirectCallToAIAssistTransfer(
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   ${greetingTwiml}
-  <Pause length="1"/>
   <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(humanTransferPhone)}</Number>
   </Dial>

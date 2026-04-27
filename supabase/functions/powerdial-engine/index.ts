@@ -195,6 +195,11 @@ Deno.serve(async (req) => {
           From: fromResolution.resolvedFrom,
           MachineDetection: "Enable",
           AsyncAmd: "true",
+          // Tuned for fast human detection — fires AMD callback within ~1s of "hello"
+          MachineDetectionTimeout: "5",
+          MachineDetectionSpeechThreshold: "1500",
+          MachineDetectionSpeechEndThreshold: "500",
+          MachineDetectionSilenceTimeout: "3000",
           AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=test&queue_item_id=test&call_log_id=test`,
           StatusCallback: `${webhookUrl}?type=status&campaign_id=test&queue_item_id=test&call_log_id=test`,
           StatusCallbackEvent: "initiated ringing answered completed",
