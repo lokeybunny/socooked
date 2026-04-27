@@ -72,7 +72,7 @@ function HeroShowcaseVideo() {
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 1, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
-      className="relative group"
+      className="relative group mx-auto w-full flex justify-center"
       onMouseEnter={enableSound}
       onMouseLeave={muteSound}
     >
@@ -85,7 +85,7 @@ function HeroShowcaseVideo() {
         playsInline
         preload="metadata"
         onClick={togglePlay}
-        className="w-full h-auto rounded-2xl border border-white/10 shadow-2xl cursor-pointer"
+        className="rounded-2xl border border-white/10 shadow-2xl cursor-pointer w-auto h-auto max-w-full max-h-[85vh] object-contain"
         style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.25)' }}
       />
 
