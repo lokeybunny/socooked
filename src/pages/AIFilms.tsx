@@ -151,63 +151,6 @@ export default function AIFilms() {
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
             className="text-center lg:text-center flex flex-col items-center"
           >
-            {/* 3D pop-out videographer image */}
-            <motion.div
-              className="relative mb-8 w-full max-w-md mx-auto"
-              style={{ perspective: '1400px' }}
-              initial={{ opacity: 0, y: 40, rotateX: 20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-              transition={{ duration: 1.1, ease: [0.23, 1, 0.32, 1], delay: 0.15 }}
-            >
-              <motion.div
-                animate={{ y: [0, -12, 0], rotateX: [3, -2, 3], rotateY: [-3, 3, -3] }}
-                transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ transformStyle: 'preserve-3d' }}
-                className="relative"
-              >
-                {/* Cyan/magenta neon glow halo */}
-                <div
-                  className="absolute -inset-4 rounded-3xl blur-3xl opacity-70"
-                  style={{
-                    background:
-                      'radial-gradient(ellipse at 30% 50%, rgba(236,72,153,0.45) 0%, transparent 60%), radial-gradient(ellipse at 75% 50%, rgba(34,211,238,0.5) 0%, transparent 60%)',
-                    transform: 'translateZ(-60px)',
-                  }}
-                  aria-hidden
-                />
-                <img
-                  src={heroVideographer3D}
-                  alt="AI-augmented real estate videographer with cinema rig, drones, and HUD overlays"
-                  loading="eager"
-                  className="relative w-full h-auto rounded-2xl border border-white/10"
-                  style={{
-                    boxShadow:
-                      '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.35), 0 0 0 1px rgba(255,255,255,0.04) inset',
-                    transform: 'translateZ(0)',
-                  }}
-                />
-                {/* Cinematic vignette */}
-                <div
-                  className="absolute inset-0 rounded-2xl pointer-events-none"
-                  style={{
-                    background:
-                      'linear-gradient(to top, hsl(var(--background) / 0.5) 0%, transparent 35%, transparent 75%, rgba(255,255,255,0.05) 100%)',
-                  }}
-                  aria-hidden
-                />
-                {/* Floating LIVE badge */}
-                <motion.div
-                  className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15"
-                  style={{ transform: 'translateZ(40px)' }}
-                  animate={{ opacity: [0.7, 1, 0.7] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                  <span className="text-[9px] tracking-[0.25em] uppercase text-white/90">AI · Live</span>
-                </motion.div>
-              </motion.div>
-            </motion.div>
-
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border/60 bg-background/40 backdrop-blur-sm mb-6">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[10px] tracking-[0.25em] uppercase text-muted-foreground">Directed by Warren Guru</span>
