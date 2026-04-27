@@ -525,6 +525,11 @@ ${itemsTxt || 'N/A'}`;
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
                       )}
+                      {p.status === 'signed' && p.document_id && (
+                        <Button size="sm" variant="ghost" onClick={() => handleDownloadSigned(p)} title="Download signed PDF">
+                          <Download className="h-3.5 w-3.5 text-primary" />
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => openEdit(p)} title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
