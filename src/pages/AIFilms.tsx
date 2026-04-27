@@ -309,6 +309,7 @@ export default function AIFilms() {
                 <ArrowRight className="h-4 w-4" />
               </a>
             </div>
+          </div>
 
           <p className="text-center text-[11px] tracking-[0.2em] uppercase text-muted-foreground mt-10 flex items-center justify-center gap-2">
             <Lock className="h-3 w-3" />
