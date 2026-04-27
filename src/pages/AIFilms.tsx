@@ -106,7 +106,7 @@ function HeroShowcaseVideo() {
         controlsList="nodownload noremoteplayback"
         preload="auto"
         onClick={handleClick}
-        className="rounded-2xl border border-white/10 shadow-2xl cursor-pointer w-auto h-auto max-w-full max-h-[85vh] object-contain"
+        className="rounded-2xl border border-white/10 shadow-2xl cursor-pointer w-full h-auto max-w-full sm:w-auto sm:max-h-[85vh] object-contain"
         style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.25)' }}
       />
 
@@ -387,9 +387,6 @@ export default function AIFilms() {
               >
                 <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-black border border-border/40 shadow-2xl mx-auto w-full max-h-[80vh] sm:max-h-[75vh]" style={{ maxWidth: 'calc(80vh * 9 / 16)' }}>
                   <DemoVideo src={demo.src} />
-                  <span className="absolute top-4 left-4 px-2.5 py-1 text-[10px] tracking-[0.25em] uppercase bg-black/70 backdrop-blur-sm text-white rounded-full pointer-events-none z-10">
-                    0{i + 1} / 0{demos.length}
-                  </span>
                 </div>
                 <div className="mt-5 px-1 text-center">
                   <h3 className="text-xl sm:text-2xl font-light tracking-tight">{demo.title}</h3>
