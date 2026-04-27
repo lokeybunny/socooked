@@ -144,7 +144,7 @@ export default function AIFilms() {
           <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-background/60" />
         </motion.div>
 
-        <div className="max-w-7xl mx-auto px-5 sm:px-8 w-full grid lg:grid-cols-2 gap-12 items-center py-20">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 w-full grid lg:grid-cols-2 gap-12 items-center py-20">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
