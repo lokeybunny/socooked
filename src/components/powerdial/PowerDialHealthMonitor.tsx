@@ -267,7 +267,7 @@ ${transcript.slice(0, 3000)}`,
       }
 
       // AUTO-FIX: re-advance stalled campaign with exponential backoff + max retries
-      const now = Date.now();
+      const nowMs = Date.now();
       // Reset attempt counter if a healthy dial happened since last failure
       if (lastSuccessfulAdvanceAtRef.current > lastAutoAdvanceAtRef.current && autoAdvanceAttemptsRef.current > 0) {
         autoAdvanceAttemptsRef.current = 0;
