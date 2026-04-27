@@ -100,6 +100,7 @@ export default function AIFilms() {
             <a href="#demos" className="hover:text-foreground transition-colors">Examples</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
             <a href="#why" className="hover:text-foreground transition-colors">Why</a>
+            <a href="#pricing-faq" className="hover:text-foreground transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-foreground transition-colors">Contact</a>
           </nav>
           <a
