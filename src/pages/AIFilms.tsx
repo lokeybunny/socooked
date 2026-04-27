@@ -171,7 +171,15 @@ function DemoVideo({ src }: { src: string }) {
         muted
         loop
         playsInline
-        preload="metadata"
+        {...({
+          'webkit-playsinline': 'true',
+          'x5-playsinline': 'true',
+          'x5-video-player-type': 'h5',
+          'x5-video-player-fullscreen': 'false',
+        } as Record<string, string>)}
+        disableRemotePlayback
+        controlsList="nodownload noremoteplayback"
+        preload="auto"
         onClick={isMuted ? undefined : muteSound}
         className={`w-full h-full object-cover ${isMuted ? '' : 'cursor-pointer'}`}
       />
