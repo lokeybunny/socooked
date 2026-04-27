@@ -42,6 +42,10 @@ function getSettingsFormState(settings: any) {
     vapiAssistantId: knownAssistant ? persistedAssistantId : 'custom',
     customAssistantId: knownAssistant ? '' : persistedAssistantId,
     humanTransferPhone: String(nextSettings.human_transfer_phone || ''),
+    aiAssistGreeting: String(
+      nextSettings.ai_assist_greeting ||
+        "Hey, I'm calling in regards to your property listings. Do you have a second to talk?",
+    ),
   };
 }
 
