@@ -514,9 +514,15 @@ export default function PowerDial() {
                 <Button
                   size="sm"
                   onClick={async () => {
-                    if (!confirm('Restart this campaign? All queued numbers will be re-dialed from the start.')) return;
+                    const forceAll = confirm(
+                      'Restart this campaign?\n\n' +
+                      'OK = Re-dial only numbers that did NOT connect (busy / no-answer / voicemail / failed). Already-connected numbers will be skipped.\n\n' +
+                      'Cancel = Abort restart.\n\n' +
+                      'Tip: To force re-dial EVERY number, delete and recreate the campaign.'
+                    );
+                    if (!forceAll) return;
                     try {
-                      // Reset all queue items back to pending
+                      // Reset only non-connected items back to pending — never re-dial human_connected
                       const { error: qErr } = await supabase
                         .from('powerdial_queue')
                         .update({
@@ -524,7 +530,8 @@ export default function PowerDial() {
                           last_result: null,
                           retry_at: null,
                         })
-                        .eq('campaign_id', activeCampaign.id);
+                        .eq('campaign_id', activeCampaign.id)
+                        .not('last_result', 'in', '("human_connected","skipped_already_connected")');
                       if (qErr) throw qErr;
 
                       // Reset campaign counters and status
