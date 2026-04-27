@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Sparkles, Zap, TrendingUp, Eye, Mail, Phone as PhoneIcon, Home as HomeIcon, Lock } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Zap, TrendingUp, Eye, Mail, Phone as PhoneIcon, Home as HomeIcon, Lock, ChevronDown } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
 import SEOHead from '@/components/SEOHead';
