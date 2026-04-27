@@ -467,6 +467,58 @@ Deno.serve(async (req) => {
           ? existingLog.meta as Record<string, unknown>
           : {};
 
+        const settingsObj = (campSettings?.settings || {}) as Record<string, unknown>;
+        const aiEnabled = settingsObj.ai_enabled !== false; // default true
+        const humanTransferPhoneRaw = typeof settingsObj.human_transfer_phone === "string"
+          ? settingsObj.human_transfer_phone
+          : "";
+        const humanTransferPhone = normalizePhone(humanTransferPhoneRaw);
+
+        // ===== AI DISABLED: forward call to live human transfer number =====
+        if (!aiEnabled) {
+          if (!humanTransferPhone) {
+            console.error("[powerdial-webhook] AI disabled but no human_transfer_phone configured");
+            await sb.from("powerdial_call_logs").update({
+              connected_to_vapi: false,
+              meta: {
+                ...existingMeta,
+                transfer_method: "live_transfer_failed",
+                transfer_error: "no_human_transfer_phone_configured",
+                ai_enabled: false,
+              },
+            }).eq("id", callLogId);
+            return json({ ok: false, amd_result: amdResult, error: "no_human_transfer_phone_configured" });
+          }
+
+          const redirected = await redirectCallToVapi(callSid, humanTransferPhone, "live-human-transfer", {
+            campaignId,
+            queueItemId,
+            callLogId,
+            twilioFrom,
+          });
+
+          await sb.from("powerdial_call_logs").update({
+            connected_to_vapi: false,
+            disposition: redirected ? "transferred_to_human" : null,
+            meta: {
+              ...existingMeta,
+              transfer_method: "live_human_transfer",
+              ai_enabled: false,
+              human_transfer_phone: humanTransferPhone,
+              twilio_from: normalizePhone(twilioFrom) || null,
+            },
+          }).eq("id", callLogId);
+
+          if (!redirected) {
+            console.error(`[powerdial-webhook] Failed to transfer human call to ${humanTransferPhone}`);
+          } else {
+            console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
+          }
+
+          return json({ ok: true, amd_result: amdResult, redirected, mode: "live_human_transfer", to: humanTransferPhone });
+        }
+
+        // ===== AI ENABLED: existing Vapi flow =====
         // The assistant_id was frozen in call log meta at dial time by placeCall()
         const frozenAssistantId = typeof existingMeta.assistant_id === "string"
           ? existingMeta.assistant_id.trim()
@@ -474,10 +526,10 @@ Deno.serve(async (req) => {
 
         // Always sanitize to ensure we never use an inbound assistant
         const assistantId = sanitizePowerDialAssistantId(
-          frozenAssistantId || resolvePowerDialAssistantId((campSettings?.settings || {}) as Record<string, unknown>),
+          frozenAssistantId || resolvePowerDialAssistantId(settingsObj),
         );
 
-        console.log(`[powerdial-webhook] Resolved outbound assistant: ${assistantId} (frozen=${frozenAssistantId}, campaign=${(campSettings?.settings as any)?.vapi_assistant_id || 'none'})`);
+        console.log(`[powerdial-webhook] Resolved outbound assistant: ${assistantId} (frozen=${frozenAssistantId}, campaign=${(settingsObj as any)?.vapi_assistant_id || 'none'})`);
 
         // PATCH the Vapi phone number to use the correct outbound assistant BEFORE redirect
         const assistantPreparation = await prepareVapiOutboundAssistant(assistantId);
@@ -505,6 +557,7 @@ Deno.serve(async (req) => {
             vapi_phone: vapiPhoneNumber,
             ...(assistantPreparation.currentAssistantId ? { vapi_phone_assistant_id: assistantPreparation.currentAssistantId } : {}),
             twilio_from: normalizePhone(twilioFrom) || null,
+            ai_enabled: true,
           },
         }).eq("id", callLogId);
 
