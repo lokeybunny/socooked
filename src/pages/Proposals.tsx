@@ -12,9 +12,10 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Plus, Search, Send, FileText, Trash2, Pencil, Eye, ExternalLink, Sparkles,
-  Copy, RotateCcw, X, ArrowLeft, Film,
+  Copy, RotateCcw, X, ArrowLeft, Film, Download,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
 
 interface LineItem { description: string; quantity: number; unit_price: number; }
 
