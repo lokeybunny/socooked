@@ -180,27 +180,8 @@ export default function AIFilms() {
             </div>
           </motion.div>
 
-          {/* Hero before/after */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="relative"
-          >
-            <video
-              src="/videos/forsale.mp4"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              className="w-full h-auto rounded-2xl border border-white/10 shadow-2xl"
-              style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.25)' }}
-            />
-            <p className="text-center text-[10px] tracking-[0.3em] uppercase text-muted-foreground/70 mt-4">
-              Real AI listing transformation
-            </p>
-          </motion.div>
+          {/* Hero showcase video */}
+          <HeroShowcaseVideo />)
         </div>
 
         {/* Scroll cue */}
