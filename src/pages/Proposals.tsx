@@ -12,7 +12,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Plus, Search, Send, FileText, Trash2, Pencil, Eye, ExternalLink, Sparkles,
-  Copy, RotateCcw, X, ArrowLeft,
+  Copy, RotateCcw, X, ArrowLeft, Film,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -125,6 +125,47 @@ export default function Proposals() {
     setLineItems([{ description: '', quantity: 1, unit_price: 0 }]);
     setDialogOpen(true);
   };
+
+  const openListingPreset = () => {
+    setEditing(null);
+    const exp = new Date();
+    exp.setDate(exp.getDate() + 14);
+    setForm({
+      ...blankForm,
+      title: 'Real Estate Listing Video — $299 Package',
+      currency: 'USD',
+      expiration_date: exp.toISOString().slice(0, 10),
+      signature_required: true,
+      notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
+      terms: '50% deposit due on signing, balance due on delivery. Two (2) free revisions included. Additional revisions billed at $50/each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom and added to the final invoice.',
+      proposal_body: `Real Estate Listing Video — $299 Package
+
+What's included:
+• 1 cinematic AI-enhanced listing video
+• Full edit: color grading, transitions, music sync, AI furniture removal & visual enhancements
+• Delivered in 9:16 vertical format, optimized for Instagram Reels & TikTok
+• Up to 1 minute maximum runtime
+• Covers up to 4 bedrooms
+• 48–72 hour turnaround from asset delivery
+• 2 free revisions
+
+Bedroom add-ons:
+• Properties with more than 4 bedrooms: +$50 per additional bedroom
+  (Example: a 6-bedroom listing = $299 + (2 × $50) = $399)
+
+Terms:
+• 50% deposit on signing, balance due on delivery
+• Final video delivered as MP4 (1080×1920)
+• Additional revisions beyond the 2 included: $50 each
+
+By signing below, the client agrees to the scope, pricing, and terms outlined above.`,
+    });
+    setLineItems([
+      { description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 },
+    ]);
+    setDialogOpen(true);
+  };
+
 
   const openEdit = (p: Proposal) => {
     setEditing(p);
@@ -300,9 +341,14 @@ ${itemsTxt || 'N/A'}`;
               Create, send, and track client proposals using the same signing flow as contracts.
             </p>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-1.5" /> New Proposal
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={openListingPreset} title="Pre-fill the $299 real estate listing video package">
+              <Film className="h-4 w-4 mr-1.5" /> $299 Listing Video
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-1.5" /> New Proposal
+            </Button>
+          </div>
         </div>
 
         {/* Status pills */}
