@@ -132,6 +132,7 @@ export default function AIFilms() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+            className="text-center lg:text-center flex flex-col items-center"
           >
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border/60 bg-background/40 backdrop-blur-sm mb-6">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -142,10 +143,10 @@ export default function AIFilms() {
               <span className="italic text-muted-foreground">High-Converting</span>{' '}
               AI Showcase.
             </h1>
-            <p className="text-lg sm:text-xl text-muted-foreground font-light max-w-xl mb-8 leading-relaxed">
+            <p className="text-lg sm:text-xl text-muted-foreground font-light max-w-xl mb-8 leading-relaxed mx-auto">
               Remove furniture. Add staging. Simulate drone tours. All powered by AI.
             </p>
-            <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+            <div className="flex flex-wrap gap-3 justify-center">
               <a
                 href="#pricing"
                 className="group inline-flex items-center gap-2 px-6 py-4 bg-foreground text-background rounded-full text-sm tracking-[0.15em] uppercase hover:bg-foreground/90 transition-all hover:scale-[1.02]"
@@ -332,7 +333,7 @@ export default function AIFilms() {
 
           <div className="grid sm:grid-cols-2 gap-5">
             {benefits.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="p-7 rounded-2xl border border-border bg-card hover:border-foreground/20 transition-colors group">
+              <div key={title} className="p-7 rounded-2xl border border-border bg-card hover:border-foreground/20 transition-colors group text-center flex flex-col items-center">
                 <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-5 group-hover:bg-foreground group-hover:text-background transition-colors">
                   <Icon className="h-4 w-4" />
                 </div>
@@ -437,7 +438,7 @@ export default function AIFilms() {
 
       {/* Footer */}
       <footer className="py-10 px-5 sm:px-8 border-t border-border/40">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] tracking-[0.25em] uppercase text-muted-foreground">
+        <div className="max-w-7xl mx-auto flex flex-col items-center justify-center gap-4 text-center text-[10px] tracking-[0.25em] uppercase text-muted-foreground">
           <div>AI Films Real Motion · Directed by Warren Guru</div>
           <div className="flex items-center gap-6">
             <Link to="/auth" className="hover:text-foreground transition-colors">Client Login</Link>
