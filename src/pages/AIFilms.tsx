@@ -191,7 +191,7 @@ export default function AIFilms() {
                     0{i + 1} / 0{demos.length}
                   </span>
                 </div>
-                <div className="mt-5 px-1">
+                <div className="mt-5 px-1 text-center">
                   <h3 className="text-xl sm:text-2xl font-light tracking-tight">{demo.title}</h3>
                 </div>
               </motion.div>
