@@ -14,6 +14,7 @@ type QueueItem = {
   last_result: string | null;
   retry_count: number;
   last_dialed_at: string | null;
+  retry_at: string | null;
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -49,7 +50,7 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
     dialing: { label: 'Dialing…', class: 'bg-emerald-500/20 text-emerald-400 animate-pulse' },
     completed: { label: 'Done', class: 'bg-blue-500/20 text-blue-400' },
     skipped: { label: 'Skipped', class: 'bg-muted text-muted-foreground' },
-    retry_later: { label: 'Retry', class: 'bg-amber-500/20 text-amber-400' },
+    retry_later: { label: 'Callback', class: 'bg-amber-500/20 text-amber-400' },
   };
 
   const resultLabels: Record<string, string> = {
@@ -59,6 +60,18 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
     no_answer: '⏱ No Ans',
     failed: '❌ Failed',
     skipped: '⏭ Skip',
+    callback_human_pickup: '📞 Callback (1h cooldown)',
+  };
+
+  const formatRetry = (iso: string | null) => {
+    if (!iso) return null;
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return 'now';
+    const mins = Math.round(ms / 60000);
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem ? `${hrs}h ${rem}m` : `${hrs}h`;
   };
 
   const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
@@ -103,6 +116,9 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
                   )}
                   {item.retry_count > 0 && (
                     <span className="text-[10px] text-muted-foreground">×{item.retry_count}</span>
+                  )}
+                  {item.status === 'retry_later' && item.retry_at && (
+                    <span className="text-[10px] text-amber-400">in {formatRetry(item.retry_at)}</span>
                   )}
                   <Badge variant="outline" className={`text-[10px] ${badge.class}`}>{badge.label}</Badge>
                 </div>

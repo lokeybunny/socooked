@@ -562,23 +562,16 @@ export default function PowerDial() {
                       if (nonConnectedCount === 0 && connectedCount > 0) {
                         // Nothing left to retry without re-dialing connected leads — ask explicitly
                         const forceAll = confirm(
-                          `All ${connectedCount} number(s) in this campaign already connected to a human.
-
-` +
-                          'OK = Force re-dial EVERY number (including already-connected ones).
-' +
+                          `All ${connectedCount} number(s) in this campaign already connected to a human.\n\n` +
+                          'OK = Force re-dial EVERY number (including already-connected ones).\n' +
                           'Cancel = Abort restart.',
                         );
                         if (!forceAll) return;
                         mode = 'all';
                       } else {
                         const choice = confirm(
-                          'Restart this campaign?
-
-' +
-                          `OK = Re-dial only the ${nonConnectedCount} number(s) that did NOT connect (busy / no-answer / voicemail / failed). ${connectedCount} already-connected number(s) will be skipped.
-
-` +
+                          'Restart this campaign?\n\n' +
+                          `OK = Re-dial only the ${nonConnectedCount} number(s) that did NOT connect (busy / no-answer / voicemail / failed). ${connectedCount} already-connected number(s) will be skipped.\n\n` +
                           'Cancel = Force re-dial EVERY number (including already-connected ones).',
                         );
                         mode = choice ? 'non_connected' : 'all';
