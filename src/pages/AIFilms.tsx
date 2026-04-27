@@ -32,6 +32,22 @@ const benefits = [
 export default function AIFilms() {
   const [form, setForm] = useState({ name: '', phone: '', property: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  const faqs = [
+    {
+      q: 'What does "full edit included" cover?',
+      a: 'Every video is fully edited end-to-end — color grading, cinematic transitions, music sync, AI furniture removal, and visual enhancements. You receive a finished, ready-to-post video. No additional editing fees, no extra charges for music or color work.',
+    },
+    {
+      q: 'Why a 1-minute max length?',
+      a: 'Videos are delivered in 9:16 Instagram format and capped at 60 seconds — the optimal length for Reels, TikTok, and Stories engagement. Shorter, punchier listings consistently outperform longer walkthroughs on social platforms where buyers actually scroll.',
+    },
+    {
+      q: 'How is the +$50 per additional bedroom calculated?',
+      a: 'Each package covers up to 4 bedrooms. For each bedroom beyond that, $50 is added to cover the extra shoot, AI processing, and edit time. Example: a 6-bedroom listing on the Single Listing tier is $299 + (2 × $50) = $399. The same math applies per listing on the Monthly Package.',
+    },
+  ];
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll();
   const heroY = useTransform(scrollY, [0, 600], [0, 120]);
