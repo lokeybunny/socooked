@@ -14,6 +14,7 @@ type QueueItem = {
   last_result: string | null;
   retry_count: number;
   last_dialed_at: string | null;
+  retry_at: string | null;
 };
 
 const ITEMS_PER_PAGE = 20;
