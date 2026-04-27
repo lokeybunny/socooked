@@ -4,6 +4,7 @@ import { ArrowRight, Check, Sparkles, Zap, TrendingUp, Eye, Mail, Phone as Phone
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
 import SEOHead from '@/components/SEOHead';
+import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -660,6 +661,7 @@ export default function AIFilms() {
           </div>
         </div>
       </footer>
+      <ScrollToTopButton />
     </div>
   );
 }
