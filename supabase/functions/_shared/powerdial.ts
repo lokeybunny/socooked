@@ -879,6 +879,11 @@ async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string
     From: selectedFrom,
     MachineDetection: "Enable",
     AsyncAmd: "true",
+    // Tuned for fast human detection — fires AMD callback within ~1s of "hello"
+    MachineDetectionTimeout: "5",
+    MachineDetectionSpeechThreshold: "1500",
+    MachineDetectionSpeechEndThreshold: "500",
+    MachineDetectionSilenceTimeout: "3000",
     AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
     StatusCallback: `${webhookUrl}?type=status&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
     StatusCallbackEvent: "initiated ringing answered completed",
