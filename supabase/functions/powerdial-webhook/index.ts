@@ -134,6 +134,76 @@ async function redirectCallToVapi(
   }
 }
 
+const DEFAULT_AI_ASSIST_GREETING =
+  "Hey, I'm calling in regards to your property listings. Do you have a second to talk?";
+
+/**
+ * AI Assist warm-handoff: Twilio plays a short stalling greeting to the lead
+ * via <Say>, then silently bridges them to the live human agent. Because we
+ * use answerOnBridge="false", the lead never hears ringing — the agent just
+ * appears on the line right after the greeting finishes.
+ */
+async function redirectCallToAIAssistTransfer(
+  callSid: string,
+  humanTransferPhone: string,
+  greetingText: string,
+  options: {
+    campaignId: string;
+    queueItemId: string;
+    callLogId: string;
+    twilioFrom?: string;
+  },
+): Promise<boolean> {
+  try {
+    const resolvedCallerId = normalizePhone(options.twilioFrom);
+    const callerIdAttr = resolvedCallerId ? ` callerId="${escapeXml(resolvedCallerId)}"` : "";
+    const dialCompleteUrl = buildPowerDialWebhookUrl(
+      "dial-complete",
+      options.campaignId,
+      options.queueItemId,
+      options.callLogId,
+    );
+
+    const sayText = (greetingText && greetingText.trim()) || DEFAULT_AI_ASSIST_GREETING;
+
+    // Sequence: AI voice greets the lead → short pause (gives agent time to
+    // be bridged silently) → silent dial bridges the human in.
+    // answerOnBridge="false" ensures NO ringback is audible to the lead.
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Polly.Joanna-Neural">${escapeXml(sayText)}</Say>
+  <Pause length="1"/>
+  <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
+    <Number>${escapeXml(humanTransferPhone)}</Number>
+  </Dial>
+</Response>`;
+
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ Twiml: twiml }).toString(),
+      },
+    );
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error("[powerdial-webhook] AI Assist redirect error:", errText);
+      return false;
+    }
+
+    console.log(`[powerdial-webhook] AI Assist warm handoff: ${callSid} → greeting + bridge ${humanTransferPhone}`);
+    return true;
+  } catch (err) {
+    console.error("[powerdial-webhook] AI Assist redirect exception:", err);
+    return false;
+  }
+}
+
 async function handleCallCompletion(
   campaignId: string,
   queueItemId: string,
@@ -538,6 +608,50 @@ Deno.serve(async (req) => {
           }
 
           return json({ ok: true, amd_result: amdResult, redirected, mode: "live_human_transfer", to: humanTransferPhone });
+        }
+
+        // ===== AI ASSIST: AI greets/stalls, then silently bridge to human =====
+        // When ai_assist is true and a human transfer number is configured,
+        // we play a short greeting via Twilio TTS to the lead while we silently
+        // bridge the live agent in — the lead never hears a ring.
+        const aiAssistEnabled = settingsObj.ai_assist === true;
+        const aiAssistGreetingRaw = typeof settingsObj.ai_assist_greeting === "string"
+          ? settingsObj.ai_assist_greeting
+          : "";
+
+        if (aiAssistEnabled && humanTransferPhone) {
+          const redirected = await redirectCallToAIAssistTransfer(
+            callSid,
+            humanTransferPhone,
+            aiAssistGreetingRaw,
+            { campaignId, queueItemId, callLogId, twilioFrom },
+          );
+
+          await sb.from("powerdial_call_logs").update({
+            connected_to_vapi: false,
+            disposition: redirected ? "transferred_to_human" : null,
+            meta: {
+              ...existingMeta,
+              transfer_method: "ai_assist_warm_handoff",
+              ai_enabled: true,
+              ai_assist: true,
+              ai_assist_greeting: aiAssistGreetingRaw || DEFAULT_AI_ASSIST_GREETING,
+              human_transfer_phone: humanTransferPhone,
+              twilio_from: normalizePhone(twilioFrom) || null,
+            },
+          }).eq("id", callLogId);
+
+          if (!redirected) {
+            console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
+          }
+
+          return json({
+            ok: true,
+            amd_result: amdResult,
+            redirected,
+            mode: "ai_assist_warm_handoff",
+            to: humanTransferPhone,
+          });
         }
 
         // ===== AI ENABLED: existing Vapi flow =====
