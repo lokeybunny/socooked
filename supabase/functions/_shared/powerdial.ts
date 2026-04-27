@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 export const DEFAULT_OUTBOUND_VAPI_ASSISTANT = "1eddf1f7-3ef8-4950-9a65-1fd68516208e";
+export const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = "+17027016192";
 
 const POWERDIAL_INBOUND_VAPI_ASSISTANTS = new Set([
   "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8",
@@ -8,6 +9,9 @@ const POWERDIAL_INBOUND_VAPI_ASSISTANTS = new Set([
 ]);
 
 export const DEFAULT_POWERDIAL_SETTINGS = {
+  ai_enabled: true,
+  ai_assist: true,
+  human_transfer_phone: DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE,
   call_delay_ms: 2000,
   max_retries: 2,
   retry_no_answer_hours: 4,
