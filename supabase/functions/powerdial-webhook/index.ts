@@ -257,6 +257,8 @@ async function redirectCallToAIAssistTransfer(
     queueItemId: string;
     callLogId: string;
     twilioFrom?: string;
+    /** Twilio AnsweredBy value — when "human" we use the snappier greeting. */
+    answeredBy?: string;
   },
 ): Promise<boolean> {
   try {
@@ -269,7 +271,15 @@ async function redirectCallToAIAssistTransfer(
       options.callLogId,
     );
 
-    const sayText = (greetingText && greetingText.trim()) || DEFAULT_AI_ASSIST_GREETING;
+    // Adaptive greeting: if AMD is highly confident the lead just said "hello"
+    // (AnsweredBy === "human"), use the shorter greeting to start speaking ~2s
+    // sooner. Otherwise use the user-configured / default greeting.
+    const customGreeting = greetingText && greetingText.trim();
+    const sayText = customGreeting
+      ? customGreeting
+      : (options.answeredBy === "human"
+        ? SHORT_AI_ASSIST_GREETING
+        : DEFAULT_AI_ASSIST_GREETING);
 
     // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
     // so the warm hand-off never breaks even if ElevenLabs is down.
