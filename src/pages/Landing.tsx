@@ -213,52 +213,6 @@ export default function Landing() {
               <br />
               <span className="text-muted-foreground">Launch It on Solana.</span>
             </h2>
-            {/* 3D pop-out hero image */}
-            <motion.div
-              className="relative mt-4 sm:mt-6 mb-2 sm:mb-4 w-full max-w-[280px] sm:max-w-md md:max-w-xl"
-              style={{ perspective: '1200px' }}
-              initial={{ opacity: 0, y: 30, rotateX: 18, scale: 0.92 }}
-              animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-              transition={{ duration: 1.2, ease: [0.23, 1, 0.32, 1], delay: 0.3 }}
-            >
-              <motion.div
-                animate={{ y: [0, -10, 0], rotateX: [2, -2, 2], rotateY: [-2, 2, -2] }}
-                transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ transformStyle: 'preserve-3d' }}
-                className="relative"
-              >
-                {/* Glow layer behind */}
-                <div
-                  className="absolute inset-0 rounded-2xl blur-2xl opacity-60"
-                  style={{
-                    background: 'radial-gradient(ellipse at center, hsl(var(--primary) / 0.5) 0%, transparent 70%)',
-                    transform: 'translateZ(-40px) scale(1.05)',
-                  }}
-                  aria-hidden
-                />
-                {/* Image with depth shadow */}
-                <img
-                  src={heroVideographer3D}
-                  alt="Warren Guru cinematic videographer with cinema camera, drones, and futuristic HUD"
-                  loading="eager"
-                  className="relative w-full h-auto rounded-2xl border border-foreground/10"
-                  style={{
-                    boxShadow:
-                      '0 25px 50px -12px rgba(0,0,0,0.8), 0 10px 30px -5px hsl(var(--primary) / 0.35), inset 0 1px 0 hsl(var(--foreground) / 0.1)',
-                    transform: 'translateZ(0px)',
-                  }}
-                />
-                {/* Subtle gradient overlay for cinematic feel */}
-                <div
-                  className="absolute inset-0 rounded-2xl pointer-events-none"
-                  style={{
-                    background:
-                      'linear-gradient(to top, hsl(var(--background) / 0.4) 0%, transparent 40%, transparent 70%, hsl(var(--foreground) / 0.05) 100%)',
-                  }}
-                  aria-hidden
-                />
-              </motion.div>
-            </motion.div>
             <VideoPlayer />
             {/* Scroll hint */}
             <motion.div
