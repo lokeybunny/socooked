@@ -41,6 +41,7 @@ function getSettingsFormState(settings: any) {
     hoursEnd: nextSettings.calling_hours_end || '17:00',
     vapiAssistantId: knownAssistant ? persistedAssistantId : 'custom',
     customAssistantId: knownAssistant ? '' : persistedAssistantId,
+    humanTransferPhone: String(nextSettings.human_transfer_phone || ''),
   };
 }
 
