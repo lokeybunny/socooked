@@ -610,6 +610,50 @@ Deno.serve(async (req) => {
           return json({ ok: true, amd_result: amdResult, redirected, mode: "live_human_transfer", to: humanTransferPhone });
         }
 
+        // ===== AI ASSIST: AI greets/stalls, then silently bridge to human =====
+        // When ai_assist is true and a human transfer number is configured,
+        // we play a short greeting via Twilio TTS to the lead while we silently
+        // bridge the live agent in — the lead never hears a ring.
+        const aiAssistEnabled = settingsObj.ai_assist === true;
+        const aiAssistGreetingRaw = typeof settingsObj.ai_assist_greeting === "string"
+          ? settingsObj.ai_assist_greeting
+          : "";
+
+        if (aiAssistEnabled && humanTransferPhone) {
+          const redirected = await redirectCallToAIAssistTransfer(
+            callSid,
+            humanTransferPhone,
+            aiAssistGreetingRaw,
+            { campaignId, queueItemId, callLogId, twilioFrom },
+          );
+
+          await sb.from("powerdial_call_logs").update({
+            connected_to_vapi: false,
+            disposition: redirected ? "transferred_to_human" : null,
+            meta: {
+              ...existingMeta,
+              transfer_method: "ai_assist_warm_handoff",
+              ai_enabled: true,
+              ai_assist: true,
+              ai_assist_greeting: aiAssistGreetingRaw || DEFAULT_AI_ASSIST_GREETING,
+              human_transfer_phone: humanTransferPhone,
+              twilio_from: normalizePhone(twilioFrom) || null,
+            },
+          }).eq("id", callLogId);
+
+          if (!redirected) {
+            console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
+          }
+
+          return json({
+            ok: true,
+            amd_result: amdResult,
+            redirected,
+            mode: "ai_assist_warm_handoff",
+            to: humanTransferPhone,
+          });
+        }
+
         // ===== AI ENABLED: existing Vapi flow =====
         // The assistant_id was frozen in call log meta at dial time by placeCall()
         const frozenAssistantId = typeof existingMeta.assistant_id === "string"
