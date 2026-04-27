@@ -199,25 +199,18 @@ async function getOrCreateElevenLabsGreetingUrl(
 
     const audioBuf = await ttsResp.arrayBuffer();
 
-    // 3) Upload to public site-assets bucket via Supabase storage REST.
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const uploadResp = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/site-assets/${objectPath}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          "Content-Type": "audio/mpeg",
-          "x-upsert": "true",
-          "cache-control": "public, max-age=31536000, immutable",
-        },
-        body: audioBuf,
-      },
-    );
+    // 3) Upload to public site-assets bucket via Supabase Storage SDK
+    //    (the SDK handles both legacy JWT and new signing-key formats correctly).
+    const { error: uploadErr } = await sb.storage
+      .from("site-assets")
+      .upload(objectPath, new Uint8Array(audioBuf), {
+        contentType: "audio/mpeg",
+        cacheControl: "31536000",
+        upsert: true,
+      });
 
-    if (!uploadResp.ok) {
-      const errText = await uploadResp.text();
-      console.error(`[powerdial-webhook] Storage upload failed (${uploadResp.status}):`, errText);
+    if (uploadErr) {
+      console.error("[powerdial-webhook] Storage upload failed:", uploadErr.message);
       return null;
     }
 
