@@ -593,6 +593,29 @@ Deno.serve(async (req) => {
   const callLogId = url.searchParams.get("call_log_id") || "";
 
   try {
+    // Inline ElevenLabs MP3 streaming endpoint that Twilio <Play> hits.
+    // No storage bucket / no auth — pure pass-through with in-memory cache.
+    if (type === "ai-greeting") {
+      const voice = url.searchParams.get("voice") || "";
+      const text = url.searchParams.get("text") || "";
+      if (!voice || !text) {
+        return new Response("Missing voice or text", { status: 400 });
+      }
+      const bytes = await generateElevenLabsGreetingBytes(voice, text);
+      if (!bytes) {
+        return new Response("TTS unavailable", { status: 502 });
+      }
+      return new Response(bytes, {
+        status: 200,
+        headers: {
+          ...CORS,
+          "Content-Type": "audio/mpeg",
+          "Cache-Control": "public, max-age=86400",
+          "Content-Length": String(bytes.length),
+        },
+      });
+    }
+
     if (type === "twiml") {
       const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
