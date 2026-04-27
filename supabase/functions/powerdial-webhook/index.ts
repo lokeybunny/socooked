@@ -182,7 +182,7 @@ async function generateElevenLabsGreetingBytes(
         },
         body: JSON.stringify({
           text: greetingText,
-          model_id: "eleven_turbo_v2_5",
+          model_id: "eleven_flash_v2_5", // ~50% lower latency than turbo
           voice_settings: {
             stability: 0.45,
             similarity_boost: 0.8,
