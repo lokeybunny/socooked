@@ -23,6 +23,7 @@ import PowerDialQueue from '@/components/powerdial/PowerDialQueue';
 import PowerDialCallLog from '@/components/powerdial/PowerDialCallLog';
 import PowerDialSettings from '@/components/powerdial/PowerDialSettings';
 import PowerDialHealthMonitor from '@/components/powerdial/PowerDialHealthMonitor';
+import PowerDialStallDiagnostics from '@/components/powerdial/PowerDialStallDiagnostics';
 
 type Campaign = {
   id: string;
