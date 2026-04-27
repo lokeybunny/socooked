@@ -433,10 +433,24 @@ Deno.serve(async (req) => {
       const answeredBy = params.get("AnsweredBy") || "";
       console.log(`[powerdial-webhook] AMD result: ${answeredBy} for call ${callSid}`);
 
+      // Check if AI is disabled — if so, we bypass AMD entirely and bridge any answer to the human
+      const { data: campSettingsForAmd } = await sb
+        .from("powerdial_campaigns")
+        .select("settings")
+        .eq("id", campaignId)
+        .single();
+      const aiEnabledForAmd = (campSettingsForAmd?.settings as any)?.ai_enabled !== false;
+
       let amdResult = "unknown";
       let connectVapi = false;
 
-      if (answeredBy === "human") {
+      if (!aiEnabledForAmd) {
+        // AI off: any answered call should ring the human transfer number.
+        // AMD is unreliable when bridging to a real person — skip it.
+        amdResult = "human";
+        connectVapi = true;
+        console.log(`[powerdial-webhook] AI disabled — forcing human-transfer path regardless of AMD result (${answeredBy})`);
+      } else if (answeredBy === "human") {
         amdResult = "human";
         connectVapi = true;
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
