@@ -105,6 +105,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       calling_hours_end: hoursEnd,
       vapi_assistant_id: resolvedAssistantId,
       human_transfer_phone: humanTransferPhone.trim(),
+      ai_assist_greeting: aiAssistGreeting.trim(),
     };
 
     const { error } = await supabase
