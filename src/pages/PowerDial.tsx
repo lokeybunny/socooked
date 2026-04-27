@@ -588,6 +588,16 @@ export default function PowerDial() {
                       const { error: qErr } = await qb;
                       if (qErr) throw qErr;
 
+                      // When force re-dialing ALL, clear prior call logs so the
+                      // duplicate-dial guard in the engine doesn't skip them as
+                      // "already connected in this campaign".
+                      if (mode === 'all') {
+                        await supabase
+                          .from('powerdial_call_logs')
+                          .delete()
+                          .eq('campaign_id', activeCampaign.id);
+                      }
+
                       // Reset campaign counters and status
                       const { error: cErr } = await supabase
                         .from('powerdial_campaigns')
