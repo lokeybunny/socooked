@@ -275,7 +275,7 @@ ${transcript.slice(0, 3000)}`,
         addLog('info', '↺ Auto-advance backoff reset — campaign recovered');
       }
 
-      const inBackoff = now < autoAdvanceBackoffUntilRef.current;
+      const inBackoff = nowMs < autoAdvanceBackoffUntilRef.current;
       const exhausted = autoAdvanceAttemptsRef.current >= MAX_AUTO_ADVANCE_ATTEMPTS;
 
       if (autoFix && stalled && isRunning && !autoAdvanceInFlightRef.current) {
@@ -283,11 +283,11 @@ ${transcript.slice(0, 3000)}`,
           // Stop trying — surface a clear message; user must manually intervene
           addLog('error', `⛔ Auto-advance disabled — ${MAX_AUTO_ADVANCE_ATTEMPTS} attempts failed. Manual restart required.`);
         } else if (inBackoff) {
-          const waitS = Math.ceil((autoAdvanceBackoffUntilRef.current - now) / 1000);
+          const waitS = Math.ceil((autoAdvanceBackoffUntilRef.current - nowMs) / 1000);
           addLog('warn', `⏳ Auto-advance in backoff (attempt ${autoAdvanceAttemptsRef.current}/${MAX_AUTO_ADVANCE_ATTEMPTS}) — retrying in ${waitS}s`);
         } else {
           autoAdvanceInFlightRef.current = true;
-          lastAutoAdvanceAtRef.current = now;
+          lastAutoAdvanceAtRef.current = nowMs;
           autoAdvanceAttemptsRef.current += 1;
           const attemptNum = autoAdvanceAttemptsRef.current;
           addLog('fix', `🔧 Auto-advancing stalled campaign (attempt ${attemptNum}/${MAX_AUTO_ADVANCE_ATTEMPTS})…`);
