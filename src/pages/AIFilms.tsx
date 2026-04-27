@@ -259,14 +259,22 @@ export default function AIFilms() {
                 <span className="text-sm text-muted-foreground">per video</span>
               </div>
               <p className="text-xs text-muted-foreground mb-8">One-time, per property.</p>
-              <ul className="space-y-3 mb-10 flex-1 w-full">
-                {['AI furniture removal', 'Visual enhancements', 'Cinematic delivery', '48-72 hour turnaround'].map((f) => (
+              <ul className="space-y-3 mb-6 flex-1 w-full">
+                {[
+                  'Full edit included',
+                  'Delivered in 9:16 Instagram format',
+                  'Up to 1 minute max video length',
+                  'Covers up to 4 bedrooms',
+                  'AI furniture removal & visual enhancements',
+                  '48-72 hour turnaround',
+                ].map((f) => (
                   <li key={f} className="flex items-center justify-center gap-3 text-sm">
                     <Check className="h-4 w-4 text-foreground/70 shrink-0" />
                     <span className="text-foreground/80">{f}</span>
                   </li>
                 ))}
               </ul>
+              <p className="text-[11px] text-muted-foreground mb-6">+$50 per additional bedroom over 4.</p>
               <a
                 href="#contact"
                 className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 border border-border rounded-full text-sm tracking-[0.15em] uppercase hover:bg-accent transition-colors"
