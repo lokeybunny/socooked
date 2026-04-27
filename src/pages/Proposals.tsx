@@ -467,6 +467,7 @@ ${itemsTxt || 'N/A'}`;
             <span style="color: #6b7280; font-size: 13px;">(424) 465-1253 (cell) · (702) 701-6192 (office)</span>
           </p>
         </div>
+        <img src="${import.meta.env.VITE_SUPABASE_URL}/functions/v1/proposal-deposit-track?id=${p.id}&t=${Date.now()}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;" />
       </div>
     `;
 
