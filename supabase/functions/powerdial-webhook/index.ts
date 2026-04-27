@@ -137,10 +137,103 @@ async function redirectCallToVapi(
 const DEFAULT_AI_ASSIST_GREETING =
   "Hey, I'm calling in regards to your property listings. Do you have a second to talk?";
 
+// ElevenLabs voice used for the AI Assist warm hand-off greeting.
+const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
+
+/**
+ * Renders the warm-handoff greeting through ElevenLabs (μ-law 8kHz, telephony-grade)
+ * and caches it in the public `site-assets` bucket keyed by voice + text hash.
+ * Returns a public URL Twilio can <Play>, or null if generation/upload fails.
+ */
+async function getOrCreateElevenLabsGreetingUrl(
+  voiceId: string,
+  greetingText: string,
+): Promise<string | null> {
+  const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
+  if (!apiKey) {
+    console.warn("[powerdial-webhook] ELEVENLABS_API_KEY missing — falling back to Polly");
+    return null;
+  }
+
+  try {
+    // Stable cache key per (voice + text) so the same greeting reuses the same MP3.
+    const fingerprint = `${voiceId}::${greetingText}`;
+    const hashBuf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprint));
+    const hashHex = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const objectPath = `powerdial/ai-assist/${hashHex}.mp3`;
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/site-assets/${objectPath}`;
+
+    // 1) Cache hit?
+    const head = await fetch(publicUrl, { method: "HEAD" });
+    if (head.ok) {
+      return publicUrl;
+    }
+
+    // 2) Render via ElevenLabs (use turbo model for speed; mp3 plays natively in Twilio).
+    const ttsResp = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: greetingText,
+          model_id: "eleven_turbo_v2_5",
+          voice_settings: {
+            stability: 0.45,
+            similarity_boost: 0.8,
+            style: 0.35,
+            use_speaker_boost: true,
+          },
+        }),
+      },
+    );
+
+    if (!ttsResp.ok) {
+      const errText = await ttsResp.text();
+      console.error(`[powerdial-webhook] ElevenLabs TTS failed (${ttsResp.status}):`, errText);
+      return null;
+    }
+
+    const audioBuf = await ttsResp.arrayBuffer();
+
+    // 3) Upload to public site-assets bucket via Supabase storage REST.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const uploadResp = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/site-assets/${objectPath}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          "Content-Type": "audio/mpeg",
+          "x-upsert": "true",
+          "cache-control": "public, max-age=31536000, immutable",
+        },
+        body: audioBuf,
+      },
+    );
+
+    if (!uploadResp.ok) {
+      const errText = await uploadResp.text();
+      console.error(`[powerdial-webhook] Storage upload failed (${uploadResp.status}):`, errText);
+      return null;
+    }
+
+    console.log(`[powerdial-webhook] Cached AI Assist greeting at ${publicUrl}`);
+    return publicUrl;
+  } catch (err) {
+    console.error("[powerdial-webhook] ElevenLabs greeting generation error:", err);
+    return null;
+  }
+}
+
 /**
  * AI Assist warm-handoff: Twilio plays a short stalling greeting to the lead
- * via <Say>, then silently bridges them to the live human agent. Because we
- * use answerOnBridge="false", the lead never hears ringing — the agent just
+ * (rendered via ElevenLabs in voice eXpIbVcVbLo8ZJQDlDnl, with a Polly fallback),
+ * then silently bridges them to the live human agent. Because we use
+ * answerOnBridge="false", the lead never hears ringing — the agent just
  * appears on the line right after the greeting finishes.
  */
 async function redirectCallToAIAssistTransfer(
@@ -166,12 +259,23 @@ async function redirectCallToAIAssistTransfer(
 
     const sayText = (greetingText && greetingText.trim()) || DEFAULT_AI_ASSIST_GREETING;
 
+    // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
+    // so the warm hand-off never breaks even if ElevenLabs is down.
+    const elevenUrl = await getOrCreateElevenLabsGreetingUrl(
+      AI_ASSIST_ELEVENLABS_VOICE_ID,
+      sayText,
+    );
+
+    const greetingTwiml = elevenUrl
+      ? `<Play>${escapeXml(elevenUrl)}</Play>`
+      : `<Say voice="Polly.Joanna-Neural">${escapeXml(sayText)}</Say>`;
+
     // Sequence: AI voice greets the lead → short pause (gives agent time to
     // be bridged silently) → silent dial bridges the human in.
     // answerOnBridge="false" ensures NO ringback is audible to the lead.
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Joanna-Neural">${escapeXml(sayText)}</Say>
+  ${greetingTwiml}
   <Pause length="1"/>
   <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(humanTransferPhone)}</Number>
@@ -196,7 +300,9 @@ async function redirectCallToAIAssistTransfer(
       return false;
     }
 
-    console.log(`[powerdial-webhook] AI Assist warm handoff: ${callSid} → greeting + bridge ${humanTransferPhone}`);
+    console.log(
+      `[powerdial-webhook] AI Assist warm handoff: ${callSid} → ${elevenUrl ? "ElevenLabs" : "Polly fallback"} + bridge ${humanTransferPhone}`,
+    );
     return true;
   } catch (err) {
     console.error("[powerdial-webhook] AI Assist redirect exception:", err);
