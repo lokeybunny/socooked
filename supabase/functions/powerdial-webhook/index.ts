@@ -780,7 +780,7 @@ Deno.serve(async (req) => {
             callSid,
             humanTransferPhone,
             aiAssistGreetingRaw,
-            { campaignId, queueItemId, callLogId, twilioFrom },
+            { campaignId, queueItemId, callLogId, twilioFrom, answeredBy },
           );
 
           await sb.from("powerdial_call_logs").update({
@@ -791,7 +791,10 @@ Deno.serve(async (req) => {
               transfer_method: "ai_assist_warm_handoff",
               ai_enabled: true,
               ai_assist: true,
-              ai_assist_greeting: aiAssistGreetingRaw || DEFAULT_AI_ASSIST_GREETING,
+              ai_assist_greeting: aiAssistGreetingRaw || (answeredBy === "human" ? SHORT_AI_ASSIST_GREETING : DEFAULT_AI_ASSIST_GREETING),
+              ai_assist_greeting_variant: aiAssistGreetingRaw
+                ? "custom"
+                : (answeredBy === "human" ? "short" : "default"),
               human_transfer_phone: humanTransferPhone,
               twilio_from: normalizePhone(twilioFrom) || null,
             },
