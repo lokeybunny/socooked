@@ -12,7 +12,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Plus, Search, Send, FileText, Trash2, Pencil, Eye, ExternalLink, Sparkles,
-  Copy, RotateCcw, X, ArrowLeft, Film, Download,
+  Copy, RotateCcw, X, ArrowLeft, Film, Download, DollarSign,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -421,6 +421,77 @@ ${itemsTxt || 'N/A'}`;
     }
   };
 
+  const handleSendDepositRequest = async (p: Proposal) => {
+    if (!p.client_email) { toast.error('No client email on this proposal'); return; }
+    const amount = 150;
+    const firstName = (p.client_name || '').split(' ')[0] || 'there';
+    const subject = `Deposit to start your video — $${amount}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
+        <div style="background: #059669; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 22px;">🎬 Let's Get Started!</h1>
+        </div>
+        <div style="padding: 28px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+          <p style="font-size: 15px;">Hi ${firstName},</p>
+          <p style="font-size: 15px; line-height: 1.6;">
+            Thank you for signing the agreement for <strong>${p.title}</strong>. To officially kick off
+            production on your video, we just need a <strong>$${amount} deposit</strong> to lock in your slot
+            and begin pre-production.
+          </p>
+
+          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h2 style="margin: 0 0 14px; font-size: 16px; color: #059669;">💸 Easy Payment Options</h2>
+
+            <div style="margin-bottom: 14px;">
+              <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Zelle</div>
+              <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">Me@cozyhomestudio.com</div>
+            </div>
+
+            <div>
+              <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Cash App</div>
+              <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">$ITSWARR</div>
+            </div>
+          </div>
+
+          <p style="font-size: 14px; line-height: 1.6;">
+            Once the $${amount} deposit comes through, we'll reach out within 24 hours to schedule your
+            shoot date and walk you through next steps.
+          </p>
+
+          <p style="font-size: 14px; line-height: 1.6; margin-top: 20px;">
+            Any questions? Just reply to this email or text us directly.
+          </p>
+
+          <p style="font-size: 14px; margin-top: 24px;">
+            — Warren<br/>
+            <span style="color: #6b7280; font-size: 13px;">(424) 465-1253 (cell) · (702) 701-6192 (office)</span>
+          </p>
+        </div>
+      </div>
+    `;
+
+    try {
+      toast.loading('Sending deposit request…', { id: `dep-${p.id}` });
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-api?action=send`;
+      const res = await fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          to: p.client_email,
+          subject,
+          body: html,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success(`Deposit request sent to ${p.client_email}`, { id: `dep-${p.id}` });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Send failed', { id: `dep-${p.id}` });
+    }
+  };
+
   return (
     <AppLayout>
       <div className="px-6 py-6 space-y-6">
@@ -528,6 +599,11 @@ ${itemsTxt || 'N/A'}`;
                       {p.status === 'signed' && p.document_id && (
                         <Button size="sm" variant="ghost" onClick={() => handleDownloadSigned(p)} title="Download signed PDF">
                           <Download className="h-3.5 w-3.5 text-primary" />
+                        </Button>
+                      )}
+                      {p.status === 'signed' && (
+                        <Button size="sm" variant="ghost" onClick={() => handleSendDepositRequest(p)} disabled={!p.client_email} title="Send $150 deposit request (Zelle / Cash App)">
+                          <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" onClick={() => openEdit(p)} title="Edit">
