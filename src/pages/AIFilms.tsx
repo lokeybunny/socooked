@@ -6,6 +6,7 @@ import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
 import SEOHead from '@/components/SEOHead';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 import heroBefore from '@/assets/ai-films/hero-before.webp';
 import heroAfter from '@/assets/ai-films/hero-after.png';
@@ -186,6 +187,7 @@ export default function AIFilms() {
   const [form, setForm] = useState({ name: '', phone: '', property: '' });
   const [submitting, setSubmitting] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { user } = useAuth();
 
   const faqs = [
     {
@@ -271,6 +273,9 @@ export default function AIFilms() {
             <a href="#why" className="hover:text-foreground transition-colors">Why</a>
             <a href="#pricing-faq" className="hover:text-foreground transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-foreground transition-colors">Contact</a>
+            <Link to={user ? '/dashboard' : '/auth'} className="hover:text-foreground transition-colors">
+              {user ? 'Dashboard' : 'Login'}
+            </Link>
           </nav>
           <a
             href="#pricing"
