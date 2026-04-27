@@ -136,12 +136,12 @@ async function redirectCallToVapi(
 }
 
 const DEFAULT_AI_ASSIST_GREETING =
-  "Hi, I'm calling you in regards to one of your property listings. Can I transfer you over to Warren?";
+  "Hi, I'm calling you in regards to one of your property listings... Can I transfer you over to Warren?";
 
 // Snappier greeting used when AMD reports a confident, fast human answer
 // (Twilio AnsweredBy === "human"). Shaves ~2s of audio off the first words.
 const SHORT_AI_ASSIST_GREETING =
-  "Hi! Quick call about your property listing — connecting you to Warren now.";
+  "Hi! Quick call about your property listing... connecting you to Warren now.";
 
 // ElevenLabs voice used for the AI Assist warm hand-off greeting.
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
