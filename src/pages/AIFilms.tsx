@@ -96,7 +96,14 @@ function HeroShowcaseVideo() {
         muted
         loop
         playsInline
-        preload="metadata"
+        // @ts-expect-error iOS/Android inline playback hints
+        webkit-playsinline="true"
+        x5-playsinline="true"
+        x5-video-player-type="h5"
+        x5-video-player-fullscreen="false"
+        disableRemotePlayback
+        controlsList="nodownload noremoteplayback"
+        preload="auto"
         onClick={handleClick}
         className="rounded-2xl border border-white/10 shadow-2xl cursor-pointer w-auto h-auto max-w-full max-h-[85vh] object-contain"
         style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.25)' }}
