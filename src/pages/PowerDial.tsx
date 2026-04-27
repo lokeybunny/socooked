@@ -23,6 +23,7 @@ import PowerDialQueue from '@/components/powerdial/PowerDialQueue';
 import PowerDialCallLog from '@/components/powerdial/PowerDialCallLog';
 import PowerDialSettings from '@/components/powerdial/PowerDialSettings';
 import PowerDialHealthMonitor from '@/components/powerdial/PowerDialHealthMonitor';
+import PowerDialStallDiagnostics from '@/components/powerdial/PowerDialStallDiagnostics';
 
 type Campaign = {
   id: string;
@@ -126,9 +127,19 @@ export default function PowerDial() {
     setActionLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('powerdial-engine', { body });
-      if (error) throw error;
-      if ((data as any)?.reason && ((data as any)?.reason === 'twilio_error' || (data as any)?.reason === 'twilio_from_missing') && (data as any)?.message) {
-        toast.error((data as any).message);
+      if (error) {
+        window.dispatchEvent(new CustomEvent('powerdial:engine', {
+          detail: { action: body?.action || 'unknown', result: 'error', detail: error.message },
+        }));
+        throw error;
+      }
+      const d: any = data || {};
+      const resultLabel = d?.dialed ? 'dialed' : (d?.reason || d?.status || 'ok');
+      window.dispatchEvent(new CustomEvent('powerdial:engine', {
+        detail: { action: body?.action || 'unknown', result: resultLabel, detail: d?.message },
+      }));
+      if (d?.reason && (d.reason === 'twilio_error' || d.reason === 'twilio_from_missing') && d?.message) {
+        toast.error(d.message);
       }
       await loadCampaigns();
       if (activeCampaign) {
@@ -603,6 +614,9 @@ export default function PowerDial() {
                 <PowerDialSettings campaign={activeCampaign} onUpdate={() => loadCampaigns()} />
               </TabsContent>
             </Tabs>
+
+            {/* Stall Diagnostics — explains health monitor decisions */}
+            <PowerDialStallDiagnostics campaignId={activeCampaign.id} />
 
             {/* Pipeline Health Monitor */}
             <PowerDialHealthMonitor
