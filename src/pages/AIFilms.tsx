@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { BeforeAfterSlider } from '@/components/ai-films/BeforeAfterSlider';
 import SEOHead from '@/components/SEOHead';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
+import MobileSectionMenu from '@/components/landing/MobileSectionMenu';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -698,6 +699,7 @@ export default function AIFilms() {
         </div>
       </footer>
       <ScrollToTopButton />
+      <MobileSectionMenu />
     </div>
   );
 }
