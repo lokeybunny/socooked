@@ -67,12 +67,14 @@ function HeroShowcaseVideo() {
 
   const handleClick = () => {
     setShowHint(false);
-    if (isMuted) {
-      enableSound();
-      setUserLocked(true);
-    } else {
+    if (userLocked) {
+      // Already locked on — unlock and mute
       muteSound();
       setUserLocked(false);
+    } else {
+      // Lock sound ON regardless of hover state
+      enableSound();
+      setUserLocked(true);
     }
   };
 
