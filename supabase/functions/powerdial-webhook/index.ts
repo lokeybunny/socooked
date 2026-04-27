@@ -135,7 +135,7 @@ async function redirectCallToVapi(
 }
 
 const DEFAULT_AI_ASSIST_GREETING =
-  "Hey, I'm calling in regards to your property listings. Do you have a second to talk?";
+  "Hi, I'm calling you in regards to one of your property listings. Can I transfer you over to Warren?";
 
 // ElevenLabs voice used for the AI Assist warm hand-off greeting.
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
