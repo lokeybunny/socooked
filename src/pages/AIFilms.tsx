@@ -329,6 +329,46 @@ export default function AIFilms() {
         </div>
       </section>
 
+      {/* PRICING FAQ */}
+      <section id="pricing-faq" className="py-20 sm:py-24 px-5 sm:px-8 bg-muted/10">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground mb-4">Pricing FAQ</p>
+            <h2 className="text-3xl sm:text-4xl font-light tracking-tight">What's included, explained.</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-6 sm:p-7 rounded-2xl border border-border bg-background">
+              <h3 className="text-base font-medium mb-2">What does "full edit included" cover?</h3>
+              <p className="text-sm text-muted-foreground font-light leading-relaxed">
+                Every video is fully edited end-to-end — color grading, cinematic transitions, music sync, AI furniture
+                removal, and visual enhancements. You receive a finished, ready-to-post video. No additional editing fees,
+                no extra charges for music or color work.
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-7 rounded-2xl border border-border bg-background">
+              <h3 className="text-base font-medium mb-2">Why a 1-minute max length?</h3>
+              <p className="text-sm text-muted-foreground font-light leading-relaxed">
+                Videos are delivered in 9:16 Instagram format and capped at 60 seconds — the optimal length for Reels,
+                TikTok, and Stories engagement. Shorter, punchier listings consistently outperform longer walkthroughs on
+                social platforms where buyers actually scroll.
+              </p>
+            </div>
+
+            <div className="p-6 sm:p-7 rounded-2xl border border-border bg-background">
+              <h3 className="text-base font-medium mb-2">How is the +$50 per additional bedroom calculated?</h3>
+              <p className="text-sm text-muted-foreground font-light leading-relaxed">
+                Each package covers up to 4 bedrooms. For each bedroom beyond that, $50 is added to cover the extra
+                shoot, AI processing, and edit time. Example: a 6-bedroom listing on the Single Listing tier is
+                $299 + (2 × $50) = <span className="text-foreground font-medium">$399</span>. The same math applies per
+                listing on the Monthly Package.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* WHY THIS WORKS */}
       <section id="why" className="py-28 sm:py-36 px-5 sm:px-8">
         <div className="max-w-6xl mx-auto">
