@@ -266,43 +266,79 @@ ${transcript.slice(0, 3000)}`,
         toast.info(`Auto-fixed ${stuckCount} stuck queue item(s)`);
       }
 
-      // AUTO-FIX: re-advance stalled campaign
-      const canAutoAdvance = Date.now() - lastAutoAdvanceAtRef.current > 20_000;
-      if (autoFix && stalled && isRunning && canAutoAdvance && !autoAdvanceInFlightRef.current) {
-        autoAdvanceInFlightRef.current = true;
-        lastAutoAdvanceAtRef.current = Date.now();
-        addLog('fix', '🔧 Auto-advancing stalled campaign…');
-        try {
-          const { data: campaignBeforeAdvance } = await supabase
-            .from('powerdial_campaigns')
-            .select('status')
-            .eq('id', campaignId)
-            .maybeSingle();
+      // AUTO-FIX: re-advance stalled campaign with exponential backoff + max retries
+      const now = Date.now();
+      // Reset attempt counter if a healthy dial happened since last failure
+      if (lastSuccessfulAdvanceAtRef.current > lastAutoAdvanceAtRef.current && autoAdvanceAttemptsRef.current > 0) {
+        autoAdvanceAttemptsRef.current = 0;
+        autoAdvanceBackoffUntilRef.current = 0;
+        addLog('info', '↺ Auto-advance backoff reset — campaign recovered');
+      }
 
-          if (campaignBeforeAdvance?.status !== 'running') {
-            addLog('warn', `⏭ Auto-advance skipped — campaign is ${campaignBeforeAdvance?.status || 'not running'}`);
-            return;
-          }
+      const inBackoff = now < autoAdvanceBackoffUntilRef.current;
+      const exhausted = autoAdvanceAttemptsRef.current >= MAX_AUTO_ADVANCE_ATTEMPTS;
 
-          const { data, error } = await supabase.functions.invoke('powerdial-engine', {
-            body: { action: 'advance', campaign_id: campaignId },
-          });
-          if (error) {
-            addLog('error', `✗ Advance failed: ${error.message}`);
-            window.dispatchEvent(new CustomEvent('powerdial:engine', {
-              detail: { action: 'advance (auto)', result: 'error', detail: error.message },
-            }));
-          } else {
-            const resultLabel = data?.dialed ? 'dialed next' : (data?.reason || 'ok');
-            addLog('fix', `✓ Campaign re-advanced: ${resultLabel}`);
-            window.dispatchEvent(new CustomEvent('powerdial:engine', {
-              detail: { action: 'advance (auto)', result: resultLabel, detail: 'triggered by stall detection' },
-            }));
+      if (autoFix && stalled && isRunning && !autoAdvanceInFlightRef.current) {
+        if (exhausted) {
+          // Stop trying — surface a clear message; user must manually intervene
+          addLog('error', `⛔ Auto-advance disabled — ${MAX_AUTO_ADVANCE_ATTEMPTS} attempts failed. Manual restart required.`);
+        } else if (inBackoff) {
+          const waitS = Math.ceil((autoAdvanceBackoffUntilRef.current - now) / 1000);
+          addLog('warn', `⏳ Auto-advance in backoff (attempt ${autoAdvanceAttemptsRef.current}/${MAX_AUTO_ADVANCE_ATTEMPTS}) — retrying in ${waitS}s`);
+        } else {
+          autoAdvanceInFlightRef.current = true;
+          lastAutoAdvanceAtRef.current = now;
+          autoAdvanceAttemptsRef.current += 1;
+          const attemptNum = autoAdvanceAttemptsRef.current;
+          addLog('fix', `🔧 Auto-advancing stalled campaign (attempt ${attemptNum}/${MAX_AUTO_ADVANCE_ATTEMPTS})…`);
+          try {
+            const { data: campaignBeforeAdvance } = await supabase
+              .from('powerdial_campaigns')
+              .select('status')
+              .eq('id', campaignId)
+              .maybeSingle();
+
+            if (campaignBeforeAdvance?.status !== 'running') {
+              addLog('warn', `⏭ Auto-advance skipped — campaign is ${campaignBeforeAdvance?.status || 'not running'}`);
+              autoAdvanceAttemptsRef.current = Math.max(0, attemptNum - 1); // don't count this against budget
+              return;
+            }
+
+            const { data, error } = await supabase.functions.invoke('powerdial-engine', {
+              body: { action: 'advance', campaign_id: campaignId },
+            });
+            if (error) {
+              const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attemptNum - 1);
+              autoAdvanceBackoffUntilRef.current = Date.now() + backoffMs;
+              addLog('error', `✗ Advance failed (attempt ${attemptNum}/${MAX_AUTO_ADVANCE_ATTEMPTS}): ${error.message} — backoff ${Math.round(backoffMs / 1000)}s`);
+              window.dispatchEvent(new CustomEvent('powerdial:engine', {
+                detail: { action: 'advance (auto)', result: 'error', detail: `${error.message} · attempt ${attemptNum}/${MAX_AUTO_ADVANCE_ATTEMPTS}` },
+              }));
+            } else {
+              const resultLabel = data?.dialed ? 'dialed next' : (data?.reason || 'ok');
+              if (data?.dialed) {
+                // Success — reset retry budget
+                lastSuccessfulAdvanceAtRef.current = Date.now();
+                autoAdvanceAttemptsRef.current = 0;
+                autoAdvanceBackoffUntilRef.current = 0;
+                addLog('fix', `✓ Campaign re-advanced: ${resultLabel}`);
+              } else {
+                // Engine returned no-op (e.g. "no_pending_items") — apply backoff but don't fail loudly
+                const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attemptNum - 1);
+                autoAdvanceBackoffUntilRef.current = Date.now() + backoffMs;
+                addLog('warn', `⚠ Advance no-op: ${resultLabel} (attempt ${attemptNum}/${MAX_AUTO_ADVANCE_ATTEMPTS}) — backoff ${Math.round(backoffMs / 1000)}s`);
+              }
+              window.dispatchEvent(new CustomEvent('powerdial:engine', {
+                detail: { action: 'advance (auto)', result: resultLabel, detail: `attempt ${attemptNum}/${MAX_AUTO_ADVANCE_ATTEMPTS}` },
+              }));
+            }
+          } catch (e: any) {
+            const backoffMs = BASE_BACKOFF_MS * Math.pow(2, attemptNum - 1);
+            autoAdvanceBackoffUntilRef.current = Date.now() + backoffMs;
+            addLog('error', `✗ Advance error: ${e.message} — backoff ${Math.round(backoffMs / 1000)}s`);
+          } finally {
+            autoAdvanceInFlightRef.current = false;
           }
-        } catch (e: any) {
-          addLog('error', `✗ Advance error: ${e.message}`);
-        } finally {
-          autoAdvanceInFlightRef.current = false;
         }
       }
 
