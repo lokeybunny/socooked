@@ -241,6 +241,25 @@ export default function AIFilms() {
     }
     setSubmitting(true);
     try {
+      // Save lead to CRM so it shows up in Funnels → Videography
+      try {
+        await supabase.from('customers').insert({
+          full_name: form.name,
+          phone: form.phone,
+          source: 'videography-landing',
+          status: 'lead',
+          tags: ['videography', 'ai-films'],
+          notes: form.property ? `Property: ${form.property}` : null,
+          meta: {
+            landing_page: 'ai-films',
+            property: form.property || null,
+            submitted_at: new Date().toISOString(),
+          },
+        });
+      } catch (insertErr) {
+        console.error('[AIFilms] CRM insert error (non-fatal):', insertErr);
+      }
+
       const subject = `🎬 New AI Films Request — ${form.name}`;
       const body = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px;">
