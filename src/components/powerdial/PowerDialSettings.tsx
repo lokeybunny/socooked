@@ -150,6 +150,17 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       </div>
 
       <div>
+        <Label>Live Transfer Phone (when AI is OFF)</Label>
+        <Input
+          type="tel"
+          placeholder="+1 555 555 5555"
+          value={humanTransferPhone}
+          onChange={(event) => setHumanTransferPhone(event.target.value)}
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">When AI is disabled on the campaign, answered calls are forwarded to this number so you can take them live.</p>
+      </div>
+
+      <div>
         <Label>Call Delay (ms between calls)</Label>
         <Input type="number" value={callDelay} onChange={(event) => setCallDelay(event.target.value)} />
         <p className="text-[10px] text-muted-foreground mt-1">Default: 2000ms (2 seconds)</p>
