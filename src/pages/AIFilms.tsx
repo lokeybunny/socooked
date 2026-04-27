@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 import heroBefore from '@/assets/ai-films/hero-before.webp';
 import heroAfter from '@/assets/ai-films/hero-after.png';
+import heroVideographer3D from '@/assets/ai-films/hero-videographer-3d.png';
 
 const demos = [
   {
