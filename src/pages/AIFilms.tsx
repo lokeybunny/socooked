@@ -661,6 +661,7 @@ export default function AIFilms() {
           </div>
         </div>
       </footer>
+      <ScrollToTopButton />
     </div>
   );
 }
