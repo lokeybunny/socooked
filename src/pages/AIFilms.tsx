@@ -11,11 +11,11 @@ import heroAfter from '@/assets/ai-films/hero-after.png';
 
 const demos = [
   {
-    title: 'Example A',
+    title: 'AI Drone Realty',
     src: '/videos/demo-shady-rim.mp4',
   },
   {
-    title: 'Example B',
+    title: 'AI Video Furniture Removal',
     src: '/videos/hero-ai-films.mp4',
   },
 ];
