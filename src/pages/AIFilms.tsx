@@ -30,7 +30,96 @@ const benefits = [
   { icon: Zap, title: 'Built for paid social', desc: 'Optimized for Zillow, MLS, IG Reels and TikTok ads.' },
 ];
 
-export default function AIFilms() {
+function HeroShowcaseVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [showHint, setShowHint] = useState(true);
+
+  const enableSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    v.volume = 1;
+    setIsMuted(false);
+    v.play().catch(() => {});
+    setIsPlaying(true);
+    setShowHint(false);
+  };
+
+  const muteSound = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    setIsMuted(true);
+  };
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play().catch(() => {});
+      setIsPlaying(true);
+    } else {
+      v.pause();
+      setIsPlaying(false);
+    }
+    setShowHint(false);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 1, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
+      className="relative group"
+      onMouseEnter={enableSound}
+      onMouseLeave={muteSound}
+    >
+      <video
+        ref={videoRef}
+        src="/videos/forsale.mp4"
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onClick={togglePlay}
+        className="w-full h-auto rounded-2xl border border-white/10 shadow-2xl cursor-pointer"
+        style={{ boxShadow: '0 30px 60px -15px rgba(0,0,0,0.85), 0 15px 35px -10px rgba(34,211,238,0.25)' }}
+      />
+
+      {/* Sound / play indicator */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-none">
+        <div className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] tracking-[0.2em] uppercase text-white/90 flex items-center gap-1.5">
+          {isMuted ? '🔇 Muted' : '🔊 Sound On'}
+        </div>
+        {!isPlaying && (
+          <div className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[10px] tracking-[0.2em] uppercase text-white/90">
+            ⏸ Paused
+          </div>
+        )}
+      </div>
+
+      {/* Mobile/desktop hint */}
+      {showHint && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2 }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-[10px] tracking-[0.2em] uppercase text-white/90 pointer-events-none"
+        >
+          <span className="hidden sm:inline">Hover for sound · Click to pause</span>
+          <span className="sm:hidden">Tap to play / pause sound</span>
+        </motion.div>
+      )}
+
+      <p className="text-center text-[10px] tracking-[0.3em] uppercase text-muted-foreground/70 mt-4">
+        Real AI listing transformation
+      </p>
+    </motion.div>
+  );
+}
   const [form, setForm] = useState({ name: '', phone: '', property: '' });
   const [submitting, setSubmitting] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -181,7 +270,7 @@ export default function AIFilms() {
           </motion.div>
 
           {/* Hero showcase video */}
-          <HeroShowcaseVideo />)
+          <HeroShowcaseVideo />
         </div>
 
         {/* Scroll cue */}
