@@ -117,6 +117,9 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
                   {item.retry_count > 0 && (
                     <span className="text-[10px] text-muted-foreground">×{item.retry_count}</span>
                   )}
+                  {item.status === 'retry_later' && item.retry_at && (
+                    <span className="text-[10px] text-amber-400">in {formatRetry(item.retry_at)}</span>
+                  )}
                   <Badge variant="outline" className={`text-[10px] ${badge.class}`}>{badge.label}</Badge>
                 </div>
               </div>
