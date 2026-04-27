@@ -108,6 +108,10 @@ Deno.serve(async (req) => {
         const { data: campData } = await sb.from("powerdial_campaigns").select("settings").eq("id", campaign_id).single();
         await sb.from("powerdial_campaigns").update({
           status: "running",
+          schedule_status: null,
+          scheduled_start: null,
+          scheduled_end: null,
+          ended_at: null,
           ...(action === "start" ? { started_at: new Date().toISOString() } : {}),
         }).eq("id", campaign_id);
 
