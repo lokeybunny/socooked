@@ -629,7 +629,8 @@ Deno.serve(async (req) => {
       if (!bytes) {
         return new Response("TTS unavailable", { status: 502 });
       }
-      return new Response(bytes, {
+      const audioBody = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      return new Response(audioBody, {
         status: 200,
         headers: {
           ...CORS,
@@ -970,7 +971,7 @@ Deno.serve(async (req) => {
         console.log(`[powerdial-webhook] Advance after busy for ${campaignId}:`, advanceResult);
       } else if (callStatus === "no-answer") {
         const [{ data: qItem }, { data: campaign }] = await Promise.all([
-          sb.from("powerdial_queue").select("retry_count").eq("id", queueItemId).single(),
+          sb.from("powerdial_queue").select("retry_count, phone").eq("id", queueItemId).single(),
           sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
         ]);
 
