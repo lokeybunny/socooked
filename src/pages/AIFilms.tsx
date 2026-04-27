@@ -96,11 +96,12 @@ function HeroShowcaseVideo() {
         muted
         loop
         playsInline
-        // @ts-expect-error iOS/Android inline playback hints
-        webkit-playsinline="true"
-        x5-playsinline="true"
-        x5-video-player-type="h5"
-        x5-video-player-fullscreen="false"
+        {...({
+          'webkit-playsinline': 'true',
+          'x5-playsinline': 'true',
+          'x5-video-player-type': 'h5',
+          'x5-video-player-fullscreen': 'false',
+        } as Record<string, string>)}
         disableRemotePlayback
         controlsList="nodownload noremoteplayback"
         preload="auto"
