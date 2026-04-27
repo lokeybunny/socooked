@@ -140,6 +140,13 @@ const DEFAULT_AI_ASSIST_GREETING =
 // ElevenLabs voice used for the AI Assist warm hand-off greeting.
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
 
+// Pre-warm the default greeting at module boot so the very first call
+// after a cold start doesn't pay the ~800ms TTS round-trip.
+queueMicrotask(() => {
+  generateElevenLabsGreetingBytes(AI_ASSIST_ELEVENLABS_VOICE_ID, DEFAULT_AI_ASSIST_GREETING)
+    .catch(() => {/* swallow — fallback path handles failures */});
+});
+
 /**
  * Renders a warm-handoff greeting through ElevenLabs as MP3 bytes.
  * Uses an in-memory cache keyed by (voice + text) hash so repeat calls
@@ -182,7 +189,7 @@ async function generateElevenLabsGreetingBytes(
         },
         body: JSON.stringify({
           text: greetingText,
-          model_id: "eleven_turbo_v2_5",
+          model_id: "eleven_flash_v2_5", // ~50% lower latency than turbo
           voice_settings: {
             stability: 0.45,
             similarity_boost: 0.8,
