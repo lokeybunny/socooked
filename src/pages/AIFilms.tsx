@@ -273,6 +273,9 @@ export default function AIFilms() {
             <a href="#why" className="hover:text-foreground transition-colors">Why</a>
             <a href="#pricing-faq" className="hover:text-foreground transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-foreground transition-colors">Contact</a>
+            <Link to={user ? '/dashboard' : '/auth'} className="hover:text-foreground transition-colors">
+              {user ? 'Dashboard' : 'Login'}
+            </Link>
           </nav>
           <a
             href="#pricing"
