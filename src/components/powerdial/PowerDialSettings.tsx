@@ -87,6 +87,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setVapiAssistantId(nextState.vapiAssistantId);
     setCustomAssistantId(nextState.customAssistantId);
     setHumanTransferPhone(nextState.humanTransferPhone);
+    setAiAssistGreeting(nextState.aiAssistGreeting);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
