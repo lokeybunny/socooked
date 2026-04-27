@@ -352,7 +352,7 @@ export default function AIFilms() {
                 transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
                 className="group"
               >
-                <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-black border border-border/40 shadow-2xl">
+                <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-black border border-border/40 shadow-2xl mx-auto w-full max-h-[80vh] sm:max-h-[75vh]" style={{ maxWidth: 'calc(80vh * 9 / 16)' }}>
                   <DemoVideo src={demo.src} />
                   <span className="absolute top-4 left-4 px-2.5 py-1 text-[10px] tracking-[0.25em] uppercase bg-black/70 backdrop-blur-sm text-white rounded-full pointer-events-none z-10">
                     0{i + 1} / 0{demos.length}
