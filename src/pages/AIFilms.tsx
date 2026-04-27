@@ -295,12 +295,14 @@ export default function AIFilms() {
                 <span className="text-sm text-background/60">/month</span>
               </div>
               <p className="text-xs text-background/50 mb-8">Less than $250 per listing when fully utilized.</p>
-              <ul className="space-y-3 mb-10 flex-1 w-full">
+              <ul className="space-y-3 mb-6 flex-1 w-full">
                 {[
                   '10 AI-enhanced listing videos / month',
+                  'Full edit included on every video',
+                  'Delivered in 9:16 Instagram format',
+                  'Up to 1 minute max per video',
+                  'Covers up to 4 bedrooms per listing',
                   'Priority turnaround',
-                  'Consistent listing domination',
-                  'Designed for agents closing multiple deals monthly',
                   'Dedicated WhatsApp line',
                 ].map((f) => (
                   <li key={f} className="flex items-center justify-center gap-3 text-sm">
@@ -309,6 +311,7 @@ export default function AIFilms() {
                   </li>
                 ))}
               </ul>
+              <p className="text-[11px] text-background/60 mb-6">+$50 per additional bedroom over 4.</p>
               <a
                 href="#contact"
                 className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-background text-foreground rounded-full text-sm tracking-[0.15em] uppercase hover:bg-background/90 transition-colors"
