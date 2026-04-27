@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature, Activity, TrendingUp,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature, Activity, TrendingUp, Home,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -60,7 +60,7 @@ const navEntries: NavEntry[] = [
   },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
-  { to: '/poly', icon: TrendingUp, label: 'POLY', purple: true },
+  { to: '/', icon: Home, label: 'HOME' },
   { to: '/arbitrage', icon: ShoppingBag, label: 'Arbitrage', divider: 'Services', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
