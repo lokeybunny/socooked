@@ -190,17 +190,25 @@ Deno.serve(async (req) => {
       metadata: { source: "twilio-webhook", twilio_number: to },
     });
 
+    const cfg = await loadConfig();
+
     // Send the requested auto-reply from the VoidFix phone/device, not Twilio TwiML.
-    try {
-      await sendVoidfixAutoReply(from, to, sid || null, customerId, body);
-    } catch (e) {
-      console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
+    if (cfg.enabled) {
+      try {
+        await sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg);
+      } catch (e) {
+        console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
+      }
+    } else {
+      console.log("[twilio-sms-inbound] auto-reply disabled by app_settings");
     }
 
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
-    forwardToVoidfixCell(normalizePhone(from), normalizePhone(to), body).catch((e) =>
-      console.error("[twilio-sms-inbound] forward error:", e),
-    );
+    if (cfg.forward_enabled) {
+      forwardToVoidfixCell(normalizePhone(from), normalizePhone(to), body, cfg.forward_to_cell).catch((e) =>
+        console.error("[twilio-sms-inbound] forward error:", e),
+      );
+    }
 
     return twimlAck();
   } catch (err) {
