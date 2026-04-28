@@ -79,8 +79,10 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   const last10 = norm.replace(/\D/g, "").slice(-10);
   const { data } = await sb
     .from("customers")
-    .select("id, phone")
+    .select("id, phone, status, created_at")
     .or(`phone.ilike.%${last10}%`)
+    .not("status", "in", "(dead,lost,archived,deleted)")
+    .order("created_at", { ascending: false })
     .limit(1);
   return data && data[0] ? data[0].id : null;
 }
@@ -195,12 +197,14 @@ Deno.serve(async (req) => {
 
     const result = await sendVoidfixSms(to, message);
     const customerId = payload?.customer_id || (await findCustomerByPhone(to));
+    const source = String(payload?.source || "powerdial-sms");
+    const extraMetadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
 
     await sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
       body: message,
-      from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+      from_address: payload?.from_address || (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null),
       to_address: normalizePhone(to),
       phone_number: normalizePhone(to),
       provider: "voidfix",
@@ -208,8 +212,9 @@ Deno.serve(async (req) => {
       status: result.ok ? "sent" : "failed",
       customer_id: customerId || null,
       metadata: {
-        source: "powerdial-sms",
+        source,
         device_id: VOIDFIX_DEVICE_ID,
+        ...extraMetadata,
         ...(result.error ? { error: result.error } : {}),
         ...(result.raw ? { voidfix_response: result.raw } : {}),
       },
