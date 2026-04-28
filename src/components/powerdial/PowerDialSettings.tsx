@@ -50,6 +50,8 @@ function getSettingsFormState(settings: any) {
     smsAfterTransfer: nextSettings.sms_after_transfer === true,
     smsAfterTransferMessage: String(nextSettings.sms_after_transfer_message || ''),
     smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
+    voicemailDropEnabled: nextSettings.voicemail_drop_enabled !== false,
+    voicemailDropUrl: String(nextSettings.voicemail_drop_url || ''),
   };
 }
 
