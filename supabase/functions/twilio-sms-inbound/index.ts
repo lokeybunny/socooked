@@ -71,6 +71,12 @@ function normalizePhone(raw: string | null | undefined): string {
   return `+${digits}`;
 }
 
+function runAfterResponse(label: string, task: Promise<unknown>) {
+  const guarded = task.catch((e) => console.error(`[twilio-sms-inbound] ${label} error:`, e));
+  const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
+  if (typeof waitUntil === "function") waitUntil(guarded);
+}
+
 async function findCustomerByPhone(phone: string): Promise<string | null> {
   const norm = normalizePhone(phone);
   if (!norm) return null;
@@ -188,11 +194,7 @@ Deno.serve(async (req) => {
           if (!priorReply?.[0]) {
             const cfg = await loadConfig();
             if (cfg.enabled) {
-              try {
-                await sendVoidfixAutoReply(from, to, sid || null, null, body, cfg);
-              } catch (e) {
-                console.error("[twilio-sms-inbound] duplicate retry VoidFix auto-reply error:", e);
-              }
+              runAfterResponse("duplicate retry VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, null, body, cfg));
             }
           }
         }
@@ -227,11 +229,7 @@ Deno.serve(async (req) => {
 
     // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline.
     if (cfg.enabled && is8105LandlineWebhook) {
-      try {
-        await sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg);
-      } catch (e) {
-        console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
-      }
+      runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg));
     } else if (!is8105LandlineWebhook) {
       console.log(`[twilio-sms-inbound] skipped auto-reply: webhook To=${normalizedTo || "unknown"} is not ${TWILIO_LANDLINE_NUMBER}`);
     } else {
@@ -240,9 +238,7 @@ Deno.serve(async (req) => {
 
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
     if (cfg.forward_enabled && is8105LandlineWebhook) {
-      forwardToVoidfixCell(normalizedFrom, normalizedTo, body, cfg.forward_to_cell).catch((e) =>
-        console.error("[twilio-sms-inbound] forward error:", e),
-      );
+      runAfterResponse("forward", forwardToVoidfixCell(normalizedFrom, normalizedTo, body, cfg.forward_to_cell));
     }
 
     return twimlAck();
