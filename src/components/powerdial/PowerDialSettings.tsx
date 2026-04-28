@@ -124,6 +124,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       ai_assist_greeting: aiAssistGreeting.trim(),
       sms_after_transfer: smsAfterTransfer,
       sms_after_transfer_message: smsAfterTransferMessage.trim(),
+      sms_sequence_id: smsSequenceId === 'none' ? null : smsSequenceId,
     };
 
     const { error } = await supabase
