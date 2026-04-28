@@ -44,7 +44,8 @@ async function sendTwilioSms(to: string, body: string, from?: string): Promise<{
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
   const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
-  const formBody = new URLSearchParams({ To: toNum, From: fromNum, Body: body });
+  const statusCallback = `${SUPABASE_URL}/functions/v1/powerdial-sms`;
+  const formBody = new URLSearchParams({ To: toNum, From: fromNum, Body: body, StatusCallback: statusCallback });
 
   const resp = await fetch(url, {
     method: "POST",
