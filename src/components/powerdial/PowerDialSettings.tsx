@@ -272,7 +272,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             <input
               id={`vm-upload-${campaign.id}`}
               type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/x-m4a,audio/m4a,audio/mp4"
+              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav"
               className="hidden"
               disabled={!voicemailDropEnabled || vmUploading}
               onChange={async (e) => {
@@ -303,14 +303,14 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
               disabled={!voicemailDropEnabled || vmUploading}
               onClick={() => document.getElementById(`vm-upload-${campaign.id}`)?.click()}
             >
-              {vmUploading ? 'Uploading…' : 'Upload MP3 / M4A'}
+              {vmUploading ? 'Uploading…' : 'Upload MP3 / WAV'}
             </Button>
             {voicemailDropUrl && (
               <audio src={voicemailDropUrl} controls className="h-8 flex-1 min-w-0" />
             )}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Twilio supports MP3 / WAV (M4A auto-converted). Default: Warren's voicemail message.
+            Twilio plays MP3 / WAV. Default: Warren's voicemail message.
           </p>
         </div>
       </div>
