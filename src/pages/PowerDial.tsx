@@ -120,8 +120,8 @@ export default function PowerDial() {
         if (!row) return;
         if (row.status === 'dialing') {
           setCurrentDialing(row);
-        } else if (currentDialing?.id === row.id) {
-          setCurrentDialing(null);
+        } else {
+          setCurrentDialing((prev: any) => (prev?.id === row.id ? null : prev));
         }
         // Auto-open Live Transfer popup the moment a human picks up
         const humanResult =
