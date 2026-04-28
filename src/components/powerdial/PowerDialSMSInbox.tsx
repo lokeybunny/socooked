@@ -206,9 +206,8 @@ export default function PowerDialSMSInbox() {
             <ScrollArea className="flex-1 p-3 h-[350px]">
               <div className="space-y-2">
                 {activeMessages.map(m => {
-                  const errCode = m.metadata?.twilio_error_code;
-                  const errMsg = m.metadata?.twilio_error_message;
-                  const isFailed = ['failed', 'undelivered'].includes(String(m.status).toLowerCase()) || !!errCode;
+                  const errMsg = m.metadata?.error || m.metadata?.twilio_error_message;
+                  const isFailed = ['failed', 'undelivered'].includes(String(m.status).toLowerCase()) || !!errMsg;
                   return (
                     <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${m.direction === 'outbound' ? (isFailed ? 'bg-red-500/20 border border-red-500/40' : 'bg-purple-500/20') : 'bg-muted'} text-foreground`}>
