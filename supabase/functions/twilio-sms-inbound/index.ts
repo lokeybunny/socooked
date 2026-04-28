@@ -49,8 +49,10 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   const last10 = norm.replace(/\D/g, "").slice(-10);
   const { data } = await sb
     .from("customers")
-    .select("id")
+    .select("id, status, created_at")
     .or(`phone.ilike.%${last10}%`)
+    .not("status", "in", "(dead,lost,archived,deleted)")
+    .order("created_at", { ascending: false })
     .limit(1);
   return data && data[0] ? data[0].id : null;
 }
