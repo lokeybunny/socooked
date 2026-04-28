@@ -189,6 +189,26 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
         <p className="text-[10px] text-muted-foreground mt-1">Spoken to the lead by Twilio TTS to stall while we silently bridge in the live agent. Only used when <strong>AI Assist</strong> is on.</p>
       </div>
 
+      <div className="space-y-2 rounded-md border border-border p-3 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <Label className="cursor-pointer">SMS After Live Transfer</Label>
+          <input
+            type="checkbox"
+            checked={smsAfterTransfer}
+            onChange={(e) => setSmsAfterTransfer(e.target.checked)}
+            className="h-4 w-4 rounded"
+          />
+        </div>
+        <textarea
+          className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          placeholder="Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?"
+          value={smsAfterTransferMessage}
+          onChange={(e) => setSmsAfterTransferMessage(e.target.value)}
+          disabled={!smsAfterTransfer}
+        />
+        <p className="text-[10px] text-muted-foreground">Sent to the lead the instant the call is bridged to a live agent (works for AI Off, AI Assist, and AI fallback transfers).</p>
+      </div>
+
       <div>
         <Label>Call Delay (ms between calls)</Label>
         <Input type="number" value={callDelay} onChange={(event) => setCallDelay(event.target.value)} />
