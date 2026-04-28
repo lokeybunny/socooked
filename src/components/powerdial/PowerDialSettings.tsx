@@ -219,6 +219,23 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
         <p className="text-[10px] text-muted-foreground">Off by default. Toggle on and write a message to auto-send the lead the instant the call is bridged to a live agent.</p>
       </div>
 
+      <div className="space-y-2 rounded-md border border-emerald-500/30 p-3 bg-emerald-500/5">
+        <Label>Auto-Responder Sequence (after greet SMS)</Label>
+        <Select value={smsSequenceId} onValueChange={setSmsSequenceId}>
+          <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None — no follow-ups</SelectItem>
+            {sequences.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground">
+          When the live-transfer SMS sends, the recipient is enrolled in this sequence. Their next reply triggers the next step.
+          Manage sequences from the SMS page.
+        </p>
+      </div>
+
       <div>
         <Label>Call Delay (ms between calls)</Label>
         <Input type="number" value={callDelay} onChange={(event) => setCallDelay(event.target.value)} />
