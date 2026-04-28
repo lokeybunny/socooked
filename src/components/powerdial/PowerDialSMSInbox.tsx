@@ -155,7 +155,7 @@ export default function PowerDialSMSInbox() {
   };
 
   return (
-    <div className="glass-card flex flex-col md:flex-row min-h-[500px]">
+    <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
       <div className={`md:w-[300px] md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
         <div className="p-3 border-b border-border flex items-center gap-2">
@@ -169,7 +169,7 @@ export default function PowerDialSMSInbox() {
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <ScrollArea className="h-[450px]">
+        <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
           ) : threads.length === 0 ? (
@@ -237,7 +237,7 @@ export default function PowerDialSMSInbox() {
                 {formatPhone(threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread)}
               </span>
             </div>
-            <ScrollArea className="flex-1 p-3 h-[350px]">
+            <ScrollArea className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
                 {activeMessages.map(m => {
                   const errMsg = m.metadata?.error || m.metadata?.twilio_error_message;
