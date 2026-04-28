@@ -277,6 +277,76 @@ export default function AutoReplyWorkflow() {
           {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
           Save Settings
         </Button>
+
+        {/* Simulate Inbound */}
+        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-purple-400" />
+            <Label className="text-[11px] text-purple-300 uppercase tracking-wider">Simulate Inbound SMS</Label>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Fires a real webhook hit to <code>twilio-sms-inbound</code> as if a person texted +1 702-829-8105.
+            Runs the full workflow (auto-reply + cell forward) and shows the exact outgoing messages.
+          </p>
+          <div className="grid gap-2">
+            <Input
+              value={simFrom}
+              onChange={(e) => setSimFrom(e.target.value)}
+              placeholder="From (test number, E.164)"
+              className="text-xs"
+            />
+            <Textarea
+              rows={2}
+              value={simBody}
+              onChange={(e) => setSimBody(e.target.value)}
+              placeholder="Inbound message body"
+              className="text-xs"
+            />
+          </div>
+          <Button
+            onClick={simulateInbound}
+            disabled={simulating}
+            size="sm"
+            className="w-full bg-purple-500 hover:bg-purple-600"
+          >
+            {simulating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+            Run Simulation
+          </Button>
+
+          {simResult && (
+            <div className="space-y-2 pt-2">
+              {simResult.error && (
+                <div className="rounded border border-red-500/40 bg-red-500/10 p-2 text-[11px] text-red-300">
+                  {simResult.error}
+                </div>
+              )}
+              {simResult.autoReply ? (
+                <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2">
+                  <div className="text-[10px] text-emerald-400 uppercase mb-1">
+                    1. Auto-Reply (VoidFix → {simResult.autoReply.to})
+                  </div>
+                  <pre className="text-[11px] whitespace-pre-wrap font-sans text-foreground/90">
+                    {simResult.autoReply.body}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-[10px] text-muted-foreground italic">Auto-reply disabled — no message sent to sender.</div>
+              )}
+              {simResult.forward ? (
+                <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2">
+                  <div className="text-[10px] text-amber-400 uppercase mb-1">
+                    2. Forward to Cell (VoidFix → {simResult.forward.to})
+                  </div>
+                  <pre className="text-[11px] whitespace-pre-wrap font-sans text-foreground/90">
+                    {simResult.forward.body}
+                  </pre>
+                </div>
+              ) : (
+                <div className="text-[10px] text-muted-foreground italic">Forwarding disabled — no copy sent to your cell.</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Activity */}
