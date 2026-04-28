@@ -831,6 +831,12 @@ Deno.serve(async (req) => {
                 ai_enabled: false,
               },
             }).eq("id", callLogId);
+            // Recover queue so campaign keeps moving
+            await updateQueueStatusOnce(queueItemId, {
+              status: "completed",
+              last_result: "no_human_transfer_phone",
+            });
+            await advanceCampaign(campaignId, "[powerdial-webhook]");
             return json({ ok: false, amd_result: amdResult, error: "no_human_transfer_phone_configured" });
           }
 
@@ -855,6 +861,16 @@ Deno.serve(async (req) => {
 
           if (!redirected) {
             console.error(`[powerdial-webhook] Failed to transfer human call to ${humanTransferPhone}`);
+            // Recover so the queue advances instead of stalling on a stuck row.
+            await sb.from("powerdial_call_logs").update({
+              twilio_status: "completed",
+              connected_to_vapi: false,
+            }).eq("id", callLogId);
+            await updateQueueStatusOnce(queueItemId, {
+              status: "completed",
+              last_result: "transfer_failed_hangup",
+            });
+            await advanceCampaign(campaignId, "[powerdial-webhook]");
           } else {
             console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
             // Fire follow-up SMS to the lead now that they're connected to the agent
@@ -906,6 +922,18 @@ Deno.serve(async (req) => {
 
           if (!redirected) {
             console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
+            // Lead likely hung up before redirect — mark call terminated and
+            // advance the campaign so the queue doesn't stall forever.
+            await sb.from("powerdial_call_logs").update({
+              twilio_status: "completed",
+              connected_to_vapi: false,
+            }).eq("id", callLogId);
+            await updateQueueStatusOnce(queueItemId, {
+              status: "completed",
+              last_result: "transfer_failed_hangup",
+            });
+            const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+            console.log(`[powerdial-webhook] Advance after AI Assist failure for ${campaignId}:`, advanceResult);
           } else {
             const smsEnabled = settingsObj.sms_after_transfer === true;
             const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
@@ -1010,6 +1038,17 @@ Deno.serve(async (req) => {
               if (smsEnabled && leadPhone && smsMessage) {
                 await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
               }
+            } else {
+              // Both Vapi AND warm-handoff fallback failed — recover queue.
+              await sb.from("powerdial_call_logs").update({
+                twilio_status: "completed",
+                connected_to_vapi: false,
+              }).eq("id", callLogId);
+              await updateQueueStatusOnce(queueItemId, {
+                status: "completed",
+                last_result: "transfer_failed_hangup",
+              });
+              await advanceCampaign(campaignId, "[powerdial-webhook]");
             }
 
             return json({
@@ -1020,6 +1059,19 @@ Deno.serve(async (req) => {
               to: humanTransferPhone,
             });
           }
+
+          // Vapi failed AND no human-transfer fallback configured — recover
+          // the queue so the campaign keeps moving instead of stalling.
+          await sb.from("powerdial_call_logs").update({
+            twilio_status: "completed",
+            connected_to_vapi: false,
+          }).eq("id", callLogId);
+          await updateQueueStatusOnce(queueItemId, {
+            status: "completed",
+            last_result: "vapi_redirect_failed",
+          });
+          const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+          console.log(`[powerdial-webhook] Advance after Vapi-no-fallback failure for ${campaignId}:`, advanceResult);
         }
 
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });

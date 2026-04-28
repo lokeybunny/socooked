@@ -71,9 +71,12 @@ async function hasActiveConnectedCall(campaignId: string, excludeCallLogId?: str
   const now = Date.now();
   return Boolean((connectedCalls || []).find((call: any) => {
     if (excludeCallLogId && call.id === excludeCallLogId) return false;
-    // Treat calls older than 5 minutes as stale (safety net)
+    // Treat any "active" call older than 90s as stale. The webhook should
+    // have flipped twilio_status to a terminal state long before that, and
+    // a stuck row from a redirect-failure would otherwise block all new
+    // dialing forever.
     const age = now - new Date(call.created_at).getTime();
-    if (age > 5 * 60 * 1000) return false;
+    if (age > 90 * 1000) return false;
     const status = String(call?.twilio_status || "").toLowerCase();
     return !status || !TERMINAL_CONNECTED_CALL_STATUSES.has(status);
   }));
