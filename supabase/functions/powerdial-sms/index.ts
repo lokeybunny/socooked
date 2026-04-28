@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     const source = String(payload?.source || "powerdial-sms");
     const extraMetadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
 
-    await sb.from("communications").insert({
+    const { error: logError } = await sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
       body: message,
@@ -219,6 +219,14 @@ Deno.serve(async (req) => {
         ...(result.raw ? { voidfix_response: result.raw } : {}),
       },
     });
+
+    if (logError) {
+      if (logError.code === "23505" && source === "powerdial-voicemail-drop-sms") {
+        return json({ ok: true, duplicate: true, id: result.id || null });
+      }
+      console.error("[powerdial-sms] outbound log insert error:", logError);
+      return json({ ok: false, error: "sms_sent_but_log_failed" }, 500);
+    }
 
     if (!result.ok) return json({ ok: false, error: result.error }, result.status || 500);
     return json({ ok: true, id: result.id });
