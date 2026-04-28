@@ -129,11 +129,61 @@ Deno.serve(async (req) => {
       }
 
       case "stop": {
+        // 1) Mark campaign stopped immediately so engine guards (status==="running") block any new dials.
         await sb.from("powerdial_campaigns").update({
           status: "stopped",
           ended_at: new Date().toISOString(),
         }).eq("id", campaign_id);
-        return json({ ok: true });
+
+        // 2) Cancel any in-flight Twilio calls tied to this campaign.
+        const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+        const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+        const twilioAuth = `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`;
+
+        const { data: liveLogs } = await sb
+          .from("powerdial_call_logs")
+          .select("id, twilio_call_sid, queue_item_id")
+          .eq("campaign_id", campaign_id)
+          .is("ended_at", null)
+          .not("twilio_call_sid", "is", null);
+
+        let cancelled = 0;
+        for (const log of liveLogs || []) {
+          if (!log.twilio_call_sid) continue;
+          try {
+            const resp = await fetch(
+              `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${log.twilio_call_sid}.json`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: twilioAuth,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({ Status: "completed" }).toString(),
+              },
+            );
+            if (resp.ok) {
+              cancelled++;
+              await sb.from("powerdial_call_logs").update({
+                disposition: "cancelled_by_stop",
+                ended_at: new Date().toISOString(),
+              }).eq("id", log.id);
+            } else {
+              console.error(`[powerdial-engine] stop: Twilio cancel failed for ${log.twilio_call_sid}:`, await resp.text());
+            }
+          } catch (err) {
+            console.error(`[powerdial-engine] stop: error cancelling ${log.twilio_call_sid}:`, err);
+          }
+        }
+
+        // 3) Revert any queue items still in "dialing" back to "pending" so a future restart/resume can re-attempt.
+        await sb.from("powerdial_queue").update({
+          status: "pending",
+          last_result: "cancelled_by_stop",
+        }).eq("campaign_id", campaign_id).eq("status", "dialing");
+
+        console.log(`[powerdial-engine] stop: campaign ${campaign_id} stopped, cancelled ${cancelled} live call(s)`);
+        return json({ ok: true, cancelled_calls: cancelled });
       }
 
       case "skip": {
