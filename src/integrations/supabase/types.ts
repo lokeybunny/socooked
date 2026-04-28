@@ -368,6 +368,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       arbitrage_items: {
         Row: {
           asking_price: number | null
@@ -5132,6 +5153,125 @@ export type Database = {
           profile_username?: string
           role?: string
           source?: string
+        }
+        Relationships: []
+      }
+      sms_campaign_recipients: {
+        Row: {
+          campaign_id: string
+          contact_name: string | null
+          created_at: string
+          error: string | null
+          external_id: string | null
+          id: string
+          phone: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_name?: string | null
+          created_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          phone: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_name?: string | null
+          created_at?: string
+          error?: string | null
+          external_id?: string | null
+          id?: string
+          phone?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sms_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_campaigns: {
+        Row: {
+          body: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          failed_count: number
+          id: string
+          name: string
+          sent_count: number
+          started_at: string | null
+          status: string
+          total_recipients: number
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number
+          id?: string
+          name: string
+          sent_count?: number
+          started_at?: string | null
+          status?: string
+          total_recipients?: number
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          failed_count?: number
+          id?: string
+          name?: string
+          sent_count?: number
+          started_at?: string | null
+          status?: string
+          total_recipients?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_templates: {
+        Row: {
+          body: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
