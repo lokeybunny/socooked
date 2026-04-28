@@ -79,6 +79,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [customAssistantId, setCustomAssistantId] = useState(initialState.customAssistantId);
   const [humanTransferPhone, setHumanTransferPhone] = useState(initialState.humanTransferPhone);
   const [aiAssistGreeting, setAiAssistGreeting] = useState(initialState.aiAssistGreeting);
+  const [smsAfterTransfer, setSmsAfterTransfer] = useState(initialState.smsAfterTransfer);
+  const [smsAfterTransferMessage, setSmsAfterTransferMessage] = useState(initialState.smsAfterTransferMessage);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -93,6 +95,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setCustomAssistantId(nextState.customAssistantId);
     setHumanTransferPhone(nextState.humanTransferPhone);
     setAiAssistGreeting(nextState.aiAssistGreeting);
+    setSmsAfterTransfer(nextState.smsAfterTransfer);
+    setSmsAfterTransferMessage(nextState.smsAfterTransferMessage);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -111,6 +115,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       vapi_assistant_id: resolvedAssistantId,
       human_transfer_phone: humanTransferPhone.trim(),
       ai_assist_greeting: aiAssistGreeting.trim(),
+      sms_after_transfer: smsAfterTransfer,
+      sms_after_transfer_message: smsAfterTransferMessage.trim(),
     };
 
     const { error } = await supabase
