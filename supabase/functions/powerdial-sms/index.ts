@@ -111,24 +111,8 @@ async function maybeSendCellAutoReply(fromRaw: string, inboundBody: string, cust
     if (!cfg.enabled) return;
     const to = normalizePhone(fromRaw);
     if (!to) return;
-    const last10 = to.replace(/\D/g, "").slice(-10);
 
-    // Skip if we already sent this auto-reply within cooldown window
-    const cutoff = new Date(Date.now() - cfg.cooldown_hours * 60 * 60 * 1000).toISOString();
-    const { data: recent } = await sb
-      .from("communications")
-      .select("id, created_at")
-      .eq("type", "sms")
-      .eq("direction", "outbound")
-      .eq("metadata->>source", "voidfix-cell-auto-reply")
-      .or(`to_address.ilike.%${last10}%,phone_number.ilike.%${last10}%`)
-      .gte("created_at", cutoff)
-      .limit(1);
-    if (recent && recent[0]) {
-      console.log("[powerdial-sms] cell auto-reply skipped (cooldown)", to);
-      return;
-    }
-
+    // No cooldown — auto-reply fires on every inbound text to the cell line.
     const result = await sendVoidfixSms(to, cfg.prefix);
     await sb.from("communications").insert({
       type: "sms",
