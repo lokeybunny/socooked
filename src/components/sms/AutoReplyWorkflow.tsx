@@ -152,6 +152,106 @@ export default function AutoReplyWorkflow() {
     }
   };
 
+  // ===== 8105 Landline section: pair inbound Twilio → outbound VoidFix auto-reply =====
+  const TWILIO_LANDLINE = '+17028298105';
+  const last10 = (raw: string | null | undefined) => (raw || '').replace(/\D/g, '').slice(-10);
+  const LANDLINE_LAST10 = last10(TWILIO_LANDLINE);
+
+  const landlineThreads = (() => {
+    // Filter: anything to/from the 8105 landline OR any auto-reply triggered by it
+    const relevant = activity.filter((c) => {
+      const involvesLandline = last10(c.to_address) === LANDLINE_LAST10 || last10(c.from_address) === LANDLINE_LAST10;
+      const isAutoReply = c.metadata?.source === 'twilio-auto-reply-voidfix';
+      return involvesLandline || isAutoReply;
+    });
+    // Group by sender (the external number that texted in)
+    const map = new Map<string, { sender: string; events: Comm[] }>();
+    for (const c of relevant) {
+      const isInbound = c.direction === 'inbound' && last10(c.to_address) === LANDLINE_LAST10;
+      const isAutoReply = c.metadata?.source === 'twilio-auto-reply-voidfix';
+      const sender = isInbound ? c.from_address : isAutoReply ? c.to_address : (c.from_address || c.to_address);
+      const key = last10(sender);
+      if (!key || key === LANDLINE_LAST10) continue;
+      const entry = map.get(key) ?? { sender: sender || key, events: [] };
+      entry.events.push(c);
+      map.set(key, entry);
+    }
+    // Sort each thread chronologically (oldest first), then sort threads by most recent event desc
+    const threads = Array.from(map.values()).map((t) => ({
+      ...t,
+      events: t.events.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    }));
+    threads.sort((a, b) => {
+      const al = a.events[a.events.length - 1]?.created_at ?? '';
+      const bl = b.events[b.events.length - 1]?.created_at ?? '';
+      return new Date(bl).getTime() - new Date(al).getTime();
+    });
+    return threads;
+  })();
+
+  const renderLandlineSection = () => {
+    if (landlineThreads.length === 0) {
+      return (
+        <p className="text-[11px] text-muted-foreground text-center py-4 italic">
+          No inbound traffic on 8105 landline in the last 24h.
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        {landlineThreads.map((t) => {
+          const inboundCount = t.events.filter((e) => e.direction === 'inbound').length;
+          const replyCount = t.events.filter((e) => e.metadata?.source === 'twilio-auto-reply-voidfix').length;
+          const missingReply = inboundCount > replyCount;
+          return (
+            <div key={t.sender} className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 text-blue-300" />
+                  <span className="text-xs font-mono font-semibold">{t.sender}</span>
+                  <Badge variant="outline" className="text-[9px] px-1.5 bg-blue-500/15 text-blue-300 border-blue-500/30">
+                    via 8105 landline
+                  </Badge>
+                </div>
+                <div className="flex gap-1">
+                  <Badge variant="outline" className="text-[9px] bg-blue-500/15 text-blue-300 border-blue-500/30">
+                    {inboundCount} in
+                  </Badge>
+                  <Badge variant="outline" className={`text-[9px] ${missingReply ? 'bg-red-500/15 text-red-300 border-red-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'}`}>
+                    {replyCount} auto-reply
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {t.events.map((e) => {
+                  const isInbound = e.direction === 'inbound';
+                  const isAutoReply = e.metadata?.source === 'twilio-auto-reply-voidfix';
+                  return (
+                    <div key={e.id} className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}>
+                      <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 text-[11px] ${
+                        isInbound
+                          ? 'bg-blue-500/15 border border-blue-500/30 text-blue-100'
+                          : isAutoReply
+                          ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-100'
+                          : 'bg-muted border border-border text-foreground/80'
+                      }`}>
+                        <div className="text-[9px] uppercase opacity-60 mb-0.5">
+                          {isInbound ? `Inbound → 8105 (${e.provider})` : isAutoReply ? 'VoidFix auto-reply' : `${e.direction} ${e.provider}`}
+                          {' · '}{new Date(e.created_at).toLocaleTimeString()}
+                        </div>
+                        <pre className="whitespace-pre-wrap font-sans">{e.body}</pre>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Group activity into inbound→reply pairs
   const renderActivity = () => {
     if (activity.length === 0) {
