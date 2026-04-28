@@ -328,13 +328,17 @@ function buildCallParams(args: {
   return new URLSearchParams({
     To: args.phone,
     From: args.from,
-    MachineDetection: "Enable",
+    // DetectMessageEnd waits until the answering-machine greeting + beep
+    // finishes before firing AMD with AnsweredBy="machine_end_beep". This
+    // gives us perfect timing to drop our pre-recorded voicemail right
+    // after the beep — no guess-pause required. Human answers still fire
+    // quickly as AnsweredBy="human" within ~1-2s of "hello".
+    MachineDetection: "DetectMessageEnd",
     AsyncAmd: "true",
-    // Tuned for fast human detection — fires AMD callback within ~1s of "hello"
-    MachineDetectionTimeout: "3",
-    MachineDetectionSpeechThreshold: "1000",
-    MachineDetectionSpeechEndThreshold: "500",
-    MachineDetectionSilenceTimeout: "2000",
+    MachineDetectionTimeout: "30",
+    MachineDetectionSpeechThreshold: "2400",
+    MachineDetectionSpeechEndThreshold: "1200",
+    MachineDetectionSilenceTimeout: "5000",
     AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
     StatusCallback: `${webhookUrl}?type=status&campaign_id=${args.campaignId}&queue_item_id=${args.queueItemId}&call_log_id=${args.callLogId}`,
     StatusCallbackEvent: "initiated ringing answered completed",
