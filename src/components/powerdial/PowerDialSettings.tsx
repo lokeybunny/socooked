@@ -199,12 +199,12 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
         </div>
         <textarea
           className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          placeholder="Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?"
+          placeholder="Type the SMS to auto-send the moment a call bridges to a live agent…"
           value={smsAfterTransferMessage}
           onChange={(e) => setSmsAfterTransferMessage(e.target.value)}
           disabled={!smsAfterTransfer}
         />
-        <p className="text-[10px] text-muted-foreground">Sent to the lead the instant the call is bridged to a live agent (works for AI Off, AI Assist, and AI fallback transfers).</p>
+        <p className="text-[10px] text-muted-foreground">Off by default. Toggle on and write a message to auto-send the lead the instant the call is bridged to a live agent.</p>
       </div>
 
       <div>
