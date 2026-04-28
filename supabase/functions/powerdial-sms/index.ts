@@ -350,8 +350,8 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       });
-      // Trigger cell auto-reply for poll-imported inbound texts (cooldown-throttled)
-      await maybeSendCellAutoReply(from, String(m.message || ""), customerId);
+      // No cell auto-reply for poll-imported inbound texts — auto-reply is
+      // landline-only (handled by twilio-sms-inbound).
       // Advance sequences
       fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
         method: "POST",
