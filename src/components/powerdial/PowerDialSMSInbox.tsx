@@ -21,7 +21,13 @@ type SMSMessage = {
   created_at: string;
   customer_id: string | null;
   metadata: any;
+  provider?: string | null;
 };
+
+function isLandlineReply(m: SMSMessage) {
+  if (!m || m.direction !== 'inbound') return false;
+  return m.metadata?.landline_reply === true || m.provider === 'twilio';
+}
 
 function normalizeLast10(raw: string | null | undefined) {
   if (!raw) return '';
@@ -188,10 +194,15 @@ export default function PowerDialSMSInbox() {
                     <span className="text-sm font-medium font-mono">{formatPhone(t.phone)}</span>
                     <span className="text-[10px] text-muted-foreground">{format(new Date(t.last.created_at), 'MMM d')}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
                       {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
                     </Badge>
+                    {isLandlineReply(t.last) && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                        LANDLINE REPLY
+                      </Badge>
+                    )}
                     <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
                   </div>
                 </button>
@@ -244,7 +255,12 @@ export default function PowerDialSMSInbox() {
                   const isFailed = ['failed', 'undelivered'].includes(String(m.status).toLowerCase()) || !!errMsg;
                   return (
                     <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${m.direction === 'outbound' ? (isFailed ? 'bg-red-500/20 border border-red-500/40' : 'bg-purple-500/20') : 'bg-muted'} text-foreground`}>
+                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${m.direction === 'outbound' ? (isFailed ? 'bg-red-500/20 border border-red-500/40' : 'bg-purple-500/20') : isLandlineReply(m) ? 'bg-amber-500/15 border border-amber-500/40' : 'bg-muted'} text-foreground`}>
+                        {isLandlineReply(m) && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 mb-1 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                            LANDLINE REPLY · needs follow-up from VoidFix
+                          </Badge>
+                        )}
                         <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
                         <p className="text-[9px] text-muted-foreground mt-1">
                           {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
