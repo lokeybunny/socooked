@@ -96,6 +96,62 @@ export default function AutoReplyWorkflow() {
     return `${cfg.prefix}\n\nYou wrote:\n"${sample}"`;
   };
 
+  const buildAutoReplyBody = (inbound: string) => {
+    const trimmed = (inbound || '').trim();
+    if (!trimmed || !cfg.include_quoted) return cfg.prefix;
+    const MAX = 600;
+    const quoted = trimmed.length > MAX ? `${trimmed.slice(0, MAX).trim()}…` : trimmed;
+    return `${cfg.prefix}\n\nYou wrote:\n"${quoted}"`;
+  };
+
+  const simulateInbound = async () => {
+    if (!simFrom.trim() || !simBody.trim()) {
+      toast.error('Need a from-number and body to simulate');
+      return;
+    }
+    setSimulating(true);
+    setSimResult(null);
+
+    const twilioNumber = '+17028298105';
+    const expectedAutoReply = cfg.enabled
+      ? { to: simFrom.trim(), body: buildAutoReplyBody(simBody) }
+      : null;
+    const expectedForward = cfg.forward_enabled
+      ? {
+          to: cfg.forward_to_cell,
+          body: `[Twilio ${twilioNumber}] From ${simFrom.trim()}:\n${simBody}`,
+        }
+      : null;
+
+    try {
+      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/twilio-sms-inbound`;
+      const form = new URLSearchParams();
+      form.set('From', simFrom.trim());
+      form.set('To', twilioNumber);
+      form.set('Body', simBody);
+      form.set('MessageSid', `SIM-${Date.now()}`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        setSimResult({ autoReply: expectedAutoReply, forward: expectedForward, error: `Webhook ${res.status}: ${text.slice(0, 200)}` });
+        toast.error(`Webhook returned ${res.status}`);
+      } else {
+        setSimResult({ autoReply: expectedAutoReply, forward: expectedForward });
+        toast.success('Simulation fired — check activity feed for live status');
+        setTimeout(loadActivity, 1500);
+      }
+    } catch (e: any) {
+      setSimResult({ autoReply: expectedAutoReply, forward: expectedForward, error: e?.message || 'Network error' });
+      toast.error(e?.message || 'Simulation failed');
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   // Group activity into inbound→reply pairs
   const renderActivity = () => {
     if (activity.length === 0) {
