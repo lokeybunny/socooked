@@ -769,9 +769,12 @@ Deno.serve(async (req) => {
 
         // Get frozen assistant from call log meta (set at dial time), fallback to campaign settings
         const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
-          sb.from("powerdial_call_logs").select("meta, batch_id").eq("id", callLogId).single(),
+          sb.from("powerdial_call_logs").select("meta, batch_id, phone, customer_id").eq("id", callLogId).single(),
           sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
         ]);
+
+        const leadPhone = (existingLog as any)?.phone || "";
+        const leadCustomerId = (existingLog as any)?.customer_id || null;
 
         // If this is a triple-dial batch, cancel the sibling calls
         const batchId = (existingLog as any)?.batch_id;
