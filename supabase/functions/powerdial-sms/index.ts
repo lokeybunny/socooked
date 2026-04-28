@@ -17,6 +17,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VOIDFIX_API_KEY = Deno.env.get("VOIDFIX_API_KEY") || "";
 const VOIDFIX_DEVICE_ID = Deno.env.get("VOIDFIX_DEVICE_ID") || "";
 const VOIDFIX_SEND_URL = "https://sms.voidfix.com/services/send.php";
+const VOIDFIX_READ_URL = "https://sms.voidfix.com/services/read-messages.php";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -247,6 +248,60 @@ Deno.serve(async (req) => {
       threads.get(key).count += 1;
     }
     return json({ ok: true, threads: Array.from(threads.values()) });
+  }
+
+  if (action === "poll") {
+    // Pull recent messages from VoidFix and store any new "Received" ones.
+    if (!VOIDFIX_API_KEY || !VOIDFIX_DEVICE_ID) {
+      return json({ ok: false, error: "missing_voidfix_credentials" }, 500);
+    }
+    const limit = Math.min(Number(payload?.limit) || 50, 200);
+    const form = new URLSearchParams({
+      key: VOIDFIX_API_KEY,
+      devices: VOIDFIX_DEVICE_ID,
+      limit: String(limit),
+    });
+    const resp = await fetch(VOIDFIX_READ_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form,
+    });
+    const text = await resp.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch { return json({ ok: false, error: "voidfix_invalid_json", raw: text.slice(0, 300) }, 500); }
+
+    const messages: any[] = data?.data?.messages || [];
+    let imported = 0;
+    for (const m of messages) {
+      if (String(m.status) !== "Received") continue;
+      const externalId = String(m.ID);
+      // dedupe
+      const { data: existing } = await sb
+        .from("communications")
+        .select("id")
+        .eq("external_id", externalId)
+        .limit(1);
+      if (existing && existing[0]) continue;
+      const from = normalizePhone(String(m.number || ""));
+      const customerId = await findCustomerByPhone(from);
+      const createdAt = m.deliveredDate || m.sentDate || null;
+      await sb.from("communications").insert({
+        type: "sms",
+        direction: "inbound",
+        body: String(m.message || ""),
+        from_address: from,
+        to_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+        phone_number: from,
+        provider: "voidfix",
+        external_id: externalId,
+        status: "received",
+        customer_id: customerId,
+        metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
+        ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
+      });
+      imported += 1;
+    }
+    return json({ ok: true, imported, scanned: messages.length });
   }
 
   return json({ ok: false, error: "unknown_action" }, 400);
