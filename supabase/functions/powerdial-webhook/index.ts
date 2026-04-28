@@ -838,11 +838,11 @@ Deno.serve(async (req) => {
           } else {
             console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
             // Fire follow-up SMS to the lead now that they're connected to the agent
-            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsEnabled = settingsObj.sms_after_transfer === true;
             const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
-            if (smsEnabled && leadPhone) {
+            if (smsEnabled && leadPhone && smsMessage) {
               await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
             }
           }
@@ -887,11 +887,11 @@ Deno.serve(async (req) => {
           if (!redirected) {
             console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
           } else {
-            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsEnabled = settingsObj.sms_after_transfer === true;
             const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
-            if (smsEnabled && leadPhone) {
+            if (smsEnabled && leadPhone && smsMessage) {
               await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
             }
           }
