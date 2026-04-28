@@ -1183,11 +1183,24 @@ Deno.serve(async (req) => {
       }
 
       // Mark the call log with VM drop status
+      const vmDropTs = new Date().toISOString();
+      const prevAmdDebug = (existingMeta as any).amd_debug && typeof (existingMeta as any).amd_debug === "object"
+        ? (existingMeta as any).amd_debug as Record<string, unknown>
+        : {};
       await sb.from("powerdial_call_logs").update({
         meta: {
           ...existingMeta,
           voicemail_dropped: vmDropped,
           voicemail_drop_url: vmDropped ? vmDropUrl : null,
+          amd_debug: {
+            ...prevAmdDebug,
+            voicemail_drop: {
+              attempted: vmDropEnabled,
+              succeeded: vmDropped,
+              url: vmDropUrl,
+              dropped_at: vmDropped ? vmDropTs : null,
+            },
+          },
         },
       }).eq("id", callLogId);
 
