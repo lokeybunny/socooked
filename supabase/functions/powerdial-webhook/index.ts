@@ -1032,6 +1032,19 @@ Deno.serve(async (req) => {
               to: humanTransferPhone,
             });
           }
+
+          // Vapi failed AND no human-transfer fallback configured — recover
+          // the queue so the campaign keeps moving instead of stalling.
+          await sb.from("powerdial_call_logs").update({
+            twilio_status: "completed",
+            connected_to_vapi: false,
+          }).eq("id", callLogId);
+          await updateQueueStatusOnce(queueItemId, {
+            status: "completed",
+            last_result: "vapi_redirect_failed",
+          });
+          const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+          console.log(`[powerdial-webhook] Advance after Vapi-no-fallback failure for ${campaignId}:`, advanceResult);
         }
 
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
