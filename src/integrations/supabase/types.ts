@@ -5245,6 +5245,136 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_sequence_enrollments: {
+        Row: {
+          contact_name: string | null
+          created_at: string
+          current_step: number
+          customer_id: string | null
+          id: string
+          last_inbound_at: string | null
+          last_outbound_at: string | null
+          phone: string
+          sequence_id: string
+          source: string | null
+          source_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_name?: string | null
+          created_at?: string
+          current_step?: number
+          customer_id?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          phone: string
+          sequence_id: string
+          source?: string | null
+          source_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_name?: string | null
+          created_at?: string
+          current_step?: number
+          customer_id?: string | null
+          id?: string
+          last_inbound_at?: string | null
+          last_outbound_at?: string | null
+          phone?: string
+          sequence_id?: string
+          source?: string | null
+          source_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_sequence_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sms_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_sequence_steps: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          reply_match: string | null
+          sequence_id: string
+          step_order: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          reply_match?: string | null
+          sequence_id: string
+          step_order: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          reply_match?: string | null
+          sequence_id?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sms_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_sequences: {
+        Row: {
+          ai_fallback_enabled: boolean
+          ai_system_prompt: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          ai_fallback_enabled?: boolean
+          ai_system_prompt?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_fallback_enabled?: boolean
+          ai_system_prompt?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sms_templates: {
         Row: {
           body: string
