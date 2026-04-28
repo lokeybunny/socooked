@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay, CalendarClock } from 'lucide-react';
 import { Teleprompter } from '@/components/phone/Teleprompter';
+import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,7 +45,7 @@ const CL_SECTIONS = [
   { value: 'cms', label: 'Cell / Mobile Services' },
 ];
 
-const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
+// RingCentral embed removed — replaced with native Twilio API keypad
 const CALL_TYPES = [
   { value: 'voicemail', label: 'Voicemail', icon: Voicemail },
   { value: 'live_call', label: 'Live Call', icon: PhoneCall },
@@ -1856,7 +1857,7 @@ export default function PhonePage() {
 
           </div>
 
-          {/* ─── Right Column: RingCentral Softphone ─── */}
+          {/* ─── Right Column: Twilio Manual Dialer ─── */}
           <div className="space-y-4">
             <div className="flex flex-col items-center gap-2">
               <div className="text-center">
@@ -1870,7 +1871,7 @@ export default function PhonePage() {
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <span className="font-medium">Cell:</span>
-                  <span className="text-foreground">(423) 465-1253</span>
+                  <span className="text-foreground">(424) 465-1253</span>
                   <button
                     onClick={() => setTeleprompterOpen(true)}
                     className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
@@ -1881,16 +1882,9 @@ export default function PhonePage() {
                 </div>
               </div>
             </div>
-            <div className="glass-card overflow-hidden rounded-xl">
-              <iframe
-                src={RC_EMBED_URL}
-                title="RingCentral Softphone"
-                className="w-full border-0"
-                style={{ height: '600px' }}
-                allow="microphone; autoplay"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-              />
-            </div>
+            <TwilioKeypad
+              prefilledNumber={leads[currentLeadIndex]?.phone}
+            />
 
             {/* ─── Recent Transcriptions (grouped by customer) ─── */}
             <div className="space-y-4">
