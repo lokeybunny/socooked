@@ -118,6 +118,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setSmsSequenceId(nextState.smsSequenceId);
     setVoicemailDropEnabled(nextState.voicemailDropEnabled);
     setVoicemailDropUrl(nextState.voicemailDropUrl);
+    setVoicemailDropSmsEnabled(nextState.voicemailDropSmsEnabled);
+    setVoicemailDropSmsText(nextState.voicemailDropSmsText);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
