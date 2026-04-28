@@ -25,7 +25,8 @@ import PowerDialSettings from '@/components/powerdial/PowerDialSettings';
 import PowerDialHealthMonitor from '@/components/powerdial/PowerDialHealthMonitor';
 import PowerDialStallDiagnostics from '@/components/powerdial/PowerDialStallDiagnostics';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
-import { MessageSquare } from 'lucide-react';
+import LiveCallPopup from '@/components/powerdial/LiveCallPopup';
+import { MessageSquare, Headphones } from 'lucide-react';
 
 type Campaign = {
   id: string;
