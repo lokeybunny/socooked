@@ -20,6 +20,7 @@ type SMSMessage = {
   external_id: string | null;
   created_at: string;
   customer_id: string | null;
+  metadata: any;
 };
 
 function normalizeLast10(raw: string | null | undefined) {
