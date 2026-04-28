@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
 
   // -------- Stream audio (default) --------
   const fileKey = (url.searchParams.get("file") || "warren").toLowerCase();
-  const loaded = await loadFile(fileKey);
+  const loaded = loadFile(fileKey);
   if (!loaded) {
     return new Response(JSON.stringify({ ok: false, error: `unknown file: ${fileKey}` }), {
       status: 404,
