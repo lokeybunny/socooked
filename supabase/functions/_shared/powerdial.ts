@@ -19,6 +19,8 @@ export const DEFAULT_POWERDIAL_SETTINGS = {
   calling_hours_start: "09:00",
   calling_hours_end: "17:00",
   vapi_assistant_id: DEFAULT_OUTBOUND_VAPI_ASSISTANT,
+  voicemail_drop_enabled: true,
+  voicemail_drop_url: "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/powerdial/voicemail-warren.mp3",
 };
 
 export const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

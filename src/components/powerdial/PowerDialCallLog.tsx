@@ -8,6 +8,28 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Loader2, Search, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
+type AmdDebug = {
+  answered_by?: string;
+  amd_result?: string;
+  intended_action?: string;
+  machine_detection_duration_ms?: number | null;
+  ai_enabled?: boolean;
+  call_sid?: string;
+  call_status_at_amd?: string;
+  timestamps?: {
+    greeting_start?: string | null;
+    amd_received?: string | null;
+    beep_detected?: string | null;
+    machine_end?: string | null;
+  };
+  voicemail_drop?: {
+    attempted?: boolean;
+    succeeded?: boolean;
+    url?: string | null;
+    dropped_at?: string | null;
+  };
+};
+
 type CallLogMeta = {
   twilio_error?: {
     code?: number;
@@ -19,6 +41,9 @@ type CallLogMeta = {
   available_from_numbers?: string[];
   needs_twilio_verified_from?: boolean;
   auto_switched_from_number?: boolean;
+  amd_debug?: AmdDebug;
+  voicemail_dropped?: boolean;
+  voicemail_drop_url?: string | null;
 };
 
 type CallLog = {
@@ -145,6 +170,55 @@ export default function PowerDialCallLog({ campaignId }: { campaignId: string })
                     )}
                     {selected.meta.resolved_from && (
                       <p className="text-muted-foreground">Dialed From: {selected.meta.resolved_from}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {selected.meta?.amd_debug && (
+                <div>
+                  <p className="text-muted-foreground mb-1 flex items-center gap-2">
+                    VM Detection Debug
+                    {selected.meta.amd_debug.voicemail_drop?.succeeded && (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/20 text-emerald-400">VM Dropped</Badge>
+                    )}
+                    {selected.meta.amd_debug.voicemail_drop?.attempted && !selected.meta.amd_debug.voicemail_drop?.succeeded && (
+                      <Badge variant="outline" className="text-[10px] bg-red-500/20 text-red-400">Drop Failed</Badge>
+                    )}
+                  </p>
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-1.5 font-mono">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                      <div><span className="text-muted-foreground">AnsweredBy:</span> <span className="text-foreground">{selected.meta.amd_debug.answered_by || '—'}</span></div>
+                      <div><span className="text-muted-foreground">AMD Result:</span> <span className="text-foreground">{selected.meta.amd_debug.amd_result || '—'}</span></div>
+                      <div><span className="text-muted-foreground">AI Enabled:</span> <span className="text-foreground">{String(selected.meta.amd_debug.ai_enabled ?? '—')}</span></div>
+                      <div><span className="text-muted-foreground">AMD Duration:</span> <span className="text-foreground">{selected.meta.amd_debug.machine_detection_duration_ms ?? '—'}ms</span></div>
+                    </div>
+                    <div className="pt-1 border-t border-border/50">
+                      <p className="text-muted-foreground mb-1">Timestamps</p>
+                      <div className="space-y-0.5">
+                        <div>• greeting_start: <span className="text-foreground">{selected.meta.amd_debug.timestamps?.greeting_start ? format(new Date(selected.meta.amd_debug.timestamps.greeting_start), 'HH:mm:ss.SSS') : '—'}</span></div>
+                        <div>• beep_detected: <span className="text-foreground">{selected.meta.amd_debug.timestamps?.beep_detected ? format(new Date(selected.meta.amd_debug.timestamps.beep_detected), 'HH:mm:ss.SSS') : '—'}</span></div>
+                        <div>• machine_end: <span className="text-foreground">{selected.meta.amd_debug.timestamps?.machine_end ? format(new Date(selected.meta.amd_debug.timestamps.machine_end), 'HH:mm:ss.SSS') : '—'}</span></div>
+                        <div>• amd_received: <span className="text-foreground">{selected.meta.amd_debug.timestamps?.amd_received ? format(new Date(selected.meta.amd_debug.timestamps.amd_received), 'HH:mm:ss.SSS') : '—'}</span></div>
+                      </div>
+                    </div>
+                    <div className="pt-1 border-t border-border/50">
+                      <p className="text-muted-foreground mb-1">Intended Action</p>
+                      <p className="text-foreground break-words">{selected.meta.amd_debug.intended_action || '—'}</p>
+                    </div>
+                    {selected.meta.amd_debug.voicemail_drop && (
+                      <div className="pt-1 border-t border-border/50">
+                        <p className="text-muted-foreground mb-1">Voicemail Drop</p>
+                        <div className="space-y-0.5">
+                          <div>attempted: <span className="text-foreground">{String(selected.meta.amd_debug.voicemail_drop.attempted ?? false)}</span></div>
+                          <div>succeeded: <span className="text-foreground">{String(selected.meta.amd_debug.voicemail_drop.succeeded ?? false)}</span></div>
+                          {selected.meta.amd_debug.voicemail_drop.dropped_at && (
+                            <div>dropped_at: <span className="text-foreground">{format(new Date(selected.meta.amd_debug.voicemail_drop.dropped_at), 'HH:mm:ss.SSS')}</span></div>
+                          )}
+                          {selected.meta.amd_debug.voicemail_drop.url && (
+                            <div className="break-all">url: <a href={selected.meta.amd_debug.voicemail_drop.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">{selected.meta.amd_debug.voicemail_drop.url}</a></div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
