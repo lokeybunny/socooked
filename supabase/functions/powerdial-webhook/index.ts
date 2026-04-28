@@ -1038,6 +1038,17 @@ Deno.serve(async (req) => {
               if (smsEnabled && leadPhone && smsMessage) {
                 await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
               }
+            } else {
+              // Both Vapi AND warm-handoff fallback failed — recover queue.
+              await sb.from("powerdial_call_logs").update({
+                twilio_status: "completed",
+                connected_to_vapi: false,
+              }).eq("id", callLogId);
+              await updateQueueStatusOnce(queueItemId, {
+                status: "completed",
+                last_result: "transfer_failed_hangup",
+              });
+              await advanceCampaign(campaignId, "[powerdial-webhook]");
             }
 
             return json({
