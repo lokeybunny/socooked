@@ -340,13 +340,13 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
           <p className="text-[10px] text-muted-foreground">
             After a voicemail drop is successfully delivered, automatically send this SMS from your VoidFix cell to the same recipient.
           </p>
-          <Textarea
+          <textarea
             value={voicemailDropSmsText}
             onChange={(e) => setVoicemailDropSmsText(e.target.value)}
             disabled={!voicemailDropEnabled || !voicemailDropSmsEnabled}
             rows={4}
             placeholder="Hi this is Warren Guru. Just left you a voice mail…"
-            className="text-xs"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs disabled:opacity-50"
           />
           <p className="text-[10px] text-muted-foreground">
             {voicemailDropSmsText.length} chars · sends ~{Math.ceil(voicemailDropSmsText.length / 153) || 1} segment(s)
