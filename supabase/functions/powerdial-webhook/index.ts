@@ -983,11 +983,11 @@ Deno.serve(async (req) => {
             }).eq("id", callLogId);
 
             if (fallbackOk) {
-              const smsEnabled = settingsObj.sms_after_transfer !== false;
+              const smsEnabled = settingsObj.sms_after_transfer === true;
               const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
                 ? settingsObj.sms_after_transfer_message.trim()
                 : DEFAULT_SMS_AFTER_TRANSFER;
-              if (smsEnabled && leadPhone) {
+              if (smsEnabled && leadPhone && smsMessage) {
                 await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
               }
             }
