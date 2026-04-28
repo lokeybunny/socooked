@@ -150,6 +150,7 @@ export default function SMS() {
         <Tabs defaultValue="inbox">
           <TabsList>
             <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1" /> Inbox</TabsTrigger>
+            <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
             <TabsTrigger value="campaigns"><Send className="h-3.5 w-3.5 mr-1" /> Campaigns</TabsTrigger>
             <TabsTrigger value="sequences"><Workflow className="h-3.5 w-3.5 mr-1" /> Sequences</TabsTrigger>
@@ -157,6 +158,7 @@ export default function SMS() {
           </TabsList>
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
+          <TabsContent value="auto-reply"><AutoReplyWorkflow /></TabsContent>
 
           <TabsContent value="blast">
             <div className="glass-card p-5 space-y-4 max-w-2xl">
