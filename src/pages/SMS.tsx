@@ -41,20 +41,24 @@ function extractPhones(raw: string): { phone: string; name: string | null }[] {
 export default function SMS() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [sequences, setSequences] = useState<SequenceLite[]>([]);
   const [tplName, setTplName] = useState('');
   const [tplBody, setTplBody] = useState('');
   const [campName, setCampName] = useState('');
   const [campBody, setCampBody] = useState('');
   const [campPhones, setCampPhones] = useState('');
+  const [campSequenceId, setCampSequenceId] = useState<string>('none');
   const [sending, setSending] = useState(false);
 
   const load = async () => {
-    const [t, c] = await Promise.all([
+    const [t, c, s] = await Promise.all([
       supabase.from('sms_templates').select('*').order('created_at', { ascending: false }),
       supabase.from('sms_campaigns').select('*').order('created_at', { ascending: false }),
+      supabase.from('sms_sequences').select('id, name, is_active').eq('is_active', true).order('created_at', { ascending: false }),
     ]);
     setTemplates((t.data as Template[]) || []);
     setCampaigns((c.data as Campaign[]) || []);
+    setSequences((s.data as SequenceLite[]) || []);
   };
 
   useEffect(() => { load(); }, []);
