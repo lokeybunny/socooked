@@ -83,6 +83,9 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [smsAfterTransfer, setSmsAfterTransfer] = useState(initialState.smsAfterTransfer);
   const [smsAfterTransferMessage, setSmsAfterTransferMessage] = useState(initialState.smsAfterTransferMessage);
   const [smsSequenceId, setSmsSequenceId] = useState(initialState.smsSequenceId);
+  const [voicemailDropEnabled, setVoicemailDropEnabled] = useState(initialState.voicemailDropEnabled);
+  const [voicemailDropUrl, setVoicemailDropUrl] = useState(initialState.voicemailDropUrl);
+  const [vmUploading, setVmUploading] = useState(false);
   const [sequences, setSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
 
@@ -106,6 +109,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setSmsAfterTransfer(nextState.smsAfterTransfer);
     setSmsAfterTransferMessage(nextState.smsAfterTransferMessage);
     setSmsSequenceId(nextState.smsSequenceId);
+    setVoicemailDropEnabled(nextState.voicemailDropEnabled);
+    setVoicemailDropUrl(nextState.voicemailDropUrl);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
