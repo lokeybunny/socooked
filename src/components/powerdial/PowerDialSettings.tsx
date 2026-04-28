@@ -52,6 +52,11 @@ function getSettingsFormState(settings: any) {
     smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
     voicemailDropEnabled: nextSettings.voicemail_drop_enabled !== false,
     voicemailDropUrl: String(nextSettings.voicemail_drop_url || ''),
+    voicemailDropSmsEnabled: nextSettings.voicemail_drop_sms_enabled !== false,
+    voicemailDropSmsText: String(
+      nextSettings.voicemail_drop_sms_text ||
+        "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192."
+    ),
   };
 }
 
