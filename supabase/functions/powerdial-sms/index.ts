@@ -87,55 +87,9 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   return data && data[0] ? data[0].id : null;
 }
 
-type CellAutoReplyConfig = {
-  enabled: boolean;
-  prefix: string;
-  cooldown_hours: number;
-};
-
-async function loadCellAutoReplyConfig(): Promise<CellAutoReplyConfig> {
-  const { data } = await sb.from("app_settings").select("value").eq("key", "sms_auto_reply").maybeSingle();
-  const v = (data?.value || {}) as any;
-  return {
-    enabled: v.cell_enabled !== false, // default ON
-    prefix: typeof v.prefix === "string" && v.prefix.trim()
-      ? v.prefix
-      : "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.",
-    cooldown_hours: typeof v.cell_cooldown_hours === "number" ? v.cell_cooldown_hours : 24,
-  };
-}
-
-async function maybeSendCellAutoReply(fromRaw: string, inboundBody: string, customerId: string | null) {
-  try {
-    const cfg = await loadCellAutoReplyConfig();
-    if (!cfg.enabled) return;
-    const to = normalizePhone(fromRaw);
-    if (!to) return;
-
-    // No cooldown — auto-reply fires on every inbound text to the cell line.
-    const result = await sendVoidfixSms(to, cfg.prefix);
-    await sb.from("communications").insert({
-      type: "sms",
-      direction: "outbound",
-      body: cfg.prefix,
-      from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
-      to_address: to,
-      phone_number: to,
-      provider: "voidfix",
-      external_id: result.id || null,
-      status: result.ok ? "sent" : "failed",
-      customer_id: customerId,
-      metadata: {
-        source: "voidfix-cell-auto-reply",
-        device_id: VOIDFIX_DEVICE_ID,
-        inbound_body: inboundBody,
-        ...(result.error ? { error: result.error } : {}),
-      },
-    });
-  } catch (e) {
-    console.error("[powerdial-sms] cell auto-reply error", e);
-  }
-}
+// NOTE: The "this is my cell" auto-reply is intentionally ONLY triggered by
+// the Twilio landline webhook (twilio-sms-inbound). Inbound texts directly to
+// the VoidFix cell number must NEVER receive this auto-reply.
 
 async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string }) {
   const from = String(payload.from || "");
@@ -169,9 +123,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     metadata: { source: inboundSource, device_id: payload.device_id || null },
   });
 
-  // Send the same "this is my cell" auto-reply for inbound texts to the VoidFix cell,
-  // throttled per-sender so ongoing conversations aren't interrupted.
-  await maybeSendCellAutoReply(from, body, customerId);
+  // NOTE: No "this is my cell" auto-reply here — that fires only for the
+  // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
+  // texts to the VoidFix cell.
 
   // Forward to sequence engine (fire-and-forget) to advance any active enrollments
   try {
@@ -396,8 +350,8 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       });
-      // Trigger cell auto-reply for poll-imported inbound texts (cooldown-throttled)
-      await maybeSendCellAutoReply(from, String(m.message || ""), customerId);
+      // No cell auto-reply for poll-imported inbound texts — auto-reply is
+      // landline-only (handled by twilio-sms-inbound).
       // Advance sequences
       fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
         method: "POST",
