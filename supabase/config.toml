@@ -165,6 +165,12 @@ verify_jwt = false
 [functions.twilio-dial]
 verify_jwt = false
 
+[functions.twilio-voice-token]
+verify_jwt = false
+
+[functions.twilio-voice-twiml]
+verify_jwt = false
+
 [functions.sms-sequence-engine]
 verify_jwt = false
 

@@ -1861,13 +1861,13 @@ export default function PhonePage() {
           <div className="space-y-4">
             <div className="flex flex-col items-center gap-2">
               <div className="text-center">
-                <p className="text-lg font-bold text-foreground">Business name: STU25</p>
+                <p className="text-lg font-bold text-foreground">Business name: WARREN GURU</p>
               </div>
               <div className="flex items-center gap-4 flex-wrap justify-center">
                 <Phone className="h-5 w-5 text-primary" />
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <span className="font-medium">Call Back #:</span>
-                  <span className="text-foreground">(702) 997-6750</span>
+                  <span className="text-foreground">(702) 701-6192</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <span className="font-medium">Cell:</span>
