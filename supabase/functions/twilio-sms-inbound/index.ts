@@ -90,9 +90,16 @@ async function forwardToVoidfixCell(from: string, twilioNumber: string, body: st
   }
 }
 
-async function sendVoidfixAutoReply(from: string, twilioNumber: string, sid: string | null, customerId: string | null) {
+async function sendVoidfixAutoReply(
+  from: string,
+  twilioNumber: string,
+  sid: string | null,
+  customerId: string | null,
+  inboundBody: string,
+) {
   const to = normalizePhone(from);
   if (!to) return;
+  const replyBody = buildAutoReply(inboundBody);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
     headers: {
@@ -102,13 +109,14 @@ async function sendVoidfixAutoReply(from: string, twilioNumber: string, sid: str
     body: JSON.stringify({
       action: "send",
       to,
-      body: AUTO_REPLY,
+      body: replyBody,
       customer_id: customerId,
       source: "twilio-auto-reply-voidfix",
       metadata: {
         source: "twilio-auto-reply-voidfix",
         twilio_number: normalizePhone(twilioNumber),
         twilio_sid: sid || null,
+        inbound_body: inboundBody,
       },
     }),
   });
