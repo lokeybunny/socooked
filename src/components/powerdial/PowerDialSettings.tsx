@@ -49,6 +49,7 @@ function getSettingsFormState(settings: any) {
     // Auto-SMS after live transfer is OFF by default — opt in only.
     smsAfterTransfer: nextSettings.sms_after_transfer === true,
     smsAfterTransferMessage: String(nextSettings.sms_after_transfer_message || ''),
+    smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
   };
 }
 
