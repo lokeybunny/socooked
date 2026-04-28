@@ -103,6 +103,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setAiAssistGreeting(nextState.aiAssistGreeting);
     setSmsAfterTransfer(nextState.smsAfterTransfer);
     setSmsAfterTransferMessage(nextState.smsAfterTransferMessage);
+    setSmsSequenceId(nextState.smsSequenceId);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
