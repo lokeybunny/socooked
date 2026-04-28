@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
 
     // Send the requested auto-reply from the VoidFix phone/device, not Twilio TwiML.
     try {
-      await sendVoidfixAutoReply(from, to, sid || null, customerId);
+      await sendVoidfixAutoReply(from, to, sid || null, customerId, body);
     } catch (e) {
       console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
     }
