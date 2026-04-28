@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import {
   Phone, Play, Pause, Square, SkipForward, Plus, Users, PhoneCall,
   Voicemail, PhoneOff, Clock, CheckCircle, AlertCircle, Loader2,
-  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap, CalendarClock,
+  Settings, List, BarChart3, Search, RefreshCw, Trash2, Sparkles, Zap, CalendarClock, RotateCcw,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
