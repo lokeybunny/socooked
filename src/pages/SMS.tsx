@@ -9,11 +9,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow } from 'lucide-react';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
+import SequenceBuilder from '@/components/sms/SequenceBuilder';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Template = { id: string; name: string; body: string };
 type Campaign = { id: string; name: string; body: string; status: string; total_recipients: number; sent_count: number; failed_count: number; created_at: string };
+type SequenceLite = { id: string; name: string; is_active: boolean };
 
 function extractPhones(raw: string): { phone: string; name: string | null }[] {
   const phoneRegex = /(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g;
