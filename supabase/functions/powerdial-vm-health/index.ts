@@ -147,7 +147,6 @@ Deno.serve(async (req) => {
           .update({
             voicemail_drop_sms_status: ok ? "sent" : "failed",
             voicemail_drop_sms_sent_at: ok ? new Date().toISOString() : null,
-            voicemail_drop_sms_error: ok ? null : (json?.error ?? `HTTP ${resp.status}`),
           })
           .eq("id", m.call_log_id);
         repairs.push({ call_log_id: m.call_log_id, ok, error: ok ? undefined : (json?.error ?? `HTTP ${resp.status}`) });
