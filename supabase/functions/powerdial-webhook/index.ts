@@ -981,6 +981,16 @@ Deno.serve(async (req) => {
               },
             }).eq("id", callLogId);
 
+            if (fallbackOk) {
+              const smsEnabled = settingsObj.sms_after_transfer !== false;
+              const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
+                ? settingsObj.sms_after_transfer_message.trim()
+                : DEFAULT_SMS_AFTER_TRANSFER;
+              if (smsEnabled && leadPhone) {
+                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+              }
+            }
+
             return json({
               ok: true,
               amd_result: amdResult,
