@@ -143,6 +143,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       sms_sequence_id: smsSequenceId === 'none' ? null : smsSequenceId,
       voicemail_drop_enabled: voicemailDropEnabled,
       voicemail_drop_url: voicemailDropUrl.trim() || null,
+      voicemail_drop_sms_enabled: voicemailDropSmsEnabled,
+      voicemail_drop_sms_text: voicemailDropSmsText.trim() || null,
     };
 
     const { error } = await supabase
