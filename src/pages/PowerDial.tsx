@@ -116,10 +116,25 @@ export default function PowerDial() {
         table: 'powerdial_queue',
         filter: `campaign_id=eq.${activeCampaign.id}`,
       }, (payload: any) => {
-        if (payload.new?.status === 'dialing') {
-          setCurrentDialing(payload.new);
-        } else if (currentDialing?.id === payload.new?.id) {
+        const row = payload.new;
+        if (!row) return;
+        if (row.status === 'dialing') {
+          setCurrentDialing(row);
+        } else if (currentDialing?.id === row.id) {
           setCurrentDialing(null);
+        }
+        // Auto-open Live Transfer popup the moment a human picks up
+        const humanResult =
+          row.last_result === 'human_connected' ||
+          row.last_result === 'transferred_to_human' ||
+          row.amd_result === 'human';
+        if (humanResult) {
+          setLivePopupCall((prev) => prev || {
+            phone: row.phone,
+            contact_name: row.contact_name,
+            customer_id: row.customer_id || row.lead_id,
+            notes: row.notes || null,
+          });
         }
       })
       .subscribe();
