@@ -313,6 +313,12 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       });
+      // Advance sequences
+      fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
+      }).catch((e) => console.error("[powerdial-sms/poll] sequence forward error", e));
       imported += 1;
     }
     return json({ ok: true, imported, scanned: messages.length });
