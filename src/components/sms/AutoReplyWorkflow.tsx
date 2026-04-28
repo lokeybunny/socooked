@@ -457,7 +457,28 @@ export default function AutoReplyWorkflow() {
             <RefreshCw className="h-3 w-3 mr-1" /> Refresh
           </Button>
         </div>
-        <ScrollArea className="h-[600px] pr-3">{renderActivity()}</ScrollArea>
+
+        {/* Dedicated 8105 landline section — pairs each inbound Twilio hit with its VoidFix auto-reply */}
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Phone className="h-3.5 w-3.5 text-blue-300" />
+              <h4 className="text-[12px] font-semibold text-blue-200">8105 Landline · Inbound + Auto-Reply</h4>
+            </div>
+            <Badge variant="outline" className="text-[9px] bg-blue-500/15 text-blue-300 border-blue-500/30">
+              {landlineThreads.length} sender{landlineThreads.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Real-time view of every inbound text to <span className="font-mono text-foreground/80">+1 702-829-8105</span> followed by the VoidFix auto-reply.
+          </p>
+          <ScrollArea className="max-h-[260px] pr-2">{renderLandlineSection()}</ScrollArea>
+        </div>
+
+        <div>
+          <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">All SMS Activity</h4>
+          <ScrollArea className="h-[380px] pr-3">{renderActivity()}</ScrollArea>
+        </div>
       </div>
     </div>
   );
