@@ -226,6 +226,10 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
   if (!phoneNumberId) return null;
 
