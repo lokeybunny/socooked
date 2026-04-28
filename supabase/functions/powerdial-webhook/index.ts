@@ -813,14 +813,6 @@ Deno.serve(async (req) => {
           await cancelSiblingCalls(batchId, callLogId, campaignId);
         }
 
-        const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
-          ? existingLog.meta as Record<string, unknown>
-          : {};
-
-        const settingsObj = {
-          ...DEFAULT_POWERDIAL_SETTINGS,
-          ...((campSettings?.settings || {}) as Record<string, unknown>),
-        } as Record<string, unknown>;
         const aiEnabled = settingsObj.ai_enabled !== false; // default true
         const humanTransferPhoneRaw = typeof settingsObj.human_transfer_phone === "string"
           ? settingsObj.human_transfer_phone
