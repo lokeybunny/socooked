@@ -195,10 +195,25 @@ Deno.serve(async (req) => {
     const message = String(payload?.body || "").trim();
     if (!to || !message) return json({ ok: false, error: "missing_to_or_body" }, 400);
 
-    const result = await sendVoidfixSms(to, message);
-    const customerId = payload?.customer_id || (await findCustomerByPhone(to));
     const source = String(payload?.source || "powerdial-sms");
     const extraMetadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
+    const callLogId = extraMetadata?.call_log_id ? String(extraMetadata.call_log_id) : "";
+
+    if (source === "powerdial-voicemail-drop-sms" && callLogId) {
+      const { data: existing } = await sb
+        .from("communications")
+        .select("id")
+        .eq("type", "sms")
+        .eq("direction", "outbound")
+        .eq("provider", "voidfix")
+        .eq("metadata->>source", "powerdial-voicemail-drop-sms")
+        .eq("metadata->>call_log_id", callLogId)
+        .limit(1);
+      if (existing?.[0]) return json({ ok: true, duplicate: true, id: existing[0].id });
+    }
+
+    const result = await sendVoidfixSms(to, message);
+    const customerId = payload?.customer_id || (await findCustomerByPhone(to));
 
     const { error: logError } = await sb.from("communications").insert({
       type: "sms",
