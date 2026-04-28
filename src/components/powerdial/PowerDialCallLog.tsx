@@ -8,6 +8,28 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Loader2, Search, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
+type AmdDebug = {
+  answered_by?: string;
+  amd_result?: string;
+  intended_action?: string;
+  machine_detection_duration_ms?: number | null;
+  ai_enabled?: boolean;
+  call_sid?: string;
+  call_status_at_amd?: string;
+  timestamps?: {
+    greeting_start?: string | null;
+    amd_received?: string | null;
+    beep_detected?: string | null;
+    machine_end?: string | null;
+  };
+  voicemail_drop?: {
+    attempted?: boolean;
+    succeeded?: boolean;
+    url?: string | null;
+    dropped_at?: string | null;
+  };
+};
+
 type CallLogMeta = {
   twilio_error?: {
     code?: number;
@@ -19,6 +41,9 @@ type CallLogMeta = {
   available_from_numbers?: string[];
   needs_twilio_verified_from?: boolean;
   auto_switched_from_number?: boolean;
+  amd_debug?: AmdDebug;
+  voicemail_dropped?: boolean;
+  voicemail_drop_url?: string | null;
 };
 
 type CallLog = {
