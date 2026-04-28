@@ -887,6 +887,8 @@ Deno.serve(async (req) => {
       const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
         ? existingLog.meta as Record<string, unknown>
         : {};
+      const leadPhone = (existingLog as any)?.phone || "";
+      const leadCustomerId = (existingLog as any)?.customer_id || null;
 
       const settingsObj = {
         ...DEFAULT_POWERDIAL_SETTINGS,
@@ -932,9 +934,6 @@ Deno.serve(async (req) => {
         if (queueProcessed) {
           await bumpCampaignCount(campaignId, "human_count");
         }
-
-        const leadPhone = (existingLog as any)?.phone || "";
-        const leadCustomerId = (existingLog as any)?.customer_id || null;
 
         // If this is a triple-dial batch, cancel the sibling calls
         const batchId = (existingLog as any)?.batch_id;
