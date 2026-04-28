@@ -1013,7 +1013,7 @@ Deno.serve(async (req) => {
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
             if (smsEnabled && leadPhone && smsMessage) {
-              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: optionalString(settingsObj.sms_sequence_id) });
             }
           }
 
@@ -1074,7 +1074,7 @@ Deno.serve(async (req) => {
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
             if (smsEnabled && leadPhone && smsMessage) {
-              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: optionalString(settingsObj.sms_sequence_id) });
             }
           }
 
@@ -1170,7 +1170,7 @@ Deno.serve(async (req) => {
                 ? settingsObj.sms_after_transfer_message.trim()
                 : DEFAULT_SMS_AFTER_TRANSFER;
               if (smsEnabled && leadPhone && smsMessage) {
-                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
+                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: optionalString(settingsObj.sms_sequence_id) });
               }
             } else {
               // Both Vapi AND warm-handoff fallback failed — recover queue.
