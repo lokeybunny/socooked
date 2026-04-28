@@ -72,15 +72,15 @@ Deno.serve(async (req) => {
   // -------- Diagnostics --------
   if (url.searchParams.get("diag") === "1") {
     const out: Record<string, unknown> = {};
-    for (const [key, entry] of Object.entries(FILES)) {
-      const loaded = await loadFile(key);
+    for (const key of Object.keys(FILES)) {
+      const loaded = loadFile(key);
       out[key] = loaded
         ? {
             available: true,
-            mime: entry.mime,
+            mime: loaded.mime,
             bytes: loaded.bytes.length,
             playback_url: `${url.origin}/functions/v1/powerdial-voicemail-audio?file=${key}`,
-            format: "WAV / pcm_mulaw / 8000Hz / mono",
+            format: loaded.format,
           }
         : { available: false };
     }
