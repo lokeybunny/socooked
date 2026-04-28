@@ -747,7 +747,8 @@ Deno.serve(async (req) => {
 
     if (type === "amd") {
       const answeredBy = params.get("AnsweredBy") || "";
-      console.log(`[powerdial-webhook] AMD result: ${answeredBy} for call ${callSid}`);
+      const machineDetectionDuration = params.get("MachineDetectionDuration") || "";
+      console.log(`[powerdial-webhook] AMD result: ${answeredBy} for call ${callSid} (duration=${machineDetectionDuration}ms)`);
 
       // Check if AI is disabled — if so, we bypass AMD entirely and bridge any answer to the human
       const { data: campSettingsForAmd } = await sb
@@ -759,28 +760,31 @@ Deno.serve(async (req) => {
 
       let amdResult = "unknown";
       let connectVapi = false;
+      let intendedAction = "";
 
       if (!aiEnabledForAmd) {
-        // AI off: any answered call should ring the human transfer number.
-        // AMD is unreliable when bridging to a real person — skip it.
         amdResult = "human";
         connectVapi = true;
+        intendedAction = "redirect_to_human_transfer (AI disabled — bypass AMD)";
         console.log(`[powerdial-webhook] AI disabled — forcing human-transfer path regardless of AMD result (${answeredBy})`);
       } else if (answeredBy === "human") {
         amdResult = "human";
         connectVapi = true;
+        intendedAction = "redirect_to_vapi_assistant (human detected)";
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
+        intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
       } else if (answeredBy === "unknown") {
         amdResult = "human";
         connectVapi = true;
+        intendedAction = "redirect_to_vapi_assistant (AMD inconclusive — treat as human)";
+      } else {
+        intendedAction = `noop (unrecognized AnsweredBy=${answeredBy})`;
       }
-
-      await sb.from("powerdial_call_logs").update({ amd_result: amdResult }).eq("id", callLogId);
 
       // Fetch settings + existing log up-front so BOTH human and voicemail branches can use them
       const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
-        sb.from("powerdial_call_logs").select("meta, batch_id, phone, customer_id").eq("id", callLogId).single(),
+        sb.from("powerdial_call_logs").select("meta, batch_id, phone, customer_id, created_at").eq("id", callLogId).single(),
         sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
       ]);
 
@@ -792,6 +796,36 @@ Deno.serve(async (req) => {
         ...DEFAULT_POWERDIAL_SETTINGS,
         ...((campSettings?.settings || {}) as Record<string, unknown>),
       } as Record<string, unknown>;
+
+      // Build a per-call AMD debug snapshot so the UI can show exactly what
+      // happened during voicemail detection.
+      const nowIso = new Date().toISOString();
+      const greetingStartIso = (existingLog as any)?.created_at || nowIso;
+      const beepDetectedIso = answeredBy === "machine_end_beep" ? nowIso : null;
+      const machineEndIso = answeredBy.startsWith("machine_end") ? nowIso : null;
+      const amdDebug = {
+        answered_by: answeredBy,
+        amd_result: amdResult,
+        intended_action: intendedAction,
+        machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
+        ai_enabled: aiEnabledForAmd,
+        timestamps: {
+          greeting_start: greetingStartIso,
+          amd_received: nowIso,
+          beep_detected: beepDetectedIso,
+          machine_end: machineEndIso,
+        },
+        call_sid: callSid,
+        call_status_at_amd: callStatus,
+      };
+
+      await sb.from("powerdial_call_logs").update({
+        amd_result: amdResult,
+        meta: { ...existingMeta, amd_debug: amdDebug },
+      }).eq("id", callLogId);
+
+      // refresh existingMeta locally so downstream branches include amd_debug
+      (existingMeta as any).amd_debug = amdDebug;
 
       if (connectVapi) {
         const queueProcessed = await updateQueueStatusOnce(queueItemId, {
