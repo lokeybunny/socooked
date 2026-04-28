@@ -378,6 +378,60 @@ async function markCallFailed(
   }).eq("id", campaign.id);
 }
 
+// ===== 24-HOUR DUPLICATE-DIAL GUARD =====
+// Blocks any phone that has already been dialed (across ALL campaigns) in the
+// last 24 hours, OR has already been successfully connected in THIS campaign.
+// Bypassable via campaign.settings.bypass_duplicate_guard === true.
+async function checkDuplicateDialGuard(
+  campaign: any,
+  queueItem: any,
+  phone: string,
+  logPrefix: string,
+): Promise<DialNextResult | null> {
+  const bypass = Boolean((campaign?.settings || {})?.bypass_duplicate_guard);
+  if (bypass) return null;
+
+  // 1) Hard block: already connected in THIS campaign (queue reset case)
+  const { data: priorConnected } = await sb
+    .from("powerdial_call_logs")
+    .select("id, twilio_call_sid")
+    .eq("campaign_id", campaign.id)
+    .eq("phone", phone)
+    .or("amd_result.eq.human,disposition.eq.transferred_to_human,disposition.eq.connected_to_vapi")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (priorConnected?.length) {
+    console.log(`${logPrefix} Skipping ${phone} — already connected in this campaign`);
+    await sb.from("powerdial_queue").update({
+      status: "completed",
+      last_result: "skipped_already_connected",
+    }).eq("id", queueItem.id).in("status", ["pending", "retry_later", "dialing"]);
+    return { dialed: false, reason: "already_connected_in_campaign", message: `${phone} already reached in this campaign` };
+  }
+
+  // 2) Hard block: dialed (anywhere) within the last 24 hours
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: recent } = await sb
+    .from("powerdial_call_logs")
+    .select("id, campaign_id, created_at")
+    .eq("phone", phone)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (recent?.length) {
+    console.log(`${logPrefix} Skipping ${phone} — dialed within last 24h (log ${recent[0].id}, campaign ${recent[0].campaign_id})`);
+    await sb.from("powerdial_queue").update({
+      status: "skipped",
+      last_result: "skipped_24h_duplicate",
+    }).eq("id", queueItem.id).in("status", ["pending", "retry_later", "dialing"]);
+    return { dialed: false, reason: "duplicate_24h", message: `${phone} dialed within last 24 hours` };
+  }
+
+  return null;
+}
+
 async function placeCall(campaign: any, queueItem: any, logPrefix: string): Promise<DialNextResult> {
   const phone = normalizePhone(queueItem.phone);
   const selectedAssistantId = resolvePowerDialAssistantId((campaign.settings || {}) as Record<string, unknown>);
@@ -391,28 +445,8 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
   }
 
   // ===== DUPLICATE-DIAL GUARD =====
-  // Block re-dialing any phone that already had a successful connection
-  // (human_connected / transferred_to_human) in THIS campaign — prevents
-  // the same number being called twice when the queue is reset.
-  const { data: priorConnected } = await sb
-    .from("powerdial_call_logs")
-    .select("id, twilio_call_sid, amd_result, disposition, created_at")
-    .eq("campaign_id", campaign.id)
-    .eq("phone", phone)
-    .or("amd_result.eq.human,disposition.eq.transferred_to_human,disposition.eq.connected_to_vapi")
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (priorConnected?.length) {
-    console.log(
-      `${logPrefix} Skipping ${phone} — already connected in this campaign (call ${priorConnected[0].twilio_call_sid || priorConnected[0].id})`,
-    );
-    await sb.from("powerdial_queue").update({
-      status: "completed",
-      last_result: "skipped_already_connected",
-    }).eq("id", queueItem.id).in("status", ["pending", "retry_later", "dialing"]);
-    return { dialed: false, reason: "already_connected_in_campaign", message: `${phone} already reached in this campaign` };
-  }
+  const dupCheck = await checkDuplicateDialGuard(campaign, queueItem, phone, logPrefix);
+  if (dupCheck) return dupCheck;
 
   const { data: dialLock } = await sb
     .from("powerdial_queue")
@@ -828,6 +862,9 @@ async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string
   if (!phone) {
     return { dialed: false, reason: "invalid_phone" };
   }
+
+  const dupCheck = await checkDuplicateDialGuard(campaign, queueItem, phone, logPrefix);
+  if (dupCheck) return dupCheck;
 
   const { data: dialLock } = await sb
     .from("powerdial_queue")

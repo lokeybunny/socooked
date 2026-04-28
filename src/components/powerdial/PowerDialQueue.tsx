@@ -61,6 +61,8 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
     failed: '❌ Failed',
     skipped: '⏭ Skip',
     callback_human_pickup: '📞 Callback (1h cooldown)',
+    skipped_24h_duplicate: '🚫 24h dup',
+    skipped_already_connected: '✅ Already reached',
   };
 
   const formatRetry = (iso: string | null) => {
