@@ -81,14 +81,51 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const contentType = req.headers.get("content-type") || "";
 
-  // Twilio inbound webhook (form-encoded)
+  // Twilio inbound webhook OR status callback (both form-encoded)
   if (contentType.includes("application/x-www-form-urlencoded")) {
     try {
       const form = await req.formData();
+      const messageStatus = String(form.get("MessageStatus") || form.get("SmsStatus") || "");
+      const sid = String(form.get("MessageSid") || form.get("SmsSid") || "");
+
+      // Status callback path: update existing outbound row
+      if (messageStatus && sid) {
+        const errorCode = String(form.get("ErrorCode") || "");
+        const errorMessage = String(form.get("ErrorMessage") || "");
+        console.log(`[powerdial-sms] status callback sid=${sid} status=${messageStatus} err=${errorCode}`);
+
+        const { data: existing } = await sb
+          .from("communications")
+          .select("id, metadata")
+          .eq("external_id", sid)
+          .limit(1);
+
+        if (existing && existing[0]) {
+          const meta = (existing[0].metadata as any) || {};
+          await sb
+            .from("communications")
+            .update({
+              status: messageStatus,
+              metadata: {
+                ...meta,
+                twilio_status: messageStatus,
+                ...(errorCode ? { twilio_error_code: errorCode } : {}),
+                ...(errorMessage ? { twilio_error_message: errorMessage } : {}),
+              },
+            })
+            .eq("id", existing[0].id);
+        }
+
+        return new Response("<Response/>", {
+          status: 200,
+          headers: { ...CORS, "Content-Type": "text/xml" },
+        });
+      }
+
+      // Inbound SMS path
       const from = String(form.get("From") || "");
       const to = String(form.get("To") || "");
       const body = String(form.get("Body") || "");
-      const sid = String(form.get("MessageSid") || "");
 
       const customerId = await findCustomerByPhone(from);
 
