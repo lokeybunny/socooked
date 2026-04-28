@@ -544,116 +544,78 @@ export default function PowerDial() {
                 />
               </div>
 
-              {(activeCampaign.status === 'idle' || activeCampaign.status === 'stopped') && (
-                <Button size="sm" onClick={async () => {
-                  await supabase.from('powerdial_campaigns').update({
-                    schedule_status: null,
-                    scheduled_start: null,
-                    scheduled_end: null,
-                    ended_at: null,
-                  }).eq('id', activeCampaign.id);
-                  await invokeEngine({ action: 'start', campaign_id: activeCampaign.id });
-                }} disabled={actionLoading}>
-                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
-                  Start Campaign
-                </Button>
-              )}
-              {activeCampaign.status === 'completed' && (
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      // Look at queue composition first so we can give an accurate prompt
-                      const { data: rows, error: countErr } = await supabase
-                        .from('powerdial_queue')
-                        .select('last_result')
-                        .eq('campaign_id', activeCampaign.id);
-                      if (countErr) throw countErr;
+              {(activeCampaign.status === 'idle' || activeCampaign.status === 'stopped' || activeCampaign.status === 'completed') && (
+                <>
+                  <Button size="sm" onClick={async () => {
+                    await supabase.from('powerdial_campaigns').update({
+                      schedule_status: null,
+                      scheduled_start: null,
+                      scheduled_end: null,
+                      ended_at: null,
+                    }).eq('id', activeCampaign.id);
+                    await invokeEngine({ action: 'start', campaign_id: activeCampaign.id });
+                  }} disabled={actionLoading}>
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                    Start Campaign
+                  </Button>
 
-                      const total = rows?.length || 0;
-                      const connectedCount = (rows || []).filter((r: any) =>
-                        r.last_result === 'human_connected' || r.last_result === 'skipped_already_connected',
-                      ).length;
-                      const nonConnectedCount = total - connectedCount;
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const { count: total } = await supabase
+                          .from('powerdial_queue')
+                          .select('id', { count: 'exact', head: true })
+                          .eq('campaign_id', activeCampaign.id);
 
-                      let mode: 'non_connected' | 'all' | null = null;
+                        // Reset every queue row back to pending — auto-wipe prior human/vm activity
+                        const { error: qErr } = await supabase
+                          .from('powerdial_queue')
+                          .update({ status: 'pending', last_result: null, retry_at: null })
+                          .eq('campaign_id', activeCampaign.id);
+                        if (qErr) throw qErr;
 
-                      if (nonConnectedCount === 0 && connectedCount > 0) {
-                        // Nothing left to retry without re-dialing connected leads — ask explicitly
-                        const forceAll = confirm(
-                          `All ${connectedCount} number(s) in this campaign already connected to a human.\n\n` +
-                          'OK = Force re-dial EVERY number (including already-connected ones).\n' +
-                          'Cancel = Abort restart.',
-                        );
-                        if (!forceAll) return;
-                        mode = 'all';
-                      } else {
-                        const choice = confirm(
-                          'Restart this campaign?\n\n' +
-                          `OK = Re-dial only the ${nonConnectedCount} number(s) that did NOT connect (busy / no-answer / voicemail / failed). ${connectedCount} already-connected number(s) will be skipped.\n\n` +
-                          'Cancel = Force re-dial EVERY number (including already-connected ones).',
-                        );
-                        mode = choice ? 'non_connected' : 'all';
-                      }
-
-                      // Reset queue items based on selected mode
-                      let qb = supabase
-                        .from('powerdial_queue')
-                        .update({ status: 'pending', last_result: null, retry_at: null })
-                        .eq('campaign_id', activeCampaign.id);
-                      if (mode === 'non_connected') {
-                        qb = qb.not('last_result', 'in', '("human_connected","skipped_already_connected")');
-                      }
-                      const { error: qErr } = await qb;
-                      if (qErr) throw qErr;
-
-                      // When force re-dialing ALL, clear prior call logs so the
-                      // duplicate-dial guard in the engine doesn't skip them as
-                      // "already connected in this campaign".
-                      if (mode === 'all') {
+                        // Wipe prior call logs so the duplicate-dial guard doesn't skip them
                         await supabase
                           .from('powerdial_call_logs')
                           .delete()
                           .eq('campaign_id', activeCampaign.id);
+
+                        // Reset campaign counters and status
+                        const { error: cErr } = await supabase
+                          .from('powerdial_campaigns')
+                          .update({
+                            status: 'idle',
+                            completed_count: 0,
+                            human_count: 0,
+                            voicemail_count: 0,
+                            busy_count: 0,
+                            no_answer_count: 0,
+                            failed_count: 0,
+                            current_index: 0,
+                            schedule_status: null,
+                            scheduled_start: null,
+                            scheduled_end: null,
+                            started_at: null,
+                            ended_at: null,
+                          })
+                          .eq('id', activeCampaign.id);
+                        if (cErr) throw cErr;
+
+                        toast.success(`Campaign reset — re-dialing all ${total ?? 0} number(s)…`);
+                        await invokeEngine({ action: 'start', campaign_id: activeCampaign.id });
+                      } catch (err: any) {
+                        toast.error(err?.message || 'Restart failed');
                       }
-
-                      // Reset campaign counters and status
-                      const { error: cErr } = await supabase
-                        .from('powerdial_campaigns')
-                        .update({
-                          status: 'idle',
-                          completed_count: 0,
-                          human_count: 0,
-                          voicemail_count: 0,
-                          busy_count: 0,
-                          no_answer_count: 0,
-                          failed_count: 0,
-                          current_index: 0,
-                          schedule_status: null,
-                          scheduled_start: null,
-                          scheduled_end: null,
-                          started_at: null,
-                          ended_at: null,
-                        })
-                        .eq('id', activeCampaign.id);
-                      if (cErr) throw cErr;
-
-                      toast.success(
-                        mode === 'all'
-                          ? `Campaign reset — re-dialing all ${total} numbers…`
-                          : `Campaign reset — dialing ${nonConnectedCount} non-connected number(s)…`,
-                      );
-                      await invokeEngine({ action: 'start', campaign_id: activeCampaign.id });
-                    } catch (err: any) {
-                      toast.error(err?.message || 'Restart failed');
-                    }
-                  }}
-                  disabled={actionLoading}
-                  className="bg-purple-500 hover:bg-purple-600"
-                >
-                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
-                  Restart Campaign
-                </Button>
+                    }}
+                    disabled={actionLoading}
+                    variant="outline"
+                    className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                  >
+                    {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RotateCcw className="h-4 w-4 mr-1" />}
+                    Restart Campaign
+                  </Button>
+                </>
               )}
               {activeCampaign.status === 'running' && (
                 <>
