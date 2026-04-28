@@ -126,22 +126,28 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${SERVICE_ROLE}`,
           },
           body: JSON.stringify({
+            action: "send",
             to: m.phone,
-            message: text,
-            campaign_id: m.campaign_id,
+            body: text,
             customer_id: m.customer_id,
-            call_log_id: m.call_log_id,
-            source: "vm-health-repair",
-            metadata: { voicemail_drop: true, repair: true },
+            source: "powerdial-voicemail-drop-sms",
+            metadata: {
+              voicemail_drop: true,
+              repair: true,
+              call_log_id: m.call_log_id,
+              campaign_id: m.campaign_id,
+              repair_source: "vm-health-repair",
+            },
           }),
         });
         const json = await resp.json().catch(() => ({}));
-        const ok = resp.ok && json?.success !== false;
+        const ok = resp.ok && json?.ok === true;
         await supa
           .from("powerdial_call_logs")
           .update({
             voicemail_drop_sms_status: ok ? "sent" : "failed",
             voicemail_drop_sms_sent_at: ok ? new Date().toISOString() : null,
+            voicemail_drop_sms_error: ok ? null : (json?.error ?? `HTTP ${resp.status}`),
           })
           .eq("id", m.call_log_id);
         repairs.push({ call_log_id: m.call_log_id, ok, error: ok ? undefined : (json?.error ?? `HTTP ${resp.status}`) });
