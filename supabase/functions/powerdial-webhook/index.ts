@@ -1225,6 +1225,46 @@ Deno.serve(async (req) => {
       const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
       console.log(`[powerdial-webhook] Advance after voicemail (dropped=${vmDropped}) for ${campaignId}:`, advanceResult);
 
+      // VOICEMAIL DROP TEXT — send the configured SMS from VoidFix to the same recipient
+      if (vmDropped && leadPhone) {
+        const vmSmsEnabled = settingsObj.voicemail_drop_sms_enabled !== false; // default ON
+        const vmSmsText = (typeof settingsObj.voicemail_drop_sms_text === "string" && settingsObj.voicemail_drop_sms_text.trim())
+          ? settingsObj.voicemail_drop_sms_text.trim()
+          : "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192.";
+        if (vmSmsEnabled && vmSmsText) {
+          try {
+            const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""}`,
+              },
+              body: JSON.stringify({
+                action: "send",
+                to: normalizePhone(leadPhone),
+                body: vmSmsText,
+                customer_id: leadCustomerId || null,
+                source: "powerdial-voicemail-drop-sms",
+                metadata: {
+                  source: "powerdial-voicemail-drop-sms",
+                  campaign_id: campaignId,
+                  call_log_id: callLogId,
+                  voicemail_drop_url: vmDropUrl,
+                },
+              }),
+            });
+            const smsText = await smsResp.text();
+            if (!smsResp.ok) {
+              console.error(`[powerdial-webhook] VM-drop VoidFix SMS failed [${smsResp.status}]:`, smsText.slice(0, 300));
+            } else {
+              console.log(`[powerdial-webhook] VM-drop VoidFix SMS sent to ${leadPhone}`);
+            }
+          } catch (err) {
+            console.error("[powerdial-webhook] VM-drop VoidFix SMS exception:", err);
+          }
+        }
+      }
+
       return json({ ok: true, amd_result: amdResult, vm_dropped: vmDropped, advanced: advanceResult });
     }
 

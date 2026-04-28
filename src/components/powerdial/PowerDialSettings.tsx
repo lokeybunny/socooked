@@ -52,6 +52,11 @@ function getSettingsFormState(settings: any) {
     smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
     voicemailDropEnabled: nextSettings.voicemail_drop_enabled !== false,
     voicemailDropUrl: String(nextSettings.voicemail_drop_url || ''),
+    voicemailDropSmsEnabled: nextSettings.voicemail_drop_sms_enabled !== false,
+    voicemailDropSmsText: String(
+      nextSettings.voicemail_drop_sms_text ||
+        "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192."
+    ),
   };
 }
 
@@ -85,6 +90,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [smsSequenceId, setSmsSequenceId] = useState(initialState.smsSequenceId);
   const [voicemailDropEnabled, setVoicemailDropEnabled] = useState(initialState.voicemailDropEnabled);
   const [voicemailDropUrl, setVoicemailDropUrl] = useState(initialState.voicemailDropUrl);
+  const [voicemailDropSmsEnabled, setVoicemailDropSmsEnabled] = useState(initialState.voicemailDropSmsEnabled);
+  const [voicemailDropSmsText, setVoicemailDropSmsText] = useState(initialState.voicemailDropSmsText);
   const [vmUploading, setVmUploading] = useState(false);
   const [sequences, setSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
@@ -111,6 +118,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setSmsSequenceId(nextState.smsSequenceId);
     setVoicemailDropEnabled(nextState.voicemailDropEnabled);
     setVoicemailDropUrl(nextState.voicemailDropUrl);
+    setVoicemailDropSmsEnabled(nextState.voicemailDropSmsEnabled);
+    setVoicemailDropSmsText(nextState.voicemailDropSmsText);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -134,6 +143,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       sms_sequence_id: smsSequenceId === 'none' ? null : smsSequenceId,
       voicemail_drop_enabled: voicemailDropEnabled,
       voicemail_drop_url: voicemailDropUrl.trim() || null,
+      voicemail_drop_sms_enabled: voicemailDropSmsEnabled,
+      voicemail_drop_sms_text: voicemailDropSmsText.trim() || null,
     };
 
     const { error } = await supabase
@@ -311,6 +322,34 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
           </div>
           <p className="text-[10px] text-muted-foreground">
             Twilio plays MP3 / WAV. Default: Warren's voicemail message.
+          </p>
+        </div>
+
+        {/* Voicemail Drop SMS — sent from VoidFix after a successful drop */}
+        <div className="space-y-2 border-t border-border/40 pt-3 mt-3">
+          <div className="flex items-center justify-between">
+            <Label className="cursor-pointer">📱 Voicemail Drop Text (sent from VoidFix)</Label>
+            <input
+              type="checkbox"
+              checked={voicemailDropSmsEnabled}
+              onChange={(e) => setVoicemailDropSmsEnabled(e.target.checked)}
+              disabled={!voicemailDropEnabled}
+              className="h-4 w-4 rounded"
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            After a voicemail drop is successfully delivered, automatically send this SMS from your VoidFix cell to the same recipient.
+          </p>
+          <textarea
+            value={voicemailDropSmsText}
+            onChange={(e) => setVoicemailDropSmsText(e.target.value)}
+            disabled={!voicemailDropEnabled || !voicemailDropSmsEnabled}
+            rows={4}
+            placeholder="Hi this is Warren Guru. Just left you a voice mail…"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs disabled:opacity-50"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            {voicemailDropSmsText.length} chars · sends ~{Math.ceil(voicemailDropSmsText.length / 153) || 1} segment(s)
           </p>
         </div>
       </div>
