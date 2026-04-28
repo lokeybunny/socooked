@@ -1094,8 +1094,8 @@ Deno.serve(async (req) => {
           // AnsweredBy="machine_end_beep" immediately AFTER the beep. So we
           // play the voicemail right away — no guess-pause needed. We add
           // a tiny 0.5s buffer to avoid clipping into the very tail of the beep.
-          const isAfterBeep = answeredBy === "machine_end_beep";
-          const pauseLen = isAfterBeep ? "1" : "3";
+          const isAfterMessageEnd = answeredBy.startsWith("machine_end");
+          const pauseLen = isAfterMessageEnd ? "1" : "3";
           const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play><Hangup/></Response>`;
           const redirectResp = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
