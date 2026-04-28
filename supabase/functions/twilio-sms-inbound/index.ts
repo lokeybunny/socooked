@@ -4,8 +4,8 @@
 //
 // Behavior:
 //  1. Logs the inbound SMS into communications (type=sms, provider=twilio)
-//  2. Forwards the message body to the VoidFix cell (so you see it on your real phone)
-//  3. Responds with TwiML <Message> auto-reply telling the sender to text the VoidFix cell instead
+//  2. Sends the requested auto-reply through VoidFix so it comes from the cell device
+//  3. Forwards the message body to the VoidFix cell (so you see it on your real phone)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -25,9 +25,8 @@ const FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
 const AUTO_REPLY =
   "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
 
-function twimlReply(message: string) {
-  const safe = message.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<Response><Message>${safe}</Message></Response>`;
+function twimlAck() {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>`;
   return new Response(xml, {
     status: 200,
     headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" },
@@ -73,6 +72,34 @@ async function forwardToVoidfixCell(from: string, twilioNumber: string, body: st
   }
 }
 
+async function sendVoidfixAutoReply(from: string, twilioNumber: string, sid: string | null, customerId: string | null) {
+  const to = normalizePhone(from);
+  if (!to) return;
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify({
+      action: "send",
+      to,
+      body: AUTO_REPLY,
+      customer_id: customerId,
+      source: "twilio-auto-reply-voidfix",
+      metadata: {
+        source: "twilio-auto-reply-voidfix",
+        twilio_number: normalizePhone(twilioNumber),
+        twilio_sid: sid || null,
+      },
+    }),
+  });
+  const resultText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`VoidFix auto-reply failed [${resp.status}]: ${resultText.slice(0, 300)}`);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -95,9 +122,7 @@ Deno.serve(async (req) => {
       sid = String(j.MessageSid || j.sid || "");
     }
 
-    if (!from || !body) {
-      return twimlReply(AUTO_REPLY);
-    }
+    if (!from || !body) return twimlAck();
 
     // Idempotency: skip duplicate webhooks
     if (sid) {
@@ -107,7 +132,7 @@ Deno.serve(async (req) => {
         .eq("external_id", sid)
         .limit(1);
       if (dupe && dupe[0]) {
-        return twimlReply(AUTO_REPLY);
+        return twimlAck();
       }
     }
 
@@ -128,29 +153,22 @@ Deno.serve(async (req) => {
       metadata: { source: "twilio-webhook", twilio_number: to },
     });
 
-    // Forward to VoidFix cell (fire and forget — don't block the TwiML response)
+    // Send the requested auto-reply from the VoidFix phone/device, not Twilio TwiML.
+    try {
+      await sendVoidfixAutoReply(from, to, sid || null, customerId);
+    } catch (e) {
+      console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
+    }
+
+    // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
     forwardToVoidfixCell(normalizePhone(from), normalizePhone(to), body).catch((e) =>
       console.error("[twilio-sms-inbound] forward error:", e),
     );
 
-    // Log the auto-reply we're about to send via TwiML
-    sb.from("communications").insert({
-      type: "sms",
-      direction: "outbound",
-      body: AUTO_REPLY,
-      from_address: normalizePhone(to),
-      to_address: normalizePhone(from),
-      phone_number: normalizePhone(from),
-      provider: "twilio",
-      status: "sent",
-      customer_id: customerId,
-      metadata: { source: "twilio-auto-reply", twilio_number: to },
-    }).then(() => {}, (e) => console.error("[twilio-sms-inbound] log auto-reply error:", e));
-
-    return twimlReply(AUTO_REPLY);
+    return twimlAck();
   } catch (err) {
     console.error("[twilio-sms-inbound] error:", err);
-    // Always return valid TwiML so Twilio doesn't show an error to the sender
-    return twimlReply(AUTO_REPLY);
+    // Always return valid TwiML so Twilio doesn't show an error/retry storm to the sender
+    return twimlAck();
   }
 });
