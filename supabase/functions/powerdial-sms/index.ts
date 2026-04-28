@@ -115,6 +115,20 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     customer_id: customerId,
     metadata: { source: "voidfix-webhook", device_id: payload.device_id || null },
   });
+
+  // Forward to sequence engine (fire-and-forget) to advance any active enrollments
+  try {
+    fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ action: "process_inbound", phone: normalizePhone(from), body }),
+    }).catch((e) => console.error("[powerdial-sms] sequence forward error", e));
+  } catch (e) {
+    console.error("[powerdial-sms] sequence forward error", e);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -299,6 +313,12 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       });
+      // Advance sequences
+      fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
+      }).catch((e) => console.error("[powerdial-sms/poll] sequence forward error", e));
       imported += 1;
     }
     return json({ ok: true, imported, scanned: messages.length });

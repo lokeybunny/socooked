@@ -9,11 +9,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow } from 'lucide-react';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
+import SequenceBuilder from '@/components/sms/SequenceBuilder';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Template = { id: string; name: string; body: string };
 type Campaign = { id: string; name: string; body: string; status: string; total_recipients: number; sent_count: number; failed_count: number; created_at: string };
+type SequenceLite = { id: string; name: string; is_active: boolean };
 
 function extractPhones(raw: string): { phone: string; name: string | null }[] {
   const phoneRegex = /(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g;
@@ -38,20 +41,24 @@ function extractPhones(raw: string): { phone: string; name: string | null }[] {
 export default function SMS() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [sequences, setSequences] = useState<SequenceLite[]>([]);
   const [tplName, setTplName] = useState('');
   const [tplBody, setTplBody] = useState('');
   const [campName, setCampName] = useState('');
   const [campBody, setCampBody] = useState('');
   const [campPhones, setCampPhones] = useState('');
+  const [campSequenceId, setCampSequenceId] = useState<string>('none');
   const [sending, setSending] = useState(false);
 
   const load = async () => {
-    const [t, c] = await Promise.all([
+    const [t, c, s] = await Promise.all([
       supabase.from('sms_templates').select('*').order('created_at', { ascending: false }),
       supabase.from('sms_campaigns').select('*').order('created_at', { ascending: false }),
+      supabase.from('sms_sequences').select('id, name, is_active').eq('is_active', true).order('created_at', { ascending: false }),
     ]);
     setTemplates((t.data as Template[]) || []);
     setCampaigns((c.data as Campaign[]) || []);
+    setSequences((s.data as SequenceLite[]) || []);
   };
 
   useEffect(() => { load(); }, []);
@@ -99,6 +106,19 @@ export default function SMS() {
           external_id: (data as any)?.id || null,
           sent_at: new Date().toISOString(),
         });
+        // Auto-enroll into sequence if selected and send succeeded
+        if (ok && campSequenceId && campSequenceId !== 'none') {
+          await supabase.functions.invoke('sms-sequence-engine', {
+            body: {
+              action: 'enroll',
+              sequence_id: campSequenceId,
+              phone: r.phone,
+              contact_name: r.name,
+              source: 'sms_blast',
+              source_id: camp.id,
+            },
+          });
+        }
         if (ok) sent++; else failed++;
         await new Promise(r => setTimeout(r, 500)); // throttle
       }
@@ -131,6 +151,7 @@ export default function SMS() {
             <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1" /> Inbox</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
             <TabsTrigger value="campaigns"><Send className="h-3.5 w-3.5 mr-1" /> Campaigns</TabsTrigger>
+            <TabsTrigger value="sequences"><Workflow className="h-3.5 w-3.5 mr-1" /> Sequences</TabsTrigger>
             <TabsTrigger value="templates"><FileText className="h-3.5 w-3.5 mr-1" /> Templates</TabsTrigger>
           </TabsList>
 
@@ -171,12 +192,29 @@ export default function SMS() {
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">{extractPhones(campPhones).length} valid number(s) detected</p>
               </div>
+              <div>
+                <Label>Auto-Responder Sequence (optional)</Label>
+                <Select value={campSequenceId} onValueChange={setCampSequenceId}>
+                  <SelectTrigger><SelectValue placeholder="None — one-off blast" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None — one-off blast</SelectItem>
+                    {sequences.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Recipients who reply to this blast will auto-receive the next steps in the selected sequence.
+                </p>
+              </div>
               <Button onClick={sendBlast} disabled={sending} className="bg-emerald-500 hover:bg-emerald-600">
                 {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                 Send Blast
               </Button>
             </div>
           </TabsContent>
+
+          <TabsContent value="sequences"><SequenceBuilder /></TabsContent>
 
           <TabsContent value="campaigns">
             <div className="glass-card p-4">

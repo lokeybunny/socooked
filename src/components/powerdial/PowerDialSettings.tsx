@@ -49,6 +49,7 @@ function getSettingsFormState(settings: any) {
     // Auto-SMS after live transfer is OFF by default — opt in only.
     smsAfterTransfer: nextSettings.sms_after_transfer === true,
     smsAfterTransferMessage: String(nextSettings.sms_after_transfer_message || ''),
+    smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
   };
 }
 
@@ -79,7 +80,14 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [aiAssistGreeting, setAiAssistGreeting] = useState(initialState.aiAssistGreeting);
   const [smsAfterTransfer, setSmsAfterTransfer] = useState(initialState.smsAfterTransfer);
   const [smsAfterTransferMessage, setSmsAfterTransferMessage] = useState(initialState.smsAfterTransferMessage);
+  const [smsSequenceId, setSmsSequenceId] = useState(initialState.smsSequenceId);
+  const [sequences, setSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.from('sms_sequences').select('id, name').eq('is_active', true).order('created_at', { ascending: false })
+      .then(({ data }) => setSequences((data as any[]) || []));
+  }, []);
 
   useEffect(() => {
     const nextState = getSettingsFormState(campaign.settings || {});
@@ -95,6 +103,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setAiAssistGreeting(nextState.aiAssistGreeting);
     setSmsAfterTransfer(nextState.smsAfterTransfer);
     setSmsAfterTransferMessage(nextState.smsAfterTransferMessage);
+    setSmsSequenceId(nextState.smsSequenceId);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -115,6 +124,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       ai_assist_greeting: aiAssistGreeting.trim(),
       sms_after_transfer: smsAfterTransfer,
       sms_after_transfer_message: smsAfterTransferMessage.trim(),
+      sms_sequence_id: smsSequenceId === 'none' ? null : smsSequenceId,
     };
 
     const { error } = await supabase
@@ -207,6 +217,23 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
           disabled={!smsAfterTransfer}
         />
         <p className="text-[10px] text-muted-foreground">Off by default. Toggle on and write a message to auto-send the lead the instant the call is bridged to a live agent.</p>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-emerald-500/30 p-3 bg-emerald-500/5">
+        <Label>Auto-Responder Sequence (after greet SMS)</Label>
+        <Select value={smsSequenceId} onValueChange={setSmsSequenceId}>
+          <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None — no follow-ups</SelectItem>
+            {sequences.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground">
+          When the live-transfer SMS sends, the recipient is enrolled in this sequence. Their next reply triggers the next step.
+          Manage sequences from the SMS page.
+        </p>
       </div>
 
       <div>

@@ -20,6 +20,7 @@ const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
@@ -35,6 +36,8 @@ async function sendTransferSms(opts: {
   campaignId: string;
   callLogId: string;
   customerId?: string | null;
+  sequenceId?: string | null;
+  contactName?: string | null;
 }): Promise<void> {
   try {
     const to = normalizePhone(opts.leadPhone);
@@ -49,14 +52,10 @@ async function sendTransferSms(opts: {
       `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: to, From: from, Body: opts.message }),
+        headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: to, From: from, Body: opts.message }).toString(),
       },
     );
-
     const data = await resp.json().catch(() => ({} as any));
     const ok = resp.ok;
     if (!ok) {
@@ -83,6 +82,27 @@ async function sendTransferSms(opts: {
         ...(ok ? {} : { error: data?.message || `twilio_${resp.status}` }),
       },
     });
+
+    // Auto-enroll into selected sequence (if any) on successful greet send
+    if (ok && opts.sequenceId) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({
+            action: "enroll",
+            sequence_id: opts.sequenceId,
+            phone: to,
+            contact_name: opts.contactName || null,
+            customer_id: opts.customerId || null,
+            source: "powerdial_campaign",
+            source_id: opts.campaignId,
+          }),
+        });
+      } catch (e) {
+        console.error("[powerdial-webhook] sequence enroll error:", e);
+      }
+    }
   } catch (err) {
     console.error("[powerdial-webhook] Transfer SMS exception:", err);
   }
@@ -843,7 +863,7 @@ Deno.serve(async (req) => {
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
             if (smsEnabled && leadPhone && smsMessage) {
-              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
             }
           }
 
@@ -892,7 +912,7 @@ Deno.serve(async (req) => {
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
             if (smsEnabled && leadPhone && smsMessage) {
-              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
             }
           }
 
@@ -988,7 +1008,7 @@ Deno.serve(async (req) => {
                 ? settingsObj.sms_after_transfer_message.trim()
                 : DEFAULT_SMS_AFTER_TRANSFER;
               if (smsEnabled && leadPhone && smsMessage) {
-                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
               }
             }
 

@@ -162,6 +162,9 @@ verify_jwt = false
 [functions.powerdial-sms]
 verify_jwt = false
 
+[functions.sms-sequence-engine]
+verify_jwt = false
+
 [functions.call-transcript]
 verify_jwt = false
 
