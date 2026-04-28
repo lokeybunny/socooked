@@ -19,26 +19,37 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Cell to forward to (VoidFix line ending 8105)
-const FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
-
-const AUTO_REPLY_PREFIX =
+// Defaults — overridable via app_settings.sms_auto_reply
+const DEFAULT_FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
+const DEFAULT_AUTO_REPLY_PREFIX =
   "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
 
-// Compose the auto-reply body so the recipient sees BOTH the canned line
-// AND a quoted copy of the message they just sent. This gives the lead
-// contextual confirmation that we received the right text and gives the
-// operator (when they read the thread later) the original message inline.
-function buildAutoReply(inboundBody: string): string {
+type AutoReplyConfig = {
+  enabled: boolean;
+  forward_enabled: boolean;
+  prefix: string;
+  forward_to_cell: string;
+  include_quoted: boolean;
+};
+
+async function loadConfig(): Promise<AutoReplyConfig> {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "sms_auto_reply").maybeSingle();
+  const v = (data?.value || {}) as Partial<AutoReplyConfig>;
+  return {
+    enabled: v.enabled !== false,
+    forward_enabled: v.forward_enabled !== false,
+    prefix: typeof v.prefix === "string" && v.prefix.trim() ? v.prefix : DEFAULT_AUTO_REPLY_PREFIX,
+    forward_to_cell: typeof v.forward_to_cell === "string" && v.forward_to_cell.trim() ? v.forward_to_cell : DEFAULT_FORWARD_TO_CELL,
+    include_quoted: v.include_quoted !== false,
+  };
+}
+
+function buildAutoReply(inboundBody: string, cfg: AutoReplyConfig): string {
   const trimmed = (inboundBody || "").trim();
-  if (!trimmed) return AUTO_REPLY_PREFIX;
-  // Cap quoted body length so we always stay inside a single SMS segment
-  // (Twilio splits >1600 chars; carriers truncate aggressively past ~320).
+  if (!trimmed || !cfg.include_quoted) return cfg.prefix;
   const MAX_QUOTE = 600;
-  const quoted = trimmed.length > MAX_QUOTE
-    ? `${trimmed.slice(0, MAX_QUOTE).trim()}…`
-    : trimmed;
-  return `${AUTO_REPLY_PREFIX}\n\nYou wrote:\n"${quoted}"`;
+  const quoted = trimmed.length > MAX_QUOTE ? `${trimmed.slice(0, MAX_QUOTE).trim()}…` : trimmed;
+  return `${cfg.prefix}\n\nYou wrote:\n"${quoted}"`;
 }
 
 function twimlAck() {
