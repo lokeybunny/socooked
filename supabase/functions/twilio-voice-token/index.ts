@@ -1,6 +1,9 @@
 // Issues a Twilio Access Token (JWT) for the browser Voice SDK.
-// Auto-provisions an API Key + a TwiML Application on first run and caches
-// their SIDs in `app_settings` so the user never has to configure anything.
+// Auto-provisions a TwiML Application on first run, cached in `app_settings`.
+//
+// IMPORTANT: The "TWILIO_ACCOUNT_SID" project secret actually holds an API Key
+// SID (SK...) and TWILIO_AUTH_TOKEN holds its secret. The real Twilio Account
+// SID (AC...) is hardcoded below since it is not a secret.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -11,8 +14,11 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
-const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+// Real Twilio Account SID (Account SIDs are not secret — only Auth Token is).
+const TWILIO_ACCOUNT_SID = "AC46c0f82bc5e712f59e27788b7d7103c2";
+// API Key SID + Secret (stored under historical names for compatibility)
+const TWILIO_API_KEY_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+const TWILIO_API_KEY_SECRET = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -29,7 +35,8 @@ function json(data: unknown, status = 200) {
 }
 
 function basicAuth() {
-  return `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`;
+  // Use API Key as the basic-auth principal — Twilio accepts this.
+  return `Basic ${btoa(`${TWILIO_API_KEY_SID}:${TWILIO_API_KEY_SECRET}`)}`;
 }
 
 async function twilioForm(path: string, body: Record<string, string>) {
@@ -47,8 +54,6 @@ async function twilioForm(path: string, body: Record<string, string>) {
 }
 
 interface VoiceAppCache {
-  api_key_sid: string;
-  api_key_secret: string;
   twiml_app_sid: string;
 }
 
@@ -59,28 +64,18 @@ async function getOrProvisionVoiceApp(): Promise<VoiceAppCache> {
     .eq("key", SETTINGS_KEY)
     .maybeSingle();
 
-  if (existing?.value?.api_key_sid && existing?.value?.api_key_secret && existing?.value?.twiml_app_sid) {
+  if (existing?.value?.twiml_app_sid) {
     return existing.value as VoiceAppCache;
   }
 
-  // 1. Create TwiML Application pointed at our voice TwiML endpoint
+  // Create TwiML Application pointed at our voice TwiML endpoint
   const app = await twilioForm(`/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Applications.json`, {
     FriendlyName: "Warren Guru Browser Dialer",
     VoiceUrl: VOICE_TWIML_URL,
     VoiceMethod: "POST",
   });
 
-  // 2. Create an API Key (Secret only returned once at creation)
-  const key = await twilioForm(`/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Keys.json`, {
-    FriendlyName: "Warren Guru Browser Dialer",
-  });
-
-  const cache: VoiceAppCache = {
-    api_key_sid: key.sid,
-    api_key_secret: key.secret,
-    twiml_app_sid: app.sid,
-  };
-
+  const cache: VoiceAppCache = { twiml_app_sid: app.sid };
   await sb.from("app_settings").upsert({ key: SETTINGS_KEY, value: cache }, { onConflict: "key" });
   return cache;
 }
@@ -114,8 +109,8 @@ async function signJwt(payload: Record<string, unknown>, secret: string, headerE
 async function buildAccessToken(identity: string, app: VoiceAppCache, ttlSeconds = 3600) {
   const now = Math.floor(Date.now() / 1000);
   const payload = {
-    jti: `${app.api_key_sid}-${now}`,
-    iss: app.api_key_sid,
+    jti: `${TWILIO_API_KEY_SID}-${now}`,
+    iss: TWILIO_API_KEY_SID,
     sub: TWILIO_ACCOUNT_SID,
     iat: now,
     exp: now + ttlSeconds,
@@ -127,13 +122,13 @@ async function buildAccessToken(identity: string, app: VoiceAppCache, ttlSeconds
       },
     },
   };
-  return signJwt(payload, app.api_key_secret, { cty: "twilio-fpa;v=1" });
+  return signJwt(payload, TWILIO_API_KEY_SECRET, { cty: "twilio-fpa;v=1" });
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
-    if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+    if (!TWILIO_API_KEY_SID || !TWILIO_API_KEY_SECRET) {
       return json({ error: "Twilio credentials not configured" }, 500);
     }
     const body = await req.json().catch(() => ({}));
@@ -144,6 +139,6 @@ Deno.serve(async (req) => {
     return json({ ok: true, token, identity, ttl: 3600 });
   } catch (err) {
     console.error("[twilio-voice-token]", err);
-    return json({ error: String(err?.message || err) }, 500);
+    return json({ error: String((err as any)?.message || err) }, 500);
   }
 });
