@@ -150,8 +150,8 @@ async function markVoicemailDropSms(callLogId: string, ok: boolean, error?: stri
   await sb.from("powerdial_call_logs").update({
     voicemail_drop_sms_status: ok ? "sent" : "failed",
     voicemail_drop_sms_sent_at: ok ? new Date().toISOString() : null,
-    ...(error ? { meta: { voicemail_drop_sms_error: error } } : {}),
   }).eq("id", callLogId);
+  if (error) console.error(`[powerdial-webhook] VM-drop SMS marked failed for ${callLogId}: ${error}`);
 }
 
 async function sendVoicemailDropSms(opts: {
