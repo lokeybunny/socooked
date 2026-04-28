@@ -329,10 +329,12 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
         <div className="space-y-2 border-t border-border/40 pt-3 mt-3">
           <div className="flex items-center justify-between">
             <Label className="cursor-pointer">📱 Voicemail Drop Text (sent from VoidFix)</Label>
-            <Switch
+            <input
+              type="checkbox"
               checked={voicemailDropSmsEnabled}
-              onCheckedChange={setVoicemailDropSmsEnabled}
+              onChange={(e) => setVoicemailDropSmsEnabled(e.target.checked)}
               disabled={!voicemailDropEnabled}
+              className="h-4 w-4 rounded"
             />
           </div>
           <p className="text-[10px] text-muted-foreground">
