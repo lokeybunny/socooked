@@ -831,6 +831,12 @@ Deno.serve(async (req) => {
                 ai_enabled: false,
               },
             }).eq("id", callLogId);
+            // Recover queue so campaign keeps moving
+            await updateQueueStatusOnce(queueItemId, {
+              status: "completed",
+              last_result: "no_human_transfer_phone",
+            });
+            await advanceCampaign(campaignId, "[powerdial-webhook]");
             return json({ ok: false, amd_result: amdResult, error: "no_human_transfer_phone_configured" });
           }
 
