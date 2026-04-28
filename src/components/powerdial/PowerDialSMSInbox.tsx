@@ -214,8 +214,8 @@ export default function PowerDialSMSInbox() {
                         <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
                         <p className="text-[9px] text-muted-foreground mt-1">
                           {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
-                          {errCode ? ` · err ${errCode}` : ''}
                         </p>
+
                         {isFailed && errMsg && (
                           <p className="text-[10px] text-red-400 mt-1">{errMsg}</p>
                         )}
