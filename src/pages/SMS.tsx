@@ -192,12 +192,29 @@ export default function SMS() {
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">{extractPhones(campPhones).length} valid number(s) detected</p>
               </div>
+              <div>
+                <Label>Auto-Responder Sequence (optional)</Label>
+                <Select value={campSequenceId} onValueChange={setCampSequenceId}>
+                  <SelectTrigger><SelectValue placeholder="None — one-off blast" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None — one-off blast</SelectItem>
+                    {sequences.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Recipients who reply to this blast will auto-receive the next steps in the selected sequence.
+                </p>
+              </div>
               <Button onClick={sendBlast} disabled={sending} className="bg-emerald-500 hover:bg-emerald-600">
                 {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                 Send Blast
               </Button>
             </div>
           </TabsContent>
+
+          <TabsContent value="sequences"><SequenceBuilder /></TabsContent>
 
           <TabsContent value="campaigns">
             <div className="glass-card p-4">
