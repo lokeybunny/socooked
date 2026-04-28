@@ -175,7 +175,9 @@ Deno.serve(async (req) => {
 
     const customerId = await findCustomerByPhone(from);
 
-    // Log the inbound Twilio SMS
+    // Log the inbound Twilio SMS — flagged as a "landline reply" so the CRM
+    // knows this came in to the 8105 landline and still needs follow-up from
+    // our VoidFix cell.
     await sb.from("communications").insert({
       type: "sms",
       direction: "inbound",
@@ -187,7 +189,11 @@ Deno.serve(async (req) => {
       external_id: sid || null,
       status: "received",
       customer_id: customerId,
-      metadata: { source: "twilio-webhook", twilio_number: to },
+      metadata: {
+        source: "twilio-landline-reply",
+        landline_reply: true,
+        twilio_number: normalizePhone(to),
+      },
     });
 
     const cfg = await loadConfig();
