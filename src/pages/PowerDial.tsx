@@ -724,6 +724,12 @@ export default function PowerDial() {
         {/* Test Call Button */}
         <TestCallButton />
 
+        <LiveCallPopup
+          open={!!livePopupCall}
+          onOpenChange={(o) => { if (!o) setLivePopupCall(null); }}
+          call={livePopupCall}
+        />
+
         {!activeCampaign && !loading && (
           <div className="glass-card p-12 text-center">
             <Phone className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
