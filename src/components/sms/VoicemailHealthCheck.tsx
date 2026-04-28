@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { ShieldCheck, ShieldAlert, RefreshCw, Wrench, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
+type RetryInfo = { attempts: number; next_at: string | null; last_error?: string | null };
+
 type MissingRow = {
   call_log_id: string;
   phone: string;
@@ -16,16 +18,18 @@ type MissingRow = {
   age_minutes: number;
   sms_status: string | null;
   last_error?: string;
+  retry?: RetryInfo;
 };
 
 type HealthResponse = {
   healthy: boolean;
+  mode?: string;
   lookbackHours: number;
   graceMinutes: number;
   checked_at: string;
-  summary: { total: number; sent: number; sending: number; failed: number; missing: number };
+  summary: { total: number; sent: number; sending: number; failed: number; missing: number; pending_retries?: number; exhausted?: number };
   missing: MissingRow[];
-  repairs: Array<{ call_log_id: string; ok: boolean; error?: string }>;
+  repairs: Array<{ call_log_id: string; ok: boolean; error?: string; attempts?: number; recovered?: boolean; exhausted?: boolean }>;
 };
 
 export default function VoicemailHealthCheck() {
