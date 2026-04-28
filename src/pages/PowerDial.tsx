@@ -679,10 +679,10 @@ export default function PowerDial() {
                 </>
               )}
 
-              {currentDialing && activeCampaign.status === 'running' && (
+              {currentDialing && (
                 <div className="ml-auto flex items-center gap-2 text-sm">
                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-muted-foreground">Dialing:</span>
+                  <span className="text-muted-foreground">Active:</span>
                   <span className="font-mono text-foreground">{currentDialing.phone}</span>
                   {currentDialing.contact_name && (
                     <span className="text-muted-foreground">({currentDialing.contact_name})</span>
