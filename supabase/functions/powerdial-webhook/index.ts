@@ -1132,7 +1132,7 @@ Deno.serve(async (req) => {
           .eq("is_active", true)
           .maybeSingle();
         if (activeRec?.id) {
-          vmDropUrl = `${supabaseUrl}/functions/v1/powerdial-voicemail-audio?id=${activeRec.id}`;
+          vmDropUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${activeRec.id}`;
           pauseBeforeSec = Number(activeRec.pause_before_sec ?? 2);
           pauseAfterSec = Number(activeRec.pause_after_sec ?? 1);
           ttsFallbackText = activeRec.tts_fallback_text || null;
