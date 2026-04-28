@@ -226,6 +226,10 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
   if (!phoneNumberId) return null;
 
@@ -1009,7 +1013,7 @@ Deno.serve(async (req) => {
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
             if (smsEnabled && leadPhone && smsMessage) {
-              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: optionalString(settingsObj.sms_sequence_id) });
             }
           }
 
@@ -1070,7 +1074,7 @@ Deno.serve(async (req) => {
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
             if (smsEnabled && leadPhone && smsMessage) {
-              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: optionalString(settingsObj.sms_sequence_id) });
             }
           }
 
@@ -1166,7 +1170,7 @@ Deno.serve(async (req) => {
                 ? settingsObj.sms_after_transfer_message.trim()
                 : DEFAULT_SMS_AFTER_TRANSFER;
               if (smsEnabled && leadPhone && smsMessage) {
-                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: settingsObj.sms_sequence_id || null });
+                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId, sequenceId: optionalString(settingsObj.sms_sequence_id) });
               }
             } else {
               // Both Vapi AND warm-handoff fallback failed — recover queue.
@@ -1334,20 +1338,19 @@ Deno.serve(async (req) => {
           ? settingsObj.voicemail_drop_sms_text.trim()
           : DEFAULT_VOICEMAIL_DROP_SMS;
         if (vmSmsEnabled && vmSmsText) {
-          const smsClaimed = await claimVoicemailDropSms(callLogId);
-          if (smsClaimed) {
-            const smsResult = await sendVoicemailDropSms({
-              leadPhone,
-              message: vmSmsText,
-              campaignId,
-              callLogId,
-              customerId: leadCustomerId,
-              voicemailDropUrl: vmDropUrl,
-            });
-            await markVoicemailDropSms(callLogId, smsResult.ok, smsResult.error);
-          } else {
-            console.warn(`[powerdial-webhook] VM-drop SMS already sent or in progress for call ${callLogId}`);
-          }
+          // Do not depend on the call-log tracking columns before sending: older
+          // function instances can have a stale schema cache and falsely block the
+          // VoidFix send. The powerdial-sms endpoint + communications unique index
+          // are the source of truth for duplicate protection per call_log_id.
+          const smsResult = await sendVoicemailDropSms({
+            leadPhone,
+            message: vmSmsText,
+            campaignId,
+            callLogId,
+            customerId: leadCustomerId,
+            voicemailDropUrl: vmDropUrl,
+          });
+          await markVoicemailDropSms(callLogId, smsResult.ok, smsResult.error);
         }
       }
 
