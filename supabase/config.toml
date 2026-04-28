@@ -171,6 +171,9 @@ verify_jwt = false
 [functions.twilio-voice-twiml]
 verify_jwt = false
 
+[functions.twilio-sms-inbound]
+verify_jwt = false
+
 [functions.sms-sequence-engine]
 verify_jwt = false
 
