@@ -1025,36 +1025,84 @@ Deno.serve(async (req) => {
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
       }
 
-      // Non-human: hang up and advance
-      try {
-        await fetch(
-          `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-              "Content-Type": "application/x-www-form-urlencoded",
+      // ===== VOICEMAIL BRANCH =====
+      // If campaign has voicemail-drop enabled, redirect the call to TwiML that
+      // plays the configured MP3 directly into the recipient's voicemail box,
+      // then hangs up. Otherwise, just hang up immediately.
+      const vmDropEnabled = settingsObj.voicemail_drop_enabled !== false; // ON by default
+      const vmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
+        ? settingsObj.voicemail_drop_url.trim()
+        : "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/powerdial/voicemail-default.mp3";
+
+      let vmDropped = false;
+      if (vmDropEnabled && vmDropUrl) {
+        try {
+          // Wait ~3s for the beep, then play the MP3, then hang up.
+          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="3"/><Play>${escapeXml(vmDropUrl)}</Play><Hangup/></Response>`;
+          const redirectResp = await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({ Twiml: vmTwiml }).toString(),
             },
-            body: new URLSearchParams({ Status: "completed" }).toString(),
-          },
-        );
-      } catch (err) {
-        console.error("[powerdial-webhook] Failed to force-complete voicemail call:", err);
+          );
+          if (redirectResp.ok) {
+            vmDropped = true;
+            console.log(`[powerdial-webhook] Voicemail drop sent for call ${callSid}: ${vmDropUrl}`);
+          } else {
+            const errText = await redirectResp.text();
+            console.error(`[powerdial-webhook] Voicemail drop redirect failed:`, errText);
+          }
+        } catch (err) {
+          console.error("[powerdial-webhook] Voicemail drop exception:", err);
+        }
+      }
+
+      if (!vmDropped) {
+        // Fallback: hang up immediately
+        try {
+          await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({ Status: "completed" }).toString(),
+            },
+          );
+        } catch (err) {
+          console.error("[powerdial-webhook] Failed to force-complete voicemail call:", err);
+        }
       }
 
       const queueProcessed = await updateQueueStatusOnce(queueItemId, {
         status: "completed",
-        last_result: "voicemail",
+        last_result: vmDropped ? "voicemail_dropped" : "voicemail",
       });
 
       if (queueProcessed) {
         await bumpCampaignCount(campaignId, "voicemail_count");
       }
 
-      const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
-      console.log(`[powerdial-webhook] Advance after voicemail for ${campaignId}:`, advanceResult);
+      // Mark the call log with VM drop status
+      await sb.from("powerdial_call_logs").update({
+        meta: {
+          ...existingMeta,
+          voicemail_dropped: vmDropped,
+          voicemail_drop_url: vmDropped ? vmDropUrl : null,
+        },
+      }).eq("id", callLogId);
 
-      return json({ ok: true, amd_result: amdResult, advanced: advanceResult });
+      const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+      console.log(`[powerdial-webhook] Advance after voicemail (dropped=${vmDropped}) for ${campaignId}:`, advanceResult);
+
+      return json({ ok: true, amd_result: amdResult, vm_dropped: vmDropped, advanced: advanceResult });
     }
 
     if (type === "dial-complete") {

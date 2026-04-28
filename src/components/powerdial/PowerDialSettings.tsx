@@ -50,6 +50,8 @@ function getSettingsFormState(settings: any) {
     smsAfterTransfer: nextSettings.sms_after_transfer === true,
     smsAfterTransferMessage: String(nextSettings.sms_after_transfer_message || ''),
     smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
+    voicemailDropEnabled: nextSettings.voicemail_drop_enabled !== false,
+    voicemailDropUrl: String(nextSettings.voicemail_drop_url || ''),
   };
 }
 
@@ -81,6 +83,9 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [smsAfterTransfer, setSmsAfterTransfer] = useState(initialState.smsAfterTransfer);
   const [smsAfterTransferMessage, setSmsAfterTransferMessage] = useState(initialState.smsAfterTransferMessage);
   const [smsSequenceId, setSmsSequenceId] = useState(initialState.smsSequenceId);
+  const [voicemailDropEnabled, setVoicemailDropEnabled] = useState(initialState.voicemailDropEnabled);
+  const [voicemailDropUrl, setVoicemailDropUrl] = useState(initialState.voicemailDropUrl);
+  const [vmUploading, setVmUploading] = useState(false);
   const [sequences, setSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
 
@@ -104,6 +109,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setSmsAfterTransfer(nextState.smsAfterTransfer);
     setSmsAfterTransferMessage(nextState.smsAfterTransferMessage);
     setSmsSequenceId(nextState.smsSequenceId);
+    setVoicemailDropEnabled(nextState.voicemailDropEnabled);
+    setVoicemailDropUrl(nextState.voicemailDropUrl);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -125,6 +132,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       sms_after_transfer: smsAfterTransfer,
       sms_after_transfer_message: smsAfterTransferMessage.trim(),
       sms_sequence_id: smsSequenceId === 'none' ? null : smsSequenceId,
+      voicemail_drop_enabled: voicemailDropEnabled,
+      voicemail_drop_url: voicemailDropUrl.trim() || null,
     };
 
     const { error } = await supabase
@@ -234,6 +243,76 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
           When the live-transfer SMS sends, the recipient is enrolled in this sequence. Their next reply triggers the next step.
           Manage sequences from the SMS page.
         </p>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-purple-500/30 p-3 bg-purple-500/5">
+        <div className="flex items-center justify-between">
+          <Label className="cursor-pointer">📼 Voicemail Drop (on AMD = voicemail)</Label>
+          <input
+            type="checkbox"
+            checked={voicemailDropEnabled}
+            onChange={(e) => setVoicemailDropEnabled(e.target.checked)}
+            className="h-4 w-4 rounded"
+          />
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          When Twilio AMD detects a voicemail box, instead of hanging up we wait for the beep and play your pre-recorded MP3.
+          Recipient gets the message in their inbox.
+        </p>
+
+        <div className="flex flex-col gap-2 pt-1">
+          <Input
+            type="url"
+            placeholder="https://…/voicemail.mp3 (uses default if empty)"
+            value={voicemailDropUrl}
+            onChange={(e) => setVoicemailDropUrl(e.target.value)}
+            disabled={!voicemailDropEnabled}
+          />
+          <div className="flex items-center gap-2">
+            <input
+              id={`vm-upload-${campaign.id}`}
+              type="file"
+              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav"
+              className="hidden"
+              disabled={!voicemailDropEnabled || vmUploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.size > 10 * 1024 * 1024) { toast.error('Max 10 MB'); return; }
+                setVmUploading(true);
+                try {
+                  const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
+                  const path = `powerdial/vm-${campaign.id}-${Date.now()}.${ext}`;
+                  const { error: upErr } = await supabase.storage
+                    .from('site-assets')
+                    .upload(path, file, { upsert: true, contentType: file.type || 'audio/mpeg' });
+                  if (upErr) { toast.error(upErr.message); return; }
+                  const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
+                  setVoicemailDropUrl(pub.publicUrl);
+                  toast.success('Voicemail uploaded — click Save to apply');
+                } finally {
+                  setVmUploading(false);
+                  (e.target as HTMLInputElement).value = '';
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!voicemailDropEnabled || vmUploading}
+              onClick={() => document.getElementById(`vm-upload-${campaign.id}`)?.click()}
+            >
+              {vmUploading ? 'Uploading…' : 'Upload MP3 / WAV'}
+            </Button>
+            {voicemailDropUrl && (
+              <audio src={voicemailDropUrl} controls className="h-8 flex-1 min-w-0" />
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Twilio plays MP3 / WAV. Default: Warren's voicemail message.
+          </p>
+        </div>
       </div>
 
       <div>
