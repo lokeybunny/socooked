@@ -9,6 +9,8 @@ interface TeleprompterProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead: any | null;
+  /** Optional override script text (plain text, sections separated by blank lines). When provided, replaces the default STU25 script. */
+  customScript?: string | null;
 }
 
 function buildScript(lead: any | null, _competitors: string[]): { section: string; lines: string[] }[] {
@@ -183,7 +185,7 @@ function buildScript(lead: any | null, _competitors: string[]): { section: strin
   ];
 }
 
-export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
+export function Teleprompter({ open, onOpenChange, lead, customScript }: TeleprompterProps) {
   const [competitors, setCompetitors] = useState<string[]>([]);
 
   // Fetch competitors from CRM matching the lead's specific niche (not broad category)
@@ -220,12 +222,21 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
       });
   }, [open, lead]);
 
-  const script = buildScript(lead, competitors);
-  const baseLines = script.flatMap(s => [
-    `── ${s.section} ──`,
-    ...s.lines,
-    '', // gap between sections
-  ]);
+  // If a custom script was provided, use that directly. Otherwise build the default STU25 script.
+  const baseLines = customScript && customScript.trim()
+    ? customScript.split('\n').map(l => {
+        const t = l.trim();
+        // Auto-mark heading lines (starting with emoji + space + caps, or all caps)
+        if (/^[━─#]/.test(t) || /^[A-Z0-9 \-—:]+$/.test(t) && t.length > 4 && t.length < 80) {
+          return t.startsWith('──') ? t : `── ${t} ──`;
+        }
+        return l;
+      })
+    : buildScript(lead, competitors).flatMap(s => [
+        `── ${s.section} ──`,
+        ...s.lines,
+        '',
+      ]);
 
   // Session-editable lines
   const [editMode, setEditMode] = useState(false);

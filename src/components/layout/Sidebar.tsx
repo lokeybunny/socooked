@@ -46,6 +46,7 @@ const navEntries: NavEntry[] = [
   { to: '/research', icon: Target, label: 'Finder', botIcon: true },
   { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
   { to: '/powerdial', icon: Sparkles, label: 'PowerD', purple: true },
+  { to: '/sms', icon: MessageSquare, label: 'SMS', botIcon: true },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   {

@@ -21,8 +21,9 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 
-const DEFAULT_SMS_AFTER_TRANSFER =
-  "Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?";
+// Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
+// in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
+const DEFAULT_SMS_AFTER_TRANSFER = "";
 
 /**
  * Fires a one-shot SMS to the lead the moment we hand them off to a live agent.
@@ -837,11 +838,11 @@ Deno.serve(async (req) => {
           } else {
             console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
             // Fire follow-up SMS to the lead now that they're connected to the agent
-            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsEnabled = settingsObj.sms_after_transfer === true;
             const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
-            if (smsEnabled && leadPhone) {
+            if (smsEnabled && leadPhone && smsMessage) {
               await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
             }
           }
@@ -886,11 +887,11 @@ Deno.serve(async (req) => {
           if (!redirected) {
             console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
           } else {
-            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsEnabled = settingsObj.sms_after_transfer === true;
             const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
               ? settingsObj.sms_after_transfer_message.trim()
               : DEFAULT_SMS_AFTER_TRANSFER;
-            if (smsEnabled && leadPhone) {
+            if (smsEnabled && leadPhone && smsMessage) {
               await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
             }
           }
@@ -982,11 +983,11 @@ Deno.serve(async (req) => {
             }).eq("id", callLogId);
 
             if (fallbackOk) {
-              const smsEnabled = settingsObj.sms_after_transfer !== false;
+              const smsEnabled = settingsObj.sms_after_transfer === true;
               const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
                 ? settingsObj.sms_after_transfer_message.trim()
                 : DEFAULT_SMS_AFTER_TRANSFER;
-              if (smsEnabled && leadPhone) {
+              if (smsEnabled && leadPhone && smsMessage) {
                 await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
               }
             }
