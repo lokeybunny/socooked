@@ -1085,7 +1085,7 @@ Deno.serve(async (req) => {
       const vmDropEnabled = settingsObj.voicemail_drop_enabled !== false; // ON by default
       const vmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
         ? settingsObj.voicemail_drop_url.trim()
-        : "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/powerdial/voicemail-default.mp3";
+        : "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/powerdial/voicemail-warren.mp3";
 
       let vmDropped = false;
       if (vmDropEnabled && vmDropUrl) {
