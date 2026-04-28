@@ -80,7 +80,14 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [aiAssistGreeting, setAiAssistGreeting] = useState(initialState.aiAssistGreeting);
   const [smsAfterTransfer, setSmsAfterTransfer] = useState(initialState.smsAfterTransfer);
   const [smsAfterTransferMessage, setSmsAfterTransferMessage] = useState(initialState.smsAfterTransferMessage);
+  const [smsSequenceId, setSmsSequenceId] = useState(initialState.smsSequenceId);
+  const [sequences, setSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase.from('sms_sequences').select('id, name').eq('is_active', true).order('created_at', { ascending: false })
+      .then(({ data }) => setSequences((data as any[]) || []));
+  }, []);
 
   useEffect(() => {
     const nextState = getSettingsFormState(campaign.settings || {});
