@@ -31,29 +31,27 @@ const CORS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Files bundled with the edge function (sit next to index.ts).
-const FILES: Record<string, { path: string; mime: string }> = {
-  warren: { path: "./voicemail-warren.wav", mime: "audio/wav" },
+import { VOICEMAIL_WARREN_BYTES_BASE64 } from "./voicemail-warren-data.ts";
+
+function decodeBase64(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// Files embedded as base64 inside the bundle so Twilio always gets a valid
+// audio response (no dependency on storage MIME types or file presence).
+const FILES: Record<string, { mime: string; bytes: Uint8Array; format: string }> = {
+  warren: {
+    mime: "audio/wav",
+    bytes: decodeBase64(VOICEMAIL_WARREN_BYTES_BASE64),
+    format: "WAV / pcm_mulaw / 8000Hz / mono",
+  },
 };
 
-// In-memory cache so repeated Twilio fetches don't re-read the file.
-const fileCache = new Map<string, Uint8Array>();
-
-async function loadFile(key: string): Promise<{ bytes: Uint8Array; mime: string } | null> {
-  const entry = FILES[key];
-  if (!entry) return null;
-  let bytes = fileCache.get(key);
-  if (!bytes) {
-    try {
-      const url = new URL(entry.path, import.meta.url);
-      bytes = new Uint8Array(await Deno.readFile(url));
-      fileCache.set(key, bytes);
-    } catch (err) {
-      console.error(`[powerdial-voicemail-audio] failed to read ${entry.path}:`, err);
-      return null;
-    }
-  }
-  return { bytes, mime: entry.mime };
+function loadFile(key: string): { bytes: Uint8Array; mime: string; format: string } | null {
+  return FILES[key] || null;
 }
 
 function audioHeaders(mime: string, length: number) {
