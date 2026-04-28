@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { ShieldCheck, ShieldAlert, RefreshCw, Wrench, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 
+type RetryInfo = { attempts: number; next_at: string | null; last_error?: string | null };
+
 type MissingRow = {
   call_log_id: string;
   phone: string;
@@ -16,16 +18,18 @@ type MissingRow = {
   age_minutes: number;
   sms_status: string | null;
   last_error?: string;
+  retry?: RetryInfo;
 };
 
 type HealthResponse = {
   healthy: boolean;
+  mode?: string;
   lookbackHours: number;
   graceMinutes: number;
   checked_at: string;
-  summary: { total: number; sent: number; sending: number; failed: number; missing: number };
+  summary: { total: number; sent: number; sending: number; failed: number; missing: number; pending_retries?: number; exhausted?: number };
   missing: MissingRow[];
-  repairs: Array<{ call_log_id: string; ok: boolean; error?: string }>;
+  repairs: Array<{ call_log_id: string; ok: boolean; error?: string; attempts?: number; recovered?: boolean; exhausted?: boolean }>;
 };
 
 export default function VoicemailHealthCheck() {
@@ -98,47 +102,79 @@ export default function VoicemailHealthCheck() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
             <Stat label="Total VM drops" value={data.summary.total} />
             <Stat label="SMS sent" value={data.summary.sent} tone="ok" />
             <Stat label="Sending" value={data.summary.sending} />
             <Stat label="Failed" value={data.summary.failed} tone={data.summary.failed > 0 ? 'warn' : undefined} />
             <Stat label="Missing" value={data.summary.missing} tone={data.summary.missing > 0 ? 'bad' : 'ok'} />
+            <Stat label="Retry queue" value={data.summary.pending_retries ?? 0} tone={(data.summary.pending_retries ?? 0) > 0 ? 'warn' : 'ok'} />
+            <Stat label="Exhausted" value={data.summary.exhausted ?? 0} tone={(data.summary.exhausted ?? 0) > 0 ? 'bad' : 'ok'} />
+          </div>
+
+          <div className="text-[10px] text-muted-foreground">
+            Background retry runs every 5 min · backoff 2/5/15/60/240 min · alerts on recovery & exhaustion
           </div>
 
           {!healthy && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
-              {missingCount} voicemail drop{missingCount === 1 ? '' : 's'} {missingCount === 1 ? 'is' : 'are'} missing the VoidFix follow-up SMS. Click <strong>Repair Missing</strong> to resend.
+              {missingCount} voicemail drop{missingCount === 1 ? '' : 's'} {missingCount === 1 ? 'is' : 'are'} missing the VoidFix follow-up SMS.
+              {(data.summary.pending_retries ?? 0) > 0 && ` ${data.summary.pending_retries} queued for auto-retry.`}
+              {' '}Click <strong>Repair Missing</strong> to retry now.
             </div>
           )}
 
           {data.missing.length > 0 && (
             <div>
               <div className="text-xs font-medium mb-2">Missing follow-ups</div>
-              <ScrollArea className="h-40 rounded border">
+              <ScrollArea className="h-48 rounded border">
                 <div className="divide-y">
-                  {data.missing.map((m) => (
-                    <div key={m.call_log_id} className="p-2 text-xs flex items-center justify-between gap-2">
-                      <div>
-                        <div className="font-mono">{m.phone}</div>
-                        <div className="text-muted-foreground">
-                          dropped {format(new Date(m.voicemail_dropped_at), 'MMM d, h:mm a')} · {m.age_minutes}m ago
+                  {data.missing.map((m) => {
+                    const attempts = m.retry?.attempts ?? 0;
+                    const exhausted = attempts >= 5;
+                    const nextLabel = m.retry?.next_at
+                      ? `next retry ${format(new Date(m.retry.next_at), 'h:mm a')}`
+                      : attempts === 0 ? 'awaiting auto-retry' : exhausted ? 'retries exhausted' : '';
+                    return (
+                      <div key={m.call_log_id} className="p-2 text-xs flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-mono">{m.phone}</div>
+                          <div className="text-muted-foreground">
+                            dropped {format(new Date(m.voicemail_dropped_at), 'MMM d, h:mm a')} · {m.age_minutes}m ago
+                          </div>
+                          {(attempts > 0 || nextLabel) && (
+                            <div className="text-amber-500 mt-0.5">
+                              {attempts > 0 && `attempt ${attempts}/5 · `}{nextLabel}
+                            </div>
+                          )}
+                          {m.last_error && <div className="text-red-500 mt-0.5 truncate">last error: {m.last_error}</div>}
                         </div>
-                        {m.last_error && <div className="text-red-500 mt-0.5">last error: {m.last_error}</div>}
+                        <Badge variant="outline" className={exhausted ? 'text-red-500 border-red-500/40' : 'text-amber-500 border-amber-500/40'}>
+                          {exhausted ? 'exhausted' : (m.sms_status ?? 'never sent')}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="text-amber-500 border-amber-500/40">
-                        {m.sms_status ?? 'never sent'}
-                      </Badge>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </div>
           )}
 
           {data.repairs.length > 0 && (
-            <div className="text-xs text-muted-foreground">
-              Last repair: {data.repairs.filter((r) => r.ok).length} succeeded · {data.repairs.filter((r) => !r.ok).length} failed
+            <div className="text-xs text-muted-foreground space-y-1">
+              <div>
+                Last pass ({data.mode ?? 'check'}): {data.repairs.filter((r) => r.ok).length} succeeded · {data.repairs.filter((r) => !r.ok).length} failed
+              </div>
+              {data.repairs.some((r) => r.recovered) && (
+                <div className="text-emerald-500">
+                  ✅ {data.repairs.filter((r) => r.recovered).length} recovered after previous failure (Telegram alert sent)
+                </div>
+              )}
+              {data.repairs.some((r) => r.exhausted) && (
+                <div className="text-red-500">
+                  🚨 {data.repairs.filter((r) => r.exhausted).length} exhausted retries (Telegram alert sent)
+                </div>
+              )}
             </div>
           )}
 
