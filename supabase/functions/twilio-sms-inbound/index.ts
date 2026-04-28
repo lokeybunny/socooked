@@ -21,6 +21,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Defaults — overridable via app_settings.sms_auto_reply
 const DEFAULT_FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
+const TWILIO_LANDLINE_NUMBER = "+17028298105";
 const DEFAULT_AUTO_REPLY_PREFIX =
   "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
 
@@ -68,6 +69,12 @@ function normalizePhone(raw: string | null | undefined): string {
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (String(raw).startsWith("+")) return `+${digits}`;
   return `+${digits}`;
+}
+
+function runAfterResponse(label: string, task: Promise<unknown>) {
+  const guarded = task.catch((e) => console.error(`[twilio-sms-inbound] ${label} error:`, e));
+  const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
+  if (typeof waitUntil === "function") waitUntil(guarded);
 }
 
 async function findCustomerByPhone(phone: string): Promise<string | null> {
@@ -161,6 +168,10 @@ Deno.serve(async (req) => {
 
     if (!from || !body) return twimlAck();
 
+    const normalizedFrom = normalizePhone(from);
+    const normalizedTo = normalizePhone(to);
+    const is8105LandlineWebhook = normalizedTo === TWILIO_LANDLINE_NUMBER;
+
     // Idempotency: skip duplicate webhooks
     if (sid) {
       const { data: dupe } = await sb
@@ -169,6 +180,24 @@ Deno.serve(async (req) => {
         .eq("external_id", sid)
         .limit(1);
       if (dupe && dupe[0]) {
+        if (is8105LandlineWebhook) {
+          const { data: priorReply } = await sb
+            .from("communications")
+            .select("id")
+            .eq("type", "sms")
+            .eq("direction", "outbound")
+            .eq("provider", "voidfix")
+            .eq("metadata->>source", "twilio-auto-reply-voidfix")
+            .eq("metadata->>twilio_sid", sid)
+            .eq("status", "sent")
+            .limit(1);
+          if (!priorReply?.[0]) {
+            const cfg = await loadConfig();
+            if (cfg.enabled) {
+              runAfterResponse("duplicate retry VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, null, body, cfg));
+            }
+          }
+        }
         return twimlAck();
       }
     }
@@ -182,38 +211,34 @@ Deno.serve(async (req) => {
       type: "sms",
       direction: "inbound",
       body,
-      from_address: normalizePhone(from),
-      to_address: normalizePhone(to),
-      phone_number: normalizePhone(from),
+      from_address: normalizedFrom,
+      to_address: normalizedTo,
+      phone_number: normalizedFrom,
       provider: "twilio",
       external_id: sid || null,
       status: "received",
       customer_id: customerId,
       metadata: {
-        source: "twilio-landline-reply",
-        landline_reply: true,
-        twilio_number: normalizePhone(to),
+        source: is8105LandlineWebhook ? "twilio-landline-reply" : "twilio-inbound-non-8105",
+        landline_reply: is8105LandlineWebhook,
+        twilio_number: normalizedTo,
       },
     });
 
     const cfg = await loadConfig();
 
-    // Send the requested auto-reply from the VoidFix phone/device, not Twilio TwiML.
-    if (cfg.enabled) {
-      try {
-        await sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg);
-      } catch (e) {
-        console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
-      }
+    // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline.
+    if (cfg.enabled && is8105LandlineWebhook) {
+      runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg));
+    } else if (!is8105LandlineWebhook) {
+      console.log(`[twilio-sms-inbound] skipped auto-reply: webhook To=${normalizedTo || "unknown"} is not ${TWILIO_LANDLINE_NUMBER}`);
     } else {
       console.log("[twilio-sms-inbound] auto-reply disabled by app_settings");
     }
 
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
-    if (cfg.forward_enabled) {
-      forwardToVoidfixCell(normalizePhone(from), normalizePhone(to), body, cfg.forward_to_cell).catch((e) =>
-        console.error("[twilio-sms-inbound] forward error:", e),
-      );
+    if (cfg.forward_enabled && is8105LandlineWebhook) {
+      runAfterResponse("forward", forwardToVoidfixCell(normalizedFrom, normalizedTo, body, cfg.forward_to_cell));
     }
 
     return twimlAck();
