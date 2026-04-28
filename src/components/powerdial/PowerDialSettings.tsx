@@ -46,6 +46,11 @@ function getSettingsFormState(settings: any) {
       nextSettings.ai_assist_greeting ||
         "Hey, I'm calling in regards to your property listings. Do you have a second to talk?",
     ),
+    smsAfterTransfer: nextSettings.sms_after_transfer !== false,
+    smsAfterTransferMessage: String(
+      nextSettings.sms_after_transfer_message ||
+        'Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?',
+    ),
   };
 }
 
