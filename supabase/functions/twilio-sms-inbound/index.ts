@@ -19,26 +19,37 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Cell to forward to (VoidFix line ending 8105)
-const FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
-
-const AUTO_REPLY_PREFIX =
+// Defaults — overridable via app_settings.sms_auto_reply
+const DEFAULT_FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
+const DEFAULT_AUTO_REPLY_PREFIX =
   "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
 
-// Compose the auto-reply body so the recipient sees BOTH the canned line
-// AND a quoted copy of the message they just sent. This gives the lead
-// contextual confirmation that we received the right text and gives the
-// operator (when they read the thread later) the original message inline.
-function buildAutoReply(inboundBody: string): string {
+type AutoReplyConfig = {
+  enabled: boolean;
+  forward_enabled: boolean;
+  prefix: string;
+  forward_to_cell: string;
+  include_quoted: boolean;
+};
+
+async function loadConfig(): Promise<AutoReplyConfig> {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "sms_auto_reply").maybeSingle();
+  const v = (data?.value || {}) as Partial<AutoReplyConfig>;
+  return {
+    enabled: v.enabled !== false,
+    forward_enabled: v.forward_enabled !== false,
+    prefix: typeof v.prefix === "string" && v.prefix.trim() ? v.prefix : DEFAULT_AUTO_REPLY_PREFIX,
+    forward_to_cell: typeof v.forward_to_cell === "string" && v.forward_to_cell.trim() ? v.forward_to_cell : DEFAULT_FORWARD_TO_CELL,
+    include_quoted: v.include_quoted !== false,
+  };
+}
+
+function buildAutoReply(inboundBody: string, cfg: AutoReplyConfig): string {
   const trimmed = (inboundBody || "").trim();
-  if (!trimmed) return AUTO_REPLY_PREFIX;
-  // Cap quoted body length so we always stay inside a single SMS segment
-  // (Twilio splits >1600 chars; carriers truncate aggressively past ~320).
+  if (!trimmed || !cfg.include_quoted) return cfg.prefix;
   const MAX_QUOTE = 600;
-  const quoted = trimmed.length > MAX_QUOTE
-    ? `${trimmed.slice(0, MAX_QUOTE).trim()}…`
-    : trimmed;
-  return `${AUTO_REPLY_PREFIX}\n\nYou wrote:\n"${quoted}"`;
+  const quoted = trimmed.length > MAX_QUOTE ? `${trimmed.slice(0, MAX_QUOTE).trim()}…` : trimmed;
+  return `${cfg.prefix}\n\nYou wrote:\n"${quoted}"`;
 }
 
 function twimlAck() {
@@ -73,8 +84,7 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   return data && data[0] ? data[0].id : null;
 }
 
-async function forwardToVoidfixCell(from: string, twilioNumber: string, body: string) {
-  // Send a copy of the inbound message to the VoidFix cell so the operator sees it
+async function forwardToVoidfixCell(from: string, twilioNumber: string, body: string, cell: string) {
   const forwardBody = `[Twilio ${twilioNumber}] From ${from}:\n${body}`;
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
@@ -83,7 +93,7 @@ async function forwardToVoidfixCell(from: string, twilioNumber: string, body: st
         "Content-Type": "application/json",
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ action: "send", to: FORWARD_TO_CELL, body: forwardBody }),
+      body: JSON.stringify({ action: "send", to: cell, body: forwardBody }),
     });
   } catch (e) {
     console.error("[twilio-sms-inbound] forward to voidfix failed:", e);
@@ -96,10 +106,11 @@ async function sendVoidfixAutoReply(
   sid: string | null,
   customerId: string | null,
   inboundBody: string,
+  cfg: AutoReplyConfig,
 ) {
   const to = normalizePhone(from);
   if (!to) return;
-  const replyBody = buildAutoReply(inboundBody);
+  const replyBody = buildAutoReply(inboundBody, cfg);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
     headers: {
@@ -179,17 +190,25 @@ Deno.serve(async (req) => {
       metadata: { source: "twilio-webhook", twilio_number: to },
     });
 
+    const cfg = await loadConfig();
+
     // Send the requested auto-reply from the VoidFix phone/device, not Twilio TwiML.
-    try {
-      await sendVoidfixAutoReply(from, to, sid || null, customerId, body);
-    } catch (e) {
-      console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
+    if (cfg.enabled) {
+      try {
+        await sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg);
+      } catch (e) {
+        console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
+      }
+    } else {
+      console.log("[twilio-sms-inbound] auto-reply disabled by app_settings");
     }
 
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
-    forwardToVoidfixCell(normalizePhone(from), normalizePhone(to), body).catch((e) =>
-      console.error("[twilio-sms-inbound] forward error:", e),
-    );
+    if (cfg.forward_enabled) {
+      forwardToVoidfixCell(normalizePhone(from), normalizePhone(to), body, cfg.forward_to_cell).catch((e) =>
+        console.error("[twilio-sms-inbound] forward error:", e),
+      );
+    }
 
     return twimlAck();
   } catch (err) {
