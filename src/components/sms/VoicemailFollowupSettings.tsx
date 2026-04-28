@@ -15,7 +15,8 @@ const DEFAULT_VM_SMS_TEXT =
 type Campaign = { id: string; name: string; settings: any };
 type RecentDrop = {
   id: string;
-  to_phone: string | null;
+  to_address: string | null;
+  phone_number: string | null;
   body: string | null;
   status: string | null;
   created_at: string;
@@ -45,13 +46,13 @@ export default function VoicemailFollowupSettings() {
     setLoadingRecent(true);
     const { data } = await supabase
       .from('communications')
-      .select('id, to_phone, body, status, created_at, metadata')
+      .select('id, to_address, phone_number, body, status, created_at, metadata')
       .eq('provider', 'twilio')
       .eq('direction', 'outbound')
       .ilike('metadata->>source', '%voicemail-drop%')
       .order('created_at', { ascending: false })
       .limit(50);
-    setRecent((data as RecentDrop[]) || []);
+    setRecent((data as unknown as RecentDrop[]) || []);
     setLoadingRecent(false);
   };
 
@@ -165,7 +166,7 @@ export default function VoicemailFollowupSettings() {
                 return (
                   <div key={r.id} className="border border-border rounded-lg p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono">{r.to_phone}</span>
+                      <span className="text-xs font-mono">{r.to_address || r.phone_number}</span>
                       <Badge variant="outline" className={`text-[9px] ${ok ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
                         {r.status || 'sent'}
                       </Badge>
