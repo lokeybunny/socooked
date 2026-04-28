@@ -391,28 +391,8 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
   }
 
   // ===== DUPLICATE-DIAL GUARD =====
-  // Block re-dialing any phone that already had a successful connection
-  // (human_connected / transferred_to_human) in THIS campaign — prevents
-  // the same number being called twice when the queue is reset.
-  const { data: priorConnected } = await sb
-    .from("powerdial_call_logs")
-    .select("id, twilio_call_sid, amd_result, disposition, created_at")
-    .eq("campaign_id", campaign.id)
-    .eq("phone", phone)
-    .or("amd_result.eq.human,disposition.eq.transferred_to_human,disposition.eq.connected_to_vapi")
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (priorConnected?.length) {
-    console.log(
-      `${logPrefix} Skipping ${phone} — already connected in this campaign (call ${priorConnected[0].twilio_call_sid || priorConnected[0].id})`,
-    );
-    await sb.from("powerdial_queue").update({
-      status: "completed",
-      last_result: "skipped_already_connected",
-    }).eq("id", queueItem.id).in("status", ["pending", "retry_later", "dialing"]);
-    return { dialed: false, reason: "already_connected_in_campaign", message: `${phone} already reached in this campaign` };
-  }
+  const dupCheck = await checkDuplicateDialGuard(campaign, queueItem, phone, logPrefix);
+  if (dupCheck) return dupCheck;
 
   const { data: dialLock } = await sb
     .from("powerdial_queue")
