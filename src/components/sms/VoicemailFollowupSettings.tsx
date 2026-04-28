@@ -87,6 +87,8 @@ export default function VoicemailFollowupSettings() {
   };
 
   return (
+    <div className="space-y-4">
+    <VoicemailHealthCheck />
     <div className="grid lg:grid-cols-2 gap-4">
       {/* Settings */}
       <div className="glass-card p-5 space-y-4">
