@@ -1235,6 +1235,12 @@ Deno.serve(async (req) => {
       } catch (_) { /* fall back to default URL */ }
 
       let vmDropped = false;
+      const vmDropClaimed = await claimVoicemailDrop(callLogId);
+      if (!vmDropClaimed) {
+        console.warn(`[powerdial-webhook] Duplicate voicemail AMD ignored for call ${callLogId || callSid}`);
+        return json({ ok: true, amd_result: amdResult, vm_dropped: false, duplicate: true });
+      }
+
       if (vmDropEnabled && vmDropUrl) {
         try {
           const isAfterMessageEnd = answeredBy.startsWith("machine_end");
@@ -1257,6 +1263,7 @@ Deno.serve(async (req) => {
           );
           if (redirectResp.ok) {
             vmDropped = true;
+            await sb.from("powerdial_call_logs").update({ voicemail_drop_completed_at: new Date().toISOString() }).eq("id", callLogId);
             console.log(`[powerdial-webhook] Voicemail drop sent for call ${callSid}: ${vmDropUrl}`);
           } else {
             const errText = await redirectResp.text();
