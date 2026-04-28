@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Loader2, Save, RefreshCw, ArrowRight, ArrowLeft, Phone } from 'lucide-react';
+import { Loader2, Save, RefreshCw, ArrowRight, ArrowLeft, Phone, Zap } from 'lucide-react';
 
 type Config = {
   enabled: boolean;
