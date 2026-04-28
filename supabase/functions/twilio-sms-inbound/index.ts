@@ -84,8 +84,7 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   return data && data[0] ? data[0].id : null;
 }
 
-async function forwardToVoidfixCell(from: string, twilioNumber: string, body: string) {
-  // Send a copy of the inbound message to the VoidFix cell so the operator sees it
+async function forwardToVoidfixCell(from: string, twilioNumber: string, body: string, cell: string) {
   const forwardBody = `[Twilio ${twilioNumber}] From ${from}:\n${body}`;
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
@@ -94,7 +93,7 @@ async function forwardToVoidfixCell(from: string, twilioNumber: string, body: st
         "Content-Type": "application/json",
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ action: "send", to: FORWARD_TO_CELL, body: forwardBody }),
+      body: JSON.stringify({ action: "send", to: cell, body: forwardBody }),
     });
   } catch (e) {
     console.error("[twilio-sms-inbound] forward to voidfix failed:", e);
@@ -107,10 +106,11 @@ async function sendVoidfixAutoReply(
   sid: string | null,
   customerId: string | null,
   inboundBody: string,
+  cfg: AutoReplyConfig,
 ) {
   const to = normalizePhone(from);
   if (!to) return;
-  const replyBody = buildAutoReply(inboundBody);
+  const replyBody = buildAutoReply(inboundBody, cfg);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
     headers: {
