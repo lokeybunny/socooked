@@ -17,6 +17,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const VOIDFIX_API_KEY = Deno.env.get("VOIDFIX_API_KEY") || "";
 const VOIDFIX_DEVICE_ID = Deno.env.get("VOIDFIX_DEVICE_ID") || "";
 const VOIDFIX_SEND_URL = "https://sms.voidfix.com/services/send.php";
+const VOIDFIX_READ_URL = "https://sms.voidfix.com/services/read-messages.php";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
