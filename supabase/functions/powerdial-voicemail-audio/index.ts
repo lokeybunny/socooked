@@ -170,14 +170,29 @@ Deno.serve(async (req) => {
     }
   }
 
-  // -------- Stream audio (default) --------
-  const fileKey = (url.searchParams.get("file") || "warren").toLowerCase();
-  const loaded = loadFile(fileKey);
-  if (!loaded) {
-    return new Response(JSON.stringify({ ok: false, error: `unknown file: ${fileKey}` }), {
-      status: 404,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+  // -------- Stream audio --------
+  // ?id=<uuid> → load from voicemail_recordings table (uploaded by user)
+  // ?file=warren → load embedded fallback bundle
+  const recordingId = url.searchParams.get("id");
+  let loaded: { bytes: Uint8Array; mime: string; format: string } | null = null;
+
+  if (recordingId) {
+    loaded = await loadFromDb(recordingId);
+    if (!loaded) {
+      return new Response(JSON.stringify({ ok: false, error: `recording not found: ${recordingId}` }), {
+        status: 404,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    const fileKey = (url.searchParams.get("file") || "warren").toLowerCase();
+    loaded = loadFile(fileKey);
+    if (!loaded) {
+      return new Response(JSON.stringify({ ok: false, error: `unknown file: ${fileKey}` }), {
+        status: 404,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
   }
 
   // Honor Range requests for Twilio (returns 206 with the slice).
