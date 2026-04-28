@@ -5864,6 +5864,87 @@ export type Database = {
         }
         Relationships: []
       }
+      voicemail_recordings: {
+        Row: {
+          channels: number
+          codec: string
+          created_at: string
+          created_by: string | null
+          duration_sec: number | null
+          file_size: number | null
+          id: string
+          is_active: boolean
+          last_fetch_status: Json | null
+          last_test_amd_result: string | null
+          last_test_call_sid: string | null
+          last_test_played_at: string | null
+          mime_type: string
+          name: string
+          original_filename: string | null
+          original_format: string | null
+          original_size: number | null
+          pause_after_sec: number
+          pause_before_sec: number
+          public_url: string
+          sample_rate: number
+          storage_path: string
+          tts_fallback_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          channels?: number
+          codec?: string
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          last_fetch_status?: Json | null
+          last_test_amd_result?: string | null
+          last_test_call_sid?: string | null
+          last_test_played_at?: string | null
+          mime_type?: string
+          name: string
+          original_filename?: string | null
+          original_format?: string | null
+          original_size?: number | null
+          pause_after_sec?: number
+          pause_before_sec?: number
+          public_url: string
+          sample_rate?: number
+          storage_path: string
+          tts_fallback_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channels?: number
+          codec?: string
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          file_size?: number | null
+          id?: string
+          is_active?: boolean
+          last_fetch_status?: Json | null
+          last_test_amd_result?: string | null
+          last_test_call_sid?: string | null
+          last_test_played_at?: string | null
+          mime_type?: string
+          name?: string
+          original_filename?: string | null
+          original_format?: string | null
+          original_size?: number | null
+          pause_after_sec?: number
+          pause_before_sec?: number
+          public_url?: string
+          sample_rate?: number
+          storage_path?: string
+          tts_fallback_text?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           created_at: string

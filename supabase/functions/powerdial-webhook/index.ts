@@ -1117,20 +1117,38 @@ Deno.serve(async (req) => {
       // plays the configured MP3 directly into the recipient's voicemail box,
       // then hangs up. Otherwise, just hang up immediately.
       const vmDropEnabled = settingsObj.voicemail_drop_enabled !== false; // ON by default
-      const vmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
+      let vmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
         ? settingsObj.voicemail_drop_url.trim()
         : "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren";
+
+      // Prefer the active recording from voicemail_recordings (admin-managed).
+      let pauseBeforeSec = 1;
+      let pauseAfterSec = 0;
+      let ttsFallbackText: string | null = null;
+      try {
+        const { data: activeRec } = await sb
+          .from("voicemail_recordings")
+          .select("id, pause_before_sec, pause_after_sec, tts_fallback_text")
+          .eq("is_active", true)
+          .maybeSingle();
+        if (activeRec?.id) {
+          vmDropUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${activeRec.id}`;
+          pauseBeforeSec = Number(activeRec.pause_before_sec ?? 2);
+          pauseAfterSec = Number(activeRec.pause_after_sec ?? 1);
+          ttsFallbackText = activeRec.tts_fallback_text || null;
+        }
+      } catch (_) { /* fall back to default URL */ }
 
       let vmDropped = false;
       if (vmDropEnabled && vmDropUrl) {
         try {
-          // With MachineDetection="DetectMessageEnd", Twilio fires AMD with
-          // AnsweredBy="machine_end_beep" immediately AFTER the beep. So we
-          // play the voicemail right away — no guess-pause needed. We add
-          // a tiny 0.5s buffer to avoid clipping into the very tail of the beep.
           const isAfterMessageEnd = answeredBy.startsWith("machine_end");
-          const pauseLen = isAfterMessageEnd ? "1" : "3";
-          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play><Hangup/></Response>`;
+          const pauseLen = isAfterMessageEnd ? String(Math.max(1, pauseBeforeSec - 1)) : String(pauseBeforeSec + 1);
+          const tailPause = `<Pause length="${Math.max(0, pauseAfterSec)}"/>`;
+          const ttsFallback = ttsFallbackText
+            ? `<Say voice="Polly.Joanna" language="en-US">${escapeXml(ttsFallbackText)}</Say>`
+            : "";
+          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
           const redirectResp = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
             {

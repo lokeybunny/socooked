@@ -32,6 +32,31 @@ const CORS = {
 };
 
 import { VOICEMAIL_WARREN_BYTES_BASE64 } from "./voicemail-warren-data.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const SUPABASE_URL_ENV = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY_ENV = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const sbAdmin = SUPABASE_URL_ENV && SUPABASE_SERVICE_ROLE_KEY_ENV
+  ? createClient(SUPABASE_URL_ENV, SUPABASE_SERVICE_ROLE_KEY_ENV)
+  : null;
+
+async function loadFromDb(id: string): Promise<{ bytes: Uint8Array; mime: string; format: string } | null> {
+  if (!sbAdmin) return null;
+  const { data: row } = await sbAdmin
+    .from("voicemail_recordings")
+    .select("storage_path, mime_type, codec, sample_rate, channels")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row?.storage_path) return null;
+  const { data: file, error } = await sbAdmin.storage.from("content-uploads").download(row.storage_path);
+  if (error || !file) return null;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  return {
+    bytes,
+    mime: row.mime_type || "audio/wav",
+    format: `WAV / ${row.codec} / ${row.sample_rate}Hz / ${row.channels}ch`,
+  };
+}
 
 function decodeBase64(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -145,14 +170,29 @@ Deno.serve(async (req) => {
     }
   }
 
-  // -------- Stream audio (default) --------
-  const fileKey = (url.searchParams.get("file") || "warren").toLowerCase();
-  const loaded = loadFile(fileKey);
-  if (!loaded) {
-    return new Response(JSON.stringify({ ok: false, error: `unknown file: ${fileKey}` }), {
-      status: 404,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+  // -------- Stream audio --------
+  // ?id=<uuid> → load from voicemail_recordings table (uploaded by user)
+  // ?file=warren → load embedded fallback bundle
+  const recordingId = url.searchParams.get("id");
+  let loaded: { bytes: Uint8Array; mime: string; format: string } | null = null;
+
+  if (recordingId) {
+    loaded = await loadFromDb(recordingId);
+    if (!loaded) {
+      return new Response(JSON.stringify({ ok: false, error: `recording not found: ${recordingId}` }), {
+        status: 404,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    const fileKey = (url.searchParams.get("file") || "warren").toLowerCase();
+    loaded = loadFile(fileKey);
+    if (!loaded) {
+      return new Response(JSON.stringify({ ok: false, error: `unknown file: ${fileKey}` }), {
+        status: 404,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
   }
 
   // Honor Range requests for Twilio (returns 206 with the slice).

@@ -330,9 +330,14 @@ export default function PowerDial() {
               <p className="text-xs text-muted-foreground">Automated outbound calling system</p>
             </div>
           </div>
-          <Button onClick={() => setShowCreate(true)} size="sm" className="bg-purple-500 hover:bg-purple-600 text-white">
-            <Plus className="h-4 w-4 mr-1" /> New Campaign
-          </Button>
+          <div className="flex items-center gap-2">
+            <a href="/powerdial/voicemails" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted">
+              <Voicemail className="h-3.5 w-3.5" /> Voicemails
+            </a>
+            <Button onClick={() => setShowCreate(true)} size="sm" className="bg-purple-500 hover:bg-purple-600 text-white">
+              <Plus className="h-4 w-4 mr-1" /> New Campaign
+            </Button>
+          </div>
         </div>
 
         {/* Campaign Selector */}
