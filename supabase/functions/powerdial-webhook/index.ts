@@ -1334,20 +1334,19 @@ Deno.serve(async (req) => {
           ? settingsObj.voicemail_drop_sms_text.trim()
           : DEFAULT_VOICEMAIL_DROP_SMS;
         if (vmSmsEnabled && vmSmsText) {
-          const smsClaimed = await claimVoicemailDropSms(callLogId);
-          if (smsClaimed) {
-            const smsResult = await sendVoicemailDropSms({
-              leadPhone,
-              message: vmSmsText,
-              campaignId,
-              callLogId,
-              customerId: leadCustomerId,
-              voicemailDropUrl: vmDropUrl,
-            });
-            await markVoicemailDropSms(callLogId, smsResult.ok, smsResult.error);
-          } else {
-            console.warn(`[powerdial-webhook] VM-drop SMS already sent or in progress for call ${callLogId}`);
-          }
+          // Do not depend on the call-log tracking columns before sending: older
+          // function instances can have a stale schema cache and falsely block the
+          // VoidFix send. The powerdial-sms endpoint + communications unique index
+          // are the source of truth for duplicate protection per call_log_id.
+          const smsResult = await sendVoicemailDropSms({
+            leadPhone,
+            message: vmSmsText,
+            campaignId,
+            callLogId,
+            customerId: leadCustomerId,
+            voicemailDropUrl: vmDropUrl,
+          });
+          await markVoicemailDropSms(callLogId, smsResult.ok, smsResult.error);
         }
       }
 
