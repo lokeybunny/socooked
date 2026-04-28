@@ -245,5 +245,69 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
         <Save className="h-4 w-4 mr-1" /> Save Settings
       </Button>
     </div>
+    </div>
+  );
+}
+
+function GlobalAppSettings() {
+  const [script, setScript] = useState('');
+  const [quickText, setQuickText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['teleprompter_default_script', 'sms_quick_text']);
+      for (const row of data || []) {
+        if (row.key === 'teleprompter_default_script') setScript(String((row.value as any)?.body || ''));
+        if (row.key === 'sms_quick_text') setQuickText(String((row.value as any)?.body || ''));
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    const rows = [
+      { key: 'teleprompter_default_script', value: { body: script } },
+      { key: 'sms_quick_text', value: { body: quickText } },
+    ];
+    const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'key' });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else toast.success('Global settings saved');
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="glass-card p-6 space-y-4">
+      <h3 className="text-sm font-semibold text-foreground">Global Settings (Teleprompter & Quick Text)</h3>
+      <div>
+        <Label>Teleprompter Default Script</Label>
+        <textarea
+          className="flex min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+          placeholder={"Paste your closing script here. Lines in ALL CAPS or starting with —/#/━ become section headers."}
+          value={script}
+          onChange={(e) => setScript(e.target.value)}
+        />
+        <p className="text-[10px] text-muted-foreground mt-1">Used by the Live Transfer popup. Leave empty to fall back to the built-in STU25 cold-call script.</p>
+      </div>
+      <div>
+        <Label>Default Quick-Text Message</Label>
+        <textarea
+          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder="Default body for the 'Text User' button on live transfers."
+          value={quickText}
+          onChange={(e) => setQuickText(e.target.value)}
+        />
+      </div>
+      <Button onClick={save} disabled={saving} size="sm">
+        <Save className="h-4 w-4 mr-1" /> Save Global
+      </Button>
+    </div>
   );
 }
