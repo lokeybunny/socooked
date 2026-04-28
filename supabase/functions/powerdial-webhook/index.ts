@@ -25,6 +25,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
 const DEFAULT_SMS_AFTER_TRANSFER = "";
+const DEFAULT_VOICEMAIL_DROP_SMS = "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192.";
 
 /**
  * Fires a one-shot SMS to the lead the moment we hand them off to a live agent.
@@ -105,6 +106,101 @@ async function sendTransferSms(opts: {
     }
   } catch (err) {
     console.error("[powerdial-webhook] Transfer SMS exception:", err);
+  }
+}
+
+async function claimVoicemailDrop(callLogId: string): Promise<boolean> {
+  if (!callLogId) return false;
+  const claimedAt = new Date().toISOString();
+  const { data, error } = await sb
+    .from("powerdial_call_logs")
+    .update({ voicemail_drop_claimed_at: claimedAt })
+    .eq("id", callLogId)
+    .is("voicemail_drop_claimed_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[powerdial-webhook] Voicemail drop claim error:", error);
+    return false;
+  }
+  return Boolean(data);
+}
+
+async function claimVoicemailDropSms(callLogId: string): Promise<boolean> {
+  if (!callLogId) return false;
+  const { data, error } = await sb
+    .from("powerdial_call_logs")
+    .update({ voicemail_drop_sms_status: "sending" })
+    .eq("id", callLogId)
+    .is("voicemail_drop_sms_sent_at", null)
+    .or("voicemail_drop_sms_status.is.null,voicemail_drop_sms_status.eq.failed")
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[powerdial-webhook] VM-drop SMS claim error:", error);
+    return false;
+  }
+  return Boolean(data);
+}
+
+async function markVoicemailDropSms(callLogId: string, ok: boolean, error?: string) {
+  if (!callLogId) return;
+  await sb.from("powerdial_call_logs").update({
+    voicemail_drop_sms_status: ok ? "sent" : "failed",
+    voicemail_drop_sms_sent_at: ok ? new Date().toISOString() : null,
+    ...(error ? { meta: { voicemail_drop_sms_error: error } } : {}),
+  }).eq("id", callLogId);
+}
+
+async function sendVoicemailDropSms(opts: {
+  leadPhone: string;
+  message: string;
+  campaignId: string;
+  callLogId: string;
+  customerId?: string | null;
+  voicemailDropUrl?: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const to = normalizePhone(opts.leadPhone);
+  if (!to || !opts.message.trim()) return { ok: false, error: "missing_to_or_body" };
+  if (!SUPABASE_SERVICE_ROLE_KEY) return { ok: false, error: "missing_service_role_key" };
+
+  try {
+    const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        action: "send",
+        to,
+        body: opts.message,
+        customer_id: opts.customerId || null,
+        source: "powerdial-voicemail-drop-sms",
+        metadata: {
+          source: "powerdial-voicemail-drop-sms",
+          campaign_id: opts.campaignId,
+          call_log_id: opts.callLogId,
+          voicemail_drop_url: opts.voicemailDropUrl || null,
+        },
+      }),
+    });
+    const smsText = await smsResp.text();
+    let data: any = {};
+    try { data = smsText ? JSON.parse(smsText) : {}; } catch { data = { raw: smsText }; }
+    if (!smsResp.ok || data?.ok === false) {
+      const error = data?.error || data?.message || smsText.slice(0, 300) || `sms_http_${smsResp.status}`;
+      console.error(`[powerdial-webhook] VM-drop VoidFix SMS failed [${smsResp.status}]:`, error);
+      return { ok: false, error };
+    }
+    console.log(`[powerdial-webhook] VM-drop VoidFix SMS sent to ${to}`);
+    return { ok: true };
+  } catch (err) {
+    const error = String(err);
+    console.error("[powerdial-webhook] VM-drop VoidFix SMS exception:", err);
+    return { ok: false, error };
   }
 }
 
