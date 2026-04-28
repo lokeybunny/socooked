@@ -89,14 +89,10 @@ export default function TwilioKeypad({
     if (pollRef.current) window.clearInterval(pollRef.current);
     pollRef.current = window.setInterval(async () => {
       try {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        const r = await fetch(`https://${projectId}.supabase.co/functions/v1/twilio-dial`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${anonKey}` },
-          body: JSON.stringify({ action: 'status', call_sid: sid }),
+        const { data, error } = await supabase.functions.invoke('twilio-dial', {
+          body: { action: 'status', call_sid: sid },
         });
-        const data = await r.json();
+        if (error) return;
         if (data?.ok) {
           setCallStatus(data.status);
           if (startedAtRef.current && ['in-progress', 'ringing', 'queued', 'initiated'].includes(data.status)) {
@@ -126,15 +122,11 @@ export default function TwilioKeypad({
     }
     setDialing(true);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const r = await fetch(`https://${projectId}.supabase.co/functions/v1/twilio-dial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${anonKey}` },
-        body: JSON.stringify({ action: 'dial', to: number, caller }),
+      const { data, error } = await supabase.functions.invoke('twilio-dial', {
+        body: { action: 'dial', to: number, caller },
       });
-      const data = await r.json();
-      if (!r.ok || !data?.ok) { toast.error(data?.error || 'Dial failed'); return; }
+      if (error) { toast.error(error.message || 'Dial failed'); return; }
+      if (!data?.ok) { toast.error(data?.error || 'Dial failed'); return; }
       setCallSid(data.call_sid);
       setCallStatus(data.status || 'initiated');
       toast.success(`Ringing your phone… answer to connect`);
@@ -149,12 +141,8 @@ export default function TwilioKeypad({
   const hangup = async () => {
     if (!callSid) return;
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      await fetch(`https://${projectId}.supabase.co/functions/v1/twilio-dial`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: anonKey, Authorization: `Bearer ${anonKey}` },
-        body: JSON.stringify({ action: 'hangup', call_sid: callSid }),
+      await supabase.functions.invoke('twilio-dial', {
+        body: { action: 'hangup', call_sid: callSid },
       });
       toast('Hanging up…');
     } catch (e: any) {
