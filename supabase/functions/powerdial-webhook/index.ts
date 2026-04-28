@@ -19,6 +19,73 @@ const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
 const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+
+const DEFAULT_SMS_AFTER_TRANSFER =
+  "Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?";
+
+/**
+ * Fires a one-shot SMS to the lead the moment we hand them off to a live agent.
+ * Logs a row in `communications` so it shows up in the PowerD SMS inbox.
+ */
+async function sendTransferSms(opts: {
+  leadPhone: string;
+  message: string;
+  campaignId: string;
+  callLogId: string;
+  customerId?: string | null;
+}): Promise<void> {
+  try {
+    const to = normalizePhone(opts.leadPhone);
+    const from = normalizePhone(TWILIO_FROM_NUMBER);
+    if (!to || !from || !opts.message?.trim()) {
+      console.warn(`[powerdial-webhook] Skipping transfer SMS — to=${to} from=${from} hasBody=${!!opts.message}`);
+      return;
+    }
+
+    const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: to, From: from, Body: opts.message }),
+      },
+    );
+
+    const data = await resp.json().catch(() => ({} as any));
+    const ok = resp.ok;
+    if (!ok) {
+      console.error(`[powerdial-webhook] Transfer SMS Twilio error ${resp.status}:`, data);
+    } else {
+      console.log(`[powerdial-webhook] Transfer SMS sent to ${to} (sid=${data?.sid})`);
+    }
+
+    await sb.from("communications").insert({
+      type: "sms",
+      direction: "outbound",
+      body: opts.message,
+      from_address: from,
+      to_address: to,
+      phone_number: to,
+      provider: "twilio",
+      external_id: data?.sid || null,
+      status: ok ? "sent" : "failed",
+      customer_id: opts.customerId || null,
+      metadata: {
+        source: "powerdial-transfer-sms",
+        campaign_id: opts.campaignId,
+        call_log_id: opts.callLogId,
+        ...(ok ? {} : { error: data?.message || `twilio_${resp.status}` }),
+      },
+    });
+  } catch (err) {
+    console.error("[powerdial-webhook] Transfer SMS exception:", err);
+  }
+}
 
 function twimlResponse(xml: string) {
   return new Response(xml, {
