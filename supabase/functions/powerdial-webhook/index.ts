@@ -906,6 +906,18 @@ Deno.serve(async (req) => {
 
           if (!redirected) {
             console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
+            // Lead likely hung up before redirect — mark call terminated and
+            // advance the campaign so the queue doesn't stall forever.
+            await sb.from("powerdial_call_logs").update({
+              twilio_status: "completed",
+              connected_to_vapi: false,
+            }).eq("id", callLogId);
+            await updateQueueStatusOnce(queueItemId, {
+              status: "completed",
+              last_result: "transfer_failed_hangup",
+            });
+            const advanceResult = await advanceCampaign(campaignId, "[powerdial-webhook]");
+            console.log(`[powerdial-webhook] Advance after AI Assist failure for ${campaignId}:`, advanceResult);
           } else {
             const smsEnabled = settingsObj.sms_after_transfer === true;
             const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
