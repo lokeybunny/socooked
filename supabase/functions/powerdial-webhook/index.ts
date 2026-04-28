@@ -778,6 +778,21 @@ Deno.serve(async (req) => {
 
       await sb.from("powerdial_call_logs").update({ amd_result: amdResult }).eq("id", callLogId);
 
+      // Fetch settings + existing log up-front so BOTH human and voicemail branches can use them
+      const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
+        sb.from("powerdial_call_logs").select("meta, batch_id, phone, customer_id").eq("id", callLogId).single(),
+        sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
+      ]);
+
+      const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+        ? existingLog.meta as Record<string, unknown>
+        : {};
+
+      const settingsObj = {
+        ...DEFAULT_POWERDIAL_SETTINGS,
+        ...((campSettings?.settings || {}) as Record<string, unknown>),
+      } as Record<string, unknown>;
+
       if (connectVapi) {
         const queueProcessed = await updateQueueStatusOnce(queueItemId, {
           status: "completed",
@@ -787,12 +802,6 @@ Deno.serve(async (req) => {
         if (queueProcessed) {
           await bumpCampaignCount(campaignId, "human_count");
         }
-
-        // Get frozen assistant from call log meta (set at dial time), fallback to campaign settings
-        const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
-          sb.from("powerdial_call_logs").select("meta, batch_id, phone, customer_id").eq("id", callLogId).single(),
-          sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
-        ]);
 
         const leadPhone = (existingLog as any)?.phone || "";
         const leadCustomerId = (existingLog as any)?.customer_id || null;
