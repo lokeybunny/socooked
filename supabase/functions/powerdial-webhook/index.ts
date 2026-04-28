@@ -35,6 +35,8 @@ async function sendTransferSms(opts: {
   campaignId: string;
   callLogId: string;
   customerId?: string | null;
+  sequenceId?: string | null;
+  contactName?: string | null;
 }): Promise<void> {
   try {
     const to = normalizePhone(opts.leadPhone);
@@ -49,14 +51,10 @@ async function sendTransferSms(opts: {
       `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: to, From: from, Body: opts.message }),
+        headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ To: to, From: from, Body: opts.message }).toString(),
       },
     );
-
     const data = await resp.json().catch(() => ({} as any));
     const ok = resp.ok;
     if (!ok) {
@@ -83,6 +81,27 @@ async function sendTransferSms(opts: {
         ...(ok ? {} : { error: data?.message || `twilio_${resp.status}` }),
       },
     });
+
+    // Auto-enroll into selected sequence (if any) on successful greet send
+    if (ok && opts.sequenceId) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({
+            action: "enroll",
+            sequence_id: opts.sequenceId,
+            phone: to,
+            contact_name: opts.contactName || null,
+            customer_id: opts.customerId || null,
+            source: "powerdial_campaign",
+            source_id: opts.campaignId,
+          }),
+        });
+      } catch (e) {
+        console.error("[powerdial-webhook] sequence enroll error:", e);
+      }
+    }
   } catch (err) {
     console.error("[powerdial-webhook] Transfer SMS exception:", err);
   }
