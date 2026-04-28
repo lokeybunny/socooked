@@ -3820,6 +3820,10 @@ export type Database = {
           twilio_status: string | null
           updated_at: string
           vapi_call_id: string | null
+          voicemail_drop_claimed_at: string | null
+          voicemail_drop_completed_at: string | null
+          voicemail_drop_sms_sent_at: string | null
+          voicemail_drop_sms_status: string | null
         }
         Insert: {
           ai_interested?: boolean | null
@@ -3847,6 +3851,10 @@ export type Database = {
           twilio_status?: string | null
           updated_at?: string
           vapi_call_id?: string | null
+          voicemail_drop_claimed_at?: string | null
+          voicemail_drop_completed_at?: string | null
+          voicemail_drop_sms_sent_at?: string | null
+          voicemail_drop_sms_status?: string | null
         }
         Update: {
           ai_interested?: boolean | null
@@ -3874,6 +3882,10 @@ export type Database = {
           twilio_status?: string | null
           updated_at?: string
           vapi_call_id?: string | null
+          voicemail_drop_claimed_at?: string | null
+          voicemail_drop_completed_at?: string | null
+          voicemail_drop_sms_sent_at?: string | null
+          voicemail_drop_sms_status?: string | null
         }
         Relationships: [
           {
