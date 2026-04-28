@@ -615,6 +615,28 @@ export default function PowerDial() {
                     {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RotateCcw className="h-4 w-4 mr-1" />}
                     Restart Campaign
                   </Button>
+
+                  <div className="flex items-center gap-2 px-2 py-1 rounded-md border border-border bg-muted/30">
+                    <Switch
+                      id="bypass-dup-guard"
+                      checked={Boolean((activeCampaign.settings as any)?.bypass_duplicate_guard)}
+                      onCheckedChange={async (checked) => {
+                        const newSettings = { ...(activeCampaign.settings || {}), bypass_duplicate_guard: checked };
+                        const { error } = await supabase
+                          .from('powerdial_campaigns')
+                          .update({ settings: newSettings })
+                          .eq('id', activeCampaign.id);
+                        if (error) { toast.error(error.message); return; }
+                        toast.success(checked
+                          ? '24h duplicate guard BYPASSED — same number can be re-dialed'
+                          : '24h duplicate guard ON — blocks any number dialed in last 24h');
+                      }}
+                      className="data-[state=checked]:bg-amber-500"
+                    />
+                    <label htmlFor="bypass-dup-guard" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
+                      Bypass 24h dup-guard
+                    </label>
+                  </div>
                 </>
               )}
               {activeCampaign.status === 'running' && (
