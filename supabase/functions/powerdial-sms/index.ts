@@ -123,9 +123,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     metadata: { source: inboundSource, device_id: payload.device_id || null },
   });
 
-  // Send the same "this is my cell" auto-reply for inbound texts to the VoidFix cell,
-  // throttled per-sender so ongoing conversations aren't interrupted.
-  await maybeSendCellAutoReply(from, body, customerId);
+  // NOTE: No "this is my cell" auto-reply here — that fires only for the
+  // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
+  // texts to the VoidFix cell.
 
   // Forward to sequence engine (fire-and-forget) to advance any active enrollments
   try {
