@@ -123,6 +123,33 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  const handleTestInbound = async () => {
+    setSending(true);
+    try {
+      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/powerdial-sms`;
+      const form = new URLSearchParams();
+      form.set('number', '+13235559999');
+      form.set('message', `Test inbound from VoidFix simulator @ ${new Date().toLocaleTimeString()}`);
+      form.set('ID', `test-${Date.now()}`);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        toast.error(`Webhook returned ${res.status}: ${text.slice(0, 120)}`);
+      } else {
+        toast.success('Test inbound delivered — check inbox');
+        setTimeout(load, 600);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Test webhook failed');
+    } finally {
+      setSending(false);
+    }
+  };
+
   return (
     <div className="glass-card flex flex-col md:flex-row min-h-[500px]">
       {/* Threads list */}
@@ -130,6 +157,9 @@ export default function PowerDialSMSInbox() {
         <div className="p-3 border-b border-border flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-purple-400" />
           <span className="text-sm font-semibold flex-1">SMS Inbox</span>
+          <Button size="sm" variant="ghost" onClick={handleTestInbound} title="Send a test inbound webhook to verify VoidFix integration">
+            <Webhook className="h-3.5 w-3.5" />
+          </Button>
           <Button size="sm" variant="ghost" onClick={load}><RefreshCw className="h-3.5 w-3.5" /></Button>
           <Button size="sm" variant="ghost" onClick={() => { setShowCompose(true); setActiveThread(null); }}>
             <Plus className="h-3.5 w-3.5" />
