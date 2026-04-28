@@ -45,6 +45,10 @@ export default function PowerDialSMSInbox() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    // Pull any new inbound messages from VoidFix first (their webhook is unreliable)
+    try {
+      await supabase.functions.invoke('powerdial-sms', { body: { action: 'poll', limit: 50 } });
+    } catch { /* non-fatal */ }
     const { data } = await supabase
       .from('communications')
       .select('*')
