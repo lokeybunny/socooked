@@ -132,7 +132,9 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   };
 
   return (
-    <div className="glass-card p-6 space-y-5 max-w-md">
+    <div className="space-y-5 max-w-md">
+      <GlobalAppSettings />
+      <div className="glass-card p-6 space-y-5">
       <h3 className="text-sm font-semibold text-foreground">Campaign Settings</h3>
 
       <div>
