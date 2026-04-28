@@ -294,13 +294,16 @@ export function Teleprompter({ open, onOpenChange, lead, customScript }: Telepro
     if (containerRef.current) containerRef.current.scrollTop = 0;
   };
 
-  // Reset on open
+  // Reset & auto-play on open at ~75% speed (closer to fast)
   useEffect(() => {
     if (open) {
-      setIsPlaying(false);
+      setScrollSpeed(146); // 75% of 5-200 range
       setTimeout(() => {
         if (containerRef.current) containerRef.current.scrollTop = 0;
+        setIsPlaying(true);
       }, 50);
+    } else {
+      setIsPlaying(false);
     }
   }, [open]);
 
