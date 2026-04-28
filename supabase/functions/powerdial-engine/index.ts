@@ -140,12 +140,15 @@ Deno.serve(async (req) => {
         const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
         const twilioAuth = `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`;
 
-        const { data: liveLogs } = await sb
+        const { data: liveLogs, error: liveLogsError } = await sb
           .from("powerdial_call_logs")
           .select("id, twilio_call_sid, queue_item_id")
           .eq("campaign_id", campaign_id)
-          .is("ended_at", null)
+          .in("twilio_status", ["initiated", "queued", "ringing", "in-progress", "answered"])
           .not("twilio_call_sid", "is", null);
+        if (liveLogsError) {
+          console.error("[powerdial-engine] stop: failed to load live calls:", liveLogsError.message);
+        }
 
         let cancelled = 0;
         for (const log of liveLogs || []) {
@@ -166,7 +169,7 @@ Deno.serve(async (req) => {
               cancelled++;
               await sb.from("powerdial_call_logs").update({
                 disposition: "cancelled_by_stop",
-                ended_at: new Date().toISOString(),
+                twilio_status: "canceled",
               }).eq("id", log.id);
             } else {
               console.error(`[powerdial-engine] stop: Twilio cancel failed for ${log.twilio_call_sid}:`, await resp.text());
