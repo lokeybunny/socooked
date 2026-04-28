@@ -90,6 +90,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [smsSequenceId, setSmsSequenceId] = useState(initialState.smsSequenceId);
   const [voicemailDropEnabled, setVoicemailDropEnabled] = useState(initialState.voicemailDropEnabled);
   const [voicemailDropUrl, setVoicemailDropUrl] = useState(initialState.voicemailDropUrl);
+  const [voicemailDropSmsEnabled, setVoicemailDropSmsEnabled] = useState(initialState.voicemailDropSmsEnabled);
+  const [voicemailDropSmsText, setVoicemailDropSmsText] = useState(initialState.voicemailDropSmsText);
   const [vmUploading, setVmUploading] = useState(false);
   const [sequences, setSequences] = useState<Array<{ id: string; name: string }>>([]);
   const [saving, setSaving] = useState(false);
