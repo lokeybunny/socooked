@@ -861,6 +861,16 @@ Deno.serve(async (req) => {
 
           if (!redirected) {
             console.error(`[powerdial-webhook] Failed to transfer human call to ${humanTransferPhone}`);
+            // Recover so the queue advances instead of stalling on a stuck row.
+            await sb.from("powerdial_call_logs").update({
+              twilio_status: "completed",
+              connected_to_vapi: false,
+            }).eq("id", callLogId);
+            await updateQueueStatusOnce(queueItemId, {
+              status: "completed",
+              last_result: "transfer_failed_hangup",
+            });
+            await advanceCampaign(campaignId, "[powerdial-webhook]");
           } else {
             console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
             // Fire follow-up SMS to the lead now that they're connected to the agent
