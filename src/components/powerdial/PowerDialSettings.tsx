@@ -324,6 +324,32 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             Twilio plays MP3 / WAV. Default: Warren's voicemail message.
           </p>
         </div>
+
+        {/* Voicemail Drop SMS — sent from VoidFix after a successful drop */}
+        <div className="space-y-2 border-t border-border/40 pt-3 mt-3">
+          <div className="flex items-center justify-between">
+            <Label className="cursor-pointer">📱 Voicemail Drop Text (sent from VoidFix)</Label>
+            <Switch
+              checked={voicemailDropSmsEnabled}
+              onCheckedChange={setVoicemailDropSmsEnabled}
+              disabled={!voicemailDropEnabled}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            After a voicemail drop is successfully delivered, automatically send this SMS from your VoidFix cell to the same recipient.
+          </p>
+          <Textarea
+            value={voicemailDropSmsText}
+            onChange={(e) => setVoicemailDropSmsText(e.target.value)}
+            disabled={!voicemailDropEnabled || !voicemailDropSmsEnabled}
+            rows={4}
+            placeholder="Hi this is Warren Guru. Just left you a voice mail…"
+            className="text-xs"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            {voicemailDropSmsText.length} chars · sends ~{Math.ceil(voicemailDropSmsText.length / 153) || 1} segment(s)
+          </p>
+        </div>
       </div>
 
       <div>
