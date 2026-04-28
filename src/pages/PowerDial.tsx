@@ -160,6 +160,9 @@ export default function PowerDial() {
       if (d?.reason && (d.reason === 'twilio_error' || d.reason === 'twilio_from_missing') && d?.message) {
         toast.error(d.message);
       }
+      if (body?.action === 'stop') {
+        setCurrentDialing(null);
+      }
       await loadCampaigns();
       if (activeCampaign) {
         const { data: updated } = await supabase.from('powerdial_campaigns').select('*').eq('id', activeCampaign.id).single();

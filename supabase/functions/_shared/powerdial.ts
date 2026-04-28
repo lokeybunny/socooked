@@ -925,13 +925,15 @@ async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string
   const callParams = new URLSearchParams({
     To: phone,
     From: selectedFrom,
-    MachineDetection: "Enable",
+    // Triple-dial must use the same beep-aware AMD mode as single dial.
+    // "Enable" returns generic machine results too early and misses the
+    // voicemail beep, which prevents reliable voicemail drops.
+    MachineDetection: "DetectMessageEnd",
     AsyncAmd: "true",
-    // Tuned for fast human detection — fires AMD callback within ~1s of "hello"
-    MachineDetectionTimeout: "3",
-    MachineDetectionSpeechThreshold: "1000",
-    MachineDetectionSpeechEndThreshold: "500",
-    MachineDetectionSilenceTimeout: "2000",
+    MachineDetectionTimeout: "30",
+    MachineDetectionSpeechThreshold: "2400",
+    MachineDetectionSpeechEndThreshold: "1200",
+    MachineDetectionSilenceTimeout: "5000",
     AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
     StatusCallback: `${webhookUrl}?type=status&campaign_id=${campaign.id}&queue_item_id=${queueItem.id}&call_log_id=${callLogId}`,
     StatusCallbackEvent: "initiated ringing answered completed",
