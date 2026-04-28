@@ -46,6 +46,11 @@ function getSettingsFormState(settings: any) {
       nextSettings.ai_assist_greeting ||
         "Hey, I'm calling in regards to your property listings. Do you have a second to talk?",
     ),
+    smsAfterTransfer: nextSettings.sms_after_transfer !== false,
+    smsAfterTransferMessage: String(
+      nextSettings.sms_after_transfer_message ||
+        'Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?',
+    ),
   };
 }
 
@@ -74,6 +79,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
   const [customAssistantId, setCustomAssistantId] = useState(initialState.customAssistantId);
   const [humanTransferPhone, setHumanTransferPhone] = useState(initialState.humanTransferPhone);
   const [aiAssistGreeting, setAiAssistGreeting] = useState(initialState.aiAssistGreeting);
+  const [smsAfterTransfer, setSmsAfterTransfer] = useState(initialState.smsAfterTransfer);
+  const [smsAfterTransferMessage, setSmsAfterTransferMessage] = useState(initialState.smsAfterTransferMessage);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -88,6 +95,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
     setCustomAssistantId(nextState.customAssistantId);
     setHumanTransferPhone(nextState.humanTransferPhone);
     setAiAssistGreeting(nextState.aiAssistGreeting);
+    setSmsAfterTransfer(nextState.smsAfterTransfer);
+    setSmsAfterTransferMessage(nextState.smsAfterTransferMessage);
   }, [campaign.id, settingsKey, campaign.settings]);
 
   const isCustom = vapiAssistantId === 'custom';
@@ -106,6 +115,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
       vapi_assistant_id: resolvedAssistantId,
       human_transfer_phone: humanTransferPhone.trim(),
       ai_assist_greeting: aiAssistGreeting.trim(),
+      sms_after_transfer: smsAfterTransfer,
+      sms_after_transfer_message: smsAfterTransferMessage.trim(),
     };
 
     const { error } = await supabase
@@ -176,6 +187,26 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
           onChange={(event) => setAiAssistGreeting(event.target.value)}
         />
         <p className="text-[10px] text-muted-foreground mt-1">Spoken to the lead by Twilio TTS to stall while we silently bridge in the live agent. Only used when <strong>AI Assist</strong> is on.</p>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-border p-3 bg-muted/20">
+        <div className="flex items-center justify-between">
+          <Label className="cursor-pointer">SMS After Live Transfer</Label>
+          <input
+            type="checkbox"
+            checked={smsAfterTransfer}
+            onChange={(e) => setSmsAfterTransfer(e.target.checked)}
+            className="h-4 w-4 rounded"
+          />
+        </div>
+        <textarea
+          className="flex min-h-[70px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          placeholder="Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?"
+          value={smsAfterTransferMessage}
+          onChange={(e) => setSmsAfterTransferMessage(e.target.value)}
+          disabled={!smsAfterTransfer}
+        />
+        <p className="text-[10px] text-muted-foreground">Sent to the lead the instant the call is bridged to a live agent (works for AI Off, AI Assist, and AI fallback transfers).</p>
       </div>
 
       <div>

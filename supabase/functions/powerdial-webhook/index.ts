@@ -19,6 +19,73 @@ const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY")!;
 const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID") || "";
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+
+const DEFAULT_SMS_AFTER_TRANSFER =
+  "Follow me on IG - https://instagram.com/W4RR3NGURU. Can I do one of your listings for free?";
+
+/**
+ * Fires a one-shot SMS to the lead the moment we hand them off to a live agent.
+ * Logs a row in `communications` so it shows up in the PowerD SMS inbox.
+ */
+async function sendTransferSms(opts: {
+  leadPhone: string;
+  message: string;
+  campaignId: string;
+  callLogId: string;
+  customerId?: string | null;
+}): Promise<void> {
+  try {
+    const to = normalizePhone(opts.leadPhone);
+    const from = normalizePhone(TWILIO_FROM_NUMBER);
+    if (!to || !from || !opts.message?.trim()) {
+      console.warn(`[powerdial-webhook] Skipping transfer SMS — to=${to} from=${from} hasBody=${!!opts.message}`);
+      return;
+    }
+
+    const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+    const resp = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: to, From: from, Body: opts.message }),
+      },
+    );
+
+    const data = await resp.json().catch(() => ({} as any));
+    const ok = resp.ok;
+    if (!ok) {
+      console.error(`[powerdial-webhook] Transfer SMS Twilio error ${resp.status}:`, data);
+    } else {
+      console.log(`[powerdial-webhook] Transfer SMS sent to ${to} (sid=${data?.sid})`);
+    }
+
+    await sb.from("communications").insert({
+      type: "sms",
+      direction: "outbound",
+      body: opts.message,
+      from_address: from,
+      to_address: to,
+      phone_number: to,
+      provider: "twilio",
+      external_id: data?.sid || null,
+      status: ok ? "sent" : "failed",
+      customer_id: opts.customerId || null,
+      metadata: {
+        source: "powerdial-transfer-sms",
+        campaign_id: opts.campaignId,
+        call_log_id: opts.callLogId,
+        ...(ok ? {} : { error: data?.message || `twilio_${resp.status}` }),
+      },
+    });
+  } catch (err) {
+    console.error("[powerdial-webhook] Transfer SMS exception:", err);
+  }
+}
 
 function twimlResponse(xml: string) {
   return new Response(xml, {
@@ -702,9 +769,12 @@ Deno.serve(async (req) => {
 
         // Get frozen assistant from call log meta (set at dial time), fallback to campaign settings
         const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
-          sb.from("powerdial_call_logs").select("meta, batch_id").eq("id", callLogId).single(),
+          sb.from("powerdial_call_logs").select("meta, batch_id, phone, customer_id").eq("id", callLogId).single(),
           sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
         ]);
+
+        const leadPhone = (existingLog as any)?.phone || "";
+        const leadCustomerId = (existingLog as any)?.customer_id || null;
 
         // If this is a triple-dial batch, cancel the sibling calls
         const batchId = (existingLog as any)?.batch_id;
@@ -766,6 +836,14 @@ Deno.serve(async (req) => {
             console.error(`[powerdial-webhook] Failed to transfer human call to ${humanTransferPhone}`);
           } else {
             console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
+            // Fire follow-up SMS to the lead now that they're connected to the agent
+            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
+              ? settingsObj.sms_after_transfer_message.trim()
+              : DEFAULT_SMS_AFTER_TRANSFER;
+            if (smsEnabled && leadPhone) {
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+            }
           }
 
           return json({ ok: true, amd_result: amdResult, redirected, mode: "live_human_transfer", to: humanTransferPhone });
@@ -807,6 +885,14 @@ Deno.serve(async (req) => {
 
           if (!redirected) {
             console.error(`[powerdial-webhook] AI Assist warm handoff failed for ${humanTransferPhone}`);
+          } else {
+            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
+              ? settingsObj.sms_after_transfer_message.trim()
+              : DEFAULT_SMS_AFTER_TRANSFER;
+            if (smsEnabled && leadPhone) {
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+            }
           }
 
           return json({
@@ -894,6 +980,16 @@ Deno.serve(async (req) => {
                 twilio_from: normalizePhone(twilioFrom) || null,
               },
             }).eq("id", callLogId);
+
+            if (fallbackOk) {
+              const smsEnabled = settingsObj.sms_after_transfer !== false;
+              const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
+                ? settingsObj.sms_after_transfer_message.trim()
+                : DEFAULT_SMS_AFTER_TRANSFER;
+              if (smsEnabled && leadPhone) {
+                await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+              }
+            }
 
             return json({
               ok: true,

@@ -24,6 +24,8 @@ import PowerDialCallLog from '@/components/powerdial/PowerDialCallLog';
 import PowerDialSettings from '@/components/powerdial/PowerDialSettings';
 import PowerDialHealthMonitor from '@/components/powerdial/PowerDialHealthMonitor';
 import PowerDialStallDiagnostics from '@/components/powerdial/PowerDialStallDiagnostics';
+import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
+import { MessageSquare } from 'lucide-react';
 
 type Campaign = {
   id: string;
@@ -677,6 +679,7 @@ export default function PowerDial() {
               <TabsList>
                 <TabsTrigger value="queue"><List className="h-3.5 w-3.5 mr-1" /> Queue</TabsTrigger>
                 <TabsTrigger value="log"><BarChart3 className="h-3.5 w-3.5 mr-1" /> Call Log</TabsTrigger>
+                <TabsTrigger value="sms"><MessageSquare className="h-3.5 w-3.5 mr-1" /> SMS</TabsTrigger>
                 <TabsTrigger value="settings"><Settings className="h-3.5 w-3.5 mr-1" /> Settings</TabsTrigger>
               </TabsList>
               <TabsContent value="queue">
@@ -684,6 +687,9 @@ export default function PowerDial() {
               </TabsContent>
               <TabsContent value="log">
                 <PowerDialCallLog campaignId={activeCampaign.id} />
+              </TabsContent>
+              <TabsContent value="sms">
+                <PowerDialSMSInbox />
               </TabsContent>
               <TabsContent value="settings">
                 <PowerDialSettings campaign={activeCampaign} onUpdate={() => loadCampaigns()} />
