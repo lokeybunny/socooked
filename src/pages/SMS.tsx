@@ -106,6 +106,19 @@ export default function SMS() {
           external_id: (data as any)?.id || null,
           sent_at: new Date().toISOString(),
         });
+        // Auto-enroll into sequence if selected and send succeeded
+        if (ok && campSequenceId && campSequenceId !== 'none') {
+          await supabase.functions.invoke('sms-sequence-engine', {
+            body: {
+              action: 'enroll',
+              sequence_id: campSequenceId,
+              phone: r.phone,
+              contact_name: r.name,
+              source: 'sms_blast',
+              source_id: camp.id,
+            },
+          });
+        }
         if (ok) sent++; else failed++;
         await new Promise(r => setTimeout(r, 500)); // throttle
       }
