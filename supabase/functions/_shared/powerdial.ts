@@ -476,7 +476,7 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
 
   await sb.from("powerdial_campaigns").update({ current_index: queueItem.position }).eq("id", campaign.id);
 
-  const { data: log } = await sb.from("powerdial_call_logs").insert({
+  const { data: log, error: logError } = await sb.from("powerdial_call_logs").insert({
     campaign_id: campaign.id,
     queue_item_id: queueItem.id,
     customer_id: queueItem.customer_id,
@@ -488,6 +488,15 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
       assistant_source: "campaign_settings",
     },
   }).select("id").single();
+
+  if (logError) {
+    console.error(`${logPrefix} Call log insert failed for ${phone}:`, logError);
+    await sb.from("powerdial_queue").update({
+      status: "pending",
+      last_result: logError.code === "23505" ? "active_duplicate_call" : "call_log_insert_failed",
+    }).eq("id", queueItem.id).eq("status", "dialing");
+    return { dialed: false, reason: logError.code === "23505" ? "active_duplicate_call" : "call_log_insert_failed" };
+  }
 
   const callLogId = log?.id;
   const safeCallLogId = callLogId || "";
