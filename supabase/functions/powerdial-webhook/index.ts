@@ -836,6 +836,14 @@ Deno.serve(async (req) => {
             console.error(`[powerdial-webhook] Failed to transfer human call to ${humanTransferPhone}`);
           } else {
             console.log(`[powerdial-webhook] Live transferred call ${callSid} → ${humanTransferPhone}`);
+            // Fire follow-up SMS to the lead now that they're connected to the agent
+            const smsEnabled = settingsObj.sms_after_transfer !== false;
+            const smsMessage = (typeof settingsObj.sms_after_transfer_message === "string" && settingsObj.sms_after_transfer_message.trim())
+              ? settingsObj.sms_after_transfer_message.trim()
+              : DEFAULT_SMS_AFTER_TRANSFER;
+            if (smsEnabled && leadPhone) {
+              await sendTransferSms({ leadPhone, message: smsMessage, campaignId, callLogId, customerId: leadCustomerId });
+            }
           }
 
           return json({ ok: true, amd_result: amdResult, redirected, mode: "live_human_transfer", to: humanTransferPhone });
