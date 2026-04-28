@@ -185,5 +185,6 @@ export default function VoicemailFollowupSettings() {
         </ScrollArea>
       </div>
     </div>
+    </div>
   );
 }
