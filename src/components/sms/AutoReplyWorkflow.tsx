@@ -43,6 +43,14 @@ export default function AutoReplyWorkflow() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activity, setActivity] = useState<Comm[]>([]);
+  const [simulating, setSimulating] = useState(false);
+  const [simFrom, setSimFrom] = useState('+13235551234');
+  const [simBody, setSimBody] = useState('Hey Warren just got your voicemail!');
+  const [simResult, setSimResult] = useState<{
+    autoReply: { to: string; body: string } | null;
+    forward: { to: string; body: string } | null;
+    error?: string;
+  } | null>(null);
 
   const loadCfg = async () => {
     setLoading(true);
