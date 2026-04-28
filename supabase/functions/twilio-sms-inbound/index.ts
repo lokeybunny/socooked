@@ -22,8 +22,24 @@ const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // Cell to forward to (VoidFix line ending 8105)
 const FORWARD_TO_CELL = Deno.env.get("VOIDFIX_FORWARD_CELL") || "+14244658105";
 
-const AUTO_REPLY =
+const AUTO_REPLY_PREFIX =
   "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
+
+// Compose the auto-reply body so the recipient sees BOTH the canned line
+// AND a quoted copy of the message they just sent. This gives the lead
+// contextual confirmation that we received the right text and gives the
+// operator (when they read the thread later) the original message inline.
+function buildAutoReply(inboundBody: string): string {
+  const trimmed = (inboundBody || "").trim();
+  if (!trimmed) return AUTO_REPLY_PREFIX;
+  // Cap quoted body length so we always stay inside a single SMS segment
+  // (Twilio splits >1600 chars; carriers truncate aggressively past ~320).
+  const MAX_QUOTE = 600;
+  const quoted = trimmed.length > MAX_QUOTE
+    ? `${trimmed.slice(0, MAX_QUOTE).trim()}…`
+    : trimmed;
+  return `${AUTO_REPLY_PREFIX}\n\nYou wrote:\n"${quoted}"`;
+}
 
 function twimlAck() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<Response></Response>`;
@@ -74,9 +90,16 @@ async function forwardToVoidfixCell(from: string, twilioNumber: string, body: st
   }
 }
 
-async function sendVoidfixAutoReply(from: string, twilioNumber: string, sid: string | null, customerId: string | null) {
+async function sendVoidfixAutoReply(
+  from: string,
+  twilioNumber: string,
+  sid: string | null,
+  customerId: string | null,
+  inboundBody: string,
+) {
   const to = normalizePhone(from);
   if (!to) return;
+  const replyBody = buildAutoReply(inboundBody);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
     headers: {
@@ -86,13 +109,14 @@ async function sendVoidfixAutoReply(from: string, twilioNumber: string, sid: str
     body: JSON.stringify({
       action: "send",
       to,
-      body: AUTO_REPLY,
+      body: replyBody,
       customer_id: customerId,
       source: "twilio-auto-reply-voidfix",
       metadata: {
         source: "twilio-auto-reply-voidfix",
         twilio_number: normalizePhone(twilioNumber),
         twilio_sid: sid || null,
+        inbound_body: inboundBody,
       },
     }),
   });
@@ -157,7 +181,7 @@ Deno.serve(async (req) => {
 
     // Send the requested auto-reply from the VoidFix phone/device, not Twilio TwiML.
     try {
-      await sendVoidfixAutoReply(from, to, sid || null, customerId);
+      await sendVoidfixAutoReply(from, to, sid || null, customerId, body);
     } catch (e) {
       console.error("[twilio-sms-inbound] VoidFix auto-reply error:", e);
     }
