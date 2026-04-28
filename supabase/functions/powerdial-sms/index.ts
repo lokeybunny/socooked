@@ -87,10 +87,77 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   return data && data[0] ? data[0].id : null;
 }
 
-async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string }) {
+type CellAutoReplyConfig = {
+  enabled: boolean;
+  prefix: string;
+  cooldown_hours: number;
+};
+
+async function loadCellAutoReplyConfig(): Promise<CellAutoReplyConfig> {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "sms_auto_reply").maybeSingle();
+  const v = (data?.value || {}) as any;
+  return {
+    enabled: v.cell_enabled !== false, // default ON
+    prefix: typeof v.prefix === "string" && v.prefix.trim()
+      ? v.prefix
+      : "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.",
+    cooldown_hours: typeof v.cell_cooldown_hours === "number" ? v.cell_cooldown_hours : 24,
+  };
+}
+
+async function maybeSendCellAutoReply(fromRaw: string, inboundBody: string, customerId: string | null) {
+  try {
+    const cfg = await loadCellAutoReplyConfig();
+    if (!cfg.enabled) return;
+    const to = normalizePhone(fromRaw);
+    if (!to) return;
+    const last10 = to.replace(/\D/g, "").slice(-10);
+
+    // Skip if we already sent this auto-reply within cooldown window
+    const cutoff = new Date(Date.now() - cfg.cooldown_hours * 60 * 60 * 1000).toISOString();
+    const { data: recent } = await sb
+      .from("communications")
+      .select("id, created_at")
+      .eq("type", "sms")
+      .eq("direction", "outbound")
+      .eq("metadata->>source", "voidfix-cell-auto-reply")
+      .or(`to_address.ilike.%${last10}%,phone_number.ilike.%${last10}%`)
+      .gte("created_at", cutoff)
+      .limit(1);
+    if (recent && recent[0]) {
+      console.log("[powerdial-sms] cell auto-reply skipped (cooldown)", to);
+      return;
+    }
+
+    const result = await sendVoidfixSms(to, cfg.prefix);
+    await sb.from("communications").insert({
+      type: "sms",
+      direction: "outbound",
+      body: cfg.prefix,
+      from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+      to_address: to,
+      phone_number: to,
+      provider: "voidfix",
+      external_id: result.id || null,
+      status: result.ok ? "sent" : "failed",
+      customer_id: customerId,
+      metadata: {
+        source: "voidfix-cell-auto-reply",
+        device_id: VOIDFIX_DEVICE_ID,
+        inbound_body: inboundBody,
+        ...(result.error ? { error: result.error } : {}),
+      },
+    });
+  } catch (e) {
+    console.error("[powerdial-sms] cell auto-reply error", e);
+  }
+}
+
+async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string }) {
   const from = String(payload.from || "");
   const body = String(payload.body || "");
   const externalId = payload.id ? String(payload.id) : null;
+  const inboundSource = payload.source || "voidfix-webhook";
 
   // Idempotency: skip if external_id already stored
   if (externalId) {
@@ -115,8 +182,12 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     external_id: externalId,
     status: "received",
     customer_id: customerId,
-    metadata: { source: "voidfix-webhook", device_id: payload.device_id || null },
+    metadata: { source: inboundSource, device_id: payload.device_id || null },
   });
+
+  // Send the same "this is my cell" auto-reply for inbound texts to the VoidFix cell,
+  // throttled per-sender so ongoing conversations aren't interrupted.
+  await maybeSendCellAutoReply(from, body, customerId);
 
   // Forward to sequence engine (fire-and-forget) to advance any active enrollments
   try {
