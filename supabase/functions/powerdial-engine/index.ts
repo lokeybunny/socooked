@@ -246,13 +246,12 @@ Deno.serve(async (req) => {
         const callParams = new URLSearchParams({
           To: normalized,
           From: fromResolution.resolvedFrom,
-          MachineDetection: "Enable",
+          MachineDetection: "DetectMessageEnd",
           AsyncAmd: "true",
-          // Tuned for fast human detection — fires AMD callback within ~1s of "hello"
-          MachineDetectionTimeout: "3",
-          MachineDetectionSpeechThreshold: "1000",
-          MachineDetectionSpeechEndThreshold: "500",
-          MachineDetectionSilenceTimeout: "2000",
+          MachineDetectionTimeout: "30",
+          MachineDetectionSpeechThreshold: "2400",
+          MachineDetectionSpeechEndThreshold: "1200",
+          MachineDetectionSilenceTimeout: "5000",
           AsyncAmdStatusCallback: `${webhookUrl}?type=amd&campaign_id=test&queue_item_id=test&call_log_id=test`,
           StatusCallback: `${webhookUrl}?type=status&campaign_id=test&queue_item_id=test&call_log_id=test`,
           StatusCallbackEvent: "initiated ringing answered completed",
