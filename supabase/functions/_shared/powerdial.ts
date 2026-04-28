@@ -863,6 +863,9 @@ async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string
     return { dialed: false, reason: "invalid_phone" };
   }
 
+  const dupCheck = await checkDuplicateDialGuard(campaign, queueItem, phone, logPrefix);
+  if (dupCheck) return dupCheck;
+
   const { data: dialLock } = await sb
     .from("powerdial_queue")
     .update({
