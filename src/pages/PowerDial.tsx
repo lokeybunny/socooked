@@ -72,6 +72,7 @@ export default function PowerDial() {
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [scheduleEndDate, setScheduleEndDate] = useState('');
   const [scheduleEndTime, setScheduleEndTime] = useState('17:00');
+  const [livePopupCall, setLivePopupCall] = useState<{ phone: string; contact_name?: string | null; customer_id?: string | null } | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -671,6 +672,17 @@ export default function PowerDial() {
                   {currentDialing.contact_name && (
                     <span className="text-muted-foreground">({currentDialing.contact_name})</span>
                   )}
+                  <Button
+                    size="sm"
+                    className="ml-2 bg-emerald-500 hover:bg-emerald-600 text-white h-7"
+                    onClick={() => setLivePopupCall({
+                      phone: currentDialing.phone,
+                      contact_name: currentDialing.contact_name,
+                      customer_id: currentDialing.customer_id || currentDialing.lead_id,
+                    })}
+                  >
+                    <Headphones className="h-3.5 w-3.5 mr-1" /> Live Transfer
+                  </Button>
                 </div>
               )}
             </div>
