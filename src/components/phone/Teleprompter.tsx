@@ -9,6 +9,8 @@ interface TeleprompterProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   lead: any | null;
+  /** Optional override script text (plain text, sections separated by blank lines). When provided, replaces the default STU25 script. */
+  customScript?: string | null;
 }
 
 function buildScript(lead: any | null, _competitors: string[]): { section: string; lines: string[] }[] {
