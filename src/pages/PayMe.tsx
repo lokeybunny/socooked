@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt } from "lucide-react";
+import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
