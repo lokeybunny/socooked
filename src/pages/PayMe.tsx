@@ -100,6 +100,10 @@ const PayMe = () => {
     e.preventDefault();
     setErrorMsg(null); setErrorField(null);
 
+    if (!eligible || !verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+      return setError("Verify your email first to unlock card payments.", "email");
+    }
+
     const amt = Number(amount);
     if (!amt || amt < 1) return setError("Enter a valid amount of at least $1.", "amount");
     if (amt > 100000) return setError("Amount cannot exceed $100,000.", "amount");
@@ -125,14 +129,20 @@ const PayMe = () => {
       });
       if (error) throw new Error(error.message);
       if (!data?.ok) {
-        // Surface field hint from server
         setError(data?.error || "Charge failed", data?.field);
         return;
       }
-      setSuccess({ id: data.transactionId, amount: data.amount, last4: data.last4 });
+      setSuccess({
+        id: data.transactionId,
+        amount: data.amount,
+        last4: data.last4,
+        name,
+        email,
+        note,
+        date: new Date().toLocaleString(),
+      });
       toast.success(`Charged $${data.amount}`);
       setCardNumber(""); setExp(""); setCvv("");
-      loadReceipts();
     } catch (err: any) {
       // FunctionsHttpError stashes the JSON body on err.context
       let msg = err?.message || "Payment failed";
