@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type SMSMessage = {
@@ -346,6 +346,44 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const display = displayPhone(phoneKey);
+    if (!confirm(`Delete entire SMS thread with ${display}?\n\nThis removes all messages from the inbox. This cannot be undone.`)) return;
+    try {
+      // Match any communication where from_address or to_address ends with the last-10 digits
+      const likePattern = `%${phoneKey}`;
+      const { error } = await supabase
+        .from('communications')
+        .delete()
+        .eq('type', 'sms')
+        .or(`from_address.ilike.${likePattern},to_address.ilike.${likePattern}`);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      // Local cleanup
+      setMessages(prev => prev.filter(m => {
+        const cp = m.direction === 'inbound' ? m.from_address : m.to_address;
+        return normalizeLast10(cp) !== phoneKey;
+      }));
+      setUnreadThreads(prev => {
+        const next = new Set(prev);
+        next.delete(phoneKey);
+        return next;
+      });
+      if (seenInboundRef.current[phoneKey]) {
+        delete seenInboundRef.current[phoneKey];
+        persistSeen();
+      }
+      if (activeThreadRef.current === phoneKey) setActiveThread(null);
+      toast.success('Thread deleted');
+      load({ silent: true });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete thread');
+    }
+  };
+
   return (
     <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
@@ -371,35 +409,47 @@ export default function PowerDialSMSInbox() {
               const key = normalizeLast10(t.phone);
               const isActive = activeThread === key;
               return (
-                <button
+                <div
                   key={key}
-                  onClick={() => setActiveThread(key)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
+                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {unreadThreads.has(key) && (
-                        <span
-                          className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
-                          aria-label="New message"
-                        />
-                      )}
-                      <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                  <button
+                    onClick={() => setActiveThread(key)}
+                    className="w-full text-left px-3 py-2.5 pr-9"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {unreadThreads.has(key) && (
+                          <span
+                            className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
+                            aria-label="New message"
+                          />
+                        )}
+                        <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                      {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
-                    </Badge>
-                    {isLandlineReply(t.last) && (
-                      <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
-                        LANDLINE REPLY
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                        {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
                       </Badge>
-                    )}
-                    <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
-                  </div>
-                </button>
+                      {isLandlineReply(t.last) && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                          LANDLINE REPLY
+                        </Badge>
+                      )}
+                      <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteThread(e, key)}
+                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
+                    title="Delete thread"
+                    aria-label="Delete thread"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               );
             })
           )}
@@ -467,6 +517,16 @@ export default function PowerDialSMSInbox() {
                   </span>
                 );
               })()}
+              <div className="flex-1" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                onClick={(e) => activeThread && handleDeleteThread(e, activeThread)}
+                title="Delete thread"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
