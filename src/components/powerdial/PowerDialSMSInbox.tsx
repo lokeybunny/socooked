@@ -517,6 +517,16 @@ export default function PowerDialSMSInbox() {
                   </span>
                 );
               })()}
+              <div className="flex-1" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                onClick={(e) => activeThread && handleDeleteThread(e, activeThread)}
+                title="Delete thread"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
