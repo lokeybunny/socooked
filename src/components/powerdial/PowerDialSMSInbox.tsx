@@ -55,6 +55,11 @@ export default function PowerDialSMSInbox() {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const prevActiveCountRef = useRef(0);
+  // Per-thread latest inbound id we've already "seen" (in-memory only — clears on refresh)
+  const seenInboundRef = useRef<Record<string, string>>({});
+  const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
+  const activeThreadRef = useRef<string | null>(null);
+  useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
     const { data } = await supabase.from('sms_contacts').select('phone_last10, name');
@@ -90,6 +95,53 @@ export default function PowerDialSMSInbox() {
 
   useEffect(() => { load({ silent: false }); }, [load]);
   useEffect(() => { loadContacts(); }, [loadContacts]);
+
+  // Track unread inbound per thread. On first load, mark everything as "seen" (no false alarms).
+  // On subsequent loads, any inbound newer than the last-seen id for that thread = unread.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const latestInboundByThread = new Map<string, SMSMessage>();
+    for (const m of messages) {
+      if (m.direction !== 'inbound') continue;
+      const key = normalizeLast10(m.from_address);
+      if (!key || key.length !== 10) continue;
+      const cur = latestInboundByThread.get(key);
+      if (!cur || new Date(m.created_at) > new Date(cur.created_at)) {
+        latestInboundByThread.set(key, m);
+      }
+    }
+    const isFirstSeed = Object.keys(seenInboundRef.current).length === 0;
+    if (isFirstSeed) {
+      // Seed baseline — nothing is "new" on initial mount/refresh.
+      latestInboundByThread.forEach((msg, key) => { seenInboundRef.current[key] = msg.id; });
+      return;
+    }
+    setUnreadThreads(prev => {
+      const next = new Set(prev);
+      latestInboundByThread.forEach((msg, key) => {
+        if (seenInboundRef.current[key] !== msg.id && activeThreadRef.current !== key) {
+          next.add(key);
+        }
+      });
+      return next;
+    });
+  }, [messages]);
+
+  // Clear unread + update seen marker when a thread is opened
+  useEffect(() => {
+    if (!activeThread) return;
+    setUnreadThreads(prev => {
+      if (!prev.has(activeThread)) return prev;
+      const next = new Set(prev);
+      next.delete(activeThread);
+      return next;
+    });
+    // Update seen pointer to the latest inbound currently in this thread
+    const latest = messages
+      .filter(m => m.direction === 'inbound' && normalizeLast10(m.from_address) === activeThread)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    if (latest) seenInboundRef.current[activeThread] = latest.id;
+  }, [activeThread, messages]);
 
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
@@ -299,8 +351,16 @@ export default function PowerDialSMSInbox() {
                   className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium font-mono">{displayPhone(t.phone)}</span>
-                    <span className="text-[10px] text-muted-foreground">{format(new Date(t.last.created_at), 'MMM d')}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {unreadThreads.has(key) && (
+                        <span
+                          className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
+                          aria-label="New message"
+                        />
+                      )}
+                      <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
