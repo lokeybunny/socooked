@@ -127,6 +127,8 @@ async function sendVoidfixAutoReply(
   const to = normalizePhone(from);
   if (!to) return;
   const replyBody = buildAutoReply(inboundBody, cfg);
+  const t0 = performance.now();
+  console.log(`[twilio-sms-inbound][TIMING] → calling powerdial-sms (sid=${sid || "?"})`);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
     headers: {
@@ -147,9 +149,12 @@ async function sendVoidfixAutoReply(
       },
     }),
   });
+  const fetchMs = (performance.now() - t0).toFixed(0);
   const resultText = await resp.text();
+  const totalMs = (performance.now() - t0).toFixed(0);
+  console.log(`[twilio-sms-inbound][TIMING] ← powerdial-sms responded status=${resp.status} fetchMs=${fetchMs} totalMs=${totalMs}`);
   if (!resp.ok) {
-    throw new Error(`VoidFix auto-reply failed [${resp.status}]: ${resultText.slice(0, 300)}`);
+    throw new Error(`VoidFix auto-reply failed [${resp.status}] in ${totalMs}ms: ${resultText.slice(0, 300)}`);
   }
 }
 
