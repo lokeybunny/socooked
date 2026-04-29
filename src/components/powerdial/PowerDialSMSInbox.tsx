@@ -123,16 +123,29 @@ export default function PowerDialSMSInbox() {
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
 
-  // Always jump to the newest message when a thread opens or new messages arrive.
+  // Auto-scroll only when: thread newly opened, OR new messages arrived AND user was near bottom.
   useLayoutEffect(() => {
-    if (!activeThread || activeMessages.length === 0) return;
+    if (!activeThread || activeMessages.length === 0) {
+      prevActiveCountRef.current = activeMessages.length;
+      return;
+    }
     const root = scrollAreaRef.current;
     const viewport = root?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
     const scrollEl = viewport || root;
-    requestAnimationFrame(() => {
-      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
-      messagesEndRef.current?.scrollIntoView({ block: 'end' });
-    });
+    const prevCount = prevActiveCountRef.current;
+    const grew = activeMessages.length > prevCount;
+    const justOpened = prevCount === 0;
+    let nearBottom = true;
+    if (scrollEl && !justOpened) {
+      nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 120;
+    }
+    if (justOpened || (grew && nearBottom)) {
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+        messagesEndRef.current?.scrollIntoView({ block: 'end' });
+      });
+    }
+    prevActiveCountRef.current = activeMessages.length;
   }, [activeThread, activeMessages.length]);
 
   const handleSend = async (toOverride?: string) => {
