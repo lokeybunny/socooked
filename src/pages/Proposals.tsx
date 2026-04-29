@@ -127,7 +127,7 @@ export default function Proposals() {
     setDialogOpen(true);
   };
 
-  const openListingPreset = () => {
+  const openListingPreset = (overrides?: Partial<typeof blankForm>) => {
     setEditing(null);
     const exp = new Date();
     exp.setDate(exp.getDate() + 14);
@@ -138,7 +138,7 @@ export default function Proposals() {
       expiration_date: exp.toISOString().slice(0, 10),
       signature_required: true,
       notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
-      terms: '50% deposit due on signing, balance due on delivery. Two (2) free revisions included. Additional revisions billed at $50/each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom and added to the final invoice.',
+      terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.',
       proposal_body: `Real Estate Listing Video — $299 Package
 
 What's included:
@@ -154,15 +154,58 @@ Bedroom add-ons:
 • Properties with more than 4 bedrooms: +$50 per additional bedroom
   (Example: a 6-bedroom listing = $299 + (2 × $50) = $399)
 
-Terms:
-• 50% deposit on signing, balance due on delivery
-• Final video delivered as MP4 (1080×1920)
-• Additional revisions beyond the 2 included: $50 each
+Payment Terms:
+• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Final video delivered as MP4 (1080×1920) after payment is confirmed.
+• Additional revisions beyond the 2 included: $50 each.
 
-By signing below, the client agrees to the scope, pricing, and terms outlined above.`,
+By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
+      ...(overrides || {}),
     });
     setLineItems([
       { description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 },
+    ]);
+    setDialogOpen(true);
+  };
+
+  const openMonthlyRetainerPreset = (overrides?: Partial<typeof blankForm>) => {
+    setEditing(null);
+    const exp = new Date();
+    exp.setDate(exp.getDate() + 14);
+    setForm({
+      ...blankForm,
+      title: 'Monthly Retainer Venture — $2,500/month',
+      currency: 'USD',
+      expiration_date: exp.toISOString().slice(0, 10),
+      signature_required: true,
+      notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Includes content creation, ad management, and direct strategy access. Billed monthly in advance.',
+      terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle. Unused hours/deliverables do not roll over.',
+      proposal_body: `Monthly Retainer Venture — $2,500 / month
+
+What's included each month:
+• Ongoing AI-driven content production (video, social, marketing assets)
+• Paid ad campaign management & optimization
+• Direct strategy access and weekly check-ins
+• Priority turnaround on new requests
+• Performance reporting and analytics
+
+Engagement:
+• Month-to-month retainer, billed in advance
+• Either party may cancel with 7 days notice prior to the next billing cycle
+
+Payment Terms:
+• FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Service begins after first month's payment is confirmed.
+
+By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
+      ...(overrides || {}),
+    });
+    setLineItems([
+      { description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 },
     ]);
     setDialogOpen(true);
   };
