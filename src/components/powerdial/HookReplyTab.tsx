@@ -204,7 +204,7 @@ export default function HookReplyTab() {
             {visible.map(t => (
               <div key={t.id} className="border border-border rounded-lg p-3 bg-card/50">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-sm font-mono font-semibold">{formatPhone(t.phone)}</span>
+                  <span className="text-sm font-mono font-semibold">{displayName(t)}</span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] ${sentimentColor(t.sentiment)}`}>
                       {t.sentiment.toUpperCase()}
