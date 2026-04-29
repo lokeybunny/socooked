@@ -372,7 +372,7 @@ export default function PowerDialSMSInbox() {
       const { error } = await supabase.from('customers').insert({
         full_name: fallbackName,
         phone: e164,
-        status: 'lead',
+        status: 'active',
         source: 'sms_inbox',
         category: 'digital-services',
         notes: `Created from SMS thread on ${new Date().toLocaleString()}`,
