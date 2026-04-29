@@ -868,40 +868,15 @@ Deno.serve(async (req) => {
     <Number>${escapeXml(humanTransferPhone)}</Number>
   </Dial>
 </Response>`;
-      } else if (aiEnabled && aiAssistEnabled && humanTransferPhone) {
-        mode = "ai_assist_immediate";
-        const customGreeting = typeof settingsObj.ai_assist_greeting === "string" && settingsObj.ai_assist_greeting.trim()
-          ? settingsObj.ai_assist_greeting.trim()
-          : SHORT_AI_ASSIST_GREETING;
-        xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="Polly.Joanna-Neural">${escapeXml(customGreeting)}</Say>
-  <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
-    <Number>${escapeXml(humanTransferPhone)}</Number>
-  </Dial>
-</Response>`;
-      } else if (aiEnabled) {
-        const vapiPhoneNumber = typeof existingMeta.vapi_phone === "string" && existingMeta.vapi_phone.trim()
-          ? existingMeta.vapi_phone.trim()
-          : await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
-        if (vapiPhoneNumber) {
-          mode = "vapi_immediate";
-          xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Dial timeout="30" answerOnBridge="true" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
-    <Number>${escapeXml(vapiPhoneNumber)}</Number>
-  </Dial>
-</Response>`;
-        }
       }
 
       if (callLogId) {
         await sb.from("powerdial_call_logs").update({
-          connected_to_vapi: mode === "vapi_immediate",
-          ...(mode === "ai_assist_immediate" || mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
+          connected_to_vapi: false,
+          ...(mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
           meta: {
             ...existingMeta,
-            immediate_answer_twiml: true,
+            immediate_answer_twiml: mode !== "hold_for_amd",
             immediate_answer_mode: mode,
             twilio_from: callerId || null,
           },
