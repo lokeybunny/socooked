@@ -351,8 +351,16 @@ export default function PowerDialSMSInbox() {
                   className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium font-mono">{displayPhone(t.phone)}</span>
-                    <span className="text-[10px] text-muted-foreground">{format(new Date(t.last.created_at), 'MMM d')}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {unreadThreads.has(key) && (
+                        <span
+                          className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
+                          aria-label="New message"
+                        />
+                      )}
+                      <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
