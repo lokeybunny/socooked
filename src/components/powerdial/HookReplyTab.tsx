@@ -257,6 +257,9 @@ export default function HookReplyTab() {
                       <Ban className="h-3 w-3 mr-1" /> Move to DND
                     </Button>
                   )}
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] text-red-400 border-red-500/40 ml-auto" onClick={() => deleteThread(t)}>
+                    <Trash2 className="h-3 w-3 mr-1" /> Delete
+                  </Button>
                 </div>
 
                 <div className="mt-1 text-[10px] text-muted-foreground">
