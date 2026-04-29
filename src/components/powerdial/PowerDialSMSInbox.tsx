@@ -52,6 +52,12 @@ export default function PowerDialSMSInbox() {
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  // Send Proposal modal
+  const [proposalOpen, setProposalOpen] = useState(false);
+  const [proposalPhoneKey, setProposalPhoneKey] = useState<string | null>(null);
+  const [proposalStep, setProposalStep] = useState<'email' | 'choose'>('email');
+  const [proposalEmail, setProposalEmail] = useState('');
+  const [proposalSending, setProposalSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
