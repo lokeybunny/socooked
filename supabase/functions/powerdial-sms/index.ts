@@ -125,7 +125,7 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
 
   const customerId = await findCustomerByPhone(from);
 
-  await sb.from("communications").insert({
+  const { data: insertedRow } = await sb.from("communications").insert({
     type: "sms",
     direction: "inbound",
     body,
@@ -137,11 +137,27 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     status: "received",
     customer_id: customerId,
     metadata: { source: inboundSource, device_id: payload.device_id || null },
-  });
+  }).select("id, created_at").single();
 
   // NOTE: No "this is my cell" auto-reply here — that fires only for the
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
   // texts to the VoidFix cell.
+
+  // Hook Reply classifier — fire-and-forget
+  try {
+    fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({
+        phone: normalizePhone(from),
+        body,
+        message_id: insertedRow?.id || null,
+        message_created_at: insertedRow?.created_at || new Date().toISOString(),
+      }),
+    }).catch((e) => console.error("[powerdial-sms] hook classifier error", e));
+  } catch (e) {
+    console.error("[powerdial-sms] hook classifier error", e);
+  }
 
   // Forward to sequence engine (fire-and-forget) to advance any active enrollments
   try {
@@ -228,6 +244,24 @@ Deno.serve(async (req) => {
     const callLogId = extraMetadata?.call_log_id ? String(extraMetadata.call_log_id) : "";
 
     tStamp(`send action received to=${to} source=${source}`);
+
+    // DND guard — bypass for the auto-reply hook itself so the initial Warren Guru hook still fires
+    const bypassDnd = source === "twilio-auto-reply-voidfix";
+    if (!bypassDnd) {
+      const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
+      if (toLast10) {
+        const { data: dnd } = await sb
+          .from("sms_dnd_list")
+          .select("id, reason")
+          .eq("phone_last10", toLast10)
+          .limit(1);
+        if (dnd && dnd[0]) {
+          tStamp("blocked by DND list");
+          return json({ ok: false, error: "dnd", reason: dnd[0].reason || "opted_out" }, 403);
+        }
+      }
+    }
+
 
     if (source === "powerdial-voicemail-drop-sms" && callLogId) {
       const { data: existing } = await sb
@@ -363,7 +397,7 @@ Deno.serve(async (req) => {
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
       const createdAt = m.deliveredDate || m.sentDate || null;
-      await sb.from("communications").insert({
+      const { data: insertedRow } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
         body: String(m.message || ""),
@@ -376,9 +410,20 @@ Deno.serve(async (req) => {
         customer_id: customerId,
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
-      });
+      }).select("id, created_at").single();
       // No cell auto-reply for poll-imported inbound texts — auto-reply is
       // landline-only (handled by twilio-sms-inbound).
+      // Hook Reply classifier — fire-and-forget
+      fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({
+          phone: from,
+          body: String(m.message || ""),
+          message_id: insertedRow?.id || null,
+          message_created_at: insertedRow?.created_at || new Date().toISOString(),
+        }),
+      }).catch((e) => console.error("[powerdial-sms/poll] hook classifier error", e));
       // Advance sequences
       fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
         method: "POST",

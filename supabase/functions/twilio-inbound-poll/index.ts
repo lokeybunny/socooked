@@ -204,27 +204,87 @@ Deno.serve(async (req) => {
 
       // Auto-reply via VoidFix for messages to the 8105 landline (no dedupe)
       if (cfg.enabled && m.to === TWILIO_LANDLINE && m.from) {
-        try {
-          await sendVoidfixAutoReply(m.from, m.sid, m.to, m.body, cfg);
-          autoReplied++;
+        // DND guard: don't auto-reply (or open a hook thread) for opted-out numbers
+        const fromLast10 = String(m.from).replace(/\D/g, "").slice(-10);
+        const { data: dnd } = await sb
+          .from("sms_dnd_list")
+          .select("id")
+          .eq("phone_last10", fromLast10)
+          .limit(1);
+        if (dnd && dnd[0]) {
           await sb.from("twilio_inbound_logs").insert({
-            event: "poll-auto-reply:sent",
+            event: "poll-auto-reply:skipped-dnd",
             level: "info",
             from_number: m.from,
             to_number: m.to,
             message_sid: m.sid,
-            metadata: { triggered_by: "twilio-inbound-poll" },
+            metadata: { reason: "phone_in_dnd_list" },
           });
-        } catch (e) {
-          autoReplyFailed++;
-          await sb.from("twilio_inbound_logs").insert({
-            event: "poll-auto-reply:failed",
-            level: "error",
-            from_number: m.from,
-            to_number: m.to,
-            message_sid: m.sid,
-            metadata: { error: String((e as any)?.message || e) },
-          });
+        } else {
+          try {
+            await sendVoidfixAutoReply(m.from, m.sid, m.to, m.body, cfg);
+            autoReplied++;
+            await sb.from("twilio_inbound_logs").insert({
+              event: "poll-auto-reply:sent",
+              level: "info",
+              from_number: m.from,
+              to_number: m.to,
+              message_sid: m.sid,
+              metadata: { triggered_by: "twilio-inbound-poll" },
+            });
+
+            // Open a Hook Reply thread so the next inbound from this number
+            // gets classified and (if positive/neutral) scheduled for follow-up.
+            try {
+              const fromNorm = m.from.startsWith("+") ? m.from : `+${String(m.from).replace(/\D/g, "")}`;
+              // Look up the outbound communications row for this auto-reply
+              const { data: outboundRow } = await sb
+                .from("communications")
+                .select("id, body, created_at")
+                .eq("type", "sms")
+                .eq("direction", "outbound")
+                .eq("provider", "voidfix")
+                .eq("metadata->>twilio_sid", m.sid)
+                .order("created_at", { ascending: false })
+                .limit(1);
+
+              // Only open a thread if there isn't an active one already for this phone
+              const { data: existingThread } = await sb
+                .from("hook_reply_threads")
+                .select("id")
+                .eq("phone_last10", fromLast10)
+                .in("status", ["awaiting_reply", "followup_scheduled"])
+                .limit(1);
+
+              if (!existingThread || existingThread.length === 0) {
+                await sb.from("hook_reply_threads").insert({
+                  phone: fromNorm,
+                  phone_last10: fromLast10,
+                  original_outbound_id: outboundRow?.[0]?.id || null,
+                  original_outbound_body: outboundRow?.[0]?.body || cfg.prefix,
+                  status: "awaiting_reply",
+                  sentiment: "pending",
+                  meta: {
+                    twilio_inbound_sid: m.sid,
+                    twilio_landline: m.to,
+                    inbound_body: m.body,
+                  },
+                });
+              }
+            } catch (e) {
+              console.error("[twilio-inbound-poll] hook thread create error:", e);
+            }
+          } catch (e) {
+            autoReplyFailed++;
+            await sb.from("twilio_inbound_logs").insert({
+              event: "poll-auto-reply:failed",
+              level: "error",
+              from_number: m.from,
+              to_number: m.to,
+              message_sid: m.sid,
+              metadata: { error: String((e as any)?.message || e) },
+            });
+          }
         }
       }
     }
