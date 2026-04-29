@@ -245,6 +245,24 @@ Deno.serve(async (req) => {
 
     tStamp(`send action received to=${to} source=${source}`);
 
+    // DND guard — bypass for the auto-reply hook itself so the initial Warren Guru hook still fires
+    const bypassDnd = source === "twilio-auto-reply-voidfix";
+    if (!bypassDnd) {
+      const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
+      if (toLast10) {
+        const { data: dnd } = await sb
+          .from("sms_dnd_list")
+          .select("id, reason")
+          .eq("phone_last10", toLast10)
+          .limit(1);
+        if (dnd && dnd[0]) {
+          tStamp("blocked by DND list");
+          return json({ ok: false, error: "dnd", reason: dnd[0].reason || "opted_out" }, 403);
+        }
+      }
+    }
+
+
     if (source === "powerdial-voicemail-drop-sms" && callLogId) {
       const { data: existing } = await sb
         .from("communications")
