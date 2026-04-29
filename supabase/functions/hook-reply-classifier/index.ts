@@ -5,6 +5,7 @@
 //   - schedules a 72-hour Instagram follow-up (positive/neutral)
 //
 // POST { phone, body, message_id?, message_created_at? }
+// v1.0.1 — force redeploy
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const CORS = {
