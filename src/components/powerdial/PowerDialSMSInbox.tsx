@@ -346,6 +346,44 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const display = displayPhone(phoneKey);
+    if (!confirm(`Delete entire SMS thread with ${display}?\n\nThis removes all messages from the inbox. This cannot be undone.`)) return;
+    try {
+      // Match any communication where from_address or to_address ends with the last-10 digits
+      const likePattern = `%${phoneKey}`;
+      const { error } = await supabase
+        .from('communications')
+        .delete()
+        .eq('type', 'sms')
+        .or(`from_address.ilike.${likePattern},to_address.ilike.${likePattern}`);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      // Local cleanup
+      setMessages(prev => prev.filter(m => {
+        const cp = m.direction === 'inbound' ? m.from_address : m.to_address;
+        return normalizeLast10(cp) !== phoneKey;
+      }));
+      setUnreadThreads(prev => {
+        const next = new Set(prev);
+        next.delete(phoneKey);
+        return next;
+      });
+      if (seenInboundRef.current[phoneKey]) {
+        delete seenInboundRef.current[phoneKey];
+        persistSeen();
+      }
+      if (activeThreadRef.current === phoneKey) setActiveThread(null);
+      toast.success('Thread deleted');
+      load({ silent: true });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete thread');
+    }
+  };
+
   return (
     <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
