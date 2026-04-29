@@ -55,8 +55,18 @@ export default function PowerDialSMSInbox() {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const prevActiveCountRef = useRef(0);
-  // Per-thread latest inbound id we've already "seen" (in-memory only — clears on refresh)
-  const seenInboundRef = useRef<Record<string, string>>({});
+  // Per-thread latest inbound id we've already "seen" — persisted to localStorage so
+  // cleared red dots stay cleared across refreshes / navigations.
+  const SEEN_STORAGE_KEY = 'powerdial-sms-seen-inbound-v1';
+  const seenInboundRef = useRef<Record<string, string>>((() => {
+    try {
+      const raw = localStorage.getItem(SEEN_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  })());
+  const persistSeen = useCallback(() => {
+    try { localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(seenInboundRef.current)); } catch {}
+  }, []);
   const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
   const activeThreadRef = useRef<string | null>(null);
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
