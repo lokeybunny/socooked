@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, Ban, X, MessageCircle, Clock } from 'lucide-react';
+import { Loader2, RefreshCw, Send, Ban, X, MessageCircle, Clock, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type HookThread = {
