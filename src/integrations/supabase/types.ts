@@ -3498,6 +3498,42 @@ export type Database = {
           },
         ]
       }
+      payme_charges: {
+        Row: {
+          amount: number
+          auth_code: string | null
+          created_at: string
+          id: string
+          last4: string | null
+          note: string | null
+          payer_email: string | null
+          payer_name: string | null
+          transaction_id: string
+        }
+        Insert: {
+          amount: number
+          auth_code?: string | null
+          created_at?: string
+          id?: string
+          last4?: string | null
+          note?: string | null
+          payer_email?: string | null
+          payer_name?: string | null
+          transaction_id: string
+        }
+        Update: {
+          amount?: number
+          auth_code?: string | null
+          created_at?: string
+          id?: string
+          last4?: string | null
+          note?: string | null
+          payer_email?: string | null
+          payer_name?: string | null
+          transaction_id?: string
+        }
+        Relationships: []
+      }
       payout_requests: {
         Row: {
           admin_notes: string | null

@@ -1,5 +1,6 @@
 // Authorize.Net charge endpoint — production environment
 import { corsHeaders } from "https://esm.sh/@supabase/supabase-js@2.95.0/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
 const LOGIN_ID = Deno.env.get("AUTHORIZE_NET_LOGIN_ID")!;
 const TRANSACTION_KEY = Deno.env.get("AUTHORIZE_NET_TRANSACTION_KEY")!;
@@ -82,6 +83,25 @@ Deno.serve(async (req) => {
     const result = data?.messages?.resultCode;
 
     if (result === "Ok" && tr?.responseCode === "1") {
+      // Record receipt (no card data stored)
+      try {
+        const sb = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        await sb.from("payme_charges").insert({
+          transaction_id: String(tr.transId),
+          auth_code: tr.authCode || null,
+          amount: Number(amount.toFixed(2)),
+          last4: cardNumber.slice(-4),
+          payer_name: name || null,
+          payer_email: email || null,
+          note: note || null,
+        });
+      } catch (e) {
+        console.error("[authnet-charge] receipt insert failed", e);
+      }
+
       return new Response(JSON.stringify({
         ok: true,
         transactionId: tr.transId,

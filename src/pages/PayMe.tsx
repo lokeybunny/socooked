@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,6 +20,35 @@ const PayMe = () => {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ id: string; amount: string; last4: string } | null>(null);
+
+  type Receipt = {
+    id: string;
+    transaction_id: string;
+    amount: number;
+    last4: string | null;
+    payer_name: string | null;
+    note: string | null;
+    created_at: string;
+  };
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+
+  const loadReceipts = useCallback(async () => {
+    const { data } = await supabase
+      .from("payme_charges")
+      .select("id, transaction_id, amount, last4, payer_name, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (data) setReceipts(data as Receipt[]);
+  }, []);
+
+  useEffect(() => {
+    loadReceipts();
+    const ch = supabase
+      .channel("payme_charges_rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "payme_charges" }, loadReceipts)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadReceipts]);
 
   const copy = async (label: string, value: string) => {
     try {
@@ -72,6 +101,7 @@ const PayMe = () => {
       toast.success(`Charged $${data.amount}`);
       // Reset sensitive fields
       setCardNumber(""); setExp(""); setCvv("");
+      loadReceipts();
     } catch (err: any) {
       toast.error(err.message || "Payment failed");
     } finally {
@@ -258,6 +288,38 @@ const PayMe = () => {
             Please include your name or invoice # in the memo.
           </p>
         </div>
+
+        {/* Recent Receipts */}
+        {receipts.length > 0 && (
+          <div className="mt-6 bg-zinc-900/80 border border-zinc-800 rounded-2xl p-6 shadow-2xl backdrop-blur-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Receipt className="h-4 w-4 text-amber-400" />
+              <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Recent Receipts</span>
+            </div>
+            <ul className="space-y-2">
+              {receipts.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/40"
+                >
+                  <div className="min-w-0">
+                    <div className="text-white text-sm font-medium truncate">
+                      {r.payer_name || "Anonymous"}
+                      {r.last4 && <span className="text-zinc-500 font-normal"> · •••• {r.last4}</span>}
+                    </div>
+                    <div className="text-zinc-500 text-xs truncate">
+                      {new Date(r.created_at).toLocaleString()}
+                      {r.note && ` · ${r.note}`}
+                    </div>
+                  </div>
+                  <div className="text-amber-400 font-semibold text-sm shrink-0">
+                    ${Number(r.amount).toFixed(2)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
