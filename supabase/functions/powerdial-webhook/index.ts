@@ -920,19 +920,19 @@ Deno.serve(async (req) => {
         connectVapi = true;
         intendedAction = "redirect_to_human_transfer (AI disabled — bypass AMD)";
         console.log(`[powerdial-webhook] AI disabled — forcing human-transfer path regardless of AMD result (${answeredBy})`);
-      } else if (answeredBy === "human") {
+      } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = "redirect_to_vapi_assistant (human detected)";
+        intendedAction = "redirect_to_vapi_assistant (human speech >=500ms detected)";
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
       } else if (answeredBy === "unknown") {
-        amdResult = "human";
-        connectVapi = true;
-        intendedAction = "redirect_to_vapi_assistant (AMD inconclusive — treat as human)";
+        amdResult = "unknown";
+        connectVapi = false;
+        intendedAction = "hold_silent (AMD inconclusive — no confirmed human speech)";
       } else {
-        intendedAction = `noop (unrecognized AnsweredBy=${answeredBy})`;
+        intendedAction = `hold_silent (no confirmed human speech: AnsweredBy=${answeredBy}, duration=${machineDetectionDuration || "0"}ms)`;
       }
 
       // Fetch settings + existing log up-front so BOTH human and voicemail branches can use them
