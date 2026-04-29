@@ -242,7 +242,13 @@ function optionalString(value: unknown): string | null {
 
 function hasConfirmedHumanSpeech(answeredBy: string, machineDetectionDuration: string): boolean {
   const durationMs = Number(machineDetectionDuration || 0);
-  return answeredBy === "human" && Number.isFinite(durationMs) && durationMs >= HUMAN_SPEECH_MIN_AUDIO_MS;
+  if (answeredBy !== "human") return false;
+  if (!Number.isFinite(durationMs)) return false;
+  // Debounce: first POST_PICKUP_DEBOUNCE_MS of audio after pickup is treated
+  // as line noise and ignored. After that window, the caller must still have
+  // produced HUMAN_SPEECH_MIN_AUDIO_MS of sustained voiced audio.
+  if (durationMs < POST_PICKUP_DEBOUNCE_MS) return false;
+  return durationMs >= HUMAN_SPEECH_MIN_AUDIO_MS;
 }
 
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
