@@ -50,9 +50,12 @@ export default function PowerDialSMSInbox() {
   const [showCompose, setShowCompose] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedRef = useRef(false);
+  const prevActiveCountRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? hasLoadedRef.current;
+    if (!silent) setLoading(true);
     // Pull any new inbound messages from VoidFix first (their webhook is unreliable)
     try {
       await supabase.functions.invoke('powerdial-sms', { body: { action: 'poll', limit: 50 } });
@@ -63,18 +66,32 @@ export default function PowerDialSMSInbox() {
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
       .limit(500);
-    setMessages((data as SMSMessage[]) || []);
-    setLoading(false);
+    setMessages((prev) => {
+      const next = (data as SMSMessage[]) || [];
+      // Avoid re-rendering if nothing actually changed (prevents thread "recycle" flash)
+      if (prev.length === next.length && prev.length > 0 && prev[0]?.id === next[0]?.id && prev[prev.length - 1]?.id === next[next.length - 1]?.id) {
+        return prev;
+      }
+      return next;
+    });
+    if (!silent) setLoading(false);
+    hasLoadedRef.current = true;
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load({ silent: false }); }, [load]);
 
-  // Realtime — refresh on any new SMS row
+  // Background poll every 8s — seamless, no spinner, no thread reset
+  useEffect(() => {
+    const id = setInterval(() => { load({ silent: true }); }, 8000);
+    return () => clearInterval(id);
+  }, [load]);
+
+  // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
     const channel = supabase
       .channel('powerdial-sms-inbox')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
-        load();
+        load({ silent: true });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -106,16 +123,29 @@ export default function PowerDialSMSInbox() {
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
 
-  // Always jump to the newest message when a thread opens or new messages arrive.
+  // Auto-scroll only when: thread newly opened, OR new messages arrived AND user was near bottom.
   useLayoutEffect(() => {
-    if (!activeThread || activeMessages.length === 0) return;
+    if (!activeThread || activeMessages.length === 0) {
+      prevActiveCountRef.current = activeMessages.length;
+      return;
+    }
     const root = scrollAreaRef.current;
     const viewport = root?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
     const scrollEl = viewport || root;
-    requestAnimationFrame(() => {
-      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
-      messagesEndRef.current?.scrollIntoView({ block: 'end' });
-    });
+    const prevCount = prevActiveCountRef.current;
+    const grew = activeMessages.length > prevCount;
+    const justOpened = prevCount === 0;
+    let nearBottom = true;
+    if (scrollEl && !justOpened) {
+      nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 120;
+    }
+    if (justOpened || (grew && nearBottom)) {
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+        messagesEndRef.current?.scrollIntoView({ block: 'end' });
+      });
+    }
+    prevActiveCountRef.current = activeMessages.length;
   }, [activeThread, activeMessages.length]);
 
   const handleSend = async (toOverride?: string) => {
@@ -139,9 +169,9 @@ export default function PowerDialSMSInbox() {
           setShowCompose(false);
           setComposeTo('');
         }
-        // Always return to the inbox list so the newest message in every thread leads by default.
-        setActiveThread(null);
-        load();
+        // If composing fresh, return to inbox list. Otherwise stay in the active thread.
+        if (showCompose) setActiveThread(null);
+        load({ silent: true });
       }
     } finally {
       setSending(false);
@@ -166,7 +196,7 @@ export default function PowerDialSMSInbox() {
         toast.error(`Webhook returned ${res.status}: ${text.slice(0, 120)}`);
       } else {
         toast.success('Test inbound delivered — check inbox');
-        setTimeout(load, 600);
+        setTimeout(() => load({ silent: true }), 600);
       }
     } catch (e: any) {
       toast.error(e?.message || 'Test webhook failed');
@@ -185,7 +215,7 @@ export default function PowerDialSMSInbox() {
           <Button size="sm" variant="ghost" onClick={handleTestInbound} title="Send a test inbound webhook to verify VoidFix integration">
             <Webhook className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={load}><RefreshCw className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => load({ silent: false })}><RefreshCw className="h-3.5 w-3.5" /></Button>
           <Button size="sm" variant="ghost" onClick={() => { setShowCompose(true); setActiveThread(null); }}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
