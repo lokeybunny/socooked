@@ -216,6 +216,9 @@ Deno.serve(async (req) => {
   const action = payload?.action;
 
   if (action === "send") {
+    const sendStart = performance.now();
+    const tStamp = (label: string) => console.log(`[powerdial-sms][TIMING] +${(performance.now() - sendStart).toFixed(0)}ms ${label}`);
+
     const to = String(payload?.to || "").trim();
     const message = String(payload?.body || "").trim();
     if (!to || !message) return json({ ok: false, error: "missing_to_or_body" }, 400);
@@ -223,6 +226,8 @@ Deno.serve(async (req) => {
     const source = String(payload?.source || "powerdial-sms");
     const extraMetadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
     const callLogId = extraMetadata?.call_log_id ? String(extraMetadata.call_log_id) : "";
+
+    tStamp(`send action received to=${to} source=${source}`);
 
     if (source === "powerdial-voicemail-drop-sms" && callLogId) {
       const { data: existing } = await sb
@@ -238,7 +243,10 @@ Deno.serve(async (req) => {
     }
 
     const result = await sendVoidfixSms(to, message);
+    tStamp(`VoidFix API call complete ok=${result.ok} totalMs=${result.timing?.totalMs ?? "?"}`);
+
     const customerId = payload?.customer_id || (await findCustomerByPhone(to));
+    tStamp("customer lookup done");
 
     const { error: logError } = await sb.from("communications").insert({
       type: "sms",
@@ -257,8 +265,10 @@ Deno.serve(async (req) => {
         ...extraMetadata,
         ...(result.error ? { error: result.error } : {}),
         ...(result.raw ? { voidfix_response: result.raw } : {}),
+        ...(result.timing ? { timing_ms: result.timing } : {}),
       },
     });
+    tStamp("DB log insert done");
 
     if (logError) {
       if (logError.code === "23505" && source === "powerdial-voicemail-drop-sms") {
@@ -269,7 +279,8 @@ Deno.serve(async (req) => {
     }
 
     if (!result.ok) return json({ ok: false, error: result.error }, result.status || 500);
-    return json({ ok: true, id: result.id });
+    tStamp("returning success to caller");
+    return json({ ok: true, id: result.id, timing_ms: result.timing });
   }
 
   if (action === "list") {
