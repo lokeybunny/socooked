@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
 type SMSMessage = {
@@ -51,6 +52,12 @@ export default function PowerDialSMSInbox() {
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  // Send Proposal modal
+  const [proposalOpen, setProposalOpen] = useState(false);
+  const [proposalPhoneKey, setProposalPhoneKey] = useState<string | null>(null);
+  const [proposalStep, setProposalStep] = useState<'email' | 'choose'>('email');
+  const [proposalEmail, setProposalEmail] = useState('');
+  const [proposalSending, setProposalSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
@@ -387,6 +394,180 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  // ---------- Send Proposal from SMS thread ----------
+  const detectEmailInThread = useCallback((phoneKey: string): string => {
+    const re = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+    const threadMessages = messages.filter(m => {
+      const counterpart = m.direction === 'inbound' ? m.from_address : m.to_address;
+      return normalizeLast10(counterpart) === phoneKey;
+    });
+    for (const m of threadMessages) {
+      const match = (m.body || '').match(re);
+      if (match) return match[0];
+    }
+    return '';
+  }, [messages]);
+
+  const openSendProposal = (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const last10 = normalizeLast10(phoneKey);
+    if (last10.length !== 10) { toast.error('Invalid phone number'); return; }
+    setProposalPhoneKey(last10);
+    setProposalEmail(detectEmailInThread(last10));
+    setProposalStep('email');
+    setProposalOpen(true);
+  };
+
+  const handleProposalContinue = () => {
+    const email = proposalEmail.trim();
+    if (!email || !/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    setProposalStep('choose');
+  };
+
+  const sendProposalTemplate = async (kind: '299' | '2500') => {
+    if (!proposalPhoneKey) return;
+    const email = proposalEmail.trim();
+    if (!email) { toast.error('Email required'); return; }
+    setProposalSending(true);
+    try {
+      const last10 = proposalPhoneKey;
+      const e164 = `+1${last10}`;
+      const display = formatPhone(last10);
+      const contactName = contacts[last10] || `SMS Lead ${display}`;
+
+      // Look up customer (if exists) so we can link the proposal
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id, full_name, email')
+        .or(`phone.ilike.%${last10},phone.eq.${e164}`)
+        .limit(1)
+        .maybeSingle();
+
+      const customerId = existing?.id || null;
+      const clientName = existing?.full_name || contactName;
+
+      const exp = new Date();
+      exp.setDate(exp.getDate() + 14);
+      const expDate = exp.toISOString().slice(0, 10);
+
+      let payload: Record<string, any>;
+      if (kind === '299') {
+        payload = {
+          title: 'Real Estate Listing Video — $299 Package',
+          client_name: clientName,
+          client_email: email,
+          client_phone: e164,
+          amount: 299,
+          currency: 'USD',
+          line_items: [{ description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 }],
+          notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
+          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
+          proposal_body: `Real Estate Listing Video — $299 Package
+
+What's included:
+• 1 cinematic AI-enhanced listing video
+• Full edit: color grading, transitions, music sync, AI furniture removal & visual enhancements
+• Delivered in 9:16 vertical format, optimized for Instagram Reels & TikTok
+• Up to 1 minute maximum runtime
+• Covers up to 4 bedrooms
+• 48–72 hour turnaround from asset delivery
+• 2 free revisions
+
+Bedroom add-ons:
+• Properties with more than 4 bedrooms: +$50 per additional bedroom
+
+Payment Terms:
+• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+
+By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
+          expiration_date: expDate,
+          signature_required: true,
+          customer_id: customerId,
+          status: 'draft',
+        };
+      } else {
+        payload = {
+          title: 'Monthly Retainer Venture — $2,500/month',
+          client_name: clientName,
+          client_email: email,
+          client_phone: e164,
+          amount: 2500,
+          currency: 'USD',
+          line_items: [{ description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 }],
+          notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Billed monthly in advance.',
+          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
+          proposal_body: `Monthly Retainer Venture — $2,500 / month
+
+What's included each month:
+• Ongoing AI-driven content production (video, social, marketing assets)
+• Paid ad campaign management & optimization
+• Direct strategy access and weekly check-ins
+• Priority turnaround on new requests
+• Performance reporting and analytics
+
+Engagement:
+• Month-to-month retainer, billed in advance
+• Either party may cancel with 7 days notice prior to the next billing cycle
+
+Payment Terms:
+• FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Service begins after first month's payment is confirmed.
+
+By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
+          expiration_date: expDate,
+          signature_required: true,
+          customer_id: customerId,
+          status: 'draft',
+        };
+      }
+
+      // Insert the proposal draft
+      const { data: inserted, error: insErr } = await supabase
+        .from('proposals')
+        .insert(payload as never)
+        .select('id')
+        .single();
+      if (insErr || !inserted) throw new Error(insErr?.message || 'Failed to create proposal');
+
+      // Send via the same workflow used in /proposals
+      const { error: sendErr } = await supabase.functions.invoke('clawd-bot/proposal-send', {
+        body: { id: (inserted as { id: string }).id },
+      });
+      if (sendErr) {
+        // Fallback REST call (matches /proposals page pattern)
+        const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || '';
+        const url = `https://${projectId}.supabase.co/functions/v1/clawd-bot/proposal-send`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ id: (inserted as { id: string }).id }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'Send failed');
+      }
+
+      toast.success(`${kind === '299' ? '$299' : '$2,500/mo'} proposal sent to ${email}`);
+      setProposalOpen(false);
+      setProposalPhoneKey(null);
+      setProposalEmail('');
+      setProposalStep('email');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send proposal');
+    } finally {
+      setProposalSending(false);
+    }
+  };
+
   const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
     e.stopPropagation();
     const display = displayPhone(phoneKey);
@@ -436,6 +617,7 @@ export default function PowerDialSMSInbox() {
   };
 
   return (
+    <>
     <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
       <div className={`md:w-[300px] md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
@@ -466,7 +648,7 @@ export default function PowerDialSMSInbox() {
                 >
                   <button
                     onClick={() => setActiveThread(key)}
-                    className="w-full text-left px-3 py-2.5 pr-9"
+                    className="w-full text-left px-3 py-2.5 pr-24"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -491,6 +673,14 @@ export default function PowerDialSMSInbox() {
                       )}
                       <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
                     </div>
+                  </button>
+                  <button
+                    onClick={(e) => openSendProposal(e, key)}
+                    className="absolute top-2 right-16 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 text-blue-400 transition-opacity"
+                    title="Send proposal"
+                    aria-label="Send proposal"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={(e) => handleCreateCustomer(e, key)}
@@ -590,6 +780,16 @@ export default function PowerDialSMSInbox() {
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1"
+                onClick={(e) => activeThread && openSendProposal(e, activeThread)}
+                title="Send proposal"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-xs">Send Proposal</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 onClick={(e) => activeThread && handleDeleteThread(e, activeThread)}
                 title="Delete thread"
@@ -649,5 +849,77 @@ export default function PowerDialSMSInbox() {
         )}
       </div>
     </div>
+
+    {/* Send Proposal Modal */}
+    <Dialog open={proposalOpen} onOpenChange={(o) => { if (!o && !proposalSending) { setProposalOpen(false); setProposalStep('email'); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Send Proposal</DialogTitle>
+          <DialogDescription>
+            {proposalStep === 'email'
+              ? 'Confirm or enter the client email. We auto-detect any email mentioned in this thread.'
+              : 'Choose which proposal template to send.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {proposalStep === 'email' ? (
+          <div className="space-y-3 py-2">
+            <label className="text-xs text-muted-foreground">Client Email</label>
+            <Input
+              type="email"
+              placeholder="client@example.com"
+              value={proposalEmail}
+              onChange={(e) => setProposalEmail(e.target.value)}
+              autoFocus
+            />
+            {proposalPhoneKey && (
+              <p className="text-[11px] text-muted-foreground">
+                Sending to: {formatPhone(proposalPhoneKey)}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2 py-2">
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('299')}
+              className="w-full text-left p-4 rounded-lg border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors disabled:opacity-50"
+            >
+              <div className="font-semibold text-sm">$299 Listing Video Package</div>
+              <div className="text-xs text-muted-foreground mt-1">Single AI-cinematic real estate listing video — full payment up front via Zelle / Cash App.</div>
+            </button>
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('2500')}
+              className="w-full text-left p-4 rounded-lg border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors disabled:opacity-50"
+            >
+              <div className="font-semibold text-sm">$2,500 / month Retainer Venture</div>
+              <div className="text-xs text-muted-foreground mt-1">Monthly retainer engagement — full $2,500 due each month before work renders, via Zelle / Cash App.</div>
+            </button>
+            {proposalSending && (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending proposal…
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          {proposalStep === 'email' ? (
+            <>
+              <Button variant="ghost" onClick={() => setProposalOpen(false)}>Cancel</Button>
+              <Button onClick={handleProposalContinue}>Continue</Button>
+            </>
+          ) : (
+            <Button variant="ghost" disabled={proposalSending} onClick={() => setProposalStep('email')}>
+              Back
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
