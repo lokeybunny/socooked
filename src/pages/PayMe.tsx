@@ -21,6 +21,35 @@ const PayMe = () => {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ id: string; amount: string; last4: string } | null>(null);
 
+  type Receipt = {
+    id: string;
+    transaction_id: string;
+    amount: number;
+    last4: string | null;
+    payer_name: string | null;
+    note: string | null;
+    created_at: string;
+  };
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+
+  const loadReceipts = useCallback(async () => {
+    const { data } = await supabase
+      .from("payme_charges")
+      .select("id, transaction_id, amount, last4, payer_name, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (data) setReceipts(data as Receipt[]);
+  }, []);
+
+  useEffect(() => {
+    loadReceipts();
+    const ch = supabase
+      .channel("payme_charges_rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "payme_charges" }, loadReceipts)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadReceipts]);
+
   const copy = async (label: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
