@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2 } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 
 type SMSMessage = {
@@ -346,6 +346,47 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  const handleCreateCustomer = async (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const last10 = normalizeLast10(phoneKey);
+    if (last10.length !== 10) {
+      toast.error('Invalid phone number');
+      return;
+    }
+    const e164 = `+1${last10}`;
+    const display = displayPhone(phoneKey);
+    const contactName = contacts[last10];
+    const fallbackName = contactName || `SMS Lead ${display}`;
+    try {
+      // Search-before-insert: look up by phone last 10 digits
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id, full_name, status')
+        .or(`phone.ilike.%${last10},phone.eq.${e164}`)
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) {
+        toast.info(`${existing.full_name || display} is already a customer (${existing.status})`);
+        return;
+      }
+      const { error } = await supabase.from('customers').insert({
+        full_name: fallbackName,
+        phone: e164,
+        status: 'lead',
+        source: 'sms_inbox',
+        category: 'digital-services',
+        notes: `Created from SMS thread on ${new Date().toLocaleString()}`,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(`${fallbackName} added to Leads pipeline`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create customer');
+    }
+  };
+
   const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
     e.stopPropagation();
     const display = displayPhone(phoneKey);
@@ -452,6 +493,14 @@ export default function PowerDialSMSInbox() {
                     </div>
                   </button>
                   <button
+                    onClick={(e) => handleCreateCustomer(e, key)}
+                    className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
+                    title="Create customer (add to Leads pipeline)"
+                    aria-label="Create customer"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={(e) => handleDeleteThread(e, key)}
                     className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
                     title="Delete thread"
@@ -528,6 +577,16 @@ export default function PowerDialSMSInbox() {
                 );
               })()}
               <div className="flex-1" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
+                onClick={(e) => activeThread && handleCreateCustomer(e, activeThread)}
+                title="Create customer (add to Leads pipeline)"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span className="text-xs">Create Customer</span>
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
