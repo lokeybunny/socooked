@@ -446,23 +446,27 @@ Deno.serve(async (req) => {
       }).select("id, created_at").single();
       // No cell auto-reply for poll-imported inbound texts — auto-reply is
       // landline-only (handled by twilio-sms-inbound).
-      // Hook Reply classifier — fire-and-forget
-      fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-        body: JSON.stringify({
-          phone: from,
-          body: String(m.message || ""),
-          message_id: insertedRow?.id || null,
-          message_created_at: insertedRow?.created_at || new Date().toISOString(),
-        }),
-      }).catch((e) => console.error("[powerdial-sms/poll] hook classifier error", e));
+      // Hook Reply classifier — awaited so the fetch survives in edge runtime
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({
+            phone: from,
+            body: String(m.message || ""),
+            message_id: insertedRow?.id || null,
+            message_created_at: insertedRow?.created_at || new Date().toISOString(),
+          }),
+        });
+      } catch (e) { console.error("[powerdial-sms/poll] hook classifier error", e); }
       // Advance sequences
-      fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-        body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
-      }).catch((e) => console.error("[powerdial-sms/poll] sequence forward error", e));
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
+        });
+      } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
       imported += 1;
     }
     return json({ ok: true, imported, scanned: messages.length });
