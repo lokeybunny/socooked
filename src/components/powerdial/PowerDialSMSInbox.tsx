@@ -346,6 +346,47 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  const handleCreateCustomer = async (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const last10 = normalizeLast10(phoneKey);
+    if (last10.length !== 10) {
+      toast.error('Invalid phone number');
+      return;
+    }
+    const e164 = `+1${last10}`;
+    const display = displayPhone(phoneKey);
+    const contactName = contacts[last10];
+    const fallbackName = contactName || `SMS Lead ${display}`;
+    try {
+      // Search-before-insert: look up by phone last 10 digits
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id, full_name, status')
+        .or(`phone.ilike.%${last10},phone.eq.${e164}`)
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) {
+        toast.info(`${existing.full_name || display} is already a customer (${existing.status})`);
+        return;
+      }
+      const { error } = await supabase.from('customers').insert({
+        full_name: fallbackName,
+        phone: e164,
+        status: 'lead',
+        source: 'sms_inbox',
+        category: 'digital-services',
+        notes: `Created from SMS thread on ${new Date().toLocaleString()}`,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(`${fallbackName} added to Leads pipeline`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create customer');
+    }
+  };
+
   const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
     e.stopPropagation();
     const display = displayPhone(phoneKey);
