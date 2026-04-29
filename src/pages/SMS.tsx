@@ -174,9 +174,25 @@ export default function SMS() {
         </div>
 
         <Tabs defaultValue="inbox">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1" /> Inbox</TabsTrigger>
             <TabsTrigger value="twilio-inbound"><PhoneIncoming className="h-3.5 w-3.5 mr-1" /> Twilio Inbound</TabsTrigger>
+            <TabsTrigger value="hook-reply">
+              <MessageCircle className="h-3.5 w-3.5 mr-1" /> Hook Reply
+              {(hookCounts.awaiting + hookCounts.scheduled) > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px] bg-purple-500/20 text-purple-400 border-purple-500/40">
+                  {hookCounts.awaiting + hookCounts.scheduled}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="dnd">
+              <Ban className="h-3.5 w-3.5 mr-1" /> DND
+              {dndCount > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px] bg-red-500/20 text-red-400 border-red-500/40">
+                  {dndCount}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
@@ -187,6 +203,8 @@ export default function SMS() {
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
           <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>
+          <TabsContent value="hook-reply"><HookReplyTab /></TabsContent>
+          <TabsContent value="dnd"><DNDListTab /></TabsContent>
           <TabsContent value="auto-reply"><AutoReplyWorkflow /></TabsContent>
           <TabsContent value="vm-followup"><VoicemailFollowupSettings /></TabsContent>
 
