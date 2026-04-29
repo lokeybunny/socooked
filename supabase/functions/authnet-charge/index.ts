@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const amount = Number(body.amount);
-    const cardNumber = String(body.cardNumber || "").replace(/\s+/g, "");
+    const cardNumber = String(body.cardNumber || "").replace(/[^\d]/g, "").slice(0, 16);
     const expMonth = String(body.expMonth || "").padStart(2, "0");
     const expYear = String(body.expYear || "");
     const cvv = String(body.cvv || "");
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const note = String(body.note || "").slice(0, 250);
 
     if (!amount || amount < 1 || amount > 100000) return bad("Invalid amount");
-    if (!/^\d{13,19}$/.test(cardNumber)) return bad("Invalid card number");
+    if (!/^\d{13,16}$/.test(cardNumber)) return bad("Invalid card number");
     if (!/^\d{2}$/.test(expMonth)) return bad("Invalid expiry month");
     if (!/^\d{2,4}$/.test(expYear)) return bad("Invalid expiry year");
     if (!/^\d{3,4}$/.test(cvv)) return bad("Invalid CVV");
