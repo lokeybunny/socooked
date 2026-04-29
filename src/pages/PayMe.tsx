@@ -188,12 +188,21 @@ const PayMe = () => {
                 <p className="text-white font-semibold">Payment of ${success.amount} received</p>
                 <p className="text-zinc-400 text-xs mt-1">Card ending {success.last4}</p>
                 <p className="text-zinc-500 text-xs mt-1">Ref: {success.id}</p>
-                <button
-                  onClick={() => { setSuccess(null); setAmount(""); }}
-                  className="mt-4 text-amber-400 text-sm hover:underline"
-                >
-                  Make another payment
-                </button>
+                <div className="mt-4 flex flex-col items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => downloadReceipt(success)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold transition"
+                  >
+                    <Download className="h-4 w-4" /> Download receipt (PDF)
+                  </button>
+                  <button
+                    onClick={() => { setSuccess(null); setAmount(""); }}
+                    className="text-amber-400 text-sm hover:underline"
+                  >
+                    Make another payment
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={submit} className="space-y-3">
