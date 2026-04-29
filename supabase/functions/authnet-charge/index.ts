@@ -144,11 +144,32 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const errMsg =
+    const rawMsg =
       tr?.errors?.[0]?.errorText ||
       data?.messages?.message?.[0]?.text ||
       "Transaction declined";
-    return bad(errMsg, 402, { code: tr?.responseCode, full: data });
+    const errCode = String(tr?.errors?.[0]?.errorCode || tr?.responseCode || "");
+
+    // Map common Authorize.Net error codes → friendly text + field hint
+    const friendly: Record<string, { msg: string; field?: string }> = {
+      "2":   { msg: "Your card was declined by the issuer. Try another card." },
+      "3":   { msg: "Card was referred — please contact your bank." },
+      "6":   { msg: "Invalid card number — please re-enter.", field: "cardNumber" },
+      "7":   { msg: "Invalid expiration date — please re-enter.", field: "exp" },
+      "8":   { msg: "This card has expired.", field: "exp" },
+      "17":  { msg: "This card type isn't accepted.", field: "cardNumber" },
+      "27":  { msg: "Address verification failed. Check your billing ZIP.", field: "zip" },
+      "44":  { msg: "Card declined (CVV mismatch). Re-enter the security code.", field: "cvv" },
+      "45":  { msg: "Address/CVV verification failed. Check ZIP and CVV.", field: "cvv" },
+      "65":  { msg: "Declined — CVV did not match. Re-enter the security code.", field: "cvv" },
+      "78":  { msg: "Invalid CVV — please re-enter.", field: "cvv" },
+      "127": { msg: "Address verification failed. Check your billing ZIP.", field: "zip" },
+      "315": { msg: "Invalid card number.", field: "cardNumber" },
+      "316": { msg: "Invalid expiration date.", field: "exp" },
+      "317": { msg: "Card has expired.", field: "exp" },
+    };
+    const mapped = friendly[errCode];
+    return bad(mapped?.msg || rawMsg, 402, { code: errCode, field: mapped?.field });
   } catch (e) {
     console.error("[authnet-charge]", e);
     return bad((e as Error).message || "Server error", 500);
