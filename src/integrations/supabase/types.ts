@@ -1849,6 +1849,66 @@ export type Database = {
         }
         Relationships: []
       }
+      hook_reply_threads: {
+        Row: {
+          created_at: string
+          dnd_reason: string | null
+          followup_message_id: string | null
+          followup_send_at: string | null
+          followup_sent_at: string | null
+          id: string
+          inbound_at: string | null
+          inbound_body: string | null
+          inbound_message_id: string | null
+          meta: Json
+          original_outbound_body: string | null
+          original_outbound_id: string | null
+          phone: string
+          phone_last10: string
+          sentiment: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dnd_reason?: string | null
+          followup_message_id?: string | null
+          followup_send_at?: string | null
+          followup_sent_at?: string | null
+          id?: string
+          inbound_at?: string | null
+          inbound_body?: string | null
+          inbound_message_id?: string | null
+          meta?: Json
+          original_outbound_body?: string | null
+          original_outbound_id?: string | null
+          phone: string
+          phone_last10: string
+          sentiment?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dnd_reason?: string | null
+          followup_message_id?: string | null
+          followup_send_at?: string | null
+          followup_sent_at?: string | null
+          id?: string
+          inbound_at?: string | null
+          inbound_body?: string | null
+          inbound_message_id?: string | null
+          meta?: Json
+          original_outbound_body?: string | null
+          original_outbound_id?: string | null
+          phone?: string
+          phone_last10?: string
+          sentiment?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hourly_meta_summary: {
         Row: {
           bullish_score: number
@@ -5254,6 +5314,39 @@ export type Database = {
           status?: string
           total_recipients?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sms_dnd_list: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json
+          original_message_body: string | null
+          phone: string
+          phone_last10: string
+          reason: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          original_message_body?: string | null
+          phone: string
+          phone_last10: string
+          reason?: string | null
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          original_message_body?: string | null
+          phone?: string
+          phone_last10?: string
+          reason?: string | null
+          source?: string
         }
         Relationships: []
       }
