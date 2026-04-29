@@ -490,9 +490,15 @@ ${itemsTxt || 'N/A'}`;
               <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">Me@cozyhomestudio.com</div>
             </div>
 
-            <div>
+            <div style="margin-bottom: 14px;">
               <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Cash App</div>
               <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">$ITSWARR</div>
+            </div>
+
+            <div style="border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px;">
+              <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Credit / Debit Card</div>
+              <a href="https://warren.guru/payme" style="display:inline-block;background:#059669;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Pay $${amount} with Card →</a>
+              <div style="font-size: 12px; color: #6b7280; margin-top: 6px;">https://warren.guru/payme</div>
             </div>
           </div>
 
