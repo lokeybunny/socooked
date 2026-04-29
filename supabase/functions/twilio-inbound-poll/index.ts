@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     let newCount = 0;
     let skipped = 0;
     let autoReplied = 0;
-    let autoReplySkipped = 0;
+    
     let autoReplyFailed = 0;
 
     const cfg = await loadAutoReplyConfig();
