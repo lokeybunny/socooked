@@ -225,6 +225,12 @@ const PayMe = () => {
               <p style="margin-top:24px;">— Warren</p>
             </div>`;
           const gmailUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/gmail-api?action=send`;
+
+          // Build PDF receipt and convert to base64 for attachment
+          const pdfDoc = buildReceiptPdf(receipt);
+          const pdfDataUri = pdfDoc.output("datauristring");
+          const pdfBase64 = pdfDataUri.split(",")[1] || "";
+
           fetch(gmailUrl, {
             method: "POST",
             headers: {
@@ -236,6 +242,13 @@ const PayMe = () => {
               to: recipientEmail,
               subject: `Receipt + thank you — $${Number(receipt.amount).toFixed(2)} (Ref ${receipt.id})`,
               body: html,
+              attachments: [
+                {
+                  filename: `receipt-${receipt.id}.pdf`,
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              ],
             }),
           }).catch(() => { /* non-blocking */ });
         }
