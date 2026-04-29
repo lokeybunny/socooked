@@ -9,12 +9,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming, MessageCircle, Ban } from 'lucide-react';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
 import SequenceBuilder from '@/components/sms/SequenceBuilder';
 import AutoReplyWorkflow from '@/components/sms/AutoReplyWorkflow';
 import VoicemailFollowupSettings from '@/components/sms/VoicemailFollowupSettings';
 import TwilioInboundFeed from '@/components/sms/TwilioInboundFeed';
+import HookReplyTab from '@/components/powerdial/HookReplyTab';
+import DNDListTab from '@/components/powerdial/DNDListTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Template = { id: string; name: string; body: string };
@@ -52,6 +54,8 @@ export default function SMS() {
   const [campPhones, setCampPhones] = useState('');
   const [campSequenceId, setCampSequenceId] = useState<string>('none');
   const [sending, setSending] = useState(false);
+  const [hookCounts, setHookCounts] = useState({ awaiting: 0, scheduled: 0 });
+  const [dndCount, setDndCount] = useState(0);
 
   const load = async () => {
     const [t, c, s] = await Promise.all([
@@ -64,7 +68,27 @@ export default function SMS() {
     setSequences((s.data as SequenceLite[]) || []);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadCounts = async () => {
+    const [awaiting, scheduled, dnd] = await Promise.all([
+      supabase.from('hook_reply_threads').select('id', { count: 'exact', head: true }).eq('status', 'awaiting_reply'),
+      supabase.from('hook_reply_threads').select('id', { count: 'exact', head: true }).eq('status', 'followup_scheduled'),
+      supabase.from('sms_dnd_list').select('id', { count: 'exact', head: true }),
+    ]);
+    setHookCounts({ awaiting: awaiting.count || 0, scheduled: scheduled.count || 0 });
+    setDndCount(dnd.count || 0);
+  };
+
+  useEffect(() => {
+    load();
+    loadCounts();
+    const id = setInterval(loadCounts, 20000);
+    const ch = supabase
+      .channel('sms-tab-counts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hook_reply_threads' }, () => loadCounts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_dnd_list' }, () => loadCounts())
+      .subscribe();
+    return () => { clearInterval(id); supabase.removeChannel(ch); };
+  }, []);
 
   const saveTemplate = async () => {
     if (!tplName.trim() || !tplBody.trim()) return toast.error('Name and body required');
@@ -150,9 +174,25 @@ export default function SMS() {
         </div>
 
         <Tabs defaultValue="inbox">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1" /> Inbox</TabsTrigger>
             <TabsTrigger value="twilio-inbound"><PhoneIncoming className="h-3.5 w-3.5 mr-1" /> Twilio Inbound</TabsTrigger>
+            <TabsTrigger value="hook-reply">
+              <MessageCircle className="h-3.5 w-3.5 mr-1" /> Hook Reply
+              {(hookCounts.awaiting + hookCounts.scheduled) > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px] bg-purple-500/20 text-purple-400 border-purple-500/40">
+                  {hookCounts.awaiting + hookCounts.scheduled}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="dnd">
+              <Ban className="h-3.5 w-3.5 mr-1" /> DND
+              {dndCount > 0 && (
+                <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[9px] bg-red-500/20 text-red-400 border-red-500/40">
+                  {dndCount}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
@@ -163,6 +203,8 @@ export default function SMS() {
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
           <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>
+          <TabsContent value="hook-reply"><HookReplyTab /></TabsContent>
+          <TabsContent value="dnd"><DNDListTab /></TabsContent>
           <TabsContent value="auto-reply"><AutoReplyWorkflow /></TabsContent>
           <TabsContent value="vm-followup"><VoicemailFollowupSettings /></TabsContent>
 
