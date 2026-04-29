@@ -397,19 +397,39 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
 function GlobalAppSettings() {
   const [script, setScript] = useState('');
   const [quickText, setQuickText] = useState('');
+  const [droppedEnabled, setDroppedEnabled] = useState(true);
+  const [droppedBody, setDroppedBody] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const DEFAULT_DROPPED = "Hi, Just got disconnected, Im Warren, AI videographer. Would you mind if I made a free marketing video on one of your listings for you to use to shop the house? Check my IG! https://instagram.com/W4RR3NGuru";
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', ['teleprompter_default_script', 'sms_quick_text']);
+        .in('key', [
+          'teleprompter_default_script',
+          'sms_quick_text',
+          'powerdial_dropped_call_sms_enabled',
+          'powerdial_dropped_call_sms_body',
+        ]);
+      let bodyLoaded = false;
       for (const row of data || []) {
         if (row.key === 'teleprompter_default_script') setScript(String((row.value as any)?.body || ''));
         if (row.key === 'sms_quick_text') setQuickText(String((row.value as any)?.body || ''));
+        if (row.key === 'powerdial_dropped_call_sms_enabled') {
+          const v = (row.value as any)?.enabled;
+          setDroppedEnabled(v !== false);
+        }
+        if (row.key === 'powerdial_dropped_call_sms_body') {
+          const v = String((row.value as any)?.body || '');
+          setDroppedBody(v);
+          if (v) bodyLoaded = true;
+        }
       }
+      if (!bodyLoaded) setDroppedBody(DEFAULT_DROPPED);
       setLoading(false);
     })();
   }, []);
@@ -419,6 +439,8 @@ function GlobalAppSettings() {
     const rows = [
       { key: 'teleprompter_default_script', value: { body: script } },
       { key: 'sms_quick_text', value: { body: quickText } },
+      { key: 'powerdial_dropped_call_sms_enabled', value: { enabled: droppedEnabled } },
+      { key: 'powerdial_dropped_call_sms_body', value: { body: droppedBody } },
     ];
     const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'key' });
     setSaving(false);
@@ -450,6 +472,37 @@ function GlobalAppSettings() {
           onChange={(e) => setQuickText(e.target.value)}
         />
       </div>
+
+      <div className="border-t border-border pt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-foreground">Dropped Live-Call Auto SMS</Label>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Automatically text the lead if they hang up after a live human picks up — unless you already manually sent a text from the Live Transfer popup.
+            </p>
+          </div>
+          <label className="inline-flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={droppedEnabled}
+              onChange={(e) => setDroppedEnabled(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>{droppedEnabled ? 'Enabled' : 'Disabled'}</span>
+          </label>
+        </div>
+        <textarea
+          className="flex min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          placeholder={DEFAULT_DROPPED}
+          value={droppedBody}
+          onChange={(e) => setDroppedBody(e.target.value)}
+          disabled={!droppedEnabled}
+        />
+        <p className="text-[10px] text-muted-foreground">
+          Replies to this message (other than STOP) automatically enter the Hook Reply campaign.
+        </p>
+      </div>
+
       <Button onClick={save} disabled={saving} size="sm">
         <Save className="h-4 w-4 mr-1" /> Save Global
       </Button>
