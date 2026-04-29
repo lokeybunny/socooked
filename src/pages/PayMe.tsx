@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt } from "lucide-react";
+import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,6 +20,29 @@ const PayMe = () => {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ id: string; amount: string; last4: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<string | null>(null);
+
+  const luhnValid = (num: string): boolean => {
+    if (!/^\d+$/.test(num)) return false;
+    let sum = 0, alt = false;
+    for (let i = num.length - 1; i >= 0; i--) {
+      let d = parseInt(num[i], 10);
+      if (alt) { d *= 2; if (d > 9) d -= 9; }
+      sum += d;
+      alt = !alt;
+    }
+    return sum % 10 === 0;
+  };
+
+  const setError = (msg: string, field?: string) => {
+    setErrorMsg(msg);
+    setErrorField(field || null);
+    toast.error(msg);
+  };
+  const fieldClass = (name: string, base: string) =>
+    `${base} ${errorField === name ? "border-red-500 focus:border-red-500" : "border-zinc-700 focus:border-amber-500"}`;
+
 
   type Receipt = {
     id: string;
@@ -72,38 +95,54 @@ const PayMe = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null); setErrorField(null);
+
     const amt = Number(amount);
-    if (!amt || amt < 1) { toast.error("Enter a valid amount"); return; }
+    if (!amt || amt < 1) return setError("Enter a valid amount of at least $1.", "amount");
+    if (amt > 100000) return setError("Amount cannot exceed $100,000.", "amount");
+
+    const rawCard = cardNumber.replace(/\D/g, "");
+    if (rawCard.length < 13 || rawCard.length > 16) return setError("Card number must be 13–16 digits.", "cardNumber");
+    if (!luhnValid(rawCard)) return setError("That card number doesn't look right. Please double-check the digits.", "cardNumber");
+
     const [mm, yy] = exp.split("/");
-    if (!mm || !yy) { toast.error("Enter expiry as MM/YY"); return; }
-    const rawCard = cardNumber.replace(/\s+/g, "");
-    if (rawCard.length < 13) { toast.error("Enter a valid card number"); return; }
-    if (cvv.length < 3) { toast.error("Enter CVV"); return; }
+    if (!mm || !yy) return setError("Enter the expiration as MM/YY.", "exp");
+    const mmNum = Number(mm);
+    if (mmNum < 1 || mmNum > 12) return setError("Expiry month must be 01–12.", "exp");
+    const fullYear = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
+    const lastDay = new Date(fullYear, mmNum, 0, 23, 59, 59);
+    if (lastDay < new Date()) return setError("This card has expired.", "exp");
+
+    if (cvv.length < 3 || cvv.length > 4) return setError("CVV must be 3 or 4 digits.", "cvv");
 
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("authnet-charge", {
-        body: {
-          amount: amt,
-          cardNumber: rawCard,
-          expMonth: mm,
-          expYear: yy,
-          cvv,
-          zip,
-          name,
-          email,
-          note,
-        },
+        body: { amount: amt, cardNumber: rawCard, expMonth: mm, expYear: yy, cvv, zip, name, email, note },
       });
       if (error) throw new Error(error.message);
-      if (!data?.ok) throw new Error(data?.error || "Charge failed");
+      if (!data?.ok) {
+        // Surface field hint from server
+        setError(data?.error || "Charge failed", data?.field);
+        return;
+      }
       setSuccess({ id: data.transactionId, amount: data.amount, last4: data.last4 });
       toast.success(`Charged $${data.amount}`);
-      // Reset sensitive fields
       setCardNumber(""); setExp(""); setCvv("");
       loadReceipts();
     } catch (err: any) {
-      toast.error(err.message || "Payment failed");
+      // FunctionsHttpError stashes the JSON body on err.context
+      let msg = err?.message || "Payment failed";
+      let field: string | undefined;
+      try {
+        const ctx = err?.context;
+        if (ctx && typeof ctx.json === "function") {
+          const j = await ctx.json();
+          if (j?.error) msg = j.error;
+          if (j?.field) field = j.field;
+        }
+      } catch { /* ignore */ }
+      setError(msg, field);
     } finally {
       setSubmitting(false);
     }
@@ -152,9 +191,9 @@ const PayMe = () => {
                     <input
                       inputMode="decimal"
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); if (errorField === "amount") setErrorField(null); }}
                       placeholder="0.00"
-                      className="w-full pl-7 pr-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-lg focus:outline-none focus:border-amber-500"
+                      className={fieldClass("amount", "w-full pl-7 pr-3 py-2 bg-zinc-900 border rounded-lg text-white text-lg focus:outline-none")}
                       required
                     />
                   </div>
@@ -181,9 +220,9 @@ const PayMe = () => {
                   inputMode="numeric"
                   autoComplete="cc-number"
                   value={cardNumber}
-                  onChange={(e) => setCardNumber(formatCard(e.target.value))}
+                  onChange={(e) => { setCardNumber(formatCard(e.target.value)); if (errorField === "cardNumber") setErrorField(null); }}
                   placeholder="Card number"
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm tracking-wider focus:outline-none focus:border-amber-500"
+                  className={fieldClass("cardNumber", "w-full px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm tracking-wider focus:outline-none")}
                   required
                 />
 
@@ -192,27 +231,27 @@ const PayMe = () => {
                     inputMode="numeric"
                     autoComplete="cc-exp"
                     value={exp}
-                    onChange={(e) => setExp(formatExp(e.target.value))}
+                    onChange={(e) => { setExp(formatExp(e.target.value)); if (errorField === "exp") setErrorField(null); }}
                     placeholder="MM/YY"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    className={fieldClass("exp", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
                     required
                   />
                   <input
                     inputMode="numeric"
                     autoComplete="cc-csc"
                     value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    onChange={(e) => { setCvv(e.target.value.replace(/\D/g, "").slice(0, 4)); if (errorField === "cvv") setErrorField(null); }}
                     placeholder="CVV"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    className={fieldClass("cvv", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
                     required
                   />
                   <input
                     inputMode="numeric"
                     autoComplete="postal-code"
                     value={zip}
-                    onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 10)); if (errorField === "zip") setErrorField(null); }}
                     placeholder="ZIP"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    className={fieldClass("zip", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
                   />
                 </div>
 
@@ -223,6 +262,13 @@ const PayMe = () => {
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
                   maxLength={250}
                 />
+
+                {errorMsg && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-[1px]" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
 
                 <button
                   type="submit"
