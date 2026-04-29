@@ -186,7 +186,7 @@ const PayMe = () => {
         setError(data?.error || "Charge failed", data?.field);
         return;
       }
-      setSuccess({
+      const receipt = {
         id: data.transactionId,
         amount: data.amount,
         last4: data.last4,
@@ -194,9 +194,48 @@ const PayMe = () => {
         email,
         note,
         date: new Date().toLocaleString(),
-      });
+      };
+      setSuccess(receipt);
       toast.success(`Charged $${data.amount}`);
       setCardNumber(""); setExp(""); setCvv("");
+
+      // Fire-and-forget thank-you receipt email via Gmail API
+      try {
+        const recipientEmail = (email || "").trim();
+        if (recipientEmail) {
+          const firstName = (name || "").trim().split(/\s+/)[0] || "there";
+          const html = `
+            <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6;max-width:560px;">
+              <h2 style="color:#111;margin:0 0 12px;">Thank you, ${firstName} 🙏</h2>
+              <p>I just wanted to send a quick personal note to say <strong>thank you</strong> for your payment. It genuinely means a lot, and I'm grateful for the trust you've placed in me.</p>
+              <p>Here are your receipt details for your records:</p>
+              <table style="border-collapse:collapse;margin:12px 0 18px;font-size:14px;">
+                <tr><td style="padding:4px 12px 4px 0;color:#555;">Date</td><td style="padding:4px 0;"><strong>${receipt.date}</strong></td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#555;">Reference</td><td style="padding:4px 0;font-family:monospace;">${receipt.id}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#555;">Amount Paid</td><td style="padding:4px 0;color:#b45309;font-size:18px;"><strong>$${Number(receipt.amount).toFixed(2)}</strong></td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#555;">Card</td><td style="padding:4px 0;">•••• •••• •••• ${receipt.last4}</td></tr>
+                ${receipt.note ? `<tr><td style="padding:4px 12px 4px 0;color:#555;">Note</td><td style="padding:4px 0;">${receipt.note}</td></tr>` : ""}
+              </table>
+              <p style="color:#555;font-size:12px;">Processed securely via Authorize.Net.</p>
+              <p>If you ever need anything, just reply to this email — I read every message personally.</p>
+              <p style="margin-top:24px;">— Warren</p>
+            </div>`;
+          const gmailUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/gmail-api?action=send`;
+          fetch(gmailUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              to: recipientEmail,
+              subject: `Receipt + thank you — $${Number(receipt.amount).toFixed(2)} (Ref ${receipt.id})`,
+              body: html,
+            }),
+          }).catch(() => { /* non-blocking */ });
+        }
+      } catch { /* non-blocking */ }
     } catch (err: any) {
       // FunctionsHttpError stashes the JSON body on err.context
       let msg = err?.message || "Payment failed";
