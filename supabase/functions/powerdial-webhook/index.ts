@@ -1365,6 +1365,65 @@ Deno.serve(async (req) => {
         twilio_status: dialCallStatus,
       }).eq("id", callLogId);
 
+      // ===== Dropped-call auto SMS =====
+      // When a human picked up (transferred_to_human) and the call ended without
+      // the rep manually sending a text via the Live Transfer popup, fire the
+      // configured "got disconnected" SMS so the lead has a way back to us.
+      try {
+        const { data: doneLog } = await sb
+          .from("powerdial_call_logs")
+          .select("phone, customer_id, disposition, meta")
+          .eq("id", callLogId)
+          .maybeSingle();
+        const meta = (doneLog?.meta && typeof doneLog.meta === "object" && !Array.isArray(doneLog.meta))
+          ? doneLog.meta as Record<string, unknown>
+          : {};
+        const wasHumanTransfer = doneLog?.disposition === "transferred_to_human";
+        const manualSent = meta?.manual_text_sent === true;
+        const droppedSentAlready = meta?.dropped_call_sms_sent === true;
+        if (wasHumanTransfer && !manualSent && !droppedSentAlready && doneLog?.phone) {
+          const { data: settingRow } = await sb
+            .from("app_settings")
+            .select("key, value")
+            .in("key", ["powerdial_dropped_call_sms_enabled", "powerdial_dropped_call_sms_body"]);
+          let enabled = true; // default ON
+          let body = "Hi, Just got disconnected, Im Warren, AI videographer. Would you mind if I made a free marketing video on one of your listings for you to use to shop the house? Check my IG! https://instagram.com/W4RR3NGuru";
+          for (const r of settingRow || []) {
+            if (r.key === "powerdial_dropped_call_sms_enabled") {
+              const v = (r.value as any)?.enabled;
+              if (v === false) enabled = false;
+            }
+            if (r.key === "powerdial_dropped_call_sms_body") {
+              const v = (r.value as any)?.body;
+              if (typeof v === "string" && v.trim()) body = v.trim();
+            }
+          }
+          if (enabled && body) {
+            const toPhone = normalizePhone(doneLog.phone);
+            // Mark BEFORE send to avoid duplicate fires from re-deliveries
+            await sb.from("powerdial_call_logs").update({
+              meta: { ...meta, dropped_call_sms_sent: true, dropped_call_sms_at: new Date().toISOString() },
+            }).eq("id", callLogId);
+
+            const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+              body: JSON.stringify({
+                action: "send",
+                to: toPhone,
+                body,
+                customer_id: doneLog.customer_id || null,
+                source: "powerdial-dropped-call-sms",
+                metadata: { source: "powerdial-dropped-call-sms", campaign_id: campaignId, call_log_id: callLogId },
+              }),
+            }).catch((e) => { console.error("[powerdial-webhook] dropped-call SMS error", e); return null; });
+            console.log(`[powerdial-webhook] Dropped-call SMS dispatched to ${toPhone} (status=${smsResp?.status})`);
+          }
+        }
+      } catch (e) {
+        console.error("[powerdial-webhook] dropped-call SMS exception", e);
+      }
+
       const advanceResult = await handleCallCompletion(campaignId, queueItemId, callLogId, "dial-complete");
       return json({ ok: true, source: "dial-complete", dial_call_status: dialCallStatus, advanced: advanceResult });
     }
