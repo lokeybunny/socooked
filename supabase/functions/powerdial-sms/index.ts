@@ -38,7 +38,7 @@ function normalizePhone(raw: string | null | undefined): string {
   return `+${digits}`;
 }
 
-async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any }> {
+async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any; timing?: Record<string, number> }> {
   if (!VOIDFIX_API_KEY) return { ok: false, error: "missing_VOIDFIX_API_KEY" };
   if (!VOIDFIX_DEVICE_ID) return { ok: false, error: "missing_VOIDFIX_DEVICE_ID" };
   const toNum = normalizePhone(to);
@@ -51,26 +51,42 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
     key: VOIDFIX_API_KEY,
   });
 
+  const t0 = performance.now();
+  console.log(`[powerdial-sms][TIMING] → POST VoidFix send.php to=${toNum} bytes=${body.length}`);
   const resp = await fetch(VOIDFIX_SEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: formBody,
   });
+  const tHeaders = performance.now();
 
   const text = await resp.text();
+  const tBody = performance.now();
   let data: any = {};
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
-  if (!resp.ok) {
-    return { ok: false, status: resp.status, error: data?.message || `VoidFix ${resp.status}`, raw: data };
+  const headersMs = Math.round(tHeaders - t0);
+  const bodyMs = Math.round(tBody - tHeaders);
+  const totalMs = Math.round(tBody - t0);
+  console.log(`[powerdial-sms][TIMING] ← VoidFix status=${resp.status} headersMs=${headersMs} bodyReadMs=${bodyMs} totalMs=${totalMs}`);
+
+  // Inspect VoidFix-reported delivery state — this is where the Android device queue lives
+  const msg0 = data?.data?.messages?.[0] || data?.data?.[0];
+  if (msg0) {
+    console.log(`[powerdial-sms][TIMING] VoidFix queue: id=${msg0.ID || msg0.id || "?"} status=${msg0.status || "?"} sentDate=${msg0.sentDate || "?"} deliveredDate=${msg0.deliveredDate || "null"}`);
   }
-  // VoidFix typically returns { success: true, data: [{ ID: "..." }] } or similar
+
+  const timing = { headersMs, bodyMs, totalMs };
+
+  if (!resp.ok) {
+    return { ok: false, status: resp.status, error: data?.message || `VoidFix ${resp.status}`, raw: data, timing };
+  }
   const success = data?.success !== false;
   if (!success) {
-    return { ok: false, error: data?.message || data?.error || "voidfix_send_failed", raw: data };
+    return { ok: false, error: data?.message || data?.error || "voidfix_send_failed", raw: data, timing };
   }
-  const id = data?.data?.[0]?.ID || data?.data?.[0]?.id || data?.id || null;
-  return { ok: true, id, raw: data };
+  const id = data?.data?.[0]?.ID || data?.data?.[0]?.id || data?.data?.messages?.[0]?.ID || data?.id || null;
+  return { ok: true, id, raw: data, timing };
 }
 
 async function findCustomerByPhone(phone: string): Promise<string | null> {
@@ -200,6 +216,9 @@ Deno.serve(async (req) => {
   const action = payload?.action;
 
   if (action === "send") {
+    const sendStart = performance.now();
+    const tStamp = (label: string) => console.log(`[powerdial-sms][TIMING] +${(performance.now() - sendStart).toFixed(0)}ms ${label}`);
+
     const to = String(payload?.to || "").trim();
     const message = String(payload?.body || "").trim();
     if (!to || !message) return json({ ok: false, error: "missing_to_or_body" }, 400);
@@ -207,6 +226,8 @@ Deno.serve(async (req) => {
     const source = String(payload?.source || "powerdial-sms");
     const extraMetadata = payload?.metadata && typeof payload.metadata === "object" ? payload.metadata : {};
     const callLogId = extraMetadata?.call_log_id ? String(extraMetadata.call_log_id) : "";
+
+    tStamp(`send action received to=${to} source=${source}`);
 
     if (source === "powerdial-voicemail-drop-sms" && callLogId) {
       const { data: existing } = await sb
@@ -222,7 +243,10 @@ Deno.serve(async (req) => {
     }
 
     const result = await sendVoidfixSms(to, message);
+    tStamp(`VoidFix API call complete ok=${result.ok} totalMs=${result.timing?.totalMs ?? "?"}`);
+
     const customerId = payload?.customer_id || (await findCustomerByPhone(to));
+    tStamp("customer lookup done");
 
     const { error: logError } = await sb.from("communications").insert({
       type: "sms",
@@ -241,8 +265,10 @@ Deno.serve(async (req) => {
         ...extraMetadata,
         ...(result.error ? { error: result.error } : {}),
         ...(result.raw ? { voidfix_response: result.raw } : {}),
+        ...(result.timing ? { timing_ms: result.timing } : {}),
       },
     });
+    tStamp("DB log insert done");
 
     if (logError) {
       if (logError.code === "23505" && source === "powerdial-voicemail-drop-sms") {
@@ -253,7 +279,8 @@ Deno.serve(async (req) => {
     }
 
     if (!result.ok) return json({ ok: false, error: result.error }, result.status || 500);
-    return json({ ok: true, id: result.id });
+    tStamp("returning success to caller");
+    return json({ ok: true, id: result.id, timing_ms: result.timing });
   }
 
   if (action === "list") {

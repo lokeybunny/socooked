@@ -72,7 +72,16 @@ function normalizePhone(raw: string | null | undefined): string {
 }
 
 function runAfterResponse(label: string, task: Promise<unknown>) {
-  const guarded = task.catch((e) => console.error(`[twilio-sms-inbound] ${label} error:`, e));
+  const startedAt = performance.now();
+  const guarded = task
+    .then(() => {
+      const elapsed = (performance.now() - startedAt).toFixed(0);
+      console.log(`[twilio-sms-inbound][TIMING] ${label} completed in ${elapsed}ms`);
+    })
+    .catch((e) => {
+      const elapsed = (performance.now() - startedAt).toFixed(0);
+      console.error(`[twilio-sms-inbound][TIMING] ${label} FAILED after ${elapsed}ms:`, e);
+    });
   const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
   if (typeof waitUntil === "function") waitUntil(guarded);
 }
@@ -118,6 +127,8 @@ async function sendVoidfixAutoReply(
   const to = normalizePhone(from);
   if (!to) return;
   const replyBody = buildAutoReply(inboundBody, cfg);
+  const t0 = performance.now();
+  console.log(`[twilio-sms-inbound][TIMING] → calling powerdial-sms (sid=${sid || "?"})`);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
     headers: {
@@ -138,14 +149,20 @@ async function sendVoidfixAutoReply(
       },
     }),
   });
+  const fetchMs = (performance.now() - t0).toFixed(0);
   const resultText = await resp.text();
+  const totalMs = (performance.now() - t0).toFixed(0);
+  console.log(`[twilio-sms-inbound][TIMING] ← powerdial-sms responded status=${resp.status} fetchMs=${fetchMs} totalMs=${totalMs}`);
   if (!resp.ok) {
-    throw new Error(`VoidFix auto-reply failed [${resp.status}]: ${resultText.slice(0, 300)}`);
+    throw new Error(`VoidFix auto-reply failed [${resp.status}] in ${totalMs}ms: ${resultText.slice(0, 300)}`);
   }
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  const reqStart = performance.now();
+  const tStamp = (label: string) => console.log(`[twilio-sms-inbound][TIMING] +${(performance.now() - reqStart).toFixed(0)}ms ${label}`);
 
   try {
     const contentType = req.headers.get("content-type") || "";
@@ -166,6 +183,8 @@ Deno.serve(async (req) => {
       sid = String(j.MessageSid || j.sid || "");
     }
 
+    tStamp(`parsed payload from=${from} to=${to} sid=${sid}`);
+
     if (!from || !body) return twimlAck();
 
     const normalizedFrom = normalizePhone(from);
@@ -179,6 +198,7 @@ Deno.serve(async (req) => {
         .select("id")
         .eq("external_id", sid)
         .limit(1);
+      tStamp("idempotency check done");
       if (dupe && dupe[0]) {
         if (is8105LandlineWebhook) {
           const { data: priorReply } = await sb
@@ -194,6 +214,7 @@ Deno.serve(async (req) => {
           if (!priorReply?.[0]) {
             const cfg = await loadConfig();
             if (cfg.enabled) {
+              tStamp("duplicate sid w/ no prior reply — scheduling retry");
               runAfterResponse("duplicate retry VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, null, body, cfg));
             }
           }
@@ -203,6 +224,7 @@ Deno.serve(async (req) => {
     }
 
     const customerId = await findCustomerByPhone(from);
+    tStamp(`customer lookup done customerId=${customerId || "none"}`);
 
     // Log the inbound Twilio SMS — flagged as a "landline reply" so the CRM
     // knows this came in to the 8105 landline and still needs follow-up from
@@ -224,11 +246,14 @@ Deno.serve(async (req) => {
         twilio_number: normalizedTo,
       },
     });
+    tStamp("inbound communication logged");
 
     const cfg = await loadConfig();
+    tStamp("config loaded");
 
     // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline.
     if (cfg.enabled && is8105LandlineWebhook) {
+      tStamp("scheduling VoidFix auto-reply (background)");
       runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg));
     } else if (!is8105LandlineWebhook) {
       console.log(`[twilio-sms-inbound] skipped auto-reply: webhook To=${normalizedTo || "unknown"} is not ${TWILIO_LANDLINE_NUMBER}`);
@@ -240,6 +265,8 @@ Deno.serve(async (req) => {
     if (cfg.forward_enabled && is8105LandlineWebhook) {
       runAfterResponse("forward", forwardToVoidfixCell(normalizedFrom, normalizedTo, body, cfg.forward_to_cell));
     }
+
+    tStamp("returning TwiML ack to Twilio");
 
     return twimlAck();
   } catch (err) {
