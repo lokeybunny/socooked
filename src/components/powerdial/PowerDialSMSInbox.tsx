@@ -352,9 +352,35 @@ export default function PowerDialSMSInbox() {
               <Button size="sm" variant="ghost" className="md:hidden" onClick={() => setActiveThread(null)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-semibold font-mono">
-                {formatPhone(threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread)}
-              </span>
+              {(() => {
+                const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+                const last10 = normalizeLast10(activePhone);
+                const currentName = contacts[last10] || '';
+                if (editingName) {
+                  return (
+                    <Input
+                      autoFocus
+                      defaultValue={currentName}
+                      placeholder="Add name (leave blank to remove)"
+                      className="h-8 text-sm flex-1"
+                      onBlur={(e) => saveContactName(activePhone, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); saveContactName(activePhone, (e.target as HTMLInputElement).value); }
+                        if (e.key === 'Escape') { setEditingName(false); }
+                      }}
+                    />
+                  );
+                }
+                return (
+                  <span
+                    className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none"
+                    title="Double-click to add or edit a name"
+                    onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
+                  >
+                    {displayPhone(activePhone)}
+                  </span>
+                );
+              })()}
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
