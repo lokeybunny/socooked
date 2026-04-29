@@ -226,31 +226,19 @@ Deno.serve(async (req) => {
 
       newCount++;
 
-      // Auto-reply via VoidFix for messages to the 8105 landline
+      // Auto-reply via VoidFix for messages to the 8105 landline (no dedupe)
       if (cfg.enabled && m.to === TWILIO_LANDLINE && m.from) {
         try {
-          if (await alreadyAutoReplied(m.sid, m.from)) {
-            autoReplySkipped++;
-            await sb.from("twilio_inbound_logs").insert({
-              event: "poll-auto-reply:skipped-duplicate",
-              level: "info",
-              from_number: m.from,
-              to_number: m.to,
-              message_sid: m.sid,
-              metadata: { reason: "already-replied-or-recent" },
-            });
-          } else {
-            await sendVoidfixAutoReply(m.from, m.sid, m.to, m.body, cfg);
-            autoReplied++;
-            await sb.from("twilio_inbound_logs").insert({
-              event: "poll-auto-reply:sent",
-              level: "info",
-              from_number: m.from,
-              to_number: m.to,
-              message_sid: m.sid,
-              metadata: { triggered_by: "twilio-inbound-poll" },
-            });
-          }
+          await sendVoidfixAutoReply(m.from, m.sid, m.to, m.body, cfg);
+          autoReplied++;
+          await sb.from("twilio_inbound_logs").insert({
+            event: "poll-auto-reply:sent",
+            level: "info",
+            from_number: m.from,
+            to_number: m.to,
+            message_sid: m.sid,
+            metadata: { triggered_by: "twilio-inbound-poll" },
+          });
         } catch (e) {
           autoReplyFailed++;
           await sb.from("twilio_inbound_logs").insert({
