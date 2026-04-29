@@ -250,7 +250,6 @@ Deno.serve(async (req) => {
         new: newCount,
         skipped,
         auto_replied: autoReplied,
-        auto_reply_skipped: autoReplySkipped,
         auto_reply_failed: autoReplyFailed,
         elapsed_ms: elapsed,
       }),
