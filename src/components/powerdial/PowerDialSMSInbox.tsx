@@ -106,6 +106,19 @@ export default function PowerDialSMSInbox() {
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
 
+  // Always jump to the newest message when a thread opens or new messages arrive.
+  useLayoutEffect(() => {
+    if (!activeThread || activeMessages.length === 0) return;
+    const root = scrollAreaRef.current;
+    const viewport = root?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
+    const scrollEl = viewport || root;
+    if (scrollEl) {
+      requestAnimationFrame(() => {
+        scrollEl.scrollTop = scrollEl.scrollHeight;
+      });
+    }
+  }, [activeThread, activeMessages.length]);
+
   const handleSend = async (toOverride?: string) => {
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
     const body = composeBody.trim();
