@@ -255,6 +255,13 @@ export default function PowerDialSMSInbox() {
     return Array.from(map.values()).sort((a, b) => new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime());
   }, [messages]);
 
+  const visibleThreads = useMemo(() => {
+    if (filterMode === 'starred') {
+      return threads.filter(t => starredSet.has(normalizeLast10(t.phone)));
+    }
+    return threads;
+  }, [threads, filterMode, starredSet]);
+
   const activeMessages = useMemo(() => {
     if (!activeThread) return [];
     const t = threads.find(t => normalizeLast10(t.phone) === activeThread);
