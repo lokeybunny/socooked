@@ -264,7 +264,7 @@ export default function PowerDialSMSInbox() {
                 {formatPhone(threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread)}
               </span>
             </div>
-            <ScrollArea className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
+            <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
                 {activeMessages.map(m => {
                   const errMsg = m.metadata?.error || m.metadata?.twilio_error_message;
