@@ -19,8 +19,34 @@ const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 
 const TWILIO_LANDLINE = "+17028298105";
+const DEFAULT_AUTO_REPLY_PREFIX =
+  "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+type AutoReplyConfig = {
+  enabled: boolean;
+  prefix: string;
+  include_quoted: boolean;
+};
+
+async function loadAutoReplyConfig(): Promise<AutoReplyConfig> {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "sms_auto_reply").maybeSingle();
+  const v = (data?.value || {}) as Partial<AutoReplyConfig>;
+  return {
+    enabled: v.enabled !== false,
+    prefix: typeof v.prefix === "string" && v.prefix.trim() ? v.prefix : DEFAULT_AUTO_REPLY_PREFIX,
+    include_quoted: v.include_quoted !== false,
+  };
+}
+
+function buildAutoReply(inboundBody: string, cfg: AutoReplyConfig): string {
+  const trimmed = (inboundBody || "").trim();
+  if (!trimmed || !cfg.include_quoted) return cfg.prefix;
+  const MAX_QUOTE = 600;
+  const quoted = trimmed.length > MAX_QUOTE ? `${trimmed.slice(0, MAX_QUOTE).trim()}…` : trimmed;
+  return `${cfg.prefix}\n\nYou wrote:\n"${quoted}"`;
+}
 
 async function alreadyLogged(sid: string): Promise<boolean> {
   const { data } = await sb
@@ -30,6 +56,59 @@ async function alreadyLogged(sid: string): Promise<boolean> {
     .eq("event", "twilio-poll:received")
     .limit(1);
   return !!(data && data[0]);
+}
+
+async function alreadyAutoReplied(sid: string, fromNumber: string): Promise<boolean> {
+  // Check by twilio_sid first
+  const { data: bySid } = await sb
+    .from("communications")
+    .select("id")
+    .eq("type", "sms")
+    .eq("direction", "outbound")
+    .eq("metadata->>twilio_sid", sid)
+    .limit(1);
+  if (bySid && bySid[0]) return true;
+
+  // Also short-circuit if we already auto-replied to this sender in the last 6 hours
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const { data: recent } = await sb
+    .from("communications")
+    .select("id")
+    .eq("type", "sms")
+    .eq("direction", "outbound")
+    .eq("to_address", fromNumber)
+    .eq("metadata->>source", "twilio-auto-reply-voidfix")
+    .gte("created_at", sixHoursAgo)
+    .limit(1);
+  return !!(recent && recent[0]);
+}
+
+async function sendVoidfixAutoReply(from: string, sid: string, twilioNumber: string, inboundBody: string, cfg: AutoReplyConfig) {
+  const replyBody = buildAutoReply(inboundBody, cfg);
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify({
+      action: "send",
+      to: from,
+      body: replyBody,
+      source: "twilio-auto-reply-voidfix",
+      metadata: {
+        source: "twilio-auto-reply-voidfix",
+        twilio_number: twilioNumber,
+        twilio_sid: sid,
+        inbound_body: inboundBody,
+        triggered_by: "twilio-inbound-poll",
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`powerdial-sms ${resp.status}: ${text.slice(0, 300)}`);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -81,6 +160,11 @@ Deno.serve(async (req) => {
 
     let newCount = 0;
     let skipped = 0;
+    let autoReplied = 0;
+    let autoReplySkipped = 0;
+    let autoReplyFailed = 0;
+
+    const cfg = await loadAutoReplyConfig();
 
     for (const m of messages) {
       // Only process inbound to our landline
@@ -141,6 +225,44 @@ Deno.serve(async (req) => {
       }
 
       newCount++;
+
+      // Auto-reply via VoidFix for messages to the 8105 landline
+      if (cfg.enabled && m.to === TWILIO_LANDLINE && m.from) {
+        try {
+          if (await alreadyAutoReplied(m.sid, m.from)) {
+            autoReplySkipped++;
+            await sb.from("twilio_inbound_logs").insert({
+              event: "poll-auto-reply:skipped-duplicate",
+              level: "info",
+              from_number: m.from,
+              to_number: m.to,
+              message_sid: m.sid,
+              metadata: { reason: "already-replied-or-recent" },
+            });
+          } else {
+            await sendVoidfixAutoReply(m.from, m.sid, m.to, m.body, cfg);
+            autoReplied++;
+            await sb.from("twilio_inbound_logs").insert({
+              event: "poll-auto-reply:sent",
+              level: "info",
+              from_number: m.from,
+              to_number: m.to,
+              message_sid: m.sid,
+              metadata: { triggered_by: "twilio-inbound-poll" },
+            });
+          }
+        } catch (e) {
+          autoReplyFailed++;
+          await sb.from("twilio_inbound_logs").insert({
+            event: "poll-auto-reply:failed",
+            level: "error",
+            from_number: m.from,
+            to_number: m.to,
+            message_sid: m.sid,
+            metadata: { error: String((e as any)?.message || e) },
+          });
+        }
+      }
     }
 
     const elapsed = Date.now() - startedAt;
@@ -148,12 +270,29 @@ Deno.serve(async (req) => {
       event: "twilio-poll:summary",
       level: "info",
       elapsed_ms: elapsed,
-      metadata: { fetched: messages.length, new: newCount, skipped },
+      metadata: {
+        fetched: messages.length,
+        new: newCount,
+        skipped,
+        auto_replied: autoReplied,
+        auto_reply_skipped: autoReplySkipped,
+        auto_reply_failed: autoReplyFailed,
+      },
     });
 
-    return new Response(JSON.stringify({ ok: true, fetched: messages.length, new: newCount, skipped, elapsed_ms: elapsed }), {
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        fetched: messages.length,
+        new: newCount,
+        skipped,
+        auto_replied: autoReplied,
+        auto_reply_skipped: autoReplySkipped,
+        auto_reply_failed: autoReplyFailed,
+        elapsed_ms: elapsed,
+      }),
+      { headers: { ...CORS, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
       status: 500,
