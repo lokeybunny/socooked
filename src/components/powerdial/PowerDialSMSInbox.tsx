@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
@@ -44,6 +44,9 @@ function formatPhone(raw: string | null | undefined) {
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [contacts, setContacts] = useState<Record<string, string>>({});
+  const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
+  const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
+  const [filterMode, setFilterMode] = useState<'all' | 'starred'>('all');
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -79,10 +82,19 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred');
     const map: Record<string, string> = {};
-    (data || []).forEach((c: any) => { if (c.phone_last10) map[c.phone_last10] = c.name; });
+    const emails: Record<string, string> = {};
+    const starred = new Set<string>();
+    (data || []).forEach((c: any) => {
+      if (!c.phone_last10) return;
+      if (c.name) map[c.phone_last10] = c.name;
+      if (c.email) emails[c.phone_last10] = c.email;
+      if (c.starred) starred.add(c.phone_last10);
+    });
     setContacts(map);
+    setContactEmails(emails);
+    setStarredSet(starred);
   }, []);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
