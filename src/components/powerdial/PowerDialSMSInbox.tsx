@@ -112,11 +112,10 @@ export default function PowerDialSMSInbox() {
     const root = scrollAreaRef.current;
     const viewport = root?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
     const scrollEl = viewport || root;
-    if (scrollEl) {
-      requestAnimationFrame(() => {
-        scrollEl.scrollTop = scrollEl.scrollHeight;
-      });
-    }
+    requestAnimationFrame(() => {
+      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    });
   }, [activeThread, activeMessages.length]);
 
   const handleSend = async (toOverride?: string) => {
