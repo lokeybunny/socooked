@@ -674,6 +674,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     </div>
                   </button>
                   <button
+                    onClick={(e) => openSendProposal(e, key)}
+                    className="absolute top-2 right-16 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 text-blue-400 transition-opacity"
+                    title="Send proposal"
+                    aria-label="Send proposal"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={(e) => handleCreateCustomer(e, key)}
                     className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
                     title="Create customer (add to New Clients)"
