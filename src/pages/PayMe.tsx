@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt, AlertCircle, Download, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 
 const ZELLE = "Me@cozyhomestudio.com";
 const CASHAPP = "$ITSWARR";
@@ -19,9 +20,14 @@ const PayMe = () => {
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ id: string; amount: string; last4: string } | null>(null);
+  const [success, setSuccess] = useState<{ id: string; amount: string; last4: string; name: string; email: string; note: string; date: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<string | null>(null);
+
+  // Eligibility gate
+  const [verifying, setVerifying] = useState(false);
+  const [eligible, setEligible] = useState<boolean | null>(null);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
 
   const luhnValid = (num: string): boolean => {
     if (!/^\d+$/.test(num)) return false;
