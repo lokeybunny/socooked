@@ -21,6 +21,7 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const HUMAN_SPEECH_MIN_AUDIO_MS = 500;
 
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
@@ -228,6 +229,11 @@ function escapeXml(value: string): string {
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function hasConfirmedHumanSpeech(answeredBy: string, machineDetectionDuration: string): boolean {
+  const durationMs = Number(machineDetectionDuration || 0);
+  return answeredBy === "human" && Number.isFinite(durationMs) && durationMs >= HUMAN_SPEECH_MIN_AUDIO_MS;
 }
 
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
@@ -914,19 +920,19 @@ Deno.serve(async (req) => {
         connectVapi = true;
         intendedAction = "redirect_to_human_transfer (AI disabled — bypass AMD)";
         console.log(`[powerdial-webhook] AI disabled — forcing human-transfer path regardless of AMD result (${answeredBy})`);
-      } else if (answeredBy === "human") {
+      } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = "redirect_to_vapi_assistant (human detected)";
+        intendedAction = "redirect_to_vapi_assistant (human speech >=500ms detected)";
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
       } else if (answeredBy === "unknown") {
-        amdResult = "human";
-        connectVapi = true;
-        intendedAction = "redirect_to_vapi_assistant (AMD inconclusive — treat as human)";
+        amdResult = "unknown";
+        connectVapi = false;
+        intendedAction = "hold_silent (AMD inconclusive — no confirmed human speech)";
       } else {
-        intendedAction = `noop (unrecognized AnsweredBy=${answeredBy})`;
+        intendedAction = `hold_silent (no confirmed human speech: AnsweredBy=${answeredBy}, duration=${machineDetectionDuration || "0"}ms)`;
       }
 
       // Fetch settings + existing log up-front so BOTH human and voicemail branches can use them
@@ -1269,6 +1275,24 @@ Deno.serve(async (req) => {
         }
 
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
+      }
+
+      if (amdResult !== "voicemail") {
+        console.log(`[powerdial-webhook] Speech gate holding silent for call ${callSid}: ${intendedAction}`);
+        await sb.from("powerdial_call_logs").update({
+          connected_to_vapi: false,
+          meta: {
+            ...existingMeta,
+            speech_gate: {
+              passed: false,
+              answered_by: answeredBy,
+              machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
+              required_audio_ms: HUMAN_SPEECH_MIN_AUDIO_MS,
+              action: "hold_silent",
+            },
+          },
+        }).eq("id", callLogId);
+        return json({ ok: true, amd_result: amdResult, speech_gate_passed: false, action: "hold_silent" });
       }
 
       // ===== VOICEMAIL BRANCH =====
