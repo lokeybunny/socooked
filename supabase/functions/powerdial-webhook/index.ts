@@ -1018,6 +1018,19 @@ Deno.serve(async (req) => {
           await cancelSiblingCalls(batchId, callLogId, campaignId);
         }
 
+        // The initial TwiML can now bridge the lead immediately on answer so
+        // Vapi / AI Assist responds to the first "hello". When that path was
+        // used, AMD is only a classifier/counting signal — do not redirect the
+        // already-bridged live call a second time.
+        if ((existingMeta as any).immediate_answer_twiml === true) {
+          return json({
+            ok: true,
+            amd_result: amdResult,
+            immediate_answer: true,
+            mode: (existingMeta as any).immediate_answer_mode || "unknown",
+          });
+        }
+
         const aiEnabled = settingsObj.ai_enabled !== false; // default true
         const humanTransferPhoneRaw = typeof settingsObj.human_transfer_phone === "string"
           ? settingsObj.human_transfer_phone
