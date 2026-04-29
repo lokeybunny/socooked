@@ -123,7 +123,13 @@ export default function PowerDialSMSInbox() {
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
 
-  // Auto-scroll only when: thread newly opened, OR new messages arrived AND user was near bottom.
+  // Reset count tracker whenever active thread changes so "justOpened" detection is correct.
+  useLayoutEffect(() => {
+    prevActiveCountRef.current = 0;
+  }, [activeThread]);
+
+  // Always pin to newest message: on thread open, force scroll to bottom (with retries for layout settle).
+  // On new messages arriving, only auto-scroll if user is near the bottom.
   useLayoutEffect(() => {
     if (!activeThread || activeMessages.length === 0) {
       prevActiveCountRef.current = activeMessages.length;
@@ -139,11 +145,26 @@ export default function PowerDialSMSInbox() {
     if (scrollEl && !justOpened) {
       nearBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 120;
     }
-    if (justOpened || (grew && nearBottom)) {
-      requestAnimationFrame(() => {
-        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
-        messagesEndRef.current?.scrollIntoView({ block: 'end' });
-      });
+
+    const jumpToBottom = () => {
+      const r = scrollAreaRef.current;
+      const v = r?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]') || r;
+      if (v) v.scrollTop = v.scrollHeight;
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    };
+
+    if (justOpened) {
+      // Layout/images may not be ready — retry across frames to guarantee bottom alignment.
+      requestAnimationFrame(jumpToBottom);
+      requestAnimationFrame(() => requestAnimationFrame(jumpToBottom));
+      const t1 = setTimeout(jumpToBottom, 60);
+      const t2 = setTimeout(jumpToBottom, 200);
+      const t3 = setTimeout(jumpToBottom, 500);
+      prevActiveCountRef.current = activeMessages.length;
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }
+    if (grew && nearBottom) {
+      requestAnimationFrame(jumpToBottom);
     }
     prevActiveCountRef.current = activeMessages.length;
   }, [activeThread, activeMessages.length]);
