@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
       const createdAt = m.deliveredDate || m.sentDate || null;
-      await sb.from("communications").insert({
+      const { data: insertedRow } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
         body: String(m.message || ""),
@@ -410,9 +410,20 @@ Deno.serve(async (req) => {
         customer_id: customerId,
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
-      });
+      }).select("id, created_at").single();
       // No cell auto-reply for poll-imported inbound texts — auto-reply is
       // landline-only (handled by twilio-sms-inbound).
+      // Hook Reply classifier — fire-and-forget
+      fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({
+          phone: from,
+          body: String(m.message || ""),
+          message_id: insertedRow?.id || null,
+          message_created_at: insertedRow?.created_at || new Date().toISOString(),
+        }),
+      }).catch((e) => console.error("[powerdial-sms/poll] hook classifier error", e));
       // Advance sequences
       fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
         method: "POST",
