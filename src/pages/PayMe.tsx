@@ -48,36 +48,33 @@ const PayMe = () => {
   };
   const fieldClass = (name: string, base: string) =>
     `${base} ${errorField === name ? "border-red-500 focus:border-red-500" : "border-zinc-700 focus:border-amber-500"}`;
-
-
-  type Receipt = {
-    id: string;
-    transaction_id: string;
-    amount: number;
-    last4: string | null;
-    payer_name: string | null;
-    note: string | null;
-    created_at: string;
+  const verifyEligibility = async () => {
+    const clean = email.trim().toLowerCase();
+    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      return setError("Enter a valid email to unlock card payments.", "email");
+    }
+    setVerifying(true);
+    setErrorMsg(null); setErrorField(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-proposal-signed", {
+        body: { email: clean },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.eligible) {
+        setEligible(true);
+        setVerifiedEmail(clean);
+        toast.success("Card payments unlocked");
+      } else {
+        setEligible(false);
+        setVerifiedEmail(null);
+        setError("This email has no signed agreement on file. Card payments are restricted to clients with a signed proposal.", "email");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Verification failed", "email");
+    } finally {
+      setVerifying(false);
+    }
   };
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-
-  const loadReceipts = useCallback(async () => {
-    const { data } = await supabase
-      .from("payme_charges")
-      .select("id, transaction_id, amount, last4, payer_name, note, created_at")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (data) setReceipts(data as Receipt[]);
-  }, []);
-
-  useEffect(() => {
-    loadReceipts();
-    const ch = supabase
-      .channel("payme_charges_rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "payme_charges" }, loadReceipts)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [loadReceipts]);
 
   const copy = async (label: string, value: string) => {
     try {
