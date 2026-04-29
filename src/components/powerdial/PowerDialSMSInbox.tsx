@@ -196,7 +196,7 @@ export default function PowerDialSMSInbox() {
         toast.error(`Webhook returned ${res.status}: ${text.slice(0, 120)}`);
       } else {
         toast.success('Test inbound delivered — check inbox');
-        setTimeout(load, 600);
+        setTimeout(() => load({ silent: true }), 600);
       }
     } catch (e: any) {
       toast.error(e?.message || 'Test webhook failed');
