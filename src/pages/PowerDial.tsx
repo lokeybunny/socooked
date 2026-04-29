@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -105,11 +105,6 @@ export default function PowerDial() {
     return () => { supabase.removeChannel(channel); };
   }, [activeCampaign?.id]);
 
-  // Debounce timer for auto-closing the live popup. We only close if the
-  // call-end status persists for 300ms — guards against transient flickers
-  // (e.g. status briefly toggling through 'completed' before reconnecting).
-  const closeDebounceRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; phoneLast10: string | null }>({ timer: null, phoneLast10: null });
-
   // Realtime for queue to track current dialing
   useEffect(() => {
     if (!activeCampaign) return;
@@ -128,18 +123,12 @@ export default function PowerDial() {
         } else {
           setCurrentDialing((prev: any) => (prev?.id === row.id ? null : prev));
         }
-        const rowLast10 = String(row.phone || '').replace(/\D/g, '').slice(-10);
         // Auto-open Live Transfer popup the moment a human picks up
         const humanResult =
           row.last_result === 'human_connected' ||
           row.last_result === 'transferred_to_human' ||
           row.amd_result === 'human';
         if (humanResult) {
-          // Cancel any pending close — call is alive again
-          if (closeDebounceRef.current.timer) {
-            clearTimeout(closeDebounceRef.current.timer);
-            closeDebounceRef.current = { timer: null, phoneLast10: null };
-          }
           setLivePopupCall((prev) => prev || {
             phone: row.phone,
             contact_name: row.contact_name,
@@ -147,55 +136,10 @@ export default function PowerDial() {
             notes: row.notes || null,
           });
         }
-        // Auto-close popup when the active call ends — debounced 300ms
-        const callEnded =
-          row.status === 'completed' ||
-          row.status === 'failed' ||
-          row.status === 'no_answer' ||
-          row.status === 'voicemail' ||
-          row.status === 'busy' ||
-          row.status === 'ended' ||
-          row.last_result === 'call_ended' ||
-          row.last_result === 'completed' ||
-          row.last_result === 'voicemail' ||
-          row.last_result === 'no_answer' ||
-          row.last_result === 'busy' ||
-          row.last_result === 'failed';
-        if (callEnded) {
-          // If a debounce is already pending for a different phone, reset it
-          if (closeDebounceRef.current.timer && closeDebounceRef.current.phoneLast10 !== rowLast10) {
-            clearTimeout(closeDebounceRef.current.timer);
-            closeDebounceRef.current = { timer: null, phoneLast10: null };
-          }
-          if (!closeDebounceRef.current.timer) {
-            const targetLast10 = rowLast10;
-            closeDebounceRef.current.phoneLast10 = targetLast10;
-            closeDebounceRef.current.timer = setTimeout(() => {
-              setLivePopupCall((prev) => {
-                if (!prev) return prev;
-                const prevLast10 = String(prev.phone || '').replace(/\D/g, '').slice(-10);
-                return prevLast10 && prevLast10 === targetLast10 ? null : prev;
-              });
-              closeDebounceRef.current = { timer: null, phoneLast10: null };
-            }, 300);
-          }
-        } else {
-          // Status flipped back to a non-ended state for the same phone — cancel pending close
-          if (closeDebounceRef.current.timer && closeDebounceRef.current.phoneLast10 === rowLast10) {
-            clearTimeout(closeDebounceRef.current.timer);
-            closeDebounceRef.current = { timer: null, phoneLast10: null };
-          }
-        }
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-      if (closeDebounceRef.current.timer) {
-        clearTimeout(closeDebounceRef.current.timer);
-        closeDebounceRef.current = { timer: null, phoneLast10: null };
-      }
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [activeCampaign?.id]);
 
   const invokeEngine = async (body: any) => {
