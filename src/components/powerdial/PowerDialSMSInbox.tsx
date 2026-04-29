@@ -96,6 +96,53 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { load({ silent: false }); }, [load]);
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
+  // Track unread inbound per thread. On first load, mark everything as "seen" (no false alarms).
+  // On subsequent loads, any inbound newer than the last-seen id for that thread = unread.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const latestInboundByThread = new Map<string, SMSMessage>();
+    for (const m of messages) {
+      if (m.direction !== 'inbound') continue;
+      const key = normalizeLast10(m.from_address);
+      if (!key || key.length !== 10) continue;
+      const cur = latestInboundByThread.get(key);
+      if (!cur || new Date(m.created_at) > new Date(cur.created_at)) {
+        latestInboundByThread.set(key, m);
+      }
+    }
+    const isFirstSeed = Object.keys(seenInboundRef.current).length === 0;
+    if (isFirstSeed) {
+      // Seed baseline — nothing is "new" on initial mount/refresh.
+      latestInboundByThread.forEach((msg, key) => { seenInboundRef.current[key] = msg.id; });
+      return;
+    }
+    setUnreadThreads(prev => {
+      const next = new Set(prev);
+      latestInboundByThread.forEach((msg, key) => {
+        if (seenInboundRef.current[key] !== msg.id && activeThreadRef.current !== key) {
+          next.add(key);
+        }
+      });
+      return next;
+    });
+  }, [messages]);
+
+  // Clear unread + update seen marker when a thread is opened
+  useEffect(() => {
+    if (!activeThread) return;
+    setUnreadThreads(prev => {
+      if (!prev.has(activeThread)) return prev;
+      const next = new Set(prev);
+      next.delete(activeThread);
+      return next;
+    });
+    // Update seen pointer to the latest inbound currently in this thread
+    const latest = messages
+      .filter(m => m.direction === 'inbound' && normalizeLast10(m.from_address) === activeThread)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    if (latest) seenInboundRef.current[activeThread] = latest.id;
+  }, [activeThread, messages]);
+
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
     const id = setInterval(() => { load({ silent: true }); }, 8000);
