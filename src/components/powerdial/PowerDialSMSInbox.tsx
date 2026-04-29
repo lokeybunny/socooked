@@ -580,6 +580,16 @@ export default function PowerDialSMSInbox() {
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
+                onClick={(e) => activeThread && handleCreateCustomer(e, activeThread)}
+                title="Create customer (add to Leads pipeline)"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span className="text-xs">Create Customer</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 onClick={(e) => activeThread && handleDeleteThread(e, activeThread)}
                 title="Delete thread"
