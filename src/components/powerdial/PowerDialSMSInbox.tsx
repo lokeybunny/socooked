@@ -425,16 +425,33 @@ export default function PowerDialSMSInbox() {
     const last10 = normalizeLast10(phoneKey);
     if (last10.length !== 10) { toast.error('Invalid phone number'); return; }
     setProposalPhoneKey(last10);
-    setProposalEmail(detectEmailInThread(last10));
+    // Prefer the email already bound to this contact, otherwise auto-detect from thread
+    const stored = contactEmails[last10];
+    setProposalEmail(stored || detectEmailInThread(last10));
     setProposalStep('email');
     setProposalOpen(true);
   };
 
-  const handleProposalContinue = () => {
+  const handleProposalContinue = async () => {
     const email = proposalEmail.trim();
     if (!email || !/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(email)) {
       toast.error('Enter a valid email address');
       return;
+    }
+    // Bind this email to the SMS contact (pre-client) so it's remembered for next time
+    if (proposalPhoneKey) {
+      try {
+        await supabase.from('sms_contacts').upsert(
+          {
+            phone_last10: proposalPhoneKey,
+            phone: `+1${proposalPhoneKey}`,
+            email,
+            name: contacts[proposalPhoneKey] || null,
+          } as never,
+          { onConflict: 'phone_last10' },
+        );
+        setContactEmails((prev) => ({ ...prev, [proposalPhoneKey]: email }));
+      } catch { /* non-fatal */ }
     }
     setProposalStep('choose');
   };
