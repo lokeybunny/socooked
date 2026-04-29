@@ -204,3 +204,7 @@ verify_jwt = false
 
 [functions.proposal-deposit-track]
 verify_jwt = false
+
+[functions.authnet-charge]
+verify_jwt = false
+
