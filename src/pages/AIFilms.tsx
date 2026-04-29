@@ -626,6 +626,16 @@ export default function AIFilms() {
             </div>
           </div>
 
+          <div className="text-center mb-6">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-background/40 mb-2">Or call us</p>
+            <a
+              href="tel:+17027016192"
+              className="text-2xl sm:text-3xl font-light tracking-wide text-background hover:text-background/70 transition-colors"
+            >
+              (702) 701-6192
+            </a>
+          </div>
+
           <form
             id="form"
             onSubmit={handleSubmit}
