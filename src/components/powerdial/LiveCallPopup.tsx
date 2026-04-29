@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Send, Loader2, X, Phone, FileText } from 'lucide-react';
+import { Send, Loader2, X, Phone, FileText, Ban } from 'lucide-react';
 import { Teleprompter } from '@/components/phone/Teleprompter';
 
 type ActiveCall = {
@@ -30,6 +30,7 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
   const [quickText, setQuickText] = useState(DEFAULT_QUICK_TEXT);
   const [scriptText, setScriptText] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [markingDnd, setMarkingDnd] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
 
   // Load editable defaults from app_settings
@@ -107,6 +108,66 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
     }
   };
 
+  const handleNotInterested = async () => {
+    if (!call?.phone) {
+      toast.error('No phone number for this call');
+      return;
+    }
+    setMarkingDnd(true);
+    try {
+      const digits = String(call.phone).replace(/\D/g, '');
+      const last10 = digits.slice(-10);
+      const e164 = digits.length === 11 ? `+${digits}` : `+1${last10}`;
+
+      // 1) Add to DND list
+      const { error: dndErr } = await supabase.from('sms_dnd_list').upsert(
+        {
+          phone: e164,
+          phone_last10: last10,
+          reason: 'not_interested_live_call',
+          source: 'live_call_popup',
+        },
+        { onConflict: 'phone_last10' },
+      );
+      if (dndErr) throw dndErr;
+
+      // 2) Bypass dropped-call auto SMS by flagging latest call log
+      try {
+        const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const { data: logs } = await supabase
+          .from('powerdial_call_logs')
+          .select('id, meta')
+          .ilike('phone', `%${last10}`)
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const log = logs?.[0] as any;
+        if (log?.id) {
+          const meta = (log.meta && typeof log.meta === 'object') ? log.meta : {};
+          await supabase.from('powerdial_call_logs').update({
+            meta: {
+              ...meta,
+              manual_text_sent: true,
+              dropped_call_sms_sent: true,
+              not_interested: true,
+              not_interested_at: new Date().toISOString(),
+            },
+            disposition: 'not_interested',
+          }).eq('id', log.id);
+        }
+      } catch (e) {
+        console.warn('[LiveCallPopup] flag log not_interested failed', e);
+      }
+
+      toast.success('Marked Not Interested · Added to DND');
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to mark not interested');
+    } finally {
+      setMarkingDnd(false);
+    }
+  };
+
   if (!open || !call) return null;
 
   return (
@@ -158,14 +219,24 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
             className="text-sm resize-none"
             placeholder="Type a follow-up message…"
           />
-          <Button
-            onClick={handleTextUser}
-            disabled={sending || !quickText.trim()}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-            Text User
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={handleTextUser}
+              disabled={sending || !quickText.trim()}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+              Text User
+            </Button>
+            <Button
+              onClick={handleNotInterested}
+              disabled={markingDnd}
+              variant="destructive"
+            >
+              {markingDnd ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Ban className="h-4 w-4 mr-2" />}
+              Not Interested
+            </Button>
+          </div>
           <a
             href={`tel:${call.phone}`}
             className="flex items-center justify-center gap-2 w-full text-xs text-muted-foreground hover:text-foreground py-1.5 rounded border border-border"
