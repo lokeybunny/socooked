@@ -143,9 +143,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
   // texts to the VoidFix cell.
 
-  // Hook Reply classifier — fire-and-forget
+  // Hook Reply classifier — awaited so the fetch survives in edge runtime
   try {
-    fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
       body: JSON.stringify({
@@ -154,21 +154,21 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
         message_id: insertedRow?.id || null,
         message_created_at: insertedRow?.created_at || new Date().toISOString(),
       }),
-    }).catch((e) => console.error("[powerdial-sms] hook classifier error", e));
+    });
   } catch (e) {
     console.error("[powerdial-sms] hook classifier error", e);
   }
 
-  // Forward to sequence engine (fire-and-forget) to advance any active enrollments
+  // Forward to sequence engine to advance any active enrollments
   try {
-    fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
       body: JSON.stringify({ action: "process_inbound", phone: normalizePhone(from), body }),
-    }).catch((e) => console.error("[powerdial-sms] sequence forward error", e));
+    });
   } catch (e) {
     console.error("[powerdial-sms] sequence forward error", e);
   }
