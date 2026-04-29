@@ -54,6 +54,8 @@ export default function SMS() {
   const [campPhones, setCampPhones] = useState('');
   const [campSequenceId, setCampSequenceId] = useState<string>('none');
   const [sending, setSending] = useState(false);
+  const [hookCounts, setHookCounts] = useState({ awaiting: 0, scheduled: 0 });
+  const [dndCount, setDndCount] = useState(0);
 
   const load = async () => {
     const [t, c, s] = await Promise.all([
@@ -66,7 +68,27 @@ export default function SMS() {
     setSequences((s.data as SequenceLite[]) || []);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadCounts = async () => {
+    const [awaiting, scheduled, dnd] = await Promise.all([
+      supabase.from('hook_reply_threads').select('id', { count: 'exact', head: true }).eq('status', 'awaiting_reply'),
+      supabase.from('hook_reply_threads').select('id', { count: 'exact', head: true }).eq('status', 'followup_scheduled'),
+      supabase.from('sms_dnd_list').select('id', { count: 'exact', head: true }),
+    ]);
+    setHookCounts({ awaiting: awaiting.count || 0, scheduled: scheduled.count || 0 });
+    setDndCount(dnd.count || 0);
+  };
+
+  useEffect(() => {
+    load();
+    loadCounts();
+    const id = setInterval(loadCounts, 20000);
+    const ch = supabase
+      .channel('sms-tab-counts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hook_reply_threads' }, () => loadCounts())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_dnd_list' }, () => loadCounts())
+      .subscribe();
+    return () => { clearInterval(id); supabase.removeChannel(ch); };
+  }, []);
 
   const saveTemplate = async () => {
     if (!tplName.trim() || !tplBody.trim()) return toast.error('Name and body required');
