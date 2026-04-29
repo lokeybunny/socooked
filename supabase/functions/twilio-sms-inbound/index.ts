@@ -71,16 +71,43 @@ function normalizePhone(raw: string | null | undefined): string {
   return `+${digits}`;
 }
 
-function runAfterResponse(label: string, task: Promise<unknown>) {
+async function logEvent(event: string, fields: {
+  level?: 'info' | 'warn' | 'error';
+  from?: string | null;
+  to?: string | null;
+  sid?: string | null;
+  body?: string | null;
+  elapsed_ms?: number | null;
+  metadata?: Record<string, unknown>;
+} = {}) {
+  try {
+    await sb.from("twilio_inbound_logs").insert({
+      event,
+      level: fields.level || 'info',
+      from_number: fields.from || null,
+      to_number: fields.to || null,
+      message_sid: fields.sid || null,
+      body: fields.body ?? null,
+      elapsed_ms: fields.elapsed_ms ?? null,
+      metadata: fields.metadata || {},
+    });
+  } catch (e) {
+    console.error('[twilio-sms-inbound] logEvent failed:', e);
+  }
+}
+
+function runAfterResponse(label: string, task: Promise<unknown>, ctx: { from?: string; to?: string; sid?: string | null } = {}) {
   const startedAt = performance.now();
   const guarded = task
     .then(() => {
-      const elapsed = (performance.now() - startedAt).toFixed(0);
+      const elapsed = Math.round(performance.now() - startedAt);
       console.log(`[twilio-sms-inbound][TIMING] ${label} completed in ${elapsed}ms`);
+      void logEvent(`bg:${label}:done`, { elapsed_ms: elapsed, ...ctx });
     })
     .catch((e) => {
-      const elapsed = (performance.now() - startedAt).toFixed(0);
+      const elapsed = Math.round(performance.now() - startedAt);
       console.error(`[twilio-sms-inbound][TIMING] ${label} FAILED after ${elapsed}ms:`, e);
+      void logEvent(`bg:${label}:failed`, { level: 'error', elapsed_ms: elapsed, metadata: { error: String(e?.message || e) }, ...ctx });
     });
   const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
   if (typeof waitUntil === "function") waitUntil(guarded);
