@@ -1277,6 +1277,24 @@ Deno.serve(async (req) => {
         return json({ ok: true, amd_result: amdResult, redirected, assistant_id: assistantId });
       }
 
+      if (amdResult !== "voicemail") {
+        console.log(`[powerdial-webhook] Speech gate holding silent for call ${callSid}: ${intendedAction}`);
+        await sb.from("powerdial_call_logs").update({
+          connected_to_vapi: false,
+          meta: {
+            ...existingMeta,
+            speech_gate: {
+              passed: false,
+              answered_by: answeredBy,
+              machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
+              required_audio_ms: HUMAN_SPEECH_MIN_AUDIO_MS,
+              action: "hold_silent",
+            },
+          },
+        }).eq("id", callLogId);
+        return json({ ok: true, amd_result: amdResult, speech_gate_passed: false, action: "hold_silent" });
+      }
+
       // ===== VOICEMAIL BRANCH =====
       // If campaign has voicemail-drop enabled, redirect the call to TwiML that
       // plays the configured MP3 directly into the recipient's voicemail box,
