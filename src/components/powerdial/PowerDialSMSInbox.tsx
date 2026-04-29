@@ -127,29 +127,28 @@ export default function PowerDialSMSInbox() {
         latestInboundByThread.set(key, m);
       }
     }
-    const isFirstSeed = Object.keys(seenInboundRef.current).length === 0;
-    if (isFirstSeed) {
-      const seed = new Set<string>();
-      latestInboundByThread.forEach((msg, key) => {
-        seenInboundRef.current[key] = msg.id;
-        // If the most recent message in this thread is the inbound one, it's unread (no reply yet)
-        if (latestAnyByThread.get(key)?.id === msg.id && activeThreadRef.current !== key) {
-          seed.add(key);
-        }
-      });
-      if (seed.size > 0) setUnreadThreads(seed);
-      return;
-    }
     setUnreadThreads(prev => {
       const next = new Set(prev);
       latestInboundByThread.forEach((msg, key) => {
-        if (seenInboundRef.current[key] !== msg.id && activeThreadRef.current !== key) {
+        const alreadySeen = seenInboundRef.current[key] === msg.id;
+        const isLatestInThread = latestAnyByThread.get(key)?.id === msg.id;
+        if (activeThreadRef.current === key) {
+          // Active thread — mark as seen, ensure not unread
+          if (seenInboundRef.current[key] !== msg.id) {
+            seenInboundRef.current[key] = msg.id;
+            persistSeen();
+          }
+          next.delete(key);
+          return;
+        }
+        // Unread only if (a) we haven't seen this inbound id AND (b) it's the latest message in the thread
+        if (!alreadySeen && isLatestInThread) {
           next.add(key);
         }
       });
       return next;
     });
-  }, [messages]);
+  }, [messages, persistSeen]);
 
   // Clear unread + update seen marker when a thread is opened
   useEffect(() => {
