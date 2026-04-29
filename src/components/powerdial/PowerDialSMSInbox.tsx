@@ -617,6 +617,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
   };
 
   return (
+    <>
     <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
       <div className={`md:w-[300px] md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
