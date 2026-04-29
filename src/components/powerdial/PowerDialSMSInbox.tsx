@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,8 @@ export default function PowerDialSMSInbox() {
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,18 @@ export default function PowerDialSMSInbox() {
     if (!t) return [];
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
+
+  // Always jump to the newest message when a thread opens or new messages arrive.
+  useLayoutEffect(() => {
+    if (!activeThread || activeMessages.length === 0) return;
+    const root = scrollAreaRef.current;
+    const viewport = root?.querySelector<HTMLDivElement>('[data-radix-scroll-area-viewport]');
+    const scrollEl = viewport || root;
+    requestAnimationFrame(() => {
+      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    });
+  }, [activeThread, activeMessages.length]);
 
   const handleSend = async (toOverride?: string) => {
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
@@ -249,7 +263,7 @@ export default function PowerDialSMSInbox() {
                 {formatPhone(threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread)}
               </span>
             </div>
-            <ScrollArea className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
+            <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
                 {activeMessages.map(m => {
                   const errMsg = m.metadata?.error || m.metadata?.twilio_error_message;
@@ -274,6 +288,7 @@ export default function PowerDialSMSInbox() {
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
             <div className="p-3 border-t border-border flex gap-2">
