@@ -124,8 +124,9 @@ export default function PowerDialSMSInbox() {
         if (showCompose) {
           setShowCompose(false);
           setComposeTo('');
-          setActiveThread(normalizeLast10(to));
         }
+        // Always return to the inbox list so the newest message in every thread leads by default.
+        setActiveThread(null);
         load();
       }
     } finally {
