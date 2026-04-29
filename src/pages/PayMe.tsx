@@ -95,38 +95,54 @@ const PayMe = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null); setErrorField(null);
+
     const amt = Number(amount);
-    if (!amt || amt < 1) { toast.error("Enter a valid amount"); return; }
+    if (!amt || amt < 1) return setError("Enter a valid amount of at least $1.", "amount");
+    if (amt > 100000) return setError("Amount cannot exceed $100,000.", "amount");
+
+    const rawCard = cardNumber.replace(/\D/g, "");
+    if (rawCard.length < 13 || rawCard.length > 16) return setError("Card number must be 13–16 digits.", "cardNumber");
+    if (!luhnValid(rawCard)) return setError("That card number doesn't look right. Please double-check the digits.", "cardNumber");
+
     const [mm, yy] = exp.split("/");
-    if (!mm || !yy) { toast.error("Enter expiry as MM/YY"); return; }
-    const rawCard = cardNumber.replace(/\s+/g, "");
-    if (rawCard.length < 13) { toast.error("Enter a valid card number"); return; }
-    if (cvv.length < 3) { toast.error("Enter CVV"); return; }
+    if (!mm || !yy) return setError("Enter the expiration as MM/YY.", "exp");
+    const mmNum = Number(mm);
+    if (mmNum < 1 || mmNum > 12) return setError("Expiry month must be 01–12.", "exp");
+    const fullYear = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
+    const lastDay = new Date(fullYear, mmNum, 0, 23, 59, 59);
+    if (lastDay < new Date()) return setError("This card has expired.", "exp");
+
+    if (cvv.length < 3 || cvv.length > 4) return setError("CVV must be 3 or 4 digits.", "cvv");
 
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("authnet-charge", {
-        body: {
-          amount: amt,
-          cardNumber: rawCard,
-          expMonth: mm,
-          expYear: yy,
-          cvv,
-          zip,
-          name,
-          email,
-          note,
-        },
+        body: { amount: amt, cardNumber: rawCard, expMonth: mm, expYear: yy, cvv, zip, name, email, note },
       });
       if (error) throw new Error(error.message);
-      if (!data?.ok) throw new Error(data?.error || "Charge failed");
+      if (!data?.ok) {
+        // Surface field hint from server
+        setError(data?.error || "Charge failed", data?.field);
+        return;
+      }
       setSuccess({ id: data.transactionId, amount: data.amount, last4: data.last4 });
       toast.success(`Charged $${data.amount}`);
-      // Reset sensitive fields
       setCardNumber(""); setExp(""); setCvv("");
       loadReceipts();
     } catch (err: any) {
-      toast.error(err.message || "Payment failed");
+      // FunctionsHttpError stashes the JSON body on err.context
+      let msg = err?.message || "Payment failed";
+      let field: string | undefined;
+      try {
+        const ctx = err?.context;
+        if (ctx && typeof ctx.json === "function") {
+          const j = await ctx.json();
+          if (j?.error) msg = j.error;
+          if (j?.field) field = j.field;
+        }
+      } catch { /* ignore */ }
+      setError(msg, field);
     } finally {
       setSubmitting(false);
     }
