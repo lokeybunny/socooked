@@ -674,8 +674,8 @@ export default function AIFilms() {
                   <HomeIcon className="h-4 w-4" />
                 </span>
                 <input
-                  type="url"
-                  placeholder="Property link (Zillow, MLS, etc.)"
+                  type="text"
+                  placeholder="Property link (Zillow, MLS, etc.) — optional"
                   value={form.property}
                   onChange={(e) => setForm({ ...form, property: e.target.value })}
                   className="w-full pl-11 pr-4 py-3.5 bg-background/5 border border-background/15 rounded-full text-sm placeholder:text-background/40 focus:outline-none focus:border-background/40 transition-colors"
