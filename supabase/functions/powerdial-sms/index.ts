@@ -312,6 +312,39 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "sms_sent_but_log_failed" }, 500);
     }
 
+    // Hook Reply tracking — create a thread when the Warren Guru hook outbound is sent
+    if (result.ok) {
+      try {
+        const lower = (message || "").toLowerCase();
+        const isHook = lower.includes("warren guru") && (lower.includes("voicemail") || lower.includes("voice mail"));
+        if (isHook) {
+          const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
+          if (toLast10 && toLast10.length === 10) {
+            // Skip if an open thread already exists in last 14 days
+            const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: existingThread } = await sb
+              .from("hook_reply_threads")
+              .select("id")
+              .eq("phone_last10", toLast10)
+              .gte("created_at", fourteenDaysAgo)
+              .limit(1);
+            if (!existingThread?.[0]) {
+              await sb.from("hook_reply_threads").insert({
+                phone: normalizePhone(to),
+                phone_last10: toLast10,
+                status: "awaiting_reply",
+                sentiment: "pending",
+                meta: { source, customer_id: customerId || null, outbound_body: message },
+              });
+              tStamp("hook_reply_threads row created");
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[powerdial-sms] hook thread create error", e);
+      }
+    }
+
     if (!result.ok) return json({ ok: false, error: result.error }, result.status || 500);
     tStamp("returning success to caller");
     return json({ ok: true, id: result.id, timing_ms: result.timing });
