@@ -816,13 +816,18 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   );
                 }
                 return (
-                  <span
-                    className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none"
-                    title="Double-click to add or edit a name"
-                    onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
-                  >
-                    {displayPhone(activePhone)}
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {starredSet.has(last10) && (
+                      <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" aria-label="Signed proposal — starred client" />
+                    )}
+                    <span
+                      className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none truncate"
+                      title="Double-click to add or edit a name"
+                      onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
+                    >
+                      {displayPhone(activePhone)}
+                    </span>
+                  </div>
                 );
               })()}
               <div className="flex-1" />
