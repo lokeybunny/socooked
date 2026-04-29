@@ -38,7 +38,7 @@ function normalizePhone(raw: string | null | undefined): string {
   return `+${digits}`;
 }
 
-async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any }> {
+async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any; timing?: Record<string, number> }> {
   if (!VOIDFIX_API_KEY) return { ok: false, error: "missing_VOIDFIX_API_KEY" };
   if (!VOIDFIX_DEVICE_ID) return { ok: false, error: "missing_VOIDFIX_DEVICE_ID" };
   const toNum = normalizePhone(to);
@@ -51,26 +51,42 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
     key: VOIDFIX_API_KEY,
   });
 
+  const t0 = performance.now();
+  console.log(`[powerdial-sms][TIMING] → POST VoidFix send.php to=${toNum} bytes=${body.length}`);
   const resp = await fetch(VOIDFIX_SEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: formBody,
   });
+  const tHeaders = performance.now();
 
   const text = await resp.text();
+  const tBody = performance.now();
   let data: any = {};
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
-  if (!resp.ok) {
-    return { ok: false, status: resp.status, error: data?.message || `VoidFix ${resp.status}`, raw: data };
+  const headersMs = Math.round(tHeaders - t0);
+  const bodyMs = Math.round(tBody - tHeaders);
+  const totalMs = Math.round(tBody - t0);
+  console.log(`[powerdial-sms][TIMING] ← VoidFix status=${resp.status} headersMs=${headersMs} bodyReadMs=${bodyMs} totalMs=${totalMs}`);
+
+  // Inspect VoidFix-reported delivery state — this is where the Android device queue lives
+  const msg0 = data?.data?.messages?.[0] || data?.data?.[0];
+  if (msg0) {
+    console.log(`[powerdial-sms][TIMING] VoidFix queue: id=${msg0.ID || msg0.id || "?"} status=${msg0.status || "?"} sentDate=${msg0.sentDate || "?"} deliveredDate=${msg0.deliveredDate || "null"}`);
   }
-  // VoidFix typically returns { success: true, data: [{ ID: "..." }] } or similar
+
+  const timing = { headersMs, bodyMs, totalMs };
+
+  if (!resp.ok) {
+    return { ok: false, status: resp.status, error: data?.message || `VoidFix ${resp.status}`, raw: data, timing };
+  }
   const success = data?.success !== false;
   if (!success) {
-    return { ok: false, error: data?.message || data?.error || "voidfix_send_failed", raw: data };
+    return { ok: false, error: data?.message || data?.error || "voidfix_send_failed", raw: data, timing };
   }
-  const id = data?.data?.[0]?.ID || data?.data?.[0]?.id || data?.id || null;
-  return { ok: true, id, raw: data };
+  const id = data?.data?.[0]?.ID || data?.data?.[0]?.id || data?.data?.messages?.[0]?.ID || data?.id || null;
+  return { ok: true, id, raw: data, timing };
 }
 
 async function findCustomerByPhone(phone: string): Promise<string | null> {
