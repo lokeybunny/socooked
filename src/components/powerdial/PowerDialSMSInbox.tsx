@@ -493,6 +493,14 @@ export default function PowerDialSMSInbox() {
                     </div>
                   </button>
                   <button
+                    onClick={(e) => handleCreateCustomer(e, key)}
+                    className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
+                    title="Create customer (add to Leads pipeline)"
+                    aria-label="Create customer"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={(e) => handleDeleteThread(e, key)}
                     className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
                     title="Delete thread"
