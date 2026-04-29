@@ -55,8 +55,18 @@ export default function PowerDialSMSInbox() {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const prevActiveCountRef = useRef(0);
-  // Per-thread latest inbound id we've already "seen" (in-memory only — clears on refresh)
-  const seenInboundRef = useRef<Record<string, string>>({});
+  // Per-thread latest inbound id we've already "seen" — persisted to localStorage so
+  // cleared red dots stay cleared across refreshes / navigations.
+  const SEEN_STORAGE_KEY = 'powerdial-sms-seen-inbound-v1';
+  const seenInboundRef = useRef<Record<string, string>>((() => {
+    try {
+      const raw = localStorage.getItem(SEEN_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  })());
+  const persistSeen = useCallback(() => {
+    try { localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(seenInboundRef.current)); } catch {}
+  }, []);
   const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
   const activeThreadRef = useRef<string | null>(null);
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
@@ -117,29 +127,28 @@ export default function PowerDialSMSInbox() {
         latestInboundByThread.set(key, m);
       }
     }
-    const isFirstSeed = Object.keys(seenInboundRef.current).length === 0;
-    if (isFirstSeed) {
-      const seed = new Set<string>();
-      latestInboundByThread.forEach((msg, key) => {
-        seenInboundRef.current[key] = msg.id;
-        // If the most recent message in this thread is the inbound one, it's unread (no reply yet)
-        if (latestAnyByThread.get(key)?.id === msg.id && activeThreadRef.current !== key) {
-          seed.add(key);
-        }
-      });
-      if (seed.size > 0) setUnreadThreads(seed);
-      return;
-    }
     setUnreadThreads(prev => {
       const next = new Set(prev);
       latestInboundByThread.forEach((msg, key) => {
-        if (seenInboundRef.current[key] !== msg.id && activeThreadRef.current !== key) {
+        const alreadySeen = seenInboundRef.current[key] === msg.id;
+        const isLatestInThread = latestAnyByThread.get(key)?.id === msg.id;
+        if (activeThreadRef.current === key) {
+          // Active thread — mark as seen, ensure not unread
+          if (seenInboundRef.current[key] !== msg.id) {
+            seenInboundRef.current[key] = msg.id;
+            persistSeen();
+          }
+          next.delete(key);
+          return;
+        }
+        // Unread only if (a) we haven't seen this inbound id AND (b) it's the latest message in the thread
+        if (!alreadySeen && isLatestInThread) {
           next.add(key);
         }
       });
       return next;
     });
-  }, [messages]);
+  }, [messages, persistSeen]);
 
   // Clear unread + update seen marker when a thread is opened
   useEffect(() => {
@@ -154,8 +163,11 @@ export default function PowerDialSMSInbox() {
     const latest = messages
       .filter(m => m.direction === 'inbound' && normalizeLast10(m.from_address) === activeThread)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-    if (latest) seenInboundRef.current[activeThread] = latest.id;
-  }, [activeThread, messages]);
+    if (latest && seenInboundRef.current[activeThread] !== latest.id) {
+      seenInboundRef.current[activeThread] = latest.id;
+      persistSeen();
+    }
+  }, [activeThread, messages, persistSeen]);
 
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
