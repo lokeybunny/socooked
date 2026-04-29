@@ -351,6 +351,16 @@ export default function PowerDialSMSInbox() {
     const display = displayPhone(phoneKey);
     if (!confirm(`Delete entire SMS thread with ${display}?\n\nThis removes all messages from the inbox. This cannot be undone.`)) return;
     try {
+      // Collect external_ids of inbound messages we're about to delete so the
+      // VoidFix poller can't re-import them on the next refresh.
+      const inboundExternalIds = messages
+        .filter(m => m.direction === 'inbound' && normalizeLast10(m.from_address) === phoneKey && m.external_id)
+        .map(m => ({ external_id: String(m.external_id), phone_last10: phoneKey }));
+      if (inboundExternalIds.length > 0) {
+        await supabase
+          .from('sms_deleted_external_ids')
+          .upsert(inboundExternalIds, { onConflict: 'external_id' });
+      }
       // Match any communication where from_address or to_address ends with the last-10 digits
       const likePattern = `%${phoneKey}`;
       const { error } = await supabase

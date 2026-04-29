@@ -5380,6 +5380,24 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_deleted_external_ids: {
+        Row: {
+          deleted_at: string
+          external_id: string
+          phone_last10: string | null
+        }
+        Insert: {
+          deleted_at?: string
+          external_id: string
+          phone_last10?: string | null
+        }
+        Update: {
+          deleted_at?: string
+          external_id?: string
+          phone_last10?: string | null
+        }
+        Relationships: []
+      }
       sms_dnd_list: {
         Row: {
           created_at: string
