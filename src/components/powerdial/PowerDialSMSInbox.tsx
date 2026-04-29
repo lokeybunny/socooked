@@ -779,6 +779,16 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 gap-1"
+                onClick={(e) => activeThread && openSendProposal(e, activeThread)}
+                title="Send proposal"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span className="text-xs">Send Proposal</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 onClick={(e) => activeThread && handleDeleteThread(e, activeThread)}
                 title="Delete thread"
