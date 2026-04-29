@@ -208,3 +208,6 @@ verify_jwt = false
 [functions.authnet-charge]
 verify_jwt = false
 
+[functions.verify-proposal-signed]
+verify_jwt = false
+

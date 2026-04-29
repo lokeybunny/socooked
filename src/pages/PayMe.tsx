@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, Receipt, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, AlertCircle, Download, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 
 const ZELLE = "Me@cozyhomestudio.com";
 const CASHAPP = "$ITSWARR";
@@ -19,9 +20,14 @@ const PayMe = () => {
   const [zip, setZip] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ id: string; amount: string; last4: string } | null>(null);
+  const [success, setSuccess] = useState<{ id: string; amount: string; last4: string; name: string; email: string; note: string; date: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<string | null>(null);
+
+  // Eligibility gate
+  const [verifying, setVerifying] = useState(false);
+  const [eligible, setEligible] = useState<boolean | null>(null);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
 
   const luhnValid = (num: string): boolean => {
     if (!/^\d+$/.test(num)) return false;
@@ -42,36 +48,33 @@ const PayMe = () => {
   };
   const fieldClass = (name: string, base: string) =>
     `${base} ${errorField === name ? "border-red-500 focus:border-red-500" : "border-zinc-700 focus:border-amber-500"}`;
-
-
-  type Receipt = {
-    id: string;
-    transaction_id: string;
-    amount: number;
-    last4: string | null;
-    payer_name: string | null;
-    note: string | null;
-    created_at: string;
+  const verifyEligibility = async () => {
+    const clean = email.trim().toLowerCase();
+    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      return setError("Enter a valid email to unlock card payments.", "email");
+    }
+    setVerifying(true);
+    setErrorMsg(null); setErrorField(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-proposal-signed", {
+        body: { email: clean },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.eligible) {
+        setEligible(true);
+        setVerifiedEmail(clean);
+        toast.success("Card payments unlocked");
+      } else {
+        setEligible(false);
+        setVerifiedEmail(null);
+        setError("This email has no signed agreement on file. Card payments are restricted to clients with a signed proposal.", "email");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Verification failed", "email");
+    } finally {
+      setVerifying(false);
+    }
   };
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-
-  const loadReceipts = useCallback(async () => {
-    const { data } = await supabase
-      .from("payme_charges")
-      .select("id, transaction_id, amount, last4, payer_name, note, created_at")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (data) setReceipts(data as Receipt[]);
-  }, []);
-
-  useEffect(() => {
-    loadReceipts();
-    const ch = supabase
-      .channel("payme_charges_rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "payme_charges" }, loadReceipts)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [loadReceipts]);
 
   const copy = async (label: string, value: string) => {
     try {
@@ -93,9 +96,58 @@ const PayMe = () => {
     return `${d.slice(0, 2)}/${d.slice(2)}`;
   };
 
+  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setFillColor(245, 158, 11);
+    doc.rect(0, 0, pageW, 28, "F");
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Receipt", 14, 18);
+
+    doc.setTextColor(40, 40, 40);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+
+    let y = 44;
+    const line = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold"); doc.text(label, 14, y);
+      doc.setFont("helvetica", "normal"); doc.text(value, 70, y);
+      y += 8;
+    };
+    line("Date:", r.date);
+    line("Reference:", r.id);
+    line("Paid by:", r.name || "—");
+    line("Email:", r.email || "—");
+    line("Card:", `•••• •••• •••• ${r.last4}`);
+    if (r.note) line("Note:", r.note);
+
+    y += 6;
+    doc.setDrawColor(220);
+    doc.line(14, y, pageW - 14, y);
+    y += 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Amount Paid:", 14, y);
+    doc.setTextColor(245, 158, 11);
+    doc.text(`$${Number(r.amount).toFixed(2)}`, pageW - 14, y, { align: "right" });
+
+    doc.setTextColor(120);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Processed securely via Authorize.Net • Pay Warren", 14, 285);
+
+    doc.save(`receipt-${r.id}.pdf`);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null); setErrorField(null);
+
+    if (!eligible || !verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+      return setError("Verify your email first to unlock card payments.", "email");
+    }
 
     const amt = Number(amount);
     if (!amt || amt < 1) return setError("Enter a valid amount of at least $1.", "amount");
@@ -122,14 +174,20 @@ const PayMe = () => {
       });
       if (error) throw new Error(error.message);
       if (!data?.ok) {
-        // Surface field hint from server
         setError(data?.error || "Charge failed", data?.field);
         return;
       }
-      setSuccess({ id: data.transactionId, amount: data.amount, last4: data.last4 });
+      setSuccess({
+        id: data.transactionId,
+        amount: data.amount,
+        last4: data.last4,
+        name,
+        email,
+        note,
+        date: new Date().toLocaleString(),
+      });
       toast.success(`Charged $${data.amount}`);
       setCardNumber(""); setExp(""); setCvv("");
-      loadReceipts();
     } catch (err: any) {
       // FunctionsHttpError stashes the JSON body on err.context
       let msg = err?.message || "Payment failed";
@@ -175,12 +233,21 @@ const PayMe = () => {
                 <p className="text-white font-semibold">Payment of ${success.amount} received</p>
                 <p className="text-zinc-400 text-xs mt-1">Card ending {success.last4}</p>
                 <p className="text-zinc-500 text-xs mt-1">Ref: {success.id}</p>
-                <button
-                  onClick={() => { setSuccess(null); setAmount(""); }}
-                  className="mt-4 text-amber-400 text-sm hover:underline"
-                >
-                  Make another payment
-                </button>
+                <div className="mt-4 flex flex-col items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => downloadReceipt(success)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold transition"
+                  >
+                    <Download className="h-4 w-4" /> Download receipt (PDF)
+                  </button>
+                  <button
+                    onClick={() => { setSuccess(null); setAmount(""); }}
+                    className="text-amber-400 text-sm hover:underline"
+                  >
+                    Make another payment
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={submit} className="space-y-3">
@@ -210,12 +277,35 @@ const PayMe = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email (receipt)"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errorField === "email") setErrorField(null);
+                      if (eligible !== null) { setEligible(null); setVerifiedEmail(null); }
+                    }}
+                    placeholder="Email (signed proposal)"
+                    className={fieldClass("email", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
+                    required
                   />
                 </div>
 
+                {eligible !== true ? (
+                  <button
+                    type="button"
+                    onClick={verifyEligibility}
+                    disabled={verifying || !email}
+                    className="w-full py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-60 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
+                  >
+                    {verifying
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking…</>
+                      : <><Lock className="h-4 w-4" /> Verify email to unlock card</>}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-xs">
+                    <Check className="h-3.5 w-3.5" /> Verified — card payments unlocked for {verifiedEmail}
+                  </div>
+                )}
+
+                <fieldset disabled={eligible !== true} className={eligible !== true ? "opacity-50 pointer-events-none space-y-3" : "space-y-3"}>
                 <input
                   inputMode="numeric"
                   autoComplete="cc-number"
@@ -260,8 +350,8 @@ const PayMe = () => {
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Note (invoice # or memo)"
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
-                  maxLength={250}
                 />
+                </fieldset>
 
                 {errorMsg && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
@@ -335,37 +425,6 @@ const PayMe = () => {
           </p>
         </div>
 
-        {/* Recent Receipts */}
-        {receipts.length > 0 && (
-          <div className="mt-6 bg-zinc-900/80 border border-zinc-800 rounded-2xl p-6 shadow-2xl backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <Receipt className="h-4 w-4 text-amber-400" />
-              <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Recent Receipts</span>
-            </div>
-            <ul className="space-y-2">
-              {receipts.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex items-center justify-between gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/40"
-                >
-                  <div className="min-w-0">
-                    <div className="text-white text-sm font-medium truncate">
-                      {r.payer_name || "Anonymous"}
-                      {r.last4 && <span className="text-zinc-500 font-normal"> · •••• {r.last4}</span>}
-                    </div>
-                    <div className="text-zinc-500 text-xs truncate">
-                      {new Date(r.created_at).toLocaleString()}
-                      {r.note && ` · ${r.note}`}
-                    </div>
-                  </div>
-                  <div className="text-amber-400 font-semibold text-sm shrink-0">
-                    ${Number(r.amount).toFixed(2)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );
