@@ -160,6 +160,11 @@ Deno.serve(async (req) => {
 
     let newCount = 0;
     let skipped = 0;
+    let autoReplied = 0;
+    let autoReplySkipped = 0;
+    let autoReplyFailed = 0;
+
+    const cfg = await loadAutoReplyConfig();
 
     for (const m of messages) {
       // Only process inbound to our landline
@@ -220,6 +225,44 @@ Deno.serve(async (req) => {
       }
 
       newCount++;
+
+      // Auto-reply via VoidFix for messages to the 8105 landline
+      if (cfg.enabled && m.to === TWILIO_LANDLINE && m.from) {
+        try {
+          if (await alreadyAutoReplied(m.sid, m.from)) {
+            autoReplySkipped++;
+            await sb.from("twilio_inbound_logs").insert({
+              event: "poll-auto-reply:skipped-duplicate",
+              level: "info",
+              from_number: m.from,
+              to_number: m.to,
+              message_sid: m.sid,
+              metadata: { reason: "already-replied-or-recent" },
+            });
+          } else {
+            await sendVoidfixAutoReply(m.from, m.sid, m.to, m.body, cfg);
+            autoReplied++;
+            await sb.from("twilio_inbound_logs").insert({
+              event: "poll-auto-reply:sent",
+              level: "info",
+              from_number: m.from,
+              to_number: m.to,
+              message_sid: m.sid,
+              metadata: { triggered_by: "twilio-inbound-poll" },
+            });
+          }
+        } catch (e) {
+          autoReplyFailed++;
+          await sb.from("twilio_inbound_logs").insert({
+            event: "poll-auto-reply:failed",
+            level: "error",
+            from_number: m.from,
+            to_number: m.to,
+            message_sid: m.sid,
+            metadata: { error: String((e as any)?.message || e) },
+          });
+        }
+      }
     }
 
     const elapsed = Date.now() - startedAt;
@@ -227,12 +270,29 @@ Deno.serve(async (req) => {
       event: "twilio-poll:summary",
       level: "info",
       elapsed_ms: elapsed,
-      metadata: { fetched: messages.length, new: newCount, skipped },
+      metadata: {
+        fetched: messages.length,
+        new: newCount,
+        skipped,
+        auto_replied: autoReplied,
+        auto_reply_skipped: autoReplySkipped,
+        auto_reply_failed: autoReplyFailed,
+      },
     });
 
-    return new Response(JSON.stringify({ ok: true, fetched: messages.length, new: newCount, skipped, elapsed_ms: elapsed }), {
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        fetched: messages.length,
+        new: newCount,
+        skipped,
+        auto_replied: autoReplied,
+        auto_reply_skipped: autoReplySkipped,
+        auto_reply_failed: autoReplyFailed,
+        elapsed_ms: elapsed,
+      }),
+      { headers: { ...CORS, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
       status: 500,
