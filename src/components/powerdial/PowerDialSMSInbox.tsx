@@ -299,7 +299,7 @@ export default function PowerDialSMSInbox() {
                   className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium font-mono">{formatPhone(t.phone)}</span>
+                    <span className="text-sm font-medium font-mono">{displayPhone(t.phone)}</span>
                     <span className="text-[10px] text-muted-foreground">{format(new Date(t.last.created_at), 'MMM d')}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
