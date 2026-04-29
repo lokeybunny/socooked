@@ -78,6 +78,29 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
         toast.error((data as any)?.error || error?.message || 'Send failed');
       } else {
         toast.success('Message sent ✓');
+        // Mark the latest call log for this phone so the dropped-call auto-SMS
+        // is bypassed when the call ends. We match the most recent log within
+        // the last 30 minutes for this lead phone.
+        try {
+          const last10 = String(call.phone).replace(/\D/g, '').slice(-10);
+          const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+          const { data: logs } = await supabase
+            .from('powerdial_call_logs')
+            .select('id, meta')
+            .ilike('phone', `%${last10}`)
+            .gte('created_at', since)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const log = logs?.[0] as any;
+          if (log?.id) {
+            const meta = (log.meta && typeof log.meta === 'object') ? log.meta : {};
+            await supabase.from('powerdial_call_logs').update({
+              meta: { ...meta, manual_text_sent: true, manual_text_at: new Date().toISOString() },
+            }).eq('id', log.id);
+          }
+        } catch (e) {
+          console.warn('[LiveCallPopup] manual_text_sent flag failed', e);
+        }
       }
     } finally {
       setSending(false);
