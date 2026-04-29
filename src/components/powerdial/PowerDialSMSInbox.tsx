@@ -169,9 +169,9 @@ export default function PowerDialSMSInbox() {
           setShowCompose(false);
           setComposeTo('');
         }
-        // Always return to the inbox list so the newest message in every thread leads by default.
-        setActiveThread(null);
-        load();
+        // If composing fresh, return to inbox list. Otherwise stay in the active thread.
+        if (showCompose) setActiveThread(null);
+        load({ silent: true });
       }
     } finally {
       setSending(false);
