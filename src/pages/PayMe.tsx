@@ -56,10 +56,19 @@ const PayMe = () => {
     setVerifying(true);
     setErrorMsg(null); setErrorField(null);
     try {
-      const { data, error } = await supabase.functions.invoke("verify-proposal-signed", {
-        body: { email: clean },
+      // Use direct fetch (bypasses Lovable Preview proxy that breaks supabase.functions.invoke)
+      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/verify-proposal-signed`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ email: clean }),
       });
-      if (error) throw new Error(error.message);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Verification failed (${res.status})`);
       if (data?.eligible) {
         setEligible(true);
         setVerifiedEmail(clean);
