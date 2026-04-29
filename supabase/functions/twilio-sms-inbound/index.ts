@@ -161,6 +161,9 @@ async function sendVoidfixAutoReply(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
+  const reqStart = performance.now();
+  const tStamp = (label: string) => console.log(`[twilio-sms-inbound][TIMING] +${(performance.now() - reqStart).toFixed(0)}ms ${label}`);
+
   try {
     const contentType = req.headers.get("content-type") || "";
     let from = "", to = "", body = "", sid = "";
