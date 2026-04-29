@@ -373,6 +373,9 @@ export default function Landing() {
             <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
               &copy; {new Date().getFullYear()}
             </p>
+            <p className="text-[7px] sm:text-[8px] text-muted-foreground/20 tracking-wide">
+              Royal Regime LLC dba Warren.Guru
+            </p>
           </div>
         </footer>
 
