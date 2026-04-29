@@ -372,7 +372,7 @@ export default function PowerDialSMSInbox() {
       const { error } = await supabase.from('customers').insert({
         full_name: fallbackName,
         phone: e164,
-        status: 'lead',
+        status: 'active',
         source: 'sms_inbox',
         category: 'digital-services',
         notes: `Created from SMS thread on ${new Date().toLocaleString()}`,
@@ -381,7 +381,7 @@ export default function PowerDialSMSInbox() {
         toast.error(error.message);
         return;
       }
-      toast.success(`${fallbackName} added to Leads pipeline`);
+      toast.success(`${fallbackName} added to New Clients`);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create customer');
     }
@@ -495,7 +495,7 @@ export default function PowerDialSMSInbox() {
                   <button
                     onClick={(e) => handleCreateCustomer(e, key)}
                     className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
-                    title="Create customer (add to Leads pipeline)"
+                    title="Create customer (add to New Clients)"
                     aria-label="Create customer"
                   >
                     <UserPlus className="h-3.5 w-3.5" />
@@ -582,7 +582,7 @@ export default function PowerDialSMSInbox() {
                 variant="ghost"
                 className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
                 onClick={(e) => activeThread && handleCreateCustomer(e, activeThread)}
-                title="Create customer (add to Leads pipeline)"
+                title="Create customer (add to New Clients)"
               >
                 <UserPlus className="h-3.5 w-3.5" />
                 <span className="text-xs">Create Customer</span>
