@@ -21,6 +21,7 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const HUMAN_SPEECH_MIN_AUDIO_MS = 500;
 
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
@@ -228,6 +229,11 @@ function escapeXml(value: string): string {
 
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function hasConfirmedHumanSpeech(answeredBy: string, machineDetectionDuration: string): boolean {
+  const durationMs = Number(machineDetectionDuration || 0);
+  return answeredBy === "human" && Number.isFinite(durationMs) && durationMs >= HUMAN_SPEECH_MIN_AUDIO_MS;
 }
 
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
