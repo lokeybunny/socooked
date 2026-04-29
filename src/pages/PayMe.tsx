@@ -191,9 +191,9 @@ const PayMe = () => {
                     <input
                       inputMode="decimal"
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                      onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); if (errorField === "amount") setErrorField(null); }}
                       placeholder="0.00"
-                      className="w-full pl-7 pr-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-lg focus:outline-none focus:border-amber-500"
+                      className={fieldClass("amount", "w-full pl-7 pr-3 py-2 bg-zinc-900 border rounded-lg text-white text-lg focus:outline-none")}
                       required
                     />
                   </div>
@@ -220,9 +220,9 @@ const PayMe = () => {
                   inputMode="numeric"
                   autoComplete="cc-number"
                   value={cardNumber}
-                  onChange={(e) => setCardNumber(formatCard(e.target.value))}
+                  onChange={(e) => { setCardNumber(formatCard(e.target.value)); if (errorField === "cardNumber") setErrorField(null); }}
                   placeholder="Card number"
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm tracking-wider focus:outline-none focus:border-amber-500"
+                  className={fieldClass("cardNumber", "w-full px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm tracking-wider focus:outline-none")}
                   required
                 />
 
@@ -231,27 +231,27 @@ const PayMe = () => {
                     inputMode="numeric"
                     autoComplete="cc-exp"
                     value={exp}
-                    onChange={(e) => setExp(formatExp(e.target.value))}
+                    onChange={(e) => { setExp(formatExp(e.target.value)); if (errorField === "exp") setErrorField(null); }}
                     placeholder="MM/YY"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    className={fieldClass("exp", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
                     required
                   />
                   <input
                     inputMode="numeric"
                     autoComplete="cc-csc"
                     value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    onChange={(e) => { setCvv(e.target.value.replace(/\D/g, "").slice(0, 4)); if (errorField === "cvv") setErrorField(null); }}
                     placeholder="CVV"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    className={fieldClass("cvv", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
                     required
                   />
                   <input
                     inputMode="numeric"
                     autoComplete="postal-code"
                     value={zip}
-                    onChange={(e) => setZip(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 10)); if (errorField === "zip") setErrorField(null); }}
                     placeholder="ZIP"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    className={fieldClass("zip", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
                   />
                 </div>
 
@@ -262,6 +262,13 @@ const PayMe = () => {
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
                   maxLength={250}
                 />
+
+                {errorMsg && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-[1px]" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
 
                 <button
                   type="submit"
