@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, RefreshCw, PhoneIncoming, Radio, AlertCircle, CheckCircle2, Clock, Webhook } from 'lucide-react';
+import { Loader2, RefreshCw, PhoneIncoming, Radio, AlertCircle, CheckCircle2, Clock, Webhook, Download } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 const TWILIO_LANDLINE = '+17028298105';
 
