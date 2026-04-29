@@ -5356,26 +5356,35 @@ export type Database = {
       sms_contacts: {
         Row: {
           created_at: string
+          email: string | null
           id: string
           name: string
           phone: string | null
           phone_last10: string
+          starred: boolean
+          starred_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          email?: string | null
           id?: string
           name: string
           phone?: string | null
           phone_last10: string
+          starred?: boolean
+          starred_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
           phone?: string | null
           phone_last10?: string
+          starred?: boolean
+          starred_at?: string | null
           updated_at?: string
         }
         Relationships: []

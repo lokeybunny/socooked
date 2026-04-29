@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 
@@ -44,6 +44,9 @@ function formatPhone(raw: string | null | undefined) {
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [contacts, setContacts] = useState<Record<string, string>>({});
+  const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
+  const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
+  const [filterMode, setFilterMode] = useState<'all' | 'starred'>('all');
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -79,10 +82,19 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred');
     const map: Record<string, string> = {};
-    (data || []).forEach((c: any) => { if (c.phone_last10) map[c.phone_last10] = c.name; });
+    const emails: Record<string, string> = {};
+    const starred = new Set<string>();
+    (data || []).forEach((c: any) => {
+      if (!c.phone_last10) return;
+      if (c.name) map[c.phone_last10] = c.name;
+      if (c.email) emails[c.phone_last10] = c.email;
+      if (c.starred) starred.add(c.phone_last10);
+    });
     setContacts(map);
+    setContactEmails(emails);
+    setStarredSet(starred);
   }, []);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
@@ -242,6 +254,13 @@ export default function PowerDialSMSInbox() {
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime());
   }, [messages]);
+
+  const visibleThreads = useMemo(() => {
+    if (filterMode === 'starred') {
+      return threads.filter(t => starredSet.has(normalizeLast10(t.phone)));
+    }
+    return threads;
+  }, [threads, filterMode, starredSet]);
 
   const activeMessages = useMemo(() => {
     if (!activeThread) return [];
@@ -413,16 +432,33 @@ export default function PowerDialSMSInbox() {
     const last10 = normalizeLast10(phoneKey);
     if (last10.length !== 10) { toast.error('Invalid phone number'); return; }
     setProposalPhoneKey(last10);
-    setProposalEmail(detectEmailInThread(last10));
+    // Prefer the email already bound to this contact, otherwise auto-detect from thread
+    const stored = contactEmails[last10];
+    setProposalEmail(stored || detectEmailInThread(last10));
     setProposalStep('email');
     setProposalOpen(true);
   };
 
-  const handleProposalContinue = () => {
+  const handleProposalContinue = async () => {
     const email = proposalEmail.trim();
     if (!email || !/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(email)) {
       toast.error('Enter a valid email address');
       return;
+    }
+    // Bind this email to the SMS contact (pre-client) so it's remembered for next time
+    if (proposalPhoneKey) {
+      try {
+        await supabase.from('sms_contacts').upsert(
+          {
+            phone_last10: proposalPhoneKey,
+            phone: `+1${proposalPhoneKey}`,
+            email,
+            name: contacts[proposalPhoneKey] || null,
+          } as never,
+          { onConflict: 'phone_last10' },
+        );
+        setContactEmails((prev) => ({ ...prev, [proposalPhoneKey]: email }));
+      } catch { /* non-fatal */ }
     }
     setProposalStep('choose');
   };
@@ -464,7 +500,7 @@ export default function PowerDialSMSInbox() {
           currency: 'USD',
           line_items: [{ description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 }],
           notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
-          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
+          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
           proposal_body: `Real Estate Listing Video — $299 Package
 
 What's included:
@@ -481,7 +517,7 @@ Bedroom add-ons:
 
 Payment Terms:
 • FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
-• All payments must be made via Zelle or Cash App.
+• All payments must be made via Zelle or Cash App  OR Debit/Credit.
 • Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
 
 By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
@@ -500,7 +536,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           currency: 'USD',
           line_items: [{ description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 }],
           notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Billed monthly in advance.',
-          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
+          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
           proposal_body: `Monthly Retainer Venture — $2,500 / month
 
 What's included each month:
@@ -516,7 +552,7 @@ Engagement:
 
 Payment Terms:
 • FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
-• All payments must be made via Zelle or Cash App.
+• All payments must be made via Zelle or Cash App  OR Debit/Credit.
 • Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
 • Service begins after first month's payment is confirmed.
 
@@ -628,15 +664,36 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
+        {/* Filter tabs: All / Starred */}
+        <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterMode('all')}
+            className={`text-[11px] px-2 py-1 rounded-full border transition-colors ${filterMode === 'all' ? 'bg-purple-500/20 border-purple-500/50 text-purple-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            All ({threads.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('starred')}
+            className={`text-[11px] px-2 py-1 rounded-full border transition-colors flex items-center gap-1 ${filterMode === 'starred' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+          >
+            <Star className="h-3 w-3" />
+            Starred ({threads.filter(t => starredSet.has(normalizeLast10(t.phone))).length})
+          </button>
+        </div>
         <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
-          ) : threads.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-8">No SMS yet</p>
+          ) : visibleThreads.length === 0 ? (
+            <p className="text-center text-xs text-muted-foreground py-8">
+              {filterMode === 'starred' ? 'No starred clients yet' : 'No SMS yet'}
+            </p>
           ) : (
-            threads.map(t => {
+            visibleThreads.map(t => {
               const key = normalizeLast10(t.phone);
               const isActive = activeThread === key;
+              const isStarred = starredSet.has(key);
               return (
                 <div
                   key={key}
@@ -652,6 +709,12 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           <span
                             className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
                             aria-label="New message"
+                          />
+                        )}
+                        {isStarred && (
+                          <Star
+                            className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0"
+                            aria-label="Signed proposal — starred client"
                           />
                         )}
                         <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
@@ -753,13 +816,18 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   );
                 }
                 return (
-                  <span
-                    className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none"
-                    title="Double-click to add or edit a name"
-                    onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
-                  >
-                    {displayPhone(activePhone)}
-                  </span>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {starredSet.has(last10) && (
+                      <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" aria-label="Signed proposal — starred client" />
+                    )}
+                    <span
+                      className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none truncate"
+                      title="Double-click to add or edit a name"
+                      onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
+                    >
+                      {displayPhone(activePhone)}
+                    </span>
+                  </div>
                 );
               })()}
               <div className="flex-1" />
