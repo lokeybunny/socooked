@@ -9,11 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming } from 'lucide-react';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
 import SequenceBuilder from '@/components/sms/SequenceBuilder';
 import AutoReplyWorkflow from '@/components/sms/AutoReplyWorkflow';
 import VoicemailFollowupSettings from '@/components/sms/VoicemailFollowupSettings';
+import TwilioInboundFeed from '@/components/sms/TwilioInboundFeed';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Template = { id: string; name: string; body: string };
@@ -151,6 +152,7 @@ export default function SMS() {
         <Tabs defaultValue="inbox">
           <TabsList>
             <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1" /> Inbox</TabsTrigger>
+            <TabsTrigger value="twilio-inbound"><PhoneIncoming className="h-3.5 w-3.5 mr-1" /> Twilio Inbound</TabsTrigger>
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
@@ -160,6 +162,7 @@ export default function SMS() {
           </TabsList>
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
+          <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>
           <TabsContent value="auto-reply"><AutoReplyWorkflow /></TabsContent>
           <TabsContent value="vm-followup"><VoicemailFollowupSettings /></TabsContent>
 
