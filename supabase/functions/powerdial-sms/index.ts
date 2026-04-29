@@ -420,7 +420,14 @@ Deno.serve(async (req) => {
     for (const m of messages) {
       if (String(m.status) !== "Received") continue;
       const externalId = String(m.ID);
-      // dedupe
+      // Skip if user previously deleted this message (blocklist)
+      const { data: blocked } = await sb
+        .from("sms_deleted_external_ids")
+        .select("external_id")
+        .eq("external_id", externalId)
+        .limit(1);
+      if (blocked && blocked[0]) continue;
+      // dedupe against existing communications
       const { data: existing } = await sb
         .from("communications")
         .select("id")
