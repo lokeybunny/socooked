@@ -101,8 +101,8 @@ Deno.serve(async (req) => {
     }
 
     const meta: Record<string, any> = (p.meta as Record<string, any>) || {};
-    if (meta.deposit_email_sent_at) {
-      // Idempotent: already sent
+    if (meta.deposit_email_sent_at && !body.force) {
+      // Idempotent: already sent (auto-trigger won't double-send; UI button uses force=true)
       return new Response(
         JSON.stringify({ skipped: true, reason: "already_sent", sent_at: meta.deposit_email_sent_at }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
