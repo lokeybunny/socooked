@@ -409,35 +409,47 @@ export default function PowerDialSMSInbox() {
               const key = normalizeLast10(t.phone);
               const isActive = activeThread === key;
               return (
-                <button
+                <div
                   key={key}
-                  onClick={() => setActiveThread(key)}
-                  className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
+                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {unreadThreads.has(key) && (
-                        <span
-                          className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
-                          aria-label="New message"
-                        />
-                      )}
-                      <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                  <button
+                    onClick={() => setActiveThread(key)}
+                    className="w-full text-left px-3 py-2.5 pr-9"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {unreadThreads.has(key) && (
+                          <span
+                            className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
+                            aria-label="New message"
+                          />
+                        )}
+                        <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                      {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
-                    </Badge>
-                    {isLandlineReply(t.last) && (
-                      <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
-                        LANDLINE REPLY
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                        {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
                       </Badge>
-                    )}
-                    <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
-                  </div>
-                </button>
+                      {isLandlineReply(t.last) && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                          LANDLINE REPLY
+                        </Badge>
+                      )}
+                      <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteThread(e, key)}
+                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
+                    title="Delete thread"
+                    aria-label="Delete thread"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               );
             })
           )}
