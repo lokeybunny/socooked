@@ -258,14 +258,58 @@ Deno.serve(async (req) => {
     tStamp("inbound communication logged");
     void logEvent('inbound:persisted', { from: normalizedFrom, to: normalizedTo, sid, body });
 
+    const fromLast10 = normalizedFrom.replace(/\D/g, "").slice(-10);
+
+    // DND check — never auto-reply or open hook threads for opted-out numbers
+    let isDnd = false;
+    if (fromLast10) {
+      const { data: dndRow } = await sb
+        .from("sms_dnd_list")
+        .select("id")
+        .eq("phone_last10", fromLast10)
+        .limit(1);
+      isDnd = !!(dndRow && dndRow[0]);
+    }
+
     const cfg = await loadConfig();
     tStamp("config loaded");
 
-    // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline.
-    if (cfg.enabled && is8105LandlineWebhook) {
+    // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline AND not DND.
+    if (cfg.enabled && is8105LandlineWebhook && !isDnd) {
       tStamp("scheduling VoidFix auto-reply (background)");
       void logEvent('auto-reply:scheduled', { from: normalizedFrom, to: normalizedTo, sid });
       runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg), { from: normalizedFrom, to: normalizedTo, sid });
+
+      // Open Hook Reply thread (best-effort, fire-and-forget) so the next inbound gets classified
+      runAfterResponse(
+        "open-hook-reply-thread",
+        (async () => {
+          // Only one open thread per phone at a time
+          const { data: existing } = await sb
+            .from("hook_reply_threads")
+            .select("id")
+            .eq("phone_last10", fromLast10)
+            .in("status", ["awaiting_reply", "followup_scheduled"])
+            .limit(1);
+          if (existing && existing[0]) return;
+          await sb.from("hook_reply_threads").insert({
+            phone: normalizedFrom,
+            phone_last10: fromLast10,
+            original_outbound_body: cfg.prefix,
+            status: "awaiting_reply",
+            sentiment: "pending",
+            meta: {
+              twilio_inbound_sid: sid || null,
+              twilio_landline: normalizedTo,
+              inbound_body: body,
+              source: "twilio-sms-inbound-webhook",
+            },
+          });
+        })(),
+        { from: normalizedFrom, to: normalizedTo, sid },
+      );
+    } else if (isDnd) {
+      void logEvent('auto-reply:skipped:dnd', { from: normalizedFrom, to: normalizedTo, sid });
     } else if (!is8105LandlineWebhook) {
       console.log(`[twilio-sms-inbound] skipped auto-reply: webhook To=${normalizedTo || "unknown"} is not ${TWILIO_LANDLINE_NUMBER}`);
       void logEvent('auto-reply:skipped:not-8105', { level: 'warn', from: normalizedFrom, to: normalizedTo, sid });
@@ -273,6 +317,17 @@ Deno.serve(async (req) => {
       console.log("[twilio-sms-inbound] auto-reply disabled by app_settings");
       void logEvent('auto-reply:skipped:disabled', { from: normalizedFrom, to: normalizedTo, sid });
     }
+
+    // Hook Reply classifier — runs whenever a Twilio inbound arrives
+    runAfterResponse(
+      "hook-reply-classifier",
+      fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ phone: normalizedFrom, body, message_id: sid || null }),
+      }).then((r) => r.text()),
+      { from: normalizedFrom, to: normalizedTo, sid },
+    );
 
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
     if (cfg.forward_enabled && is8105LandlineWebhook) {
