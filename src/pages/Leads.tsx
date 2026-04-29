@@ -360,7 +360,7 @@ export default function Leads() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const FUNNEL_SOURCES = ['webdesign-landing', 'funnel-webdesign', 'wholesale-email-offer', 'wholesale'];
+  const FUNNEL_SOURCES = ['webdesign-landing', 'funnel-webdesign', 'wholesale-email-offer', 'wholesale', 'sms_inbox'];
 
   const buildQuery = (status: string) => {
     let q = supabase.from('customers').select('*').eq('status', status).in('source', FUNNEL_SOURCES).order('created_at', { ascending: false });
