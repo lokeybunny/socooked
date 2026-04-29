@@ -96,6 +96,51 @@ const PayMe = () => {
     return `${d.slice(0, 2)}/${d.slice(2)}`;
   };
 
+  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
+    const doc = new jsPDF();
+    const pageW = doc.internal.pageSize.getWidth();
+    doc.setFillColor(245, 158, 11);
+    doc.rect(0, 0, pageW, 28, "F");
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("Payment Receipt", 14, 18);
+
+    doc.setTextColor(40, 40, 40);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+
+    let y = 44;
+    const line = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold"); doc.text(label, 14, y);
+      doc.setFont("helvetica", "normal"); doc.text(value, 70, y);
+      y += 8;
+    };
+    line("Date:", r.date);
+    line("Reference:", r.id);
+    line("Paid by:", r.name || "—");
+    line("Email:", r.email || "—");
+    line("Card:", `•••• •••• •••• ${r.last4}`);
+    if (r.note) line("Note:", r.note);
+
+    y += 6;
+    doc.setDrawColor(220);
+    doc.line(14, y, pageW - 14, y);
+    y += 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Amount Paid:", 14, y);
+    doc.setTextColor(245, 158, 11);
+    doc.text(`$${Number(r.amount).toFixed(2)}`, pageW - 14, y, { align: "right" });
+
+    doc.setTextColor(120);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Processed securely via Authorize.Net • Pay Warren", 14, 285);
+
+    doc.save(`receipt-${r.id}.pdf`);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null); setErrorField(null);
