@@ -938,7 +938,7 @@ Deno.serve(async (req) => {
       } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = "redirect_to_vapi_assistant (human speech >=500ms detected)";
+        intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
