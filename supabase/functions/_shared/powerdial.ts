@@ -187,6 +187,46 @@ export function sanitizePowerDialAssistantId(value: unknown) {
   return assistantId;
 }
 
+// Patch the assistant config so it triggers on the first "hello" with minimal delay.
+// Safe to run on every prep — Vapi accepts repeated PATCHes idempotently.
+async function applyFastResponseSettings(assistantId: string) {
+  try {
+    const fastSettings = {
+      // Speak as soon as the customer picks up — don't wait for them to talk first
+      firstMessageMode: "assistant-speaks-first",
+      // How quickly the assistant starts responding once it detects end-of-speech
+      startSpeakingPlan: {
+        waitSeconds: 0.2,
+        smartEndpointingEnabled: "livekit",
+        transcriptionEndpointingPlan: {
+          onPunctuationSeconds: 0.1,
+          onNoPunctuationSeconds: 1.0,
+          onNumberSeconds: 0.5,
+        },
+      },
+      // Keep the assistant from cutting itself off too aggressively
+      stopSpeakingPlan: {
+        numWords: 2,
+        voiceSeconds: 0.2,
+        backoffSeconds: 1.0,
+      },
+    };
+
+    const result = await fetchVapiJson(`/assistant/${assistantId}`, {
+      method: "PATCH",
+      body: JSON.stringify(fastSettings),
+    });
+
+    if (!result.response.ok) {
+      console.warn(`[powerdial] applyFastResponseSettings PATCH failed for ${assistantId}: HTTP ${result.response.status}`, result.data?.message || result.data);
+    } else {
+      console.log(`[powerdial] applyFastResponseSettings ok for ${assistantId}`);
+    }
+  } catch (err) {
+    console.warn(`[powerdial] applyFastResponseSettings exception for ${assistantId}:`, err);
+  }
+}
+
 export async function prepareVapiOutboundAssistant(assistantId: string): Promise<VapiAssistantPreparationResult> {
   const resolvedAssistantId = assistantId.trim();
 
@@ -207,6 +247,9 @@ export async function prepareVapiOutboundAssistant(assistantId: string): Promise
       details: "Missing Vapi configuration",
     };
   }
+
+  // Tune the assistant for instant first-word response (fire-and-forget; non-blocking on errors)
+  await applyFastResponseSettings(resolvedAssistantId);
 
   try {
     const patchResult = await fetchVapiJson(`/phone-number/${VAPI_PHONE_NUMBER_ID}`, {
