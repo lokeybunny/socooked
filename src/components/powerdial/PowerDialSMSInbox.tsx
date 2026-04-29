@@ -394,6 +394,180 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  // ---------- Send Proposal from SMS thread ----------
+  const detectEmailInThread = useCallback((phoneKey: string): string => {
+    const re = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+    const threadMessages = messages.filter(m => {
+      const counterpart = m.direction === 'inbound' ? m.from_address : m.to_address;
+      return normalizeLast10(counterpart) === phoneKey;
+    });
+    for (const m of threadMessages) {
+      const match = (m.body || '').match(re);
+      if (match) return match[0];
+    }
+    return '';
+  }, [messages]);
+
+  const openSendProposal = (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const last10 = normalizeLast10(phoneKey);
+    if (last10.length !== 10) { toast.error('Invalid phone number'); return; }
+    setProposalPhoneKey(last10);
+    setProposalEmail(detectEmailInThread(last10));
+    setProposalStep('email');
+    setProposalOpen(true);
+  };
+
+  const handleProposalContinue = () => {
+    const email = proposalEmail.trim();
+    if (!email || !/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(email)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    setProposalStep('choose');
+  };
+
+  const sendProposalTemplate = async (kind: '299' | '2500') => {
+    if (!proposalPhoneKey) return;
+    const email = proposalEmail.trim();
+    if (!email) { toast.error('Email required'); return; }
+    setProposalSending(true);
+    try {
+      const last10 = proposalPhoneKey;
+      const e164 = `+1${last10}`;
+      const display = formatPhone(last10);
+      const contactName = contacts[last10] || `SMS Lead ${display}`;
+
+      // Look up customer (if exists) so we can link the proposal
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id, full_name, email')
+        .or(`phone.ilike.%${last10},phone.eq.${e164}`)
+        .limit(1)
+        .maybeSingle();
+
+      const customerId = existing?.id || null;
+      const clientName = existing?.full_name || contactName;
+
+      const exp = new Date();
+      exp.setDate(exp.getDate() + 14);
+      const expDate = exp.toISOString().slice(0, 10);
+
+      let payload: Record<string, any>;
+      if (kind === '299') {
+        payload = {
+          title: 'Real Estate Listing Video — $299 Package',
+          client_name: clientName,
+          client_email: email,
+          client_phone: e164,
+          amount: 299,
+          currency: 'USD',
+          line_items: [{ description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 }],
+          notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
+          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
+          proposal_body: `Real Estate Listing Video — $299 Package
+
+What's included:
+• 1 cinematic AI-enhanced listing video
+• Full edit: color grading, transitions, music sync, AI furniture removal & visual enhancements
+• Delivered in 9:16 vertical format, optimized for Instagram Reels & TikTok
+• Up to 1 minute maximum runtime
+• Covers up to 4 bedrooms
+• 48–72 hour turnaround from asset delivery
+• 2 free revisions
+
+Bedroom add-ons:
+• Properties with more than 4 bedrooms: +$50 per additional bedroom
+
+Payment Terms:
+• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+
+By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
+          expiration_date: expDate,
+          signature_required: true,
+          customer_id: customerId,
+          status: 'draft',
+        };
+      } else {
+        payload = {
+          title: 'Monthly Retainer Venture — $2,500/month',
+          client_name: clientName,
+          client_email: email,
+          client_phone: e164,
+          amount: 2500,
+          currency: 'USD',
+          line_items: [{ description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 }],
+          notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Billed monthly in advance.',
+          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
+          proposal_body: `Monthly Retainer Venture — $2,500 / month
+
+What's included each month:
+• Ongoing AI-driven content production (video, social, marketing assets)
+• Paid ad campaign management & optimization
+• Direct strategy access and weekly check-ins
+• Priority turnaround on new requests
+• Performance reporting and analytics
+
+Engagement:
+• Month-to-month retainer, billed in advance
+• Either party may cancel with 7 days notice prior to the next billing cycle
+
+Payment Terms:
+• FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Service begins after first month's payment is confirmed.
+
+By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
+          expiration_date: expDate,
+          signature_required: true,
+          customer_id: customerId,
+          status: 'draft',
+        };
+      }
+
+      // Insert the proposal draft
+      const { data: inserted, error: insErr } = await supabase
+        .from('proposals')
+        .insert(payload as never)
+        .select('id')
+        .single();
+      if (insErr || !inserted) throw new Error(insErr?.message || 'Failed to create proposal');
+
+      // Send via the same workflow used in /proposals
+      const { error: sendErr } = await supabase.functions.invoke('clawd-bot/proposal-send', {
+        body: { id: (inserted as { id: string }).id },
+      });
+      if (sendErr) {
+        // Fallback REST call (matches /proposals page pattern)
+        const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || '';
+        const url = `https://${projectId}.supabase.co/functions/v1/clawd-bot/proposal-send`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ id: (inserted as { id: string }).id }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error || 'Send failed');
+      }
+
+      toast.success(`${kind === '299' ? '$299' : '$2,500/mo'} proposal sent to ${email}`);
+      setProposalOpen(false);
+      setProposalPhoneKey(null);
+      setProposalEmail('');
+      setProposalStep('email');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send proposal');
+    } finally {
+      setProposalSending(false);
+    }
+  };
+
   const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
     e.stopPropagation();
     const display = displayPhone(phoneKey);
