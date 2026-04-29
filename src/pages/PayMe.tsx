@@ -305,8 +305,8 @@ const PayMe = () => {
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Note (invoice # or memo)"
                   className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
-                  maxLength={250}
                 />
+                </fieldset>
 
                 {errorMsg && (
                   <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
