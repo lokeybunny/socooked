@@ -152,6 +152,7 @@ export default function SMS() {
         <Tabs defaultValue="inbox">
           <TabsList>
             <TabsTrigger value="inbox"><Inbox className="h-3.5 w-3.5 mr-1" /> Inbox</TabsTrigger>
+            <TabsTrigger value="twilio-inbound"><PhoneIncoming className="h-3.5 w-3.5 mr-1" /> Twilio Inbound</TabsTrigger>
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
@@ -161,6 +162,7 @@ export default function SMS() {
           </TabsList>
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
+          <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>
           <TabsContent value="auto-reply"><AutoReplyWorkflow /></TabsContent>
           <TabsContent value="vm-followup"><VoicemailFollowupSettings /></TabsContent>
 
