@@ -33,7 +33,7 @@ const PayMe = () => {
   };
 
   const formatCard = (v: string) =>
-    v.replace(/\D/g, "").slice(0, 19).replace(/(\d{4})(?=\d)/g, "$1 ");
+    v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
 
   const formatExp = (v: string) => {
     const d = v.replace(/\D/g, "").slice(0, 4);
