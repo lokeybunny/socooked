@@ -19,8 +19,34 @@ const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 
 const TWILIO_LANDLINE = "+17028298105";
+const DEFAULT_AUTO_REPLY_PREFIX =
+  "Hey, just got your message on my line ending in 8105. This is my cell — that's a landline. I'll follow back in a moment.";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+type AutoReplyConfig = {
+  enabled: boolean;
+  prefix: string;
+  include_quoted: boolean;
+};
+
+async function loadAutoReplyConfig(): Promise<AutoReplyConfig> {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "sms_auto_reply").maybeSingle();
+  const v = (data?.value || {}) as Partial<AutoReplyConfig>;
+  return {
+    enabled: v.enabled !== false,
+    prefix: typeof v.prefix === "string" && v.prefix.trim() ? v.prefix : DEFAULT_AUTO_REPLY_PREFIX,
+    include_quoted: v.include_quoted !== false,
+  };
+}
+
+function buildAutoReply(inboundBody: string, cfg: AutoReplyConfig): string {
+  const trimmed = (inboundBody || "").trim();
+  if (!trimmed || !cfg.include_quoted) return cfg.prefix;
+  const MAX_QUOTE = 600;
+  const quoted = trimmed.length > MAX_QUOTE ? `${trimmed.slice(0, MAX_QUOTE).trim()}…` : trimmed;
+  return `${cfg.prefix}\n\nYou wrote:\n"${quoted}"`;
+}
 
 async function alreadyLogged(sid: string): Promise<boolean> {
   const { data } = await sb
@@ -30,6 +56,59 @@ async function alreadyLogged(sid: string): Promise<boolean> {
     .eq("event", "twilio-poll:received")
     .limit(1);
   return !!(data && data[0]);
+}
+
+async function alreadyAutoReplied(sid: string, fromNumber: string): Promise<boolean> {
+  // Check by twilio_sid first
+  const { data: bySid } = await sb
+    .from("communications")
+    .select("id")
+    .eq("type", "sms")
+    .eq("direction", "outbound")
+    .eq("metadata->>twilio_sid", sid)
+    .limit(1);
+  if (bySid && bySid[0]) return true;
+
+  // Also short-circuit if we already auto-replied to this sender in the last 6 hours
+  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const { data: recent } = await sb
+    .from("communications")
+    .select("id")
+    .eq("type", "sms")
+    .eq("direction", "outbound")
+    .eq("to_address", fromNumber)
+    .eq("metadata->>source", "twilio-auto-reply-voidfix")
+    .gte("created_at", sixHoursAgo)
+    .limit(1);
+  return !!(recent && recent[0]);
+}
+
+async function sendVoidfixAutoReply(from: string, sid: string, twilioNumber: string, inboundBody: string, cfg: AutoReplyConfig) {
+  const replyBody = buildAutoReply(inboundBody, cfg);
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
+    body: JSON.stringify({
+      action: "send",
+      to: from,
+      body: replyBody,
+      source: "twilio-auto-reply-voidfix",
+      metadata: {
+        source: "twilio-auto-reply-voidfix",
+        twilio_number: twilioNumber,
+        twilio_sid: sid,
+        inbound_body: inboundBody,
+        triggered_by: "twilio-inbound-poll",
+      },
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`powerdial-sms ${resp.status}: ${text.slice(0, 300)}`);
+  }
 }
 
 Deno.serve(async (req) => {
