@@ -1303,6 +1303,7 @@ Deno.serve(async (req) => {
               answered_by: answeredBy,
               machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
               required_audio_ms: HUMAN_SPEECH_MIN_AUDIO_MS,
+              post_pickup_debounce_ms: POST_PICKUP_DEBOUNCE_MS,
               action: "hold_silent",
             },
           },
