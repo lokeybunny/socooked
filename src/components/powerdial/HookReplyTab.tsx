@@ -151,6 +151,8 @@ export default function HookReplyTab() {
     const phone = formatPhone(t.phone);
     return name ? `${name} — ${phone}` : phone;
   };
+
+  const counts = {
     all: threads.length,
     awaiting_reply: threads.filter(t => t.status === 'awaiting_reply').length,
     followup_scheduled: threads.filter(t => t.status === 'followup_scheduled').length,
