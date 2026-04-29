@@ -20,6 +20,29 @@ const PayMe = () => {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ id: string; amount: string; last4: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorField, setErrorField] = useState<string | null>(null);
+
+  const luhnValid = (num: string): boolean => {
+    if (!/^\d+$/.test(num)) return false;
+    let sum = 0, alt = false;
+    for (let i = num.length - 1; i >= 0; i--) {
+      let d = parseInt(num[i], 10);
+      if (alt) { d *= 2; if (d > 9) d -= 9; }
+      sum += d;
+      alt = !alt;
+    }
+    return sum % 10 === 0;
+  };
+
+  const setError = (msg: string, field?: string) => {
+    setErrorMsg(msg);
+    setErrorField(field || null);
+    toast.error(msg);
+  };
+  const fieldClass = (name: string, base: string) =>
+    `${base} ${errorField === name ? "border-red-500 focus:border-red-500" : "border-zinc-700 focus:border-amber-500"}`;
+
 
   type Receipt = {
     id: string;
