@@ -316,7 +316,9 @@ Deno.serve(async (req) => {
     if (result.ok) {
       try {
         const lower = (message || "").toLowerCase();
-        const isHook = lower.includes("warren guru") && (lower.includes("voicemail") || lower.includes("voice mail"));
+        const isVmHook = lower.includes("warren guru") && (lower.includes("voicemail") || lower.includes("voice mail"));
+        const isDroppedHook = source === "powerdial-dropped-call-sms" || (lower.includes("got disconnected") && lower.includes("warren"));
+        const isHook = isVmHook || isDroppedHook;
         if (isHook) {
           const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
           if (toLast10 && toLast10.length === 10) {
