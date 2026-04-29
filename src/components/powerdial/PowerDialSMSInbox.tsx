@@ -289,6 +289,7 @@ export default function PowerDialSMSInbox() {
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
             <div className="p-3 border-t border-border flex gap-2">
