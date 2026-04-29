@@ -849,5 +849,77 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         )}
       </div>
     </div>
+
+    {/* Send Proposal Modal */}
+    <Dialog open={proposalOpen} onOpenChange={(o) => { if (!o && !proposalSending) { setProposalOpen(false); setProposalStep('email'); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Send Proposal</DialogTitle>
+          <DialogDescription>
+            {proposalStep === 'email'
+              ? 'Confirm or enter the client email. We auto-detect any email mentioned in this thread.'
+              : 'Choose which proposal template to send.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {proposalStep === 'email' ? (
+          <div className="space-y-3 py-2">
+            <label className="text-xs text-muted-foreground">Client Email</label>
+            <Input
+              type="email"
+              placeholder="client@example.com"
+              value={proposalEmail}
+              onChange={(e) => setProposalEmail(e.target.value)}
+              autoFocus
+            />
+            {proposalPhoneKey && (
+              <p className="text-[11px] text-muted-foreground">
+                Sending to: {formatPhone(proposalPhoneKey)}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2 py-2">
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('299')}
+              className="w-full text-left p-4 rounded-lg border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors disabled:opacity-50"
+            >
+              <div className="font-semibold text-sm">$299 Listing Video Package</div>
+              <div className="text-xs text-muted-foreground mt-1">Single AI-cinematic real estate listing video — full payment up front via Zelle / Cash App.</div>
+            </button>
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('2500')}
+              className="w-full text-left p-4 rounded-lg border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors disabled:opacity-50"
+            >
+              <div className="font-semibold text-sm">$2,500 / month Retainer Venture</div>
+              <div className="text-xs text-muted-foreground mt-1">Monthly retainer engagement — full $2,500 due each month before work renders, via Zelle / Cash App.</div>
+            </button>
+            {proposalSending && (
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending proposal…
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          {proposalStep === 'email' ? (
+            <>
+              <Button variant="ghost" onClick={() => setProposalOpen(false)}>Cancel</Button>
+              <Button onClick={handleProposalContinue}>Continue</Button>
+            </>
+          ) : (
+            <Button variant="ghost" disabled={proposalSending} onClick={() => setProposalStep('email')}>
+              Back
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
