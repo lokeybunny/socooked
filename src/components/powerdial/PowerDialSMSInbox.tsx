@@ -86,12 +86,12 @@ export default function PowerDialSMSInbox() {
     return () => clearInterval(id);
   }, [load]);
 
-  // Realtime — refresh on any new SMS row
+  // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
     const channel = supabase
       .channel('powerdial-sms-inbox')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
-        load();
+        load({ silent: true });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
