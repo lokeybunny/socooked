@@ -21,7 +21,16 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const HUMAN_SPEECH_MIN_AUDIO_MS = 500;
+// Speech-gate thresholds — tuned to ignore brief line noise (clicks, breaths,
+// background TV, hold-music transients) and only engage the AI on sustained
+// human speech.
+//
+//  - POST_PICKUP_DEBOUNCE_MS: ignore the very first window after pickup, where
+//    Twilio often reports tiny audio bursts that are NOT real speech.
+//  - HUMAN_SPEECH_MIN_AUDIO_MS: total sustained voiced-audio duration that
+//    must be present before we call it a confirmed human.
+const POST_PICKUP_DEBOUNCE_MS = 400;
+const HUMAN_SPEECH_MIN_AUDIO_MS = 1200;
 
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
