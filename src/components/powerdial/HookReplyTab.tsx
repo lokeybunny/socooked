@@ -51,18 +51,21 @@ function statusColor(s: HookThread['status']) {
 
 export default function HookReplyTab() {
   const [threads, setThreads] = useState<HookThread[]>([]);
+  const [contacts, setContacts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'awaiting_reply' | 'followup_scheduled' | 'followup_sent' | 'dnd'>('all');
   const hasLoaded = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent && !hasLoaded.current) setLoading(true);
-    const { data } = await supabase
-      .from('hook_reply_threads')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(500);
-    setThreads((data as HookThread[]) || []);
+    const [{ data: threadData }, { data: contactData }] = await Promise.all([
+      supabase.from('hook_reply_threads').select('*').order('created_at', { ascending: false }).limit(500),
+      supabase.from('sms_contacts').select('phone_last10, name'),
+    ]);
+    setThreads((threadData as HookThread[]) || []);
+    const map: Record<string, string> = {};
+    (contactData || []).forEach((c: any) => { if (c.phone_last10) map[c.phone_last10] = c.name; });
+    setContacts(map);
     setLoading(false);
     hasLoaded.current = true;
   }, []);
@@ -74,6 +77,9 @@ export default function HookReplyTab() {
     const channel = supabase
       .channel('hook-reply-threads')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hook_reply_threads' }, () => {
+        load(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
         load(true);
       })
       .subscribe();
