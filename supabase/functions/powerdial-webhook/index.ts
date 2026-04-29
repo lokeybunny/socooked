@@ -872,8 +872,8 @@ Deno.serve(async (req) => {
 
       if (callLogId) {
         await sb.from("powerdial_call_logs").update({
-          connected_to_vapi: mode === "vapi_immediate",
-          ...(mode === "ai_assist_immediate" || mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
+          connected_to_vapi: false,
+          ...(mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
           meta: {
             ...existingMeta,
             immediate_answer_twiml: mode !== "hold_for_amd",
