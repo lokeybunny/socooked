@@ -50,9 +50,12 @@ export default function PowerDialSMSInbox() {
   const [showCompose, setShowCompose] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedRef = useRef(false);
+  const prevActiveCountRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? hasLoadedRef.current;
+    if (!silent) setLoading(true);
     // Pull any new inbound messages from VoidFix first (their webhook is unreliable)
     try {
       await supabase.functions.invoke('powerdial-sms', { body: { action: 'poll', limit: 50 } });
@@ -63,11 +66,25 @@ export default function PowerDialSMSInbox() {
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
       .limit(500);
-    setMessages((data as SMSMessage[]) || []);
-    setLoading(false);
+    setMessages((prev) => {
+      const next = (data as SMSMessage[]) || [];
+      // Avoid re-rendering if nothing actually changed (prevents thread "recycle" flash)
+      if (prev.length === next.length && prev.length > 0 && prev[0]?.id === next[0]?.id && prev[prev.length - 1]?.id === next[next.length - 1]?.id) {
+        return prev;
+      }
+      return next;
+    });
+    if (!silent) setLoading(false);
+    hasLoadedRef.current = true;
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load({ silent: false }); }, [load]);
+
+  // Background poll every 8s — seamless, no spinner, no thread reset
+  useEffect(() => {
+    const id = setInterval(() => { load({ silent: true }); }, 8000);
+    return () => clearInterval(id);
+  }, [load]);
 
   // Realtime — refresh on any new SMS row
   useEffect(() => {
