@@ -547,8 +547,11 @@ ${itemsTxt || 'N/A'}`;
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={openListingPreset} title="Pre-fill the $299 real estate listing video package">
+            <Button variant="outline" onClick={() => openListingPreset()} title="Pre-fill the $299 real estate listing video package">
               <Film className="h-4 w-4 mr-1.5" /> $299 Listing Video
+            </Button>
+            <Button variant="outline" onClick={() => openMonthlyRetainerPreset()} title="Pre-fill the $2,500/month venture retainer">
+              <DollarSign className="h-4 w-4 mr-1.5" /> $2,500 Monthly Retainer
             </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1.5" /> New Proposal
