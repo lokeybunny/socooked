@@ -232,12 +232,35 @@ const PayMe = () => {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email (receipt)"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errorField === "email") setErrorField(null);
+                      if (eligible !== null) { setEligible(null); setVerifiedEmail(null); }
+                    }}
+                    placeholder="Email (signed proposal)"
+                    className={fieldClass("email", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
+                    required
                   />
                 </div>
 
+                {eligible !== true ? (
+                  <button
+                    type="button"
+                    onClick={verifyEligibility}
+                    disabled={verifying || !email}
+                    className="w-full py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-60 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
+                  >
+                    {verifying
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking…</>
+                      : <><Lock className="h-4 w-4" /> Verify email to unlock card</>}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-xs">
+                    <Check className="h-3.5 w-3.5" /> Verified — card payments unlocked for {verifiedEmail}
+                  </div>
+                )}
+
+                <fieldset disabled={eligible !== true} className={eligible !== true ? "opacity-50 pointer-events-none space-y-3" : "space-y-3"}>
                 <input
                   inputMode="numeric"
                   autoComplete="cc-number"
