@@ -830,12 +830,84 @@ Deno.serve(async (req) => {
     }
 
     if (type === "twiml") {
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      const formText = await req.text().catch(() => "");
+      const params = new URLSearchParams(formText);
+      const twilioFrom = params.get("From") || "";
+      const dialCompleteUrl = buildPowerDialWebhookUrl("dial-complete", campaignId, queueItemId, callLogId);
+
+      const [{ data: existingLog }, { data: campSettings }] = await Promise.all([
+        callLogId
+          ? sb.from("powerdial_call_logs").select("meta").eq("id", callLogId).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        campaignId
+          ? sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+      ]);
+
+      const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+        ? existingLog.meta as Record<string, unknown>
+        : {};
+      const settingsObj = {
+        ...DEFAULT_POWERDIAL_SETTINGS,
+        ...((campSettings?.settings || {}) as Record<string, unknown>),
+      } as Record<string, unknown>;
+      const callerId = normalizePhone(twilioFrom || String(existingMeta.resolved_from || ""));
+      const callerIdAttr = callerId ? ` callerId="${escapeXml(callerId)}"` : "";
+      const humanTransferPhone = normalizePhone(typeof settingsObj.human_transfer_phone === "string" ? settingsObj.human_transfer_phone : "");
+      const aiEnabled = settingsObj.ai_enabled !== false;
+      const aiAssistEnabled = settingsObj.ai_assist !== false;
+
+      let mode = "hold_for_amd";
+      let xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="30"/><Hangup/></Response>`;
+
+      if (!aiEnabled && humanTransferPhone) {
+        mode = "live_human_transfer_immediate";
+        xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="30"/>
-  <Say>Thank you for your time. Goodbye.</Say>
-  <Hangup/>
+  <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
+    <Number>${escapeXml(humanTransferPhone)}</Number>
+  </Dial>
 </Response>`;
+      } else if (aiEnabled && aiAssistEnabled && humanTransferPhone) {
+        mode = "ai_assist_immediate";
+        const customGreeting = typeof settingsObj.ai_assist_greeting === "string" && settingsObj.ai_assist_greeting.trim()
+          ? settingsObj.ai_assist_greeting.trim()
+          : SHORT_AI_ASSIST_GREETING;
+        xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="Polly.Joanna-Neural">${escapeXml(customGreeting)}</Say>
+  <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
+    <Number>${escapeXml(humanTransferPhone)}</Number>
+  </Dial>
+</Response>`;
+      } else if (aiEnabled) {
+        const vapiPhoneNumber = typeof existingMeta.vapi_phone === "string" && existingMeta.vapi_phone.trim()
+          ? existingMeta.vapi_phone.trim()
+          : await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
+        if (vapiPhoneNumber) {
+          mode = "vapi_immediate";
+          xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial timeout="30" answerOnBridge="true" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
+    <Number>${escapeXml(vapiPhoneNumber)}</Number>
+  </Dial>
+</Response>`;
+        }
+      }
+
+      if (callLogId) {
+        await sb.from("powerdial_call_logs").update({
+          connected_to_vapi: mode === "vapi_immediate",
+          ...(mode === "ai_assist_immediate" || mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
+          meta: {
+            ...existingMeta,
+            immediate_answer_twiml: true,
+            immediate_answer_mode: mode,
+            twilio_from: callerId || null,
+          },
+        }).eq("id", callLogId);
+      }
+
       return twimlResponse(xml);
     }
 
@@ -944,6 +1016,19 @@ Deno.serve(async (req) => {
         if (batchId) {
           console.log(`[powerdial-webhook] Human detected in triple-dial batch ${batchId}, cancelling siblings`);
           await cancelSiblingCalls(batchId, callLogId, campaignId);
+        }
+
+        // The initial TwiML can now bridge the lead immediately on answer so
+        // Vapi / AI Assist responds to the first "hello". When that path was
+        // used, AMD is only a classifier/counting signal — do not redirect the
+        // already-bridged live call a second time.
+        if ((existingMeta as any).immediate_answer_twiml === true) {
+          return json({
+            ok: true,
+            amd_result: amdResult,
+            immediate_answer: true,
+            mode: (existingMeta as any).immediate_answer_mode || "unknown",
+          });
         }
 
         const aiEnabled = settingsObj.ai_enabled !== false; // default true
