@@ -1372,16 +1372,21 @@ Deno.serve(async (req) => {
       try {
         const { data: doneLog } = await sb
           .from("powerdial_call_logs")
-          .select("phone, customer_id, disposition, meta")
+          .select("phone, customer_id, disposition, amd_result, connected_to_vapi, meta")
           .eq("id", callLogId)
           .maybeSingle();
         const meta = (doneLog?.meta && typeof doneLog.meta === "object" && !Array.isArray(doneLog.meta))
           ? doneLog.meta as Record<string, unknown>
           : {};
-        const wasHumanTransfer = doneLog?.disposition === "transferred_to_human";
+        // Fire whenever a HUMAN was on the line (transferred OR AMD=human OR Vapi handoff),
+        // and the rep didn't manually text from the Live Transfer popup.
+        const humanWasConnected =
+          doneLog?.disposition === "transferred_to_human" ||
+          doneLog?.amd_result === "human" ||
+          doneLog?.connected_to_vapi === true;
         const manualSent = meta?.manual_text_sent === true;
         const droppedSentAlready = meta?.dropped_call_sms_sent === true;
-        if (wasHumanTransfer && !manualSent && !droppedSentAlready && doneLog?.phone) {
+        if (humanWasConnected && !manualSent && !droppedSentAlready && doneLog?.phone) {
           const { data: settingRow } = await sb
             .from("app_settings")
             .select("key, value")
