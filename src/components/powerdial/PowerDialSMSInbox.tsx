@@ -215,7 +215,7 @@ export default function PowerDialSMSInbox() {
           <Button size="sm" variant="ghost" onClick={handleTestInbound} title="Send a test inbound webhook to verify VoidFix integration">
             <Webhook className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={load}><RefreshCw className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => load({ silent: false })}><RefreshCw className="h-3.5 w-3.5" /></Button>
           <Button size="sm" variant="ghost" onClick={() => { setShowCompose(true); setActiveThread(null); }}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
