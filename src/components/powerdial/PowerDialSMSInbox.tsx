@@ -89,6 +89,7 @@ export default function PowerDialSMSInbox() {
   }, []);
 
   useEffect(() => { load({ silent: false }); }, [load]);
+  useEffect(() => { loadContacts(); }, [loadContacts]);
 
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
@@ -103,9 +104,40 @@ export default function PowerDialSMSInbox() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
         load({ silent: true });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
+        loadContacts();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [load]);
+  }, [load, loadContacts]);
+
+  const displayPhone = useCallback((rawPhone: string | null | undefined) => {
+    const last10 = normalizeLast10(rawPhone);
+    const phone = formatPhone(rawPhone);
+    const name = contacts[last10];
+    return name ? `${name} — ${phone}` : phone;
+  }, [contacts]);
+
+  const saveContactName = useCallback(async (phoneRaw: string, name: string) => {
+    const last10 = normalizeLast10(phoneRaw);
+    if (!last10 || last10.length !== 10) { toast.error('Invalid phone'); return; }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      // Empty name = remove the contact
+      const { error } = await supabase.from('sms_contacts').delete().eq('phone_last10', last10);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Name removed');
+    } else {
+      const { error } = await supabase.from('sms_contacts').upsert(
+        { phone_last10: last10, phone: phoneRaw || `+1${last10}`, name: trimmed },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) { toast.error(error.message); return; }
+      toast.success('Name saved');
+    }
+    setEditingName(false);
+    loadContacts();
+  }, [loadContacts]);
 
   // Group messages by counterpart phone (last 10 digits)
   const threads = useMemo(() => {
