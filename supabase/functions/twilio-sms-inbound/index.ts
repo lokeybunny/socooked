@@ -72,7 +72,16 @@ function normalizePhone(raw: string | null | undefined): string {
 }
 
 function runAfterResponse(label: string, task: Promise<unknown>) {
-  const guarded = task.catch((e) => console.error(`[twilio-sms-inbound] ${label} error:`, e));
+  const startedAt = performance.now();
+  const guarded = task
+    .then(() => {
+      const elapsed = (performance.now() - startedAt).toFixed(0);
+      console.log(`[twilio-sms-inbound][TIMING] ${label} completed in ${elapsed}ms`);
+    })
+    .catch((e) => {
+      const elapsed = (performance.now() - startedAt).toFixed(0);
+      console.error(`[twilio-sms-inbound][TIMING] ${label} FAILED after ${elapsed}ms:`, e);
+    });
   const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
   if (typeof waitUntil === "function") waitUntil(guarded);
 }
