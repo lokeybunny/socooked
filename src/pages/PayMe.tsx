@@ -105,7 +105,7 @@ const PayMe = () => {
     return `${d.slice(0, 2)}/${d.slice(2)}`;
   };
 
-  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
+  const buildReceiptPdf = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
     doc.setFillColor(245, 158, 11);
@@ -147,7 +147,11 @@ const PayMe = () => {
     doc.setFontSize(9);
     doc.text("Processed securely via Authorize.Net • Pay Warren", 14, 285);
 
-    doc.save(`receipt-${r.id}.pdf`);
+    return doc;
+  };
+
+  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
+    buildReceiptPdf(r).save(`receipt-${r.id}.pdf`);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -221,6 +225,12 @@ const PayMe = () => {
               <p style="margin-top:24px;">— Warren</p>
             </div>`;
           const gmailUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/gmail-api?action=send`;
+
+          // Build PDF receipt and convert to base64 for attachment
+          const pdfDoc = buildReceiptPdf(receipt);
+          const pdfDataUri = pdfDoc.output("datauristring");
+          const pdfBase64 = pdfDataUri.split(",")[1] || "";
+
           fetch(gmailUrl, {
             method: "POST",
             headers: {
@@ -232,6 +242,13 @@ const PayMe = () => {
               to: recipientEmail,
               subject: `Receipt + thank you — $${Number(receipt.amount).toFixed(2)} (Ref ${receipt.id})`,
               body: html,
+              attachments: [
+                {
+                  filename: `receipt-${receipt.id}.pdf`,
+                  mimeType: "application/pdf",
+                  data: pdfBase64,
+                },
+              ],
             }),
           }).catch(() => { /* non-blocking */ });
         }
