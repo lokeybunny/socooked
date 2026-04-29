@@ -136,6 +136,29 @@ export default function PowerDial() {
             notes: row.notes || null,
           });
         }
+        // Auto-close popup when the active call ends (status leaves dialing/connected
+        // or last_result indicates termination) for the phone currently shown.
+        const callEnded =
+          row.status === 'completed' ||
+          row.status === 'failed' ||
+          row.status === 'no_answer' ||
+          row.status === 'voicemail' ||
+          row.status === 'busy' ||
+          row.status === 'ended' ||
+          row.last_result === 'call_ended' ||
+          row.last_result === 'completed' ||
+          row.last_result === 'voicemail' ||
+          row.last_result === 'no_answer' ||
+          row.last_result === 'busy' ||
+          row.last_result === 'failed';
+        if (callEnded) {
+          setLivePopupCall((prev) => {
+            if (!prev) return prev;
+            const prevLast10 = String(prev.phone || '').replace(/\D/g, '').slice(-10);
+            const rowLast10 = String(row.phone || '').replace(/\D/g, '').slice(-10);
+            return prevLast10 && prevLast10 === rowLast10 ? null : prev;
+          });
+        }
       })
       .subscribe();
 
