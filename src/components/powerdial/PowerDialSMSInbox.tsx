@@ -163,8 +163,11 @@ export default function PowerDialSMSInbox() {
     const latest = messages
       .filter(m => m.direction === 'inbound' && normalizeLast10(m.from_address) === activeThread)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-    if (latest) seenInboundRef.current[activeThread] = latest.id;
-  }, [activeThread, messages]);
+    if (latest && seenInboundRef.current[activeThread] !== latest.id) {
+      seenInboundRef.current[activeThread] = latest.id;
+      persistSeen();
+    }
+  }, [activeThread, messages, persistSeen]);
 
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
