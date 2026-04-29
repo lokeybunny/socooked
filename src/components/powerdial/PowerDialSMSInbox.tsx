@@ -55,6 +55,11 @@ export default function PowerDialSMSInbox() {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const prevActiveCountRef = useRef(0);
+  // Per-thread latest inbound id we've already "seen" (in-memory only — clears on refresh)
+  const seenInboundRef = useRef<Record<string, string>>({});
+  const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
+  const activeThreadRef = useRef<string | null>(null);
+  useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
     const { data } = await supabase.from('sms_contacts').select('phone_last10, name');
