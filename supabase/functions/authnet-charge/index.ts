@@ -14,6 +14,19 @@ function bad(msg: string, status = 400, extra: Record<string, unknown> = {}) {
   });
 }
 
+function luhnValid(num: string): boolean {
+  if (!/^\d+$/.test(num)) return false;
+  let sum = 0;
+  let alt = false;
+  for (let i = num.length - 1; i >= 0; i--) {
+    let d = parseInt(num[i], 10);
+    if (alt) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return bad("Method not allowed", 405);
@@ -30,11 +43,31 @@ Deno.serve(async (req) => {
     const email = String(body.email || "").trim();
     const note = String(body.note || "").slice(0, 250);
 
-    if (!amount || amount < 1 || amount > 100000) return bad("Invalid amount");
-    if (!/^\d{13,16}$/.test(cardNumber)) return bad("Invalid card number");
-    if (!/^\d{2}$/.test(expMonth)) return bad("Invalid expiry month");
-    if (!/^\d{2,4}$/.test(expYear)) return bad("Invalid expiry year");
-    if (!/^\d{3,4}$/.test(cvv)) return bad("Invalid CVV");
+    if (!amount || amount < 1 || amount > 100000) {
+      return bad("Enter a valid amount between $1 and $100,000.", 400, { field: "amount" });
+    }
+    if (!/^\d{13,16}$/.test(cardNumber)) {
+      return bad("Card number must be 13–16 digits.", 400, { field: "cardNumber" });
+    }
+    if (!luhnValid(cardNumber)) {
+      return bad("That card number doesn't look right. Please double-check the digits.", 400, { field: "cardNumber" });
+    }
+    if (!/^\d{2}$/.test(expMonth) || Number(expMonth) < 1 || Number(expMonth) > 12) {
+      return bad("Expiry month must be 01–12.", 400, { field: "exp" });
+    }
+    if (!/^\d{2,4}$/.test(expYear)) {
+      return bad("Expiry year is invalid.", 400, { field: "exp" });
+    }
+    // Reject expired cards
+    const fullYear = expYear.length === 2 ? 2000 + Number(expYear) : Number(expYear);
+    const now = new Date();
+    const lastDay = new Date(fullYear, Number(expMonth), 0, 23, 59, 59);
+    if (lastDay < now) {
+      return bad("This card has expired.", 400, { field: "exp" });
+    }
+    if (!/^\d{3,4}$/.test(cvv)) {
+      return bad("CVV must be 3 or 4 digits.", 400, { field: "cvv" });
+    }
 
     const expDate = `${expMonth}${expYear.slice(-2)}`;
     const [firstName, ...rest] = name.split(/\s+/);
