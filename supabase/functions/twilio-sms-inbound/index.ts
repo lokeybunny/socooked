@@ -318,6 +318,7 @@ Deno.serve(async (req) => {
     return twimlAck();
   } catch (err) {
     console.error("[twilio-sms-inbound] error:", err);
+    void logEvent('webhook:error', { level: 'error', metadata: { error: String((err as any)?.message || err) } });
     // Always return valid TwiML so Twilio doesn't show an error/retry storm to the sender
     return twimlAck();
   }
