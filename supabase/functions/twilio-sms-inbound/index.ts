@@ -71,16 +71,43 @@ function normalizePhone(raw: string | null | undefined): string {
   return `+${digits}`;
 }
 
-function runAfterResponse(label: string, task: Promise<unknown>) {
+async function logEvent(event: string, fields: {
+  level?: 'info' | 'warn' | 'error';
+  from?: string | null;
+  to?: string | null;
+  sid?: string | null;
+  body?: string | null;
+  elapsed_ms?: number | null;
+  metadata?: Record<string, unknown>;
+} = {}) {
+  try {
+    await sb.from("twilio_inbound_logs").insert({
+      event,
+      level: fields.level || 'info',
+      from_number: fields.from || null,
+      to_number: fields.to || null,
+      message_sid: fields.sid || null,
+      body: fields.body ?? null,
+      elapsed_ms: fields.elapsed_ms ?? null,
+      metadata: fields.metadata || {},
+    });
+  } catch (e) {
+    console.error('[twilio-sms-inbound] logEvent failed:', e);
+  }
+}
+
+function runAfterResponse(label: string, task: Promise<unknown>, ctx: { from?: string; to?: string; sid?: string | null } = {}) {
   const startedAt = performance.now();
   const guarded = task
     .then(() => {
-      const elapsed = (performance.now() - startedAt).toFixed(0);
+      const elapsed = Math.round(performance.now() - startedAt);
       console.log(`[twilio-sms-inbound][TIMING] ${label} completed in ${elapsed}ms`);
+      void logEvent(`bg:${label}:done`, { elapsed_ms: elapsed, ...ctx });
     })
     .catch((e) => {
-      const elapsed = (performance.now() - startedAt).toFixed(0);
+      const elapsed = Math.round(performance.now() - startedAt);
       console.error(`[twilio-sms-inbound][TIMING] ${label} FAILED after ${elapsed}ms:`, e);
+      void logEvent(`bg:${label}:failed`, { level: 'error', elapsed_ms: elapsed, metadata: { error: String(e?.message || e) }, ...ctx });
     });
   const waitUntil = (globalThis as any).EdgeRuntime?.waitUntil;
   if (typeof waitUntil === "function") waitUntil(guarded);
@@ -185,11 +212,22 @@ Deno.serve(async (req) => {
 
     tStamp(`parsed payload from=${from} to=${to} sid=${sid}`);
 
-    if (!from || !body) return twimlAck();
+    if (!from || !body) {
+      void logEvent('webhook:ignored:missing-fields', { level: 'warn', from, to, sid, body, metadata: { content_type: contentType } });
+      return twimlAck();
+    }
 
     const normalizedFrom = normalizePhone(from);
     const normalizedTo = normalizePhone(to);
     const is8105LandlineWebhook = normalizedTo === TWILIO_LANDLINE_NUMBER;
+
+    void logEvent('webhook:received', {
+      from: normalizedFrom,
+      to: normalizedTo,
+      sid,
+      body,
+      metadata: { is_8105_landline: is8105LandlineWebhook, content_type: contentType },
+    });
 
     // Idempotency: skip duplicate webhooks
     if (sid) {
@@ -200,6 +238,7 @@ Deno.serve(async (req) => {
         .limit(1);
       tStamp("idempotency check done");
       if (dupe && dupe[0]) {
+        void logEvent('webhook:duplicate', { from: normalizedFrom, to: normalizedTo, sid, body });
         if (is8105LandlineWebhook) {
           const { data: priorReply } = await sb
             .from("communications")
@@ -215,7 +254,8 @@ Deno.serve(async (req) => {
             const cfg = await loadConfig();
             if (cfg.enabled) {
               tStamp("duplicate sid w/ no prior reply — scheduling retry");
-              runAfterResponse("duplicate retry VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, null, body, cfg));
+              void logEvent('auto-reply:retry-scheduled', { from: normalizedFrom, to: normalizedTo, sid });
+              runAfterResponse("duplicate retry VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, null, body, cfg), { from: normalizedFrom, to: normalizedTo, sid });
             }
           }
         }
@@ -225,6 +265,7 @@ Deno.serve(async (req) => {
 
     const customerId = await findCustomerByPhone(from);
     tStamp(`customer lookup done customerId=${customerId || "none"}`);
+    void logEvent('customer:lookup', { from: normalizedFrom, to: normalizedTo, sid, metadata: { customer_id: customerId } });
 
     // Log the inbound Twilio SMS — flagged as a "landline reply" so the CRM
     // knows this came in to the 8105 landline and still needs follow-up from
@@ -247,6 +288,7 @@ Deno.serve(async (req) => {
       },
     });
     tStamp("inbound communication logged");
+    void logEvent('inbound:persisted', { from: normalizedFrom, to: normalizedTo, sid, body });
 
     const cfg = await loadConfig();
     tStamp("config loaded");
@@ -254,23 +296,29 @@ Deno.serve(async (req) => {
     // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline.
     if (cfg.enabled && is8105LandlineWebhook) {
       tStamp("scheduling VoidFix auto-reply (background)");
-      runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg));
+      void logEvent('auto-reply:scheduled', { from: normalizedFrom, to: normalizedTo, sid });
+      runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg), { from: normalizedFrom, to: normalizedTo, sid });
     } else if (!is8105LandlineWebhook) {
       console.log(`[twilio-sms-inbound] skipped auto-reply: webhook To=${normalizedTo || "unknown"} is not ${TWILIO_LANDLINE_NUMBER}`);
+      void logEvent('auto-reply:skipped:not-8105', { level: 'warn', from: normalizedFrom, to: normalizedTo, sid });
     } else {
       console.log("[twilio-sms-inbound] auto-reply disabled by app_settings");
+      void logEvent('auto-reply:skipped:disabled', { from: normalizedFrom, to: normalizedTo, sid });
     }
 
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
     if (cfg.forward_enabled && is8105LandlineWebhook) {
-      runAfterResponse("forward", forwardToVoidfixCell(normalizedFrom, normalizedTo, body, cfg.forward_to_cell));
+      void logEvent('forward:scheduled', { from: normalizedFrom, to: normalizedTo, sid, metadata: { cell: cfg.forward_to_cell } });
+      runAfterResponse("forward", forwardToVoidfixCell(normalizedFrom, normalizedTo, body, cfg.forward_to_cell), { from: normalizedFrom, to: normalizedTo, sid });
     }
 
     tStamp("returning TwiML ack to Twilio");
+    void logEvent('webhook:ack', { from: normalizedFrom, to: normalizedTo, sid, elapsed_ms: Math.round(performance.now() - reqStart) });
 
     return twimlAck();
   } catch (err) {
     console.error("[twilio-sms-inbound] error:", err);
+    void logEvent('webhook:error', { level: 'error', metadata: { error: String((err as any)?.message || err) } });
     // Always return valid TwiML so Twilio doesn't show an error/retry storm to the sender
     return twimlAck();
   }

@@ -5715,6 +5715,45 @@ export type Database = {
           },
         ]
       }
+      twilio_inbound_logs: {
+        Row: {
+          body: string | null
+          created_at: string
+          elapsed_ms: number | null
+          event: string
+          from_number: string | null
+          id: string
+          level: string
+          message_sid: string | null
+          metadata: Json | null
+          to_number: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          elapsed_ms?: number | null
+          event: string
+          from_number?: string | null
+          id?: string
+          level?: string
+          message_sid?: string | null
+          metadata?: Json | null
+          to_number?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          elapsed_ms?: number | null
+          event?: string
+          from_number?: string | null
+          id?: string
+          level?: string
+          message_sid?: string | null
+          metadata?: Json | null
+          to_number?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
