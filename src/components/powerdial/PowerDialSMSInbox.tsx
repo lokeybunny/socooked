@@ -536,25 +536,21 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         .single();
       if (insErr || !inserted) throw new Error(insErr?.message || 'Failed to create proposal');
 
-      // Send via the same workflow used in /proposals
-      const { error: sendErr } = await supabase.functions.invoke('clawd-bot/proposal-send', {
-        body: { id: (inserted as { id: string }).id },
+      // Send via the same workflow used in /proposals — use direct fetch so we can read non-2xx error bodies
+      const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || '';
+      const url = `https://${projectId}.supabase.co/functions/v1/clawd-bot/proposal-send`;
+      const sess = await supabase.auth.getSession();
+      const authToken = sess.data.session?.access_token || (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ id: (inserted as { id: string }).id }),
       });
-      if (sendErr) {
-        // Fallback REST call (matches /proposals page pattern)
-        const projectId = (import.meta.env.VITE_SUPABASE_PROJECT_ID as string) || '';
-        const url = `https://${projectId}.supabase.co/functions/v1/clawd-bot/proposal-send`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ id: (inserted as { id: string }).id }),
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json.error || 'Send failed');
-      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
       toast.success(`${kind === '299' ? '$299' : '$2,500/mo'} proposal sent to ${email}`);
       setProposalOpen(false);
