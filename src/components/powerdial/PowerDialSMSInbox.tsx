@@ -464,7 +464,7 @@ export default function PowerDialSMSInbox() {
           currency: 'USD',
           line_items: [{ description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 }],
           notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
-          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
+          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
           proposal_body: `Real Estate Listing Video — $299 Package
 
 What's included:
@@ -481,7 +481,7 @@ Bedroom add-ons:
 
 Payment Terms:
 • FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
-• All payments must be made via Zelle or Cash App.
+• All payments must be made via Zelle or Cash App  OR Debit/Credit.
 • Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
 
 By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
@@ -500,7 +500,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           currency: 'USD',
           line_items: [{ description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 }],
           notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Billed monthly in advance.',
-          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
+          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
           proposal_body: `Monthly Retainer Venture — $2,500 / month
 
 What's included each month:
@@ -516,7 +516,7 @@ Engagement:
 
 Payment Terms:
 • FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
-• All payments must be made via Zelle or Cash App.
+• All payments must be made via Zelle or Cash App  OR Debit/Credit.
 • Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
 • Service begins after first month's payment is confirmed.
 
