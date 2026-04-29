@@ -105,7 +105,7 @@ const PayMe = () => {
     return `${d.slice(0, 2)}/${d.slice(2)}`;
   };
 
-  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
+  const buildReceiptPdf = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
     const doc = new jsPDF();
     const pageW = doc.internal.pageSize.getWidth();
     doc.setFillColor(245, 158, 11);
@@ -147,7 +147,11 @@ const PayMe = () => {
     doc.setFontSize(9);
     doc.text("Processed securely via Authorize.Net • Pay Warren", 14, 285);
 
-    doc.save(`receipt-${r.id}.pdf`);
+    return doc;
+  };
+
+  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
+    buildReceiptPdf(r).save(`receipt-${r.id}.pdf`);
   };
 
   const submit = async (e: React.FormEvent) => {
