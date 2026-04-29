@@ -138,7 +138,19 @@ export default function HookReplyTab() {
     load(true);
   };
 
-  const counts = {
+  const deleteThread = async (t: HookThread) => {
+    if (!confirm(`Delete this hook reply thread for ${formatPhone(t.phone)}? This cannot be undone.`)) return;
+    const { error } = await supabase.from('hook_reply_threads').delete().eq('id', t.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Thread deleted');
+    load(true);
+  };
+
+  const displayName = (t: HookThread) => {
+    const name = contacts[t.phone_last10];
+    const phone = formatPhone(t.phone);
+    return name ? `${name} — ${phone}` : phone;
+  };
     all: threads.length,
     awaiting_reply: threads.filter(t => t.status === 'awaiting_reply').length,
     followup_scheduled: threads.filter(t => t.status === 'followup_scheduled').length,
