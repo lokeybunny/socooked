@@ -42,6 +42,9 @@ function formatPhone(raw: string | null | undefined) {
 
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
+  const [contacts, setContacts] = useState<Record<string, string>>({});
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [activeThread, setActiveThread] = useState<string | null>(null);
@@ -52,6 +55,13 @@ export default function PowerDialSMSInbox() {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const prevActiveCountRef = useRef(0);
+
+  const loadContacts = useCallback(async () => {
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name');
+    const map: Record<string, string> = {};
+    (data || []).forEach((c: any) => { if (c.phone_last10) map[c.phone_last10] = c.name; });
+    setContacts(map);
+  }, []);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? hasLoadedRef.current;
