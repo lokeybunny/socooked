@@ -229,39 +229,7 @@ Deno.serve(async (req) => {
       metadata: { is_8105_landline: is8105LandlineWebhook, content_type: contentType },
     });
 
-    // Idempotency: skip duplicate webhooks
-    if (sid) {
-      const { data: dupe } = await sb
-        .from("communications")
-        .select("id")
-        .eq("external_id", sid)
-        .limit(1);
-      tStamp("idempotency check done");
-      if (dupe && dupe[0]) {
-        void logEvent('webhook:duplicate', { from: normalizedFrom, to: normalizedTo, sid, body });
-        if (is8105LandlineWebhook) {
-          const { data: priorReply } = await sb
-            .from("communications")
-            .select("id")
-            .eq("type", "sms")
-            .eq("direction", "outbound")
-            .eq("provider", "voidfix")
-            .eq("metadata->>source", "twilio-auto-reply-voidfix")
-            .eq("metadata->>twilio_sid", sid)
-            .eq("status", "sent")
-            .limit(1);
-          if (!priorReply?.[0]) {
-            const cfg = await loadConfig();
-            if (cfg.enabled) {
-              tStamp("duplicate sid w/ no prior reply — scheduling retry");
-              void logEvent('auto-reply:retry-scheduled', { from: normalizedFrom, to: normalizedTo, sid });
-              runAfterResponse("duplicate retry VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, null, body, cfg), { from: normalizedFrom, to: normalizedTo, sid });
-            }
-          }
-        }
-        return twimlAck();
-      }
-    }
+    // Duplicate-protection removed: every inbound webhook triggers a fresh auto-reply.
 
     const customerId = await findCustomerByPhone(from);
     tStamp(`customer lookup done customerId=${customerId || "none"}`);
