@@ -58,30 +58,6 @@ async function alreadyLogged(sid: string): Promise<boolean> {
   return !!(data && data[0]);
 }
 
-async function alreadyAutoReplied(sid: string, fromNumber: string): Promise<boolean> {
-  // Check by twilio_sid first
-  const { data: bySid } = await sb
-    .from("communications")
-    .select("id")
-    .eq("type", "sms")
-    .eq("direction", "outbound")
-    .eq("metadata->>twilio_sid", sid)
-    .limit(1);
-  if (bySid && bySid[0]) return true;
-
-  // Also short-circuit if we already auto-replied to this sender in the last 6 hours
-  const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-  const { data: recent } = await sb
-    .from("communications")
-    .select("id")
-    .eq("type", "sms")
-    .eq("direction", "outbound")
-    .eq("to_address", fromNumber)
-    .eq("metadata->>source", "twilio-auto-reply-voidfix")
-    .gte("created_at", sixHoursAgo)
-    .limit(1);
-  return !!(recent && recent[0]);
-}
 
 async function sendVoidfixAutoReply(from: string, sid: string, twilioNumber: string, inboundBody: string, cfg: AutoReplyConfig) {
   const replyBody = buildAutoReply(inboundBody, cfg);
@@ -161,7 +137,7 @@ Deno.serve(async (req) => {
     let newCount = 0;
     let skipped = 0;
     let autoReplied = 0;
-    let autoReplySkipped = 0;
+    
     let autoReplyFailed = 0;
 
     const cfg = await loadAutoReplyConfig();
@@ -263,7 +239,6 @@ Deno.serve(async (req) => {
         new: newCount,
         skipped,
         auto_replied: autoReplied,
-        auto_reply_skipped: autoReplySkipped,
         auto_reply_failed: autoReplyFailed,
       },
     });
@@ -275,7 +250,6 @@ Deno.serve(async (req) => {
         new: newCount,
         skipped,
         auto_replied: autoReplied,
-        auto_reply_skipped: autoReplySkipped,
         auto_reply_failed: autoReplyFailed,
         elapsed_ms: elapsed,
       }),
