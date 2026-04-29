@@ -21,7 +21,16 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-const HUMAN_SPEECH_MIN_AUDIO_MS = 500;
+// Speech-gate thresholds — tuned to ignore brief line noise (clicks, breaths,
+// background TV, hold-music transients) and only engage the AI on sustained
+// human speech.
+//
+//  - POST_PICKUP_DEBOUNCE_MS: ignore the very first window after pickup, where
+//    Twilio often reports tiny audio bursts that are NOT real speech.
+//  - HUMAN_SPEECH_MIN_AUDIO_MS: total sustained voiced-audio duration that
+//    must be present before we call it a confirmed human.
+const POST_PICKUP_DEBOUNCE_MS = 400;
+const HUMAN_SPEECH_MIN_AUDIO_MS = 1200;
 
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
@@ -233,7 +242,13 @@ function optionalString(value: unknown): string | null {
 
 function hasConfirmedHumanSpeech(answeredBy: string, machineDetectionDuration: string): boolean {
   const durationMs = Number(machineDetectionDuration || 0);
-  return answeredBy === "human" && Number.isFinite(durationMs) && durationMs >= HUMAN_SPEECH_MIN_AUDIO_MS;
+  if (answeredBy !== "human") return false;
+  if (!Number.isFinite(durationMs)) return false;
+  // Debounce: first POST_PICKUP_DEBOUNCE_MS of audio after pickup is treated
+  // as line noise and ignored. After that window, the caller must still have
+  // produced HUMAN_SPEECH_MIN_AUDIO_MS of sustained voiced audio.
+  if (durationMs < POST_PICKUP_DEBOUNCE_MS) return false;
+  return durationMs >= HUMAN_SPEECH_MIN_AUDIO_MS;
 }
 
 async function getVapiPhoneNumber(phoneNumberId: string): Promise<string | null> {
@@ -923,7 +938,7 @@ Deno.serve(async (req) => {
       } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = "redirect_to_vapi_assistant (human speech >=500ms detected)";
+        intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
@@ -1288,6 +1303,7 @@ Deno.serve(async (req) => {
               answered_by: answeredBy,
               machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
               required_audio_ms: HUMAN_SPEECH_MIN_AUDIO_MS,
+              post_pickup_debounce_ms: POST_PICKUP_DEBOUNCE_MS,
               action: "hold_silent",
             },
           },
