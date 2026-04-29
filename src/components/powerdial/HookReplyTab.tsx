@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, Ban, X, MessageCircle, Clock } from 'lucide-react';
+import { Loader2, RefreshCw, Send, Ban, X, MessageCircle, Clock, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 type HookThread = {
@@ -51,18 +51,21 @@ function statusColor(s: HookThread['status']) {
 
 export default function HookReplyTab() {
   const [threads, setThreads] = useState<HookThread[]>([]);
+  const [contacts, setContacts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'awaiting_reply' | 'followup_scheduled' | 'followup_sent' | 'dnd'>('all');
   const hasLoaded = useRef(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent && !hasLoaded.current) setLoading(true);
-    const { data } = await supabase
-      .from('hook_reply_threads')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(500);
-    setThreads((data as HookThread[]) || []);
+    const [{ data: threadData }, { data: contactData }] = await Promise.all([
+      supabase.from('hook_reply_threads').select('*').order('created_at', { ascending: false }).limit(500),
+      supabase.from('sms_contacts').select('phone_last10, name'),
+    ]);
+    setThreads((threadData as HookThread[]) || []);
+    const map: Record<string, string> = {};
+    (contactData || []).forEach((c: any) => { if (c.phone_last10) map[c.phone_last10] = c.name; });
+    setContacts(map);
     setLoading(false);
     hasLoaded.current = true;
   }, []);
@@ -74,6 +77,9 @@ export default function HookReplyTab() {
     const channel = supabase
       .channel('hook-reply-threads')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hook_reply_threads' }, () => {
+        load(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
         load(true);
       })
       .subscribe();
@@ -132,6 +138,20 @@ export default function HookReplyTab() {
     load(true);
   };
 
+  const deleteThread = async (t: HookThread) => {
+    if (!confirm(`Delete this hook reply thread for ${formatPhone(t.phone)}? This cannot be undone.`)) return;
+    const { error } = await supabase.from('hook_reply_threads').delete().eq('id', t.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Thread deleted');
+    load(true);
+  };
+
+  const displayName = (t: HookThread) => {
+    const name = contacts[t.phone_last10];
+    const phone = formatPhone(t.phone);
+    return name ? `${name} — ${phone}` : phone;
+  };
+
   const counts = {
     all: threads.length,
     awaiting_reply: threads.filter(t => t.status === 'awaiting_reply').length,
@@ -184,7 +204,7 @@ export default function HookReplyTab() {
             {visible.map(t => (
               <div key={t.id} className="border border-border rounded-lg p-3 bg-card/50">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="text-sm font-mono font-semibold">{formatPhone(t.phone)}</span>
+                  <span className="text-sm font-mono font-semibold">{displayName(t)}</span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant="outline" className={`text-[9px] ${sentimentColor(t.sentiment)}`}>
                       {t.sentiment.toUpperCase()}
@@ -237,6 +257,9 @@ export default function HookReplyTab() {
                       <Ban className="h-3 w-3 mr-1" /> Move to DND
                     </Button>
                   )}
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] text-red-400 border-red-500/40 ml-auto" onClick={() => deleteThread(t)}>
+                    <Trash2 className="h-3 w-3 mr-1" /> Delete
+                  </Button>
                 </div>
 
                 <div className="mt-1 text-[10px] text-muted-foreground">

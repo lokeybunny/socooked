@@ -5317,6 +5317,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          phone_last10: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          phone_last10: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          phone_last10?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sms_dnd_list: {
         Row: {
           created_at: string

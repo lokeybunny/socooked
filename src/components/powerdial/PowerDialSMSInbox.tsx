@@ -42,6 +42,9 @@ function formatPhone(raw: string | null | undefined) {
 
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
+  const [contacts, setContacts] = useState<Record<string, string>>({});
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [activeThread, setActiveThread] = useState<string | null>(null);
@@ -52,6 +55,13 @@ export default function PowerDialSMSInbox() {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
   const prevActiveCountRef = useRef(0);
+
+  const loadContacts = useCallback(async () => {
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name');
+    const map: Record<string, string> = {};
+    (data || []).forEach((c: any) => { if (c.phone_last10) map[c.phone_last10] = c.name; });
+    setContacts(map);
+  }, []);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? hasLoadedRef.current;
@@ -79,6 +89,7 @@ export default function PowerDialSMSInbox() {
   }, []);
 
   useEffect(() => { load({ silent: false }); }, [load]);
+  useEffect(() => { loadContacts(); }, [loadContacts]);
 
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
@@ -93,9 +104,40 @@ export default function PowerDialSMSInbox() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
         load({ silent: true });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
+        loadContacts();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [load]);
+  }, [load, loadContacts]);
+
+  const displayPhone = useCallback((rawPhone: string | null | undefined) => {
+    const last10 = normalizeLast10(rawPhone);
+    const phone = formatPhone(rawPhone);
+    const name = contacts[last10];
+    return name ? `${name} — ${phone}` : phone;
+  }, [contacts]);
+
+  const saveContactName = useCallback(async (phoneRaw: string, name: string) => {
+    const last10 = normalizeLast10(phoneRaw);
+    if (!last10 || last10.length !== 10) { toast.error('Invalid phone'); return; }
+    const trimmed = name.trim();
+    if (!trimmed) {
+      // Empty name = remove the contact
+      const { error } = await supabase.from('sms_contacts').delete().eq('phone_last10', last10);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Name removed');
+    } else {
+      const { error } = await supabase.from('sms_contacts').upsert(
+        { phone_last10: last10, phone: phoneRaw || `+1${last10}`, name: trimmed },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) { toast.error(error.message); return; }
+      toast.success('Name saved');
+    }
+    setEditingName(false);
+    loadContacts();
+  }, [loadContacts]);
 
   // Group messages by counterpart phone (last 10 digits)
   const threads = useMemo(() => {
@@ -257,7 +299,7 @@ export default function PowerDialSMSInbox() {
                   className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium font-mono">{formatPhone(t.phone)}</span>
+                    <span className="text-sm font-medium font-mono">{displayPhone(t.phone)}</span>
                     <span className="text-[10px] text-muted-foreground">{format(new Date(t.last.created_at), 'MMM d')}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -310,9 +352,35 @@ export default function PowerDialSMSInbox() {
               <Button size="sm" variant="ghost" className="md:hidden" onClick={() => setActiveThread(null)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-semibold font-mono">
-                {formatPhone(threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread)}
-              </span>
+              {(() => {
+                const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+                const last10 = normalizeLast10(activePhone);
+                const currentName = contacts[last10] || '';
+                if (editingName) {
+                  return (
+                    <Input
+                      autoFocus
+                      defaultValue={currentName}
+                      placeholder="Add name (leave blank to remove)"
+                      className="h-8 text-sm flex-1"
+                      onBlur={(e) => saveContactName(activePhone, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); saveContactName(activePhone, (e.target as HTMLInputElement).value); }
+                        if (e.key === 'Escape') { setEditingName(false); }
+                      }}
+                    />
+                  );
+                }
+                return (
+                  <span
+                    className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none"
+                    title="Double-click to add or edit a name"
+                    onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
+                  >
+                    {displayPhone(activePhone)}
+                  </span>
+                );
+              })()}
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
