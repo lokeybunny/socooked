@@ -96,15 +96,22 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { load({ silent: false }); }, [load]);
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
-  // Track unread inbound per thread. On first load, mark everything as "seen" (no false alarms).
-  // On subsequent loads, any inbound newer than the last-seen id for that thread = unread.
+  // Track unread inbound per thread.
+  // On first load: mark a thread unread if its MOST RECENT message is inbound (you haven't replied).
+  // On subsequent loads: any new inbound (id different from last-seen) marks unread.
   useEffect(() => {
     if (messages.length === 0) return;
     const latestInboundByThread = new Map<string, SMSMessage>();
+    const latestAnyByThread = new Map<string, SMSMessage>();
     for (const m of messages) {
-      if (m.direction !== 'inbound') continue;
-      const key = normalizeLast10(m.from_address);
+      const counterpart = m.direction === 'inbound' ? m.from_address : m.to_address;
+      const key = normalizeLast10(counterpart);
       if (!key || key.length !== 10) continue;
+      const curAny = latestAnyByThread.get(key);
+      if (!curAny || new Date(m.created_at) > new Date(curAny.created_at)) {
+        latestAnyByThread.set(key, m);
+      }
+      if (m.direction !== 'inbound') continue;
       const cur = latestInboundByThread.get(key);
       if (!cur || new Date(m.created_at) > new Date(cur.created_at)) {
         latestInboundByThread.set(key, m);
@@ -112,8 +119,15 @@ export default function PowerDialSMSInbox() {
     }
     const isFirstSeed = Object.keys(seenInboundRef.current).length === 0;
     if (isFirstSeed) {
-      // Seed baseline — nothing is "new" on initial mount/refresh.
-      latestInboundByThread.forEach((msg, key) => { seenInboundRef.current[key] = msg.id; });
+      const seed = new Set<string>();
+      latestInboundByThread.forEach((msg, key) => {
+        seenInboundRef.current[key] = msg.id;
+        // If the most recent message in this thread is the inbound one, it's unread (no reply yet)
+        if (latestAnyByThread.get(key)?.id === msg.id && activeThreadRef.current !== key) {
+          seed.add(key);
+        }
+      });
+      if (seed.size > 0) setUnreadThreads(seed);
       return;
     }
     setUnreadThreads(prev => {
