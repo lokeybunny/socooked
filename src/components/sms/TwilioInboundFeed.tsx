@@ -43,6 +43,7 @@ export default function TwilioInboundFeed() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,7 +56,32 @@ export default function TwilioInboundFeed() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const syncFromTwilio = useCallback(async (silent = false) => {
+    if (!silent) setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('twilio-inbound-poll', { body: {} });
+      if (error || !(data as any)?.ok) {
+        if (!silent) toast.error((data as any)?.error || error?.message || 'Twilio sync failed');
+      } else if (!silent) {
+        const d = data as any;
+        toast.success(`Synced ${d.fetched} from Twilio (${d.new} new)`);
+      }
+      await load();
+    } finally {
+      if (!silent) setSyncing(false);
+    }
+  }, [load]);
+
+  useEffect(() => {
+    load();
+    syncFromTwilio(true);
+  }, [load, syncFromTwilio]);
+
+  // Auto-poll Twilio every 20s as a near-realtime fallback in case the webhook is misconfigured
+  useEffect(() => {
+    const t = setInterval(() => syncFromTwilio(true), 20_000);
+    return () => clearInterval(t);
+  }, [syncFromTwilio]);
 
   // Realtime — append new rows as they land
   useEffect(() => {
@@ -73,7 +99,7 @@ export default function TwilioInboundFeed() {
   }, []);
 
   const stats = useMemo(() => {
-    const received = logs.filter((l) => l.event === 'webhook:received').length;
+    const received = logs.filter((l) => l.event === 'webhook:received' || l.event === 'twilio-poll:received').length;
     const replies = logs.filter((l) => l.event === 'auto-reply:scheduled').length;
     const errors = logs.filter((l) => l.level === 'error').length;
     return { received, replies, errors };
@@ -95,7 +121,7 @@ export default function TwilioInboundFeed() {
               </Badge>
             </h2>
             <p className="text-[11px] text-muted-foreground font-mono">
-              Webhook → /functions/v1/twilio-sms-inbound · {fmtPhone(TWILIO_LANDLINE)}
+              REST poll every 20s + webhook · {fmtPhone(TWILIO_LANDLINE)}
             </p>
           </div>
         </div>
@@ -105,6 +131,10 @@ export default function TwilioInboundFeed() {
             <span className="text-purple-400">REPLIES: {stats.replies}</span>
             {stats.errors > 0 && <span className="text-red-400">ERR: {stats.errors}</span>}
           </div>
+          <Button size="sm" variant="outline" onClick={() => syncFromTwilio(false)} disabled={syncing}>
+            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+            Sync Twilio
+          </Button>
           <Button size="sm" variant="ghost" onClick={load}>
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
