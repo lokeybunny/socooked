@@ -1445,6 +1445,27 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_categories: {
+        Row: {
+          category_name: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          category_name: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          category_name?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -2238,6 +2259,83 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      listing_image_batches: {
+        Row: {
+          batch_name: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_name?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      listing_images: {
+        Row: {
+          ai_description: string | null
+          batch_id: string
+          confidence: number | null
+          created_at: string
+          detected_category: string | null
+          file_url: string
+          final_category: string | null
+          id: string
+          manual_category: string | null
+          original_filename: string | null
+          storage_path: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_description?: string | null
+          batch_id: string
+          confidence?: number | null
+          created_at?: string
+          detected_category?: string | null
+          file_url: string
+          final_category?: string | null
+          id?: string
+          manual_category?: string | null
+          original_filename?: string | null
+          storage_path?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_description?: string | null
+          batch_id?: string
+          confidence?: number | null
+          created_at?: string
+          detected_category?: string | null
+          file_url?: string
+          final_category?: string | null
+          id?: string
+          manual_category?: string | null
+          original_filename?: string | null
+          storage_path?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_images_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "listing_image_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lists: {
         Row: {
