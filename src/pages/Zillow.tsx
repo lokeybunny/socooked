@@ -52,7 +52,10 @@ export default function Zillow() {
 
   const createBatch = async () => {
     if (!userId) return toast.error('Please sign in');
-    const name = `Batch ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const defaultName = `Batch ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const input = window.prompt('Label this batch (e.g. "123 Main St — Henderson"):', defaultName);
+    if (input === null) return;
+    const name = input.trim() || defaultName;
     const { data, error } = await (supabase as any)
       .from('listing_image_batches')
       .insert({ user_id: userId, batch_name: name })
@@ -60,6 +63,18 @@ export default function Zillow() {
     if (error) return toast.error(error.message);
     setSelected(data.id);
     loadBatches();
+  };
+
+  const renameBatchInList = async (id: string, currentName: string) => {
+    const input = window.prompt('Rename batch:', currentName);
+    if (input === null) return;
+    const name = input.trim();
+    if (!name || name === currentName) return;
+    const { error } = await (supabase as any)
+      .from('listing_image_batches').update({ batch_name: name }).eq('id', id);
+    if (error) return toast.error(error.message);
+    setBatches(b => b.map(x => x.id === id ? { ...x, batch_name: name } : x));
+    toast.success('Renamed');
   };
 
   const deleteBatch = async (id: string) => {
