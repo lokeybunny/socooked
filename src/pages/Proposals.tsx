@@ -133,13 +133,13 @@ export default function Proposals() {
     exp.setDate(exp.getDate() + 14);
     setForm({
       ...blankForm,
-      title: 'Real Estate Listing Video — $299 Package',
+      title: 'Real Estate Listing Video — $399 Package',
       currency: 'USD',
       expiration_date: exp.toISOString().slice(0, 10),
       signature_required: true,
       notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
       terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.',
-      proposal_body: `Real Estate Listing Video — $299 Package
+      proposal_body: `Real Estate Listing Video — $399 Package
 
 What's included:
 • 1 cinematic AI-enhanced listing video
@@ -152,7 +152,7 @@ What's included:
 
 Bedroom add-ons:
 • Properties with more than 4 bedrooms: +$50 per additional bedroom
-  (Example: a 6-bedroom listing = $299 + (2 × $50) = $399)
+  (Example: a 6-bedroom listing = $399 + (2 × $50) = $499)
 
 Payment Terms:
 • FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
@@ -165,7 +165,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       ...(overrides || {}),
     });
     setLineItems([
-      { description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 },
+      { description: 'Real Estate Listing Video — $399 Package (up to 4 bedrooms)', quantity: 1, unit_price: 399 },
     ]);
     setDialogOpen(true);
   };
@@ -500,8 +500,8 @@ ${itemsTxt || 'N/A'}`;
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => openListingPreset()} title="Pre-fill the $299 real estate listing video package">
-              <Film className="h-4 w-4 mr-1.5" /> $299 Listing Video
+            <Button variant="outline" onClick={() => openListingPreset()} title="Pre-fill the $399 real estate listing video package">
+              <Film className="h-4 w-4 mr-1.5" /> $399 Listing Video
             </Button>
             <Button variant="outline" onClick={() => openMonthlyRetainerPreset()} title="Pre-fill the $2,500/month venture retainer">
               <DollarSign className="h-4 w-4 mr-1.5" /> $2,500 Monthly Retainer
