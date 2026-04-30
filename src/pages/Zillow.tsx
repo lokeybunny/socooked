@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import {
   Upload, Loader2, Sparkles, Download, Trash2, Plus, RefreshCw,
-  FolderOpen, ArrowLeft, Image as ImageIcon, FileArchive,
+  FolderOpen, ArrowLeft, Image as ImageIcon, FileArchive, Pencil,
 } from 'lucide-react';
 import JSZip from 'jszip';
 
