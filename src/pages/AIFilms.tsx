@@ -222,7 +222,7 @@ export default function AIFilms() {
     },
     {
       q: 'How is the +$50 per additional bedroom calculated?',
-      a: 'Each package covers up to 4 bedrooms. For each bedroom beyond that, $50 is added to cover the extra shoot, AI processing, and edit time. Example: a 6-bedroom listing on the Single Listing tier is $299 + (2 × $50) = $399. The same math applies per listing on the Monthly Package.',
+      a: 'Each package covers up to 4 bedrooms. For each bedroom beyond that, $50 is added to cover the extra shoot, AI processing, and edit time. Example: a 6-bedroom listing on the Single Listing tier is $399 + (2 × $50) = $499. The same math applies per listing on the Monthly Package.',
     },
   ];
   const heroRef = useRef<HTMLDivElement>(null);
@@ -448,7 +448,7 @@ export default function AIFilms() {
               <p className="text-[10px] tracking-[0.4em] uppercase text-muted-foreground">Single Listing</p>
               <h3 className="text-2xl font-light tracking-tight mt-2 mb-6">Listing Video</h3>
               <div className="flex items-baseline justify-center gap-2 mb-1">
-                <span className="text-5xl font-light tracking-tight">$299</span>
+                <span className="text-5xl font-light tracking-tight">$399</span>
                 <span className="text-sm text-muted-foreground">per video</span>
               </div>
               <p className="text-xs text-muted-foreground mb-8">One-time, per property.</p>
