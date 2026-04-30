@@ -82,6 +82,7 @@ const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposa
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
 const Poly = lazyWithRetry(() => import("./pages/Poly"), "page-poly");
 const AIFilms = lazyWithRetry(() => import("./pages/AIFilms"), "page-ai-films");
+const Zillow = lazyWithRetry(() => import("./pages/Zillow"), "page-zillow");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +201,7 @@ const App = () => (
                 <Route path="/payme" element={<PayMe />} />
                 <Route path="/analytics" element={<WarrenOnlyGate><AuthLayoutGate><Analytics /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/poly" element={<AuthLayoutGate><Poly /></AuthLayoutGate>} />
+                <Route path="/zillow" element={<WarrenOnlyGate><AuthLayoutGate><Zillow /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
