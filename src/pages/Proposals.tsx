@@ -176,13 +176,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     exp.setDate(exp.getDate() + 14);
     setForm({
       ...blankForm,
-      title: 'Monthly Retainer Venture — $2,500/month',
+      title: 'Monthly Retainer Venture — $3,000/month',
       currency: 'USD',
       expiration_date: exp.toISOString().slice(0, 10),
       signature_required: true,
       notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Includes content creation, ad management, and direct strategy access. Billed monthly in advance.',
-      terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle. Unused hours/deliverables do not roll over.',
-      proposal_body: `Monthly Retainer Venture — $2,500 / month
+      terms: 'FULL PAYMENT OF $3,000 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle. Unused hours/deliverables do not roll over.',
+      proposal_body: `Monthly Retainer Venture — $3,000 / month
 
 What's included each month:
 • Ongoing AI-driven content production (video, social, marketing assets)
@@ -196,7 +196,7 @@ Engagement:
 • Either party may cancel with 7 days notice prior to the next billing cycle
 
 Payment Terms:
-• FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
+• FULL PAYMENT OF $3,000 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
 • All payments must be made via Zelle or Cash App  OR Debit/Credit.
 • Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
 • Service begins after first month's payment is confirmed.
@@ -205,7 +205,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       ...(overrides || {}),
     });
     setLineItems([
-      { description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 },
+      { description: 'Monthly Retainer — Venture Engagement ($3,000/month)', quantity: 1, unit_price: 3000 },
     ]);
     setDialogOpen(true);
   };
@@ -503,8 +503,8 @@ ${itemsTxt || 'N/A'}`;
             <Button variant="outline" onClick={() => openListingPreset()} title="Pre-fill the $399 real estate listing video package">
               <Film className="h-4 w-4 mr-1.5" /> $399 Listing Video
             </Button>
-            <Button variant="outline" onClick={() => openMonthlyRetainerPreset()} title="Pre-fill the $2,500/month venture retainer">
-              <DollarSign className="h-4 w-4 mr-1.5" /> $2,500 Monthly Retainer
+            <Button variant="outline" onClick={() => openMonthlyRetainerPreset()} title="Pre-fill the $3,000/month venture retainer">
+              <DollarSign className="h-4 w-4 mr-1.5" /> $3,000 Monthly Retainer
             </Button>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1.5" /> New Proposal

@@ -463,7 +463,7 @@ export default function PowerDialSMSInbox() {
     setProposalStep('choose');
   };
 
-  const sendProposalTemplate = async (kind: '399' | '2500') => {
+  const sendProposalTemplate = async (kind: '399' | '3000') => {
     if (!proposalPhoneKey) return;
     const email = proposalEmail.trim();
     if (!email) { toast.error('Email required'); return; }
@@ -528,16 +528,16 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         };
       } else {
         payload = {
-          title: 'Monthly Retainer Venture — $2,500/month',
+          title: 'Monthly Retainer Venture — $3,000/month',
           client_name: clientName,
           client_email: email,
           client_phone: e164,
-          amount: 2500,
+          amount: 3000,
           currency: 'USD',
-          line_items: [{ description: 'Monthly Retainer — Venture Engagement ($2,500/month)', quantity: 1, unit_price: 2500 }],
+          line_items: [{ description: 'Monthly Retainer — Venture Engagement ($3,000/month)', quantity: 1, unit_price: 3000 }],
           notes: 'Monthly retainer engagement: ongoing creative production, marketing, and growth support. Billed monthly in advance.',
-          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
-          proposal_body: `Monthly Retainer Venture — $2,500 / month
+          terms: 'FULL PAYMENT OF $3,000 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
+          proposal_body: `Monthly Retainer Venture — $3,000 / month
 
 What's included each month:
 • Ongoing AI-driven content production (video, social, marketing assets)
@@ -551,7 +551,7 @@ Engagement:
 • Either party may cancel with 7 days notice prior to the next billing cycle
 
 Payment Terms:
-• FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
+• FULL PAYMENT OF $3,000 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
 • All payments must be made via Zelle or Cash App  OR Debit/Credit.
 • Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
 • Service begins after first month's payment is confirmed.
@@ -588,7 +588,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
-      toast.success(`${kind === '399' ? '$399' : '$2,500/mo'} proposal sent to ${email}`);
+      toast.success(`${kind === '399' ? '$399' : '$3,000/mo'} proposal sent to ${email}`);
       setProposalOpen(false);
       setProposalPhoneKey(null);
       setProposalEmail('');
@@ -956,11 +956,11 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <button
               type="button"
               disabled={proposalSending}
-              onClick={() => sendProposalTemplate('2500')}
+              onClick={() => sendProposalTemplate('3000')}
               className="w-full text-left p-4 rounded-lg border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors disabled:opacity-50"
             >
-              <div className="font-semibold text-sm">$2,500 / month Retainer Venture</div>
-              <div className="text-xs text-muted-foreground mt-1">Monthly retainer engagement — full $2,500 due each month before work renders, via Zelle / Cash App.</div>
+              <div className="font-semibold text-sm">$3,000 / month Retainer Venture</div>
+              <div className="text-xs text-muted-foreground mt-1">Monthly retainer engagement — full $3,000 due each month before work renders, via Zelle / Cash App.</div>
             </button>
             {proposalSending && (
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
