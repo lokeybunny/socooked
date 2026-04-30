@@ -130,15 +130,26 @@ export default function Zillow() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {batches.map(b => (
               <Card key={b.id} className="cursor-pointer hover:border-primary/40 transition-colors group" onClick={() => setSelected(b.id)}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="min-w-0">
+                <CardContent className="p-4 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">{b.batch_name}</p>
                     <p className="text-xs text-muted-foreground">{new Date(b.created_at).toLocaleString()}</p>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); deleteBatch(b.id); }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive p-1.5 rounded hover:bg-destructive/10">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); renameBatchInList(b.id, b.batch_name); }}
+                      className="text-muted-foreground hover:text-foreground p-1.5 rounded hover:bg-muted"
+                      title="Rename label"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteBatch(b.id); }}
+                      className="text-destructive p-1.5 rounded hover:bg-destructive/10"
+                      title="Delete batch"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
