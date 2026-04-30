@@ -4226,6 +4226,98 @@ export type Database = {
           },
         ]
       }
+      properties: {
+        Row: {
+          address: string | null
+          baths: number | null
+          beds: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          listing_id: string | null
+          meta: Json
+          price: number | null
+          sqft: number | null
+          status: string
+          thumbnail_url: string | null
+          updated_at: string
+          zillow_url: string
+        }
+        Insert: {
+          address?: string | null
+          baths?: number | null
+          beds?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          listing_id?: string | null
+          meta?: Json
+          price?: number | null
+          sqft?: number | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          zillow_url: string
+        }
+        Update: {
+          address?: string | null
+          baths?: number | null
+          beds?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          listing_id?: string | null
+          meta?: Json
+          price?: number | null
+          sqft?: number | null
+          status?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          zillow_url?: string
+        }
+        Relationships: []
+      }
+      property_images: {
+        Row: {
+          ai_tag: string | null
+          created_at: string
+          id: string
+          image_url: string
+          position: number
+          property_id: string
+          room_type: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          ai_tag?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          position?: number
+          property_id: string
+          room_type?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          ai_tag?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          position?: number
+          property_id?: string
+          room_type?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_images_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposals: {
         Row: {
           amount: number | null
