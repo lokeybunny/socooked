@@ -19,13 +19,24 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get('LOVABLE_API_KEY');
     if (!apiKey) throw new Error('LOVABLE_API_KEY missing');
 
-    const prompt = `Classify this real estate listing photo into EXACTLY ONE of these categories: ${allCats.join(', ')}. Respond ONLY with strict JSON: {"category":"<one of the categories>","confidence":<0..1>,"description":"<short 1-sentence description>"}. If unsure, use "Other" with low confidence.`;
+    console.log('[classify] image_url:', image_url);
+
+    const prompt = `You are classifying a real estate listing photo. Pick EXACTLY ONE category from this list: ${allCats.join(', ')}.
+
+Rules:
+- Look carefully at the image and identify the room or area shown.
+- Use "Aerial Drone" only for overhead/sky shots.
+- Use "Front Exterior" for street-facing house views; "Backyard" for rear yards.
+- Only use "Other" if the image truly does not match any category.
+
+Respond with ONLY strict JSON, no markdown:
+{"category":"<one exact category name from the list>","confidence":<number 0..1>,"description":"<one short sentence describing what's shown>"}`;
 
     const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [{
           role: 'user',
           content: [
@@ -33,25 +44,39 @@ Deno.serve(async (req) => {
             { type: 'image_url', image_url: { url: image_url } },
           ],
         }],
-        response_format: { type: 'json_object' },
       }),
     });
 
     if (!r.ok) {
       const t = await r.text();
+      console.error('[classify] AI error', r.status, t);
       if (r.status === 429) return new Response(JSON.stringify({ error: 'Rate limit, try again shortly' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       if (r.status === 402) return new Response(JSON.stringify({ error: 'AI credits exhausted' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       throw new Error(`AI ${r.status}: ${t}`);
     }
     const j = await r.json();
-    let content = j?.choices?.[0]?.message?.content || '{}';
+    let content = j?.choices?.[0]?.message?.content ?? '';
     if (typeof content !== 'string') content = JSON.stringify(content);
-    const cleaned = content.replace(/```json|```/g, '').trim();
+    console.log('[classify] raw content:', content);
+
+    // Strip markdown fences and try to extract JSON object
+    let cleaned = content.replace(/```json|```/g, '').trim();
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) cleaned = match[0];
+
     let parsed: any = {};
-    try { parsed = JSON.parse(cleaned); } catch { parsed = { category: 'Other', confidence: 0.3, description: '' }; }
-    let cat = String(parsed.category || 'Other');
-    if (!allCats.includes(cat)) cat = 'Other';
+    try { parsed = JSON.parse(cleaned); } catch (e) {
+      console.error('[classify] JSON parse failed for:', cleaned);
+      parsed = { category: 'Other', confidence: 0.3, description: '' };
+    }
+
+    let cat = String(parsed.category || 'Other').trim();
+    // Case-insensitive match against allowed categories
+    const matchCat = allCats.find(c => c.toLowerCase() === cat.toLowerCase());
+    cat = matchCat || 'Other';
+
     const conf = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
+    console.log('[classify] result:', cat, conf);
 
     return new Response(JSON.stringify({
       category: cat,
@@ -59,6 +84,7 @@ Deno.serve(async (req) => {
       description: String(parsed.description || ''),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
+    console.error('[classify] fatal:', e?.message || e);
     return new Response(JSON.stringify({ error: e?.message || 'error' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
