@@ -228,17 +228,24 @@ function BatchView({ batchId, userId, onBack }: { batchId: string; userId: strin
     handleFiles(Array.from(e.dataTransfer.files));
   };
 
-  const classifyOne = async (img: ListingImage): Promise<Partial<ListingImage>> => {
+  const classifyOne = async (img: ListingImage): Promise<{ update: Partial<ListingImage>; error?: string }> => {
     const { data, error } = await supabase.functions.invoke('classify-listing-image', {
       body: { image_url: img.file_url, custom_categories: customCats },
     });
-    if (error || (data as any)?.error) {
-      return { detected_category: 'Other', confidence: 0.2, ai_description: '', final_category: img.manual_category || 'Other' };
+    const errMsg = (error as any)?.message || (data as any)?.error;
+    if (errMsg) {
+      console.error('[classify] error for', img.file_url, errMsg);
+      return {
+        update: { detected_category: 'Other', confidence: 0.2, ai_description: `Error: ${errMsg}`, final_category: img.manual_category || 'Other' },
+        error: errMsg,
+      };
     }
     const d = data as any;
     return {
-      detected_category: d.category, confidence: d.confidence,
-      ai_description: d.description, final_category: img.manual_category || d.category,
+      update: {
+        detected_category: d.category, confidence: d.confidence,
+        ai_description: d.description, final_category: img.manual_category || d.category,
+      },
     };
   };
 
@@ -247,16 +254,23 @@ function BatchView({ batchId, userId, onBack }: { batchId: string; userId: strin
     if (targets.length === 0) return toast.info('Nothing to analyze');
     setAnalyzing(true);
     setProgress({ done: 0, total: targets.length });
+    let firstError: string | null = null;
+    let errorCount = 0;
     for (let i = 0; i < targets.length; i++) {
       const img = targets[i];
-      const update = await classifyOne(img);
+      const { update, error } = await classifyOne(img);
+      if (error) { errorCount++; if (!firstError) firstError = error; }
       await (supabase as any).from('listing_images').update(update).eq('id', img.id);
       setImages(prev => prev.map(p => p.id === img.id ? { ...p, ...update } as ListingImage : p));
       setProgress({ done: i + 1, total: targets.length });
       await new Promise(r => setTimeout(r, 300));
     }
     setAnalyzing(false);
-    toast.success('Auto-sort complete');
+    if (errorCount > 0) {
+      toast.error(`${errorCount} image(s) failed: ${firstError}`);
+    } else {
+      toast.success('Auto-sort complete');
+    }
   };
 
   const updateCategory = async (id: string, cat: string) => {
