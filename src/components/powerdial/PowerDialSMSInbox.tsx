@@ -463,7 +463,7 @@ export default function PowerDialSMSInbox() {
     setProposalStep('choose');
   };
 
-  const sendProposalTemplate = async (kind: '299' | '2500') => {
+  const sendProposalTemplate = async (kind: '399' | '2500') => {
     if (!proposalPhoneKey) return;
     const email = proposalEmail.trim();
     if (!email) { toast.error('Email required'); return; }
@@ -490,18 +490,18 @@ export default function PowerDialSMSInbox() {
       const expDate = exp.toISOString().slice(0, 10);
 
       let payload: Record<string, any>;
-      if (kind === '299') {
+      if (kind === '399') {
         payload = {
-          title: 'Real Estate Listing Video — $299 Package',
+          title: 'Real Estate Listing Video — $399 Package',
           client_name: clientName,
           client_email: email,
           client_phone: e164,
-          amount: 299,
+          amount: 399,
           currency: 'USD',
-          line_items: [{ description: 'Real Estate Listing Video — $299 Package (up to 4 bedrooms)', quantity: 1, unit_price: 299 }],
+          line_items: [{ description: 'Real Estate Listing Video — $399 Package (up to 4 bedrooms)', quantity: 1, unit_price: 399 }],
           notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
           terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
-          proposal_body: `Real Estate Listing Video — $299 Package
+          proposal_body: `Real Estate Listing Video — $399 Package
 
 What's included:
 • 1 cinematic AI-enhanced listing video
@@ -588,7 +588,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
-      toast.success(`${kind === '299' ? '$299' : '$2,500/mo'} proposal sent to ${email}`);
+      toast.success(`${kind === '399' ? '$399' : '$2,500/mo'} proposal sent to ${email}`);
       setProposalOpen(false);
       setProposalPhoneKey(null);
       setProposalEmail('');
@@ -947,10 +947,10 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <button
               type="button"
               disabled={proposalSending}
-              onClick={() => sendProposalTemplate('299')}
+              onClick={() => sendProposalTemplate('399')}
               className="w-full text-left p-4 rounded-lg border border-border hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors disabled:opacity-50"
             >
-              <div className="font-semibold text-sm">$299 Listing Video Package</div>
+              <div className="font-semibold text-sm">$399 Listing Video Package</div>
               <div className="text-xs text-muted-foreground mt-1">Single AI-cinematic real estate listing video — full payment up front via Zelle / Cash App.</div>
             </button>
             <button
