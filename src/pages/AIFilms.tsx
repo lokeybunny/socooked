@@ -484,7 +484,7 @@ export default function AIFilms() {
               <p className="text-[10px] tracking-[0.4em] uppercase text-background/60">Pro Realtor</p>
               <h3 className="text-2xl font-light tracking-tight mt-2 mb-6">Monthly Package</h3>
               <div className="flex items-baseline justify-center gap-2 mb-1">
-                <span className="text-5xl font-light tracking-tight">$2,500</span>
+                <span className="text-5xl font-light tracking-tight">$3,000</span>
                 <span className="text-sm text-background/60">/month</span>
               </div>
               <p className="text-xs text-background/50 mb-8">Less than $250 per listing when fully utilized.</p>
