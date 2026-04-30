@@ -368,6 +368,18 @@ function BatchView({ batchId, userId, onBack }: { batchId: string; userId: strin
             {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Auto Sort {unanalyzed > 0 && `(${unanalyzed})`}
           </Button>
+          <Button
+            onClick={() => {
+              if (!window.confirm(`Re-analyze all ${images.length} images? This will overwrite existing categories.`)) return;
+              autoSort(images);
+            }}
+            disabled={analyzing || images.length === 0}
+            variant="outline"
+            className="gap-1.5"
+          >
+            {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Re-analyze All
+          </Button>
           <Button onClick={() => downloadZip()} disabled={zipping || images.length === 0} variant="secondary" className="gap-1.5">
             {zipping ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
             Download Organized ZIP
