@@ -487,7 +487,7 @@ export default function AIFilms() {
                 <span className="text-5xl font-light tracking-tight">$3,000</span>
                 <span className="text-sm text-background/60">/month</span>
               </div>
-              <p className="text-xs text-background/50 mb-8">Less than $250 per listing when fully utilized.</p>
+              <p className="text-xs text-background/50 mb-8">$300 per listing when fully utilized.</p>
               <ul className="space-y-3 mb-6 flex-1 w-full">
                 {[
                   '10 AI-enhanced listing videos / month',
