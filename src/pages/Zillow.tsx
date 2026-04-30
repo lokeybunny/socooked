@@ -336,7 +336,23 @@ function BatchView({ batchId, userId, onBack }: { batchId: string; userId: strin
       </div>
 
       {analyzing && (
-        <Progress value={(progress.done / Math.max(1, progress.total)) * 100} className="h-2" />
+        <Card className="border-primary/40 bg-primary/5">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 font-medium">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Analyzing {progress.done} of {progress.total} images
+              </div>
+              <span className="text-muted-foreground tabular-nums">
+                {Math.round((progress.done / Math.max(1, progress.total)) * 100)}%
+              </span>
+            </div>
+            <Progress value={(progress.done / Math.max(1, progress.total)) * 100} className="h-2" />
+            <p className="text-xs text-muted-foreground">
+              {progress.total - progress.done} remaining · results appear live below as each image is classified
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Upload zone */}
