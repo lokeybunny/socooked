@@ -106,7 +106,7 @@ export default function MissedCallSettings() {
     setMissedLoading(true);
     const { data } = await supabase
       .from("missed_call_events")
-      .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, customer:customers(full_name)")
+      .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, voicemail_recording_url, voicemail_recording_sid, voicemail_duration, voicemail_received_at, customer:customers(full_name)")
       .order("created_at", { ascending: false })
       .limit(50);
     setMissed((data as any) || []);
