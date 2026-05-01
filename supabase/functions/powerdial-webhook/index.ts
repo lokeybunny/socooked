@@ -1154,7 +1154,7 @@ Deno.serve(async (req) => {
         console.log(`[powerdial-webhook] Resolved outbound assistant: ${assistantId} (frozen=${frozenAssistantId}, campaign=${(settingsObj as any)?.vapi_assistant_id || 'none'})`);
 
         // PATCH the Vapi phone number to use the correct outbound assistant BEFORE redirect
-        const assistantPreparation = await prepareVapiOutboundAssistant(assistantId);
+        const assistantPreparation = await prepareVapiOutboundAssistant(assistantId, humanTransferPhone);
         console.log(`[powerdial-webhook] Vapi assistant prep: ok=${assistantPreparation.ok}, current=${assistantPreparation.currentAssistantId}, target=${assistantId}`);
 
         const vapiPhoneNumber = assistantPreparation.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
