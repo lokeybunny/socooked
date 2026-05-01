@@ -339,7 +339,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             <input
               id={`vm-upload-${campaign.id}`}
               type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav"
+              accept="audio/*"
               className="hidden"
               disabled={!voicemailDropEnabled || vmUploading}
               onChange={async (e) => {
@@ -348,15 +348,28 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
                 if (file.size > 10 * 1024 * 1024) { toast.error('Max 10 MB'); return; }
                 setVmUploading(true);
                 try {
-                  const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
-                  const path = `powerdial/vm-${campaign.id}-${Date.now()}.${ext}`;
-                  const { error: upErr } = await supabase.storage
-                    .from('site-assets')
-                    .upload(path, file, { upsert: true, contentType: file.type || 'audio/mpeg' });
-                  if (upErr) { toast.error(upErr.message); return; }
-                  const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
-                  setVoicemailDropUrl(pub.publicUrl);
-                  toast.success('Voicemail uploaded — click Save to apply');
+                  const { samples, durationSec } = await decodeAndResample(file);
+                  if (durationSec > 60) { toast.error('Recording must be 60 seconds or less'); return; }
+                  const pcmBytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
+                  const { data: sess } = await supabase.auth.getSession();
+                  const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-voicemail-transcode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token || ''}` },
+                    body: JSON.stringify({
+                      name: file.name,
+                      original_filename: file.name,
+                      original_format: file.type || 'unknown',
+                      original_size: file.size,
+                      duration_sec: durationSec,
+                      pcm_base64: bytesToBase64(pcmBytes),
+                      codec: 'pcm_mulaw',
+                      set_active: false,
+                    }),
+                  });
+                  const json = await resp.json();
+                  if (!resp.ok || !json.ok) throw new Error(json?.error || `HTTP ${resp.status}`);
+                  setVoicemailDropUrl(`${json.playback_url}&v=${Date.now()}`);
+                  toast.success(`Voicemail converted (${durationSec.toFixed(1)}s) — click Save to apply`);
                 } finally {
                   setVmUploading(false);
                   (e.target as HTMLInputElement).value = '';
@@ -370,14 +383,14 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
               disabled={!voicemailDropEnabled || vmUploading}
               onClick={() => document.getElementById(`vm-upload-${campaign.id}`)?.click()}
             >
-              {vmUploading ? 'Uploading…' : 'Upload MP3 / WAV'}
+              {vmUploading ? 'Converting…' : 'Upload audio'}
             </Button>
             {voicemailDropUrl && (
               <audio src={voicemailDropUrl} controls className="h-8 flex-1 min-w-0" />
             )}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Twilio plays MP3 / WAV. Default: Warren's voicemail message.
+            Uploads are converted to the Twilio-safe signal automatically. Default: Warren's voicemail message.
           </p>
         </div>
 
