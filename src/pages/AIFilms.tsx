@@ -629,10 +629,10 @@ export default function AIFilms() {
           <div className="text-center mb-6">
             <p className="text-[10px] tracking-[0.4em] uppercase text-background/40 mb-2">Or call us</p>
             <a
-              href="tel:+17027016192"
+              href="tel:+14244651253"
               className="text-2xl sm:text-3xl font-light tracking-wide text-background hover:text-background/70 transition-colors"
             >
-              (702) 701-6192
+              (424) 465-1253
             </a>
           </div>
 
