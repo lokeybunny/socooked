@@ -1418,51 +1418,82 @@ export default function PhonePage() {
         </div>
 
         {/* ─── Centered Phone Hub ─── */}
-        {/* Three-column layout on desktop: [Audit] [Phone Keypad] [Recent Missed Calls + Interested]. */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)_1fr] gap-6 items-start">
+        {/* The phone is the visual focal point — sits dead-center on a max-width stage with
+            decorative ambient glow. Side panels (audit + recent) flank it on wide screens. */}
+        <div className="relative mx-auto w-full max-w-[1600px]">
+          {/* Ambient backdrop glow centered behind the phone */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 mx-auto h-[520px] max-w-[640px] rounded-full blur-3xl opacity-40"
+            style={{
+              background:
+                'radial-gradient(closest-side, hsl(var(--primary) / 0.35), transparent 70%)',
+            }}
+          />
 
-          {/* ── Left: Missed-call webhook audit ── */}
-          <div className="order-2 xl:order-1 space-y-6">
-            <MissedCallSettings section="audit" />
-          </div>
+          <div className="relative grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-6 xl:gap-8 items-start">
 
-          {/* ── Center: The Phone (focal point) ── */}
-          <div className="order-1 xl:order-2 xl:sticky xl:top-6 space-y-4">
-            <div className="glass-card p-6 rounded-3xl border-2 border-primary/20 shadow-2xl shadow-primary/10 space-y-4">
-              <div className="flex flex-col items-center gap-2">
-                <div className="text-center">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Business</p>
-                  <p className="text-base font-bold text-foreground">WARREN GURU</p>
+            {/* ── Left flank: Missed-call webhook audit ── */}
+            <div className="order-2 xl:order-1 space-y-6 xl:max-w-md xl:justify-self-end w-full">
+              <MissedCallSettings section="audit" />
+            </div>
+
+            {/* ── Center stage: The Phone (focal point) ── */}
+            <div className="order-1 xl:order-2 xl:sticky xl:top-6 w-full xl:w-[440px] mx-auto">
+              {/* Decorative frame: soft outer ring + inner phone card */}
+              <div className="relative">
+                {/* Outer halo ring */}
+                <div
+                  aria-hidden
+                  className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-primary/30 via-primary/5 to-transparent opacity-60 blur-xl"
+                />
+                {/* Top accent bar */}
+                <div className="relative">
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 h-1 w-24 rounded-full bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
                 </div>
-                <div className="flex items-center gap-3 flex-wrap justify-center text-xs">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-medium">Call Back:</span>
-                    <span className="text-foreground font-mono">(702) 701-6192</span>
+
+                <div className="relative glass-card p-6 rounded-[2rem] border border-primary/30 shadow-2xl shadow-primary/20 space-y-4 backdrop-blur-xl">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">Business</p>
+                      <p className="text-base font-bold text-foreground">WARREN GURU</p>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap justify-center text-xs">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Phone className="h-3.5 w-3.5 text-primary" />
+                        <span className="font-medium">Call Back:</span>
+                        <span className="text-foreground font-mono">(702) 701-6192</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="font-medium">Cell:</span>
+                        <span className="text-foreground font-mono">(424) 465-1253</span>
+                        <button
+                          onClick={() => setTeleprompterOpen(true)}
+                          className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                          title="Open Teleprompter"
+                        >
+                          <MonitorPlay className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <span className="font-medium">Cell:</span>
-                    <span className="text-foreground font-mono">(424) 465-1253</span>
-                    <button
-                      onClick={() => setTeleprompterOpen(true)}
-                      className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                      title="Open Teleprompter"
-                    >
-                      <MonitorPlay className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {/* Keypad starts empty — no auto-prefilled lead numbers */}
+                  <TwilioKeypad />
+                </div>
+
+                {/* Bottom accent bar */}
+                <div className="relative mt-2">
+                  <div className="absolute left-1/2 -translate-x-1/2 h-1 w-16 rounded-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
                 </div>
               </div>
-              {/* Keypad starts empty — no auto-prefilled lead numbers */}
-              <TwilioKeypad />
             </div>
-          </div>
 
-          {/* ── Right: Recent Missed Calls + Interested Prospects ── */}
-          <div className="order-3 space-y-4">
+            {/* ── Right flank: Recent Missed Calls + Interested Prospects ── */}
+            <div className="order-3 space-y-4 xl:max-w-md xl:justify-self-start w-full">
 
-            {/* Recent missed calls (last 50, with voicemail playback) */}
-            <MissedCallSettings section="recent" />
+              {/* Recent missed calls (last 50, with voicemail playback) */}
+              <MissedCallSettings section="recent" />
+
 
             {/* ── Interested Prospects ── */}
             {(() => {
@@ -1623,6 +1654,7 @@ export default function PhonePage() {
                 </div>
               );
             })()}
+          </div>
           </div>
         </div>
       </div>
