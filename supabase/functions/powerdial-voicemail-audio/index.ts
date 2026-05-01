@@ -90,8 +90,13 @@ function audioHeaders(mime: string, length: number) {
     ...CORS,
     "Content-Type": mime,
     "Content-Length": String(length),
-    "Accept-Ranges": "bytes",
-    "Cache-Control": "public, max-age=86400",
+    // Explicitly DO NOT advertise Range support. Twilio <Play> downloads the
+    // file in one shot; advertising Range can cause Cloudflare/Twilio to
+    // re-fetch byte ranges which has caused mid-playback "application error"
+    // TTS interruptions when a chunk request times out.
+    "Accept-Ranges": "none",
+    "Cache-Control": "public, max-age=86400, immutable",
+    "X-Content-Type-Options": "nosniff",
   };
 }
 
