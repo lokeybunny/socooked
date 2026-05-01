@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay, CalendarClock } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay, CalendarClock, Settings } from 'lucide-react';
 import { Teleprompter } from '@/components/phone/Teleprompter';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 
 const CL_SECTIONS = [
   { value: 'bbb', label: 'All Services' },
@@ -161,6 +162,9 @@ export default function PhonePage() {
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustSaving, setNewCustSaving] = useState(false);
+
+  // Phone page settings sheet
+  const [phoneSettingsOpen, setPhoneSettingsOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     const [custRes, transRes, leadsRes, callbackProspectsRes] = await Promise.all([
@@ -1400,19 +1404,26 @@ export default function PhonePage() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1 text-sm">WARREN GURU softphone hub</p>
+        <div className="flex items-center justify-between">
+          <div className="flex-1" />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground">Phone</h1>
+            <p className="text-muted-foreground mt-1 text-sm">WARREN GURU softphone hub</p>
+          </div>
+          <div className="flex-1 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setPhoneSettingsOpen(true)} className="gap-2">
+              <Settings className="h-4 w-4" /> Settings
+            </Button>
+          </div>
         </div>
 
         {/* ─── Centered Phone Hub ─── */}
-        {/* Three-column layout on desktop: [Activity] [Phone Keypad] [Interested Prospects].
-            On mobile/tablet, columns stack with the keypad first. */}
+        {/* Three-column layout on desktop: [Audit] [Phone Keypad] [Recent Missed Calls + Interested]. */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)_1fr] gap-6 items-start">
 
-          {/* ── Left: VoidFix Activity (missed calls + SMS feed) ── */}
+          {/* ── Left: Missed-call webhook audit ── */}
           <div className="order-2 xl:order-1 space-y-6">
-            <VoidFixActivityTab />
+            <MissedCallSettings section="audit" />
           </div>
 
           {/* ── Center: The Phone (focal point) ── */}
@@ -1442,20 +1453,16 @@ export default function PhonePage() {
                   </div>
                 </div>
               </div>
-              <TwilioKeypad
-                prefilledNumber={leads[currentLeadIndex]?.phone}
-              />
+              {/* Keypad starts empty — no auto-prefilled lead numbers */}
+              <TwilioKeypad />
             </div>
-
-            {/* Settings collapsibles directly under the phone — compact */}
-            <VoidFixFirstReplySettings />
-            <MissedCallSettings />
           </div>
 
-          {/* ── Right: Interested Prospects ── */}
+          {/* ── Right: Recent Missed Calls + Interested Prospects ── */}
           <div className="order-3 space-y-4">
 
-            {/* Recent Transcriptions panel removed per request */}
+            {/* Recent missed calls (last 50, with voicemail playback) */}
+            <MissedCallSettings section="recent" />
 
             {/* ── Interested Prospects ── */}
             {(() => {
@@ -1619,6 +1626,25 @@ export default function PhonePage() {
           </div>
         </div>
       </div>
+
+      {/* Phone Settings Sheet — holds VoidFix activity, auto-reply config, voice webhook */}
+      <Sheet open={phoneSettingsOpen} onOpenChange={setPhoneSettingsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" /> Phone Settings
+            </SheetTitle>
+            <SheetDescription>
+              Auto-reply configuration, voice webhook, and VoidFix SMS activity.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            <MissedCallSettings section="settings" />
+            <VoidFixFirstReplySettings />
+            <VoidFixActivityTab />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* New Customer Dialog */}
       <Dialog open={newCustOpen} onOpenChange={setNewCustOpen}>

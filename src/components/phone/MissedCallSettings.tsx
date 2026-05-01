@@ -74,7 +74,13 @@ const DEFAULT_CFG: Cfg = {
   message: DEFAULT_MESSAGE,
 };
 
-export default function MissedCallSettings() {
+type SectionMode = 'all' | 'audit' | 'recent' | 'settings';
+
+export default function MissedCallSettings({ section = 'all' }: { section?: SectionMode } = {}) {
+  const showAutoReply = section === 'all' || section === 'settings';
+  const showAudit = section === 'all' || section === 'audit';
+  const showVoiceWebhook = section === 'all' || section === 'settings';
+  const showRecent = section === 'all' || section === 'recent';
   const [cfg, setCfg] = useState<Cfg>(DEFAULT_CFG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -206,7 +212,7 @@ export default function MissedCallSettings() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      {showAutoReply && (<Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -280,9 +286,9 @@ export default function MissedCallSettings() {
             </>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
-      <Card>
+      {showAudit && (<Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -343,9 +349,9 @@ export default function MissedCallSettings() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
-      <Card>
+      {showVoiceWebhook && (<Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Twilio Voice Webhook</CardTitle>
           <CardDescription>Routes inbound calls on your Twilio number through this CRM.</CardDescription>
@@ -377,9 +383,9 @@ export default function MissedCallSettings() {
             <div className="flex justify-center py-2"><Loader2 className="h-4 w-4 animate-spin" /></div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
-      <Card>
+      {showRecent && (<Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -445,7 +451,7 @@ export default function MissedCallSettings() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
     </div>
   );
 }
