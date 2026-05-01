@@ -43,6 +43,24 @@ type MissedRow = {
   customer?: { full_name: string | null } | null;
 };
 
+type AuditRow = {
+  id: string;
+  webhook_name: string;
+  event_stage: string;
+  call_sid: string | null;
+  dial_call_sid: string | null;
+  phone_number: string | null;
+  to_number: string | null;
+  forwarded_phone_number: string | null;
+  twilio_phone_sid: string | null;
+  dial_status: string | null;
+  is_missed: boolean | null;
+  call_log_created: boolean;
+  missed_call_row_created: boolean;
+  error_message: string | null;
+  created_at: string;
+};
+
 const DEFAULT_CFG: Cfg = {
   enabled: true,
   auto_reply_enabled: true,
@@ -60,6 +78,8 @@ export default function MissedCallSettings() {
   const [webhookBusy, setWebhookBusy] = useState(false);
   const [missed, setMissed] = useState<MissedRow[]>([]);
   const [missedLoading, setMissedLoading] = useState(false);
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testBusy, setTestBusy] = useState(false);
 
@@ -89,6 +109,17 @@ export default function MissedCallSettings() {
     setMissedLoading(false);
   }
 
+  async function loadAudit() {
+    setAuditLoading(true);
+    const { data } = await (supabase as any)
+      .from("missed_call_webhook_audit")
+      .select("id, webhook_name, event_stage, call_sid, dial_call_sid, phone_number, to_number, forwarded_phone_number, twilio_phone_sid, dial_status, is_missed, call_log_created, missed_call_row_created, error_message, created_at")
+      .order("created_at", { ascending: false })
+      .limit(75);
+    setAuditRows((data as AuditRow[]) || []);
+    setAuditLoading(false);
+  }
+
   async function loadWebhook() {
     const { data, error } = await supabase.functions.invoke("twilio-number-config", { body: { action: "status" } });
     if (error) {
@@ -101,10 +132,12 @@ export default function MissedCallSettings() {
   useEffect(() => {
     loadCfg();
     loadMissed();
+    loadAudit();
     loadWebhook();
     const ch = supabase
       .channel("missed-calls")
       .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_events" }, () => loadMissed())
+      .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_webhook_audit" }, () => loadAudit())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -241,6 +274,69 @@ export default function MissedCallSettings() {
                 </div>
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5" /> Missed-Call Webhook Audit</CardTitle>
+              <CardDescription>Every Twilio webhook attempt, Call SID, phone ID, and missed-call row result.</CardDescription>
+            </div>
+            <Button size="sm" variant="ghost" onClick={loadAudit}><RefreshCw className="h-4 w-4" /></Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {auditLoading ? (
+            <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : auditRows.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">No webhook attempts recorded yet.</div>
+          ) : (
+            <div className="max-h-[360px] overflow-auto rounded-lg border">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-card">
+                  <tr className="text-left text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">When</th>
+                    <th className="px-3 py-2 font-medium">Stage</th>
+                    <th className="px-3 py-2 font-medium">Caller</th>
+                    <th className="px-3 py-2 font-medium">Call SID</th>
+                    <th className="px-3 py-2 font-medium">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditRows.map((row) => (
+                    <tr key={row.id} className="border-t align-top">
+                      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{new Date(row.created_at).toLocaleTimeString()}</td>
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{row.event_stage}</div>
+                        <div className="text-muted-foreground">{row.webhook_name}</div>
+                      </td>
+                      <td className="px-3 py-2 font-mono whitespace-nowrap">
+                        <div>{row.phone_number || "—"}</div>
+                        <div className="text-muted-foreground">→ {row.forwarded_phone_number || row.to_number || "—"}</div>
+                        <div className="text-muted-foreground">{row.twilio_phone_sid || "—"}</div>
+                      </td>
+                      <td className="px-3 py-2 font-mono max-w-[240px]">
+                        <div className="truncate" title={row.call_sid || ""}>{row.call_sid || "—"}</div>
+                        {row.dial_call_sid && <div className="truncate text-muted-foreground" title={row.dial_call_sid}>{row.dial_call_sid}</div>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {row.dial_status && <Badge variant="outline">{row.dial_status}</Badge>}
+                          {row.is_missed === true && <Badge variant="destructive">missed</Badge>}
+                          {row.call_log_created && <Badge variant="secondary">call log created</Badge>}
+                          {row.missed_call_row_created && <Badge variant="secondary">missed row created</Badge>}
+                          {row.error_message && <Badge variant="destructive">error</Badge>}
+                        </div>
+                        {row.error_message && <div className="mt-1 text-destructive">{row.error_message}</div>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
