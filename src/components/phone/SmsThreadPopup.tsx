@@ -119,13 +119,25 @@ export function SmsThreadPopup({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-4 py-3 border-b">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <MessageSquare className="h-4 w-4 text-emerald-400" />
-            {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Send and receive SMS via VoidFix. Identical to the SMS page thread.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <MessageSquare className="h-4 w-4 text-emerald-400" />
+                {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Send and receive SMS via VoidFix. Identical to the SMS page thread.
+              </DialogDescription>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-xs shrink-0 mr-6"
+              onClick={() => setNotesOpen(true)}
+            >
+              <StickyNote className="h-3.5 w-3.5" /> Notes
+            </Button>
+          </div>
         </DialogHeader>
 
         <ScrollArea ref={scrollRef as any} className="h-[420px] px-4 py-3 bg-muted/10">
