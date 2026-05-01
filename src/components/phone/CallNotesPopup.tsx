@@ -76,6 +76,7 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
     // Ignore drag when clicking the close button
     const target = e.target as HTMLElement;
     if (target.closest("[data-no-drag]")) return;
+    e.stopPropagation();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       offsetX: e.clientX - pos.x,
@@ -85,6 +86,7 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
 
   function onPointerMoveHeader(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragRef.current) return;
+    e.stopPropagation();
     const rect = panelRef.current?.getBoundingClientRect();
     const w = rect?.width ?? PANEL_WIDTH;
     const h = rect?.height ?? PANEL_HEIGHT_ESTIMATE;
@@ -100,6 +102,7 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
   }
 
   function onPointerUpHeader(e: React.PointerEvent<HTMLDivElement>) {
+    e.stopPropagation();
     dragRef.current = null;
     try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
   }
@@ -152,6 +155,9 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
         left: pos.x,
         width: PANEL_WIDTH,
       }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Drag handle / header */}
       <div
