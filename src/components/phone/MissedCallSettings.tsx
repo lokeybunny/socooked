@@ -421,7 +421,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2"><PhoneMissed className="h-5 w-5" /> Recent Missed Calls</CardTitle>
-              <CardDescription>Last 50 missed calls and voicemails forwarded through Twilio.</CardDescription>
+              <CardDescription>Recent missed calls and voicemails forwarded through Twilio (5 per page).</CardDescription>
             </div>
             <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
           </div>
