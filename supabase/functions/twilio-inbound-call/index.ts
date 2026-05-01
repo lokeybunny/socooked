@@ -16,7 +16,7 @@ const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const DEFAULTS = {
-  forward_to: "+14244658105", // Verizon (Business Line 2)
+  forward_to: "+17027016192", // Verizon (Business Line 2)
   timeout_seconds: 22,
 };
 
