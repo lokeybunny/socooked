@@ -63,6 +63,9 @@ export default function PowerDialSMSInbox() {
   const [proposalStep, setProposalStep] = useState<'email' | 'choose'>('email');
   const [proposalEmail, setProposalEmail] = useState('');
   const [proposalSending, setProposalSending] = useState(false);
+  // Notes popup (shared with Phone via sms_contacts.notes)
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesPhone, setNotesPhone] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
