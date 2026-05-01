@@ -38,6 +38,8 @@ type CallRow = {
   customer_id: string | null;
   created_at: string;
   meta: any;
+  direction?: 'inbound' | 'outbound' | null;
+  source?: 'twilio' | 'voidfix';
 };
 
 type Filter = 'all' | 'missed' | 'inbound_sms' | 'outbound_sms' | 'today' | 'week' | 'unmatched';
