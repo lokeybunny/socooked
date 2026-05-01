@@ -13,6 +13,7 @@ import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox,
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
 import SequenceBuilder from '@/components/sms/SequenceBuilder';
 import AutoReplyWorkflow from '@/components/sms/AutoReplyWorkflow';
+import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import VoicemailFollowupSettings from '@/components/sms/VoicemailFollowupSettings';
 import TwilioInboundFeed from '@/components/sms/TwilioInboundFeed';
 import HookReplyTab from '@/components/powerdial/HookReplyTab';
