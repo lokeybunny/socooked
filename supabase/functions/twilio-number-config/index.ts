@@ -38,16 +38,21 @@ Deno.serve(async (req) => {
   }
 
   if (action === "status") {
-    if (!TWILIO_FROM) return json({ ok: false, error: "missing_TWILIO_FROM_NUMBER" }, 500);
-    const sid = await findNumberSid(TWILIO_FROM);
-    if (!sid) return json({ ok: false, error: "number_not_found_in_account", number: TWILIO_FROM });
+    // Prefer explicit SID (set as TWILIO_PHONE_SID) over phone-number lookup
+    let sid: string | null = TWILIO_PHONE_SID && TWILIO_PHONE_SID.startsWith("PN") ? TWILIO_PHONE_SID : null;
+    if (!sid) {
+      if (!TWILIO_FROM) return json({ ok: false, error: "missing_TWILIO_PHONE_SID_or_FROM_NUMBER" }, 500);
+      sid = await findNumberSid(TWILIO_FROM);
+      if (!sid) return json({ ok: false, error: "number_not_found_in_account", number: TWILIO_FROM });
+    }
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers/${sid}.json`, {
       headers: { Authorization: basicAuth() },
     });
     const d = await r.json();
+    if (!r.ok) return json({ ok: false, error: d?.message || `twilio_${r.status}`, raw: d }, 500);
     return json({
       ok: true,
-      number: TWILIO_FROM,
+      number: d.phone_number || TWILIO_FROM,
       sid,
       voice_url: d.voice_url,
       voice_method: d.voice_method,
