@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Delete, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Phone, PhoneOff, Delete, Mic, MicOff, Volume2, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Device, type Call } from '@twilio/voice-sdk';
+import CallNotesPopup from './CallNotesPopup';
 
 interface TwilioKeypadProps {
   prefilledNumber?: string;
