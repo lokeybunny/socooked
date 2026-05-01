@@ -206,26 +206,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Honor Range requests for Twilio (returns 206 with the slice).
-  const rangeHeader = req.headers.get("range");
-  if (rangeHeader) {
-    const m = /bytes=(\d+)-(\d+)?/i.exec(rangeHeader);
-    if (m) {
-      const start = Number(m[1]);
-      const end = m[2] ? Number(m[2]) : loaded.bytes.length - 1;
-      if (start <= end && start < loaded.bytes.length) {
-        const slice = loaded.bytes.subarray(start, end + 1);
-        return new Response(slice, {
-          status: 206,
-          headers: {
-            ...audioHeaders(loaded.mime, slice.length),
-            "Content-Range": `bytes ${start}-${end}/${loaded.bytes.length}`,
-          },
-        });
-      }
-    }
-  }
-
+  // NOTE: Range requests are intentionally ignored. Twilio's <Play> verb
+  // does not require partial content, and serving 206 has caused mid-stream
+  // playback failures (Twilio inserts "an application error has occurred"
+  // TTS when a Range chunk fails or mismatches). Always return the full
+  // file as a single 200 response so Twilio buffers it cleanly.
   return new Response(loaded.bytes, {
     status: 200,
     headers: audioHeaders(loaded.mime, loaded.bytes.length),
