@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming, MessageCircle, Ban } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming, MessageCircle, Ban, Sparkles } from 'lucide-react';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
 import SequenceBuilder from '@/components/sms/SequenceBuilder';
 import AutoReplyWorkflow from '@/components/sms/AutoReplyWorkflow';
