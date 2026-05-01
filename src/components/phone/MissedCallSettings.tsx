@@ -627,6 +627,15 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
           )}
         </CardContent>
       </Card>)}
+
+      {smsPopup && (
+        <SmsThreadPopup
+          open={!!smsPopup}
+          onOpenChange={(v) => { if (!v) setSmsPopup(null); }}
+          phone={smsPopup.phone}
+          contactName={smsPopup.name}
+        />
+      )}
     </div>
   );
 }
