@@ -107,6 +107,81 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
 // the Twilio landline webhook (twilio-sms-inbound). Inbound texts directly to
 // the VoidFix cell number must NEVER receive this auto-reply.
 
+// First-time texter auto-reply (configurable in SMS / Phone settings).
+// Fires once per phone number, only if no prior inbound exists from that number.
+async function maybeSendFirstTimeAutoReply(fromPhone: string) {
+  try {
+    const norm = normalizePhone(fromPhone);
+    const last10 = norm.replace(/\D/g, "").slice(-10);
+    if (!last10 || last10.length !== 10) return;
+
+    // Check setting
+    const { data: settingRow } = await sb
+      .from("app_settings")
+      .select("value")
+      .eq("key", "voidfix_first_reply")
+      .maybeSingle();
+    const setting = (settingRow?.value as { enabled?: boolean; message?: string }) || {};
+    if (setting.enabled === false) return;
+    const message = (setting.message || "").trim() ||
+      "Currently in a meeting, Talk with you soon. In mean while check my work on IG: https://instagram.com/W4RR3Nguru";
+
+    // Has this number ever received our first-time auto-reply before?
+    const { data: priorReply } = await sb
+      .from("communications")
+      .select("id")
+      .eq("type", "sms")
+      .eq("direction", "outbound")
+      .eq("provider", "voidfix")
+      .eq("metadata->>source", "voidfix-first-time-auto-reply")
+      .or(`to_address.ilike.%${last10}%,phone_number.ilike.%${last10}%`)
+      .limit(1);
+    if (priorReply && priorReply[0]) return; // already greeted
+
+    // DND guard
+    const { data: dnd } = await sb
+      .from("sms_dnd_list")
+      .select("id")
+      .eq("phone_last10", last10)
+      .limit(1);
+    if (dnd && dnd[0]) return;
+
+    // Has this number texted us BEFORE this latest message? If yes, not first-time.
+    // We just inserted the current inbound; count inbound messages from this number.
+    const { count: inboundCount } = await sb
+      .from("communications")
+      .select("id", { count: "exact", head: true })
+      .eq("type", "sms")
+      .eq("direction", "inbound")
+      .eq("provider", "voidfix")
+      .or(`from_address.ilike.%${last10}%,phone_number.ilike.%${last10}%`);
+    if ((inboundCount || 0) > 1) return; // not first time
+
+    console.log(`[powerdial-sms][first-reply] sending to ${norm}`);
+    const result = await sendVoidfixSms(norm, message);
+    const customerId = await findCustomerByPhone(norm);
+    await sb.from("communications").insert({
+      type: "sms",
+      direction: "outbound",
+      body: message,
+      from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+      to_address: norm,
+      phone_number: norm,
+      provider: "voidfix",
+      external_id: result.id || null,
+      status: result.ok ? "sent" : "failed",
+      customer_id: customerId,
+      metadata: {
+        source: "voidfix-first-time-auto-reply",
+        device_id: VOIDFIX_DEVICE_ID,
+        ...(result.error ? { error: result.error } : {}),
+      },
+    });
+  } catch (e) {
+    console.error("[powerdial-sms][first-reply] error", e);
+  }
+}
+
 async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string }) {
   const from = String(payload.from || "");
   const body = String(payload.body || "");
