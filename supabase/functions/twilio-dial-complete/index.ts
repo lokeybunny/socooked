@@ -136,10 +136,17 @@ Deno.serve(async (req) => {
     const from = normalizePhone(String(form.get("From") || ""));
     const to = normalizePhone(String(form.get("To") || ""));
     const dialStatus = String(form.get("DialCallStatus") || "").toLowerCase();
+    const dialBridgedRaw = String(form.get("DialBridged") || "").toLowerCase();
+    const dialBridged = dialBridgedRaw === "true" ? true : dialBridgedRaw === "false" ? false : null;
     const dialDuration = parseInt(String(form.get("DialCallDuration") || "0"), 10) || 0;
 
-    const isMissed = MISSED_STATES.has(dialStatus);
-    const isAnswered = dialStatus === "completed";
+    // With whisper/accept, Twilio may report "completed" because the forwarded leg
+    // answered the whisper prompt, even when it never bridged to the original caller.
+    // DialBridged=false means the real caller was not connected → count as missed.
+    const completedButNotBridged = dialStatus === "completed" && dialBridged === false;
+    const isMissed = MISSED_STATES.has(dialStatus) || completedButNotBridged;
+    const isAnswered = dialStatus === "completed" && !completedButNotBridged;
+    const effectiveStatus = completedButNotBridged ? "no-answer" : (isAnswered ? "completed" : dialStatus || "no-answer");
 
     // Update the original call_logs row (matched by CallSid)
     const { data: logRow } = await sb
@@ -161,13 +168,13 @@ Deno.serve(async (req) => {
       const { error: updateError } = await sb
         .from("powerdial_call_logs")
         .update({
-          twilio_status: isAnswered ? "completed" : dialStatus || "no-answer",
+          twilio_status: effectiveStatus,
           dial_call_status: dialStatus,
           parent_call_sid: dialCallSid || null,
           missed: isMissed,
           answered: isAnswered,
           customer_id: customerId,
-          meta: { from_number: from, to_number: to, dial_duration: dialDuration, inbound: true },
+          meta: { from_number: from, to_number: to, dial_duration: dialDuration, dial_bridged: dialBridged, missed_reason: completedButNotBridged ? "completed_unbridged" : null, inbound: true },
         })
         .eq("id", logId);
       callLogError = updateError?.message;
@@ -177,7 +184,7 @@ Deno.serve(async (req) => {
         .insert({
           twilio_call_sid: callSid,
           parent_call_sid: dialCallSid || null,
-          twilio_status: isAnswered ? "completed" : dialStatus || "no-answer",
+          twilio_status: effectiveStatus,
           dial_call_status: dialStatus,
           missed: isMissed,
           answered: isAnswered,
@@ -186,7 +193,7 @@ Deno.serve(async (req) => {
           to_number: to,
           customer_id: customerId,
           source: "twilio_forwarded_voidfix",
-          meta: { dial_duration: dialDuration, inbound: true },
+          meta: { dial_duration: dialDuration, dial_bridged: dialBridged, missed_reason: completedButNotBridged ? "completed_unbridged" : null, inbound: true },
         })
         .select("id")
         .single();
