@@ -472,10 +472,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                               <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
                             </Button>
                             {m.callback_status === "open" && (
-                              <>
-                                <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "callback_done")}>Done</Button>
-                                <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
-                              </>
+                              <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
                             )}
                             {m.customer_id && (
                               <Button size="sm" variant="ghost" asChild>
