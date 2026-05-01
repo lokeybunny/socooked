@@ -191,6 +191,7 @@ export function SmsThreadPopup({
           <p className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to send</p>
         </div>
       </DialogContent>
+      <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={phone} />
     </Dialog>
   );
 }
