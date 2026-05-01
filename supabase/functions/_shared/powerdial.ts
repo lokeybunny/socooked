@@ -650,8 +650,9 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
 
   const callLogId = log?.id;
   const safeCallLogId = callLogId || "";
-  const configuredFrom = TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "";
-  const resolution = await resolveTwilioFromNumber(TWILIO_FROM);
+  const campaignFromSetting = normalizePhone((campaign.settings || {})?.from_number || "");
+  const configuredFrom = campaignFromSetting || (TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "");
+  const resolution = await resolveTwilioFromNumber(configuredFrom);
   const assistantPreparation = await prepareVapiOutboundAssistant(
     selectedAssistantId,
     normalizePhone((campaign.settings || {})?.human_transfer_phone) || DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE,
