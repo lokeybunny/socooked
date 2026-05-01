@@ -6,11 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import CallNotesPopup from '@/components/phone/CallNotesPopup';
 import EmojiButton from '@/components/sms/EmojiButton';
+import { moveToVideographyFunnel } from '@/lib/moveToVideographyFunnel';
 
 type SMSMessage = {
   id: string;
@@ -855,6 +856,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 );
               })()}
               <div className="flex-1" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 gap-1"
+                onClick={() => {
+                  const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+                  const last10 = normalizeLast10(activePhone);
+                  moveToVideographyFunnel({ phone: activePhone, name: contacts[last10] || null });
+                }}
+                title="Move this contact to the Videography funnel"
+              >
+                <Workflow className="h-3.5 w-3.5" />
+                <span className="text-xs">Move to Funnel</span>
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
