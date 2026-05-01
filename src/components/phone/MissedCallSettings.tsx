@@ -449,3 +449,45 @@ export default function MissedCallSettings() {
     </div>
   );
 }
+
+function VoicemailPlayer({ sid }: { sid: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) throw new Error("Not signed in");
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/twilio-recording-proxy?sid=${encodeURIComponent(sid)}`;
+      const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) throw new Error(`Load failed (${resp.status})`);
+      const blob = await resp.blob();
+      setSrc(URL.createObjectURL(blob));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    return () => { if (src) URL.revokeObjectURL(src); };
+  }, [src]);
+
+  if (src) {
+    return <audio controls src={src} className="w-full h-9" />;
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+        {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+        Play voicemail
+      </Button>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </div>
+  );
+}
