@@ -104,17 +104,33 @@ Deno.serve(async (req) => {
     const cfg = await loadCfg();
     const customerId = await findCustomerByPhone(from);
 
+    // Clear any stale active call_log rows for this caller — prevents the
+    // unique-active-call-per-phone index from blocking back-to-back inbound calls.
+    if (from) {
+      await sb
+        .from("powerdial_call_logs")
+        .update({ twilio_status: "completed" })
+        .eq("phone", from)
+        .in("twilio_status", ["initiated", "ringing", "answered", "in-progress"]);
+    }
+
     // Log the inbound leg (campaign_id NULL = forwarded inbound, not power-dialed)
-    const { data: insertedLog, error: insertError } = await sb.from("powerdial_call_logs").insert({
-      twilio_call_sid: callSid,
-      twilio_status: "ringing",
-      phone: from || "unknown",
-      from_number: from,
-      to_number: to,
-      customer_id: customerId,
-      source: "twilio_forwarded_voidfix",
-      meta: { inbound: true },
-    }).select("id").single();
+    let insertedLog: { id: string } | null = null;
+    let insertError: { message: string } | null = null;
+    {
+      const res = await sb.from("powerdial_call_logs").insert({
+        twilio_call_sid: callSid,
+        twilio_status: "ringing",
+        phone: from || "unknown",
+        from_number: from,
+        to_number: to,
+        customer_id: customerId,
+        source: "twilio_forwarded_voidfix",
+        meta: { inbound: true },
+      }).select("id").single();
+      insertedLog = res.data as any;
+      insertError = res.error as any;
+    }
 
     await auditInbound({
       stage: insertError ? "call_log_insert_failed" : "inbound_received",
