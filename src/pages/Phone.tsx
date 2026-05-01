@@ -13,6 +13,7 @@ import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDow
 import { Teleprompter } from '@/components/phone/Teleprompter';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
+import VoidFixActivityTab from '@/components/phone/VoidFixActivityTab';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -1401,6 +1402,9 @@ export default function PhonePage() {
           <h1 className="text-2xl font-bold text-foreground">Phone</h1>
           <p className="text-muted-foreground mt-1">Softphone + audio transcription workspace.</p>
         </div>
+
+        {/* VoidFix Android Activity */}
+        <VoidFixActivityTab />
 
         {/* Two-column layout: Left = Transcription, Right = RingCentral */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
