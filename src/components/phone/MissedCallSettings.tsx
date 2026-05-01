@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink, Send, ListPlus } from "lucide-react";
 import { SaveToCampaignButton } from "./SaveToCampaignButton";
+import { SmsThreadPopup } from "./SmsThreadPopup";
 
 const DEFAULT_MESSAGE =
   "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
