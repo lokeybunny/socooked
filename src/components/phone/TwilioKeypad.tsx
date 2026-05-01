@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Delete, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Phone, PhoneOff, Delete, Mic, MicOff, Volume2, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Device, type Call } from '@twilio/voice-sdk';
+import CallNotesPopup from './CallNotesPopup';
 
 interface TwilioKeypadProps {
   prefilledNumber?: string;
@@ -51,8 +52,16 @@ export default function TwilioKeypad({ prefilledNumber, onCallComplete }: Twilio
   const [callDuration, setCallDuration] = useState(0);
   const [dialing, setDialing] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const tickRef = useRef<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
+
+  // Auto-open notes popup when a call goes active
+  useEffect(() => {
+    if (activeCall && number.replace(/\D/g, '').length >= 10) {
+      setNotesOpen(true);
+    }
+  }, [activeCall]);
 
   useEffect(() => {
     if (prefilledNumber) setNumber(prefilledNumber.replace(/\D/g, ''));
@@ -309,12 +318,25 @@ export default function TwilioKeypad({ prefilledNumber, onCallComplete }: Twilio
           </Button>
         )}
 
-        <div className="w-11 h-11" />
+        <button
+          onClick={() => setNotesOpen(true)}
+          disabled={number.replace(/\D/g, '').length < 10}
+          className="w-11 h-11 rounded-full hover:bg-primary/10 flex items-center justify-center disabled:opacity-30 text-muted-foreground hover:text-primary transition-colors"
+          title="Contact notes"
+        >
+          <StickyNote className="h-5 w-5" />
+        </button>
       </div>
 
       <p className="text-[10px] text-muted-foreground text-center px-2">
         Calls go through your browser microphone — no callback or approval needed.
       </p>
+
+      <CallNotesPopup
+        open={notesOpen}
+        onOpenChange={setNotesOpen}
+        phone={number}
+      />
     </div>
   );
 }
