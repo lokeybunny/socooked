@@ -1484,7 +1484,7 @@ export default function PhonePage() {
               </div>
             </div>
 
-            {/* ── Right flank: Recent Missed Calls + Interested Prospects ── */}
+            {/* ── Right flank: Recent Missed Calls ── */}
             <div className="order-3 space-y-4 xl:max-w-md xl:justify-self-start w-full">
 
               {/* Recent missed calls (last 50, with voicemail playback) */}
