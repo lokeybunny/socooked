@@ -275,11 +275,15 @@ export default function VoidFixActivityTab() {
   };
 
   const callTypeBadge = (c: CallRow) => {
-    const s = (c.twilio_status || '').toLowerCase();
-    if (['no-answer', 'busy', 'failed', 'missed'].includes(s)) {
+    if (isMissedCall(c)) {
       return <Badge variant="destructive" className="gap-1 text-[10px]"><PhoneMissed className="h-3 w-3" />Missed</Badge>;
     }
-    if (s === 'completed') return <Badge variant="secondary" className="gap-1 text-[10px]"><PhoneIncoming className="h-3 w-3" />Completed</Badge>;
+    const s = (c.twilio_status || '').toLowerCase();
+    if (s === 'completed') {
+      return c.direction === 'inbound'
+        ? <Badge variant="secondary" className="gap-1 text-[10px]"><PhoneIncoming className="h-3 w-3" />Inbound</Badge>
+        : <Badge variant="secondary" className="gap-1 text-[10px]"><PhoneOutgoing className="h-3 w-3" />Outbound</Badge>;
+    }
     return <Badge variant="outline" className="gap-1 text-[10px]"><PhoneOutgoing className="h-3 w-3" />{c.twilio_status || 'unknown'}</Badge>;
   };
 
