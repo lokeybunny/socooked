@@ -14,6 +14,7 @@ import { Teleprompter } from '@/components/phone/Teleprompter';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import VoidFixActivityTab from '@/components/phone/VoidFixActivityTab';
+import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -1405,6 +1406,10 @@ export default function PhonePage() {
 
         {/* VoidFix Android Activity */}
         <VoidFixActivityTab />
+
+        {/* VoidFix First-Time Auto-Reply Settings */}
+        <VoidFixFirstReplySettings />
+
 
         {/* Two-column layout: Left = Transcription, Right = RingCentral */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
