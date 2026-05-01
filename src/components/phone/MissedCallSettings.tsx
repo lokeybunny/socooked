@@ -40,6 +40,7 @@ type MissedRow = {
   voidfix_message_id: string | null;
   error_message: string | null;
   created_at: string;
+  updated_at: string;
   voicemail_recording_url: string | null;
   voicemail_recording_sid: string | null;
   voicemail_duration: number | null;
@@ -75,6 +76,9 @@ const DEFAULT_CFG: Cfg = {
 };
 
 type SectionMode = 'all' | 'audit' | 'recent' | 'settings';
+
+const getMissedActivityTime = (row: MissedRow) =>
+  row.voicemail_received_at || row.updated_at || row.created_at;
 
 export default function MissedCallSettings({ section = 'all' }: { section?: SectionMode } = {}) {
   const showAutoReply = section === 'all' || section === 'settings';
@@ -112,13 +116,15 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
     if (!opts.silent) setMissedLoading(true);
     const { data } = await supabase
       .from("missed_call_events")
-      .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, voicemail_recording_url, voicemail_recording_sid, voicemail_duration, voicemail_received_at, customer:customers(full_name)")
-      .order("created_at", { ascending: false })
+      .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, updated_at, voicemail_recording_url, voicemail_recording_sid, voicemail_duration, voicemail_received_at, customer:customers(full_name)")
+      .order("updated_at", { ascending: false })
       .limit(50);
-    const next = (data as any) || [];
+    const next = ((data as MissedRow[]) || []).sort(
+      (a, b) => new Date(getMissedActivityTime(b)).getTime() - new Date(getMissedActivityTime(a)).getTime()
+    );
     setMissed((prev) => {
       // Skip re-render if shallow signature unchanged (prevents flicker)
-      const sig = (rows: any[]) => rows.map((r) => `${r.id}:${r.status}:${r.callback_status}:${r.voicemail_recording_url || ''}`).join('|');
+      const sig = (rows: MissedRow[]) => rows.map((r) => `${r.id}:${r.status}:${r.callback_status}:${r.voicemail_recording_url || ''}:${r.voicemail_received_at || ''}:${r.updated_at}`).join('|');
       return sig(prev) === sig(next) ? prev : next;
     });
     if (!opts.silent) setMissedLoading(false);
@@ -415,7 +421,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2"><PhoneMissed className="h-5 w-5" /> Recent Missed Calls</CardTitle>
-              <CardDescription>Last 50 missed calls forwarded through Twilio.</CardDescription>
+              <CardDescription>Last 50 missed calls and voicemails forwarded through Twilio.</CardDescription>
             </div>
             <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
           </div>
@@ -448,7 +454,9 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                         )}
                         <Badge variant={m.callback_status === "open" ? "default" : "outline"}>{m.callback_status}</Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">{new Date(m.created_at).toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {m.voicemail_received_at ? "Voicemail received" : "Missed call"}: {new Date(getMissedActivityTime(m)).toLocaleString()}
+                      </div>
                       {m.error_message && <div className="text-xs text-destructive mt-1">{m.error_message}</div>}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
