@@ -27,7 +27,7 @@ export const DEFAULT_POWERDIAL_SETTINGS = {
 };
 
 const POWERDIAL_AI_ASSIST_FIRST_MESSAGE =
-  "Calling you in regards to your property listing. Standby, transferring you over to my boss.";
+  "One moment, this is about your property listing. I am transferring you over to Warren Guru right now.";
 const POWERDIAL_AI_ASSIST_SYSTEM_MARKER = "[POWERDIAL_AI_ASSIST_WARM_TRANSFER]";
 
 export const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -650,8 +650,9 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
 
   const callLogId = log?.id;
   const safeCallLogId = callLogId || "";
-  const configuredFrom = TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "";
-  const resolution = await resolveTwilioFromNumber(TWILIO_FROM);
+  const campaignFromSetting = normalizePhone((campaign.settings || {})?.from_number || "");
+  const configuredFrom = campaignFromSetting || (TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "");
+  const resolution = await resolveTwilioFromNumber(configuredFrom);
   const assistantPreparation = await prepareVapiOutboundAssistant(
     selectedAssistantId,
     normalizePhone((campaign.settings || {})?.human_transfer_phone) || DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE,
