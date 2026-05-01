@@ -218,6 +218,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
   // texts to the VoidFix cell.
 
+  // First-time texter auto-reply (configurable in /sms → VoidFix Auto-Reply)
+  await maybeSendFirstTimeAutoReply(from);
+
   // Hook Reply classifier — awaited so the fetch survives in edge runtime
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
