@@ -1296,9 +1296,11 @@ Deno.serve(async (req) => {
       // plays the configured MP3 directly into the recipient's voicemail box,
       // then hangs up. Otherwise, just hang up immediately.
       const vmDropEnabled = settingsObj.voicemail_drop_enabled !== false; // ON by default
-      let vmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
+      const configuredVmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
         ? settingsObj.voicemail_drop_url.trim()
-        : "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren";
+        : null;
+      let vmDropUrl = configuredVmDropUrl
+        || "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren";
 
       // Prefer the active recording from voicemail_recordings (admin-managed).
       let pauseBeforeSec = 1;
@@ -1310,7 +1312,7 @@ Deno.serve(async (req) => {
           .select("id, pause_before_sec, pause_after_sec, tts_fallback_text, updated_at, created_at")
           .eq("is_active", true)
           .maybeSingle();
-        if (activeRec?.id) {
+        if (!configuredVmDropUrl && activeRec?.id) {
           // Cache-bust on updated_at so re-uploads / new actives are not served
           // from Twilio's edge cache of a prior recording.
           const ver = encodeURIComponent(String(activeRec.updated_at || activeRec.created_at || Date.now()));

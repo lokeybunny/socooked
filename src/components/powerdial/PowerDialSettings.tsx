@@ -9,6 +9,8 @@ import { Save } from 'lucide-react';
 
 const DEFAULT_OUTBOUND_ASSISTANT = '1eddf1f7-3ef8-4950-9a65-1fd68516208e';
 const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = '+17027016192';
+const TARGET_SAMPLE_RATE = 8000;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const INBOUND_ASSISTANT_IDS = new Set([
   'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
   '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38',
@@ -69,6 +71,59 @@ function sanitizeAssistantId(value: unknown) {
   }
 
   return assistantId;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+  }
+  return btoa(binary);
+}
+
+async function decodeAndResample(file: File): Promise<{ samples: Float32Array; durationSec: number }> {
+  const arrayBuf = await file.arrayBuffer();
+  const tmpCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  let decoded: AudioBuffer;
+  try {
+    decoded = await tmpCtx.decodeAudioData(arrayBuf.slice(0));
+  } finally {
+    tmpCtx.close();
+  }
+
+  const durationSec = decoded.duration;
+  const targetLen = Math.ceil(durationSec * TARGET_SAMPLE_RATE);
+  const offline = new OfflineAudioContext(1, targetLen, TARGET_SAMPLE_RATE);
+  const src = offline.createBufferSource();
+  let monoBuf: AudioBuffer;
+  if (decoded.numberOfChannels === 1) {
+    monoBuf = decoded;
+  } else {
+    monoBuf = offline.createBuffer(1, decoded.length, decoded.sampleRate);
+    const out = monoBuf.getChannelData(0);
+    const channels: Float32Array[] = [];
+    for (let c = 0; c < decoded.numberOfChannels; c++) channels.push(decoded.getChannelData(c));
+    for (let i = 0; i < decoded.length; i++) {
+      let sum = 0;
+      for (let c = 0; c < channels.length; c++) sum += channels[c][i];
+      out[i] = sum / channels.length;
+    }
+  }
+
+  src.buffer = monoBuf;
+  src.connect(offline.destination);
+  src.start();
+  const rendered = await offline.startRendering();
+  const raw = rendered.getChannelData(0).slice();
+  let peak = 0;
+  for (let i = 0; i < raw.length; i++) peak = Math.max(peak, Math.abs(raw[i]));
+  if (peak > 0) {
+    const gain = Math.min(0.707 / peak, 4);
+    for (let i = 0; i < raw.length; i++) raw[i] = Math.max(-0.95, Math.min(0.95, raw[i] * gain));
+  }
+
+  return { samples: raw, durationSec };
 }
 
 export default function PowerDialSettings({ campaign, onUpdate }: Props) {
@@ -284,7 +339,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             <input
               id={`vm-upload-${campaign.id}`}
               type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav"
+              accept="audio/*"
               className="hidden"
               disabled={!voicemailDropEnabled || vmUploading}
               onChange={async (e) => {
@@ -293,15 +348,28 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
                 if (file.size > 10 * 1024 * 1024) { toast.error('Max 10 MB'); return; }
                 setVmUploading(true);
                 try {
-                  const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
-                  const path = `powerdial/vm-${campaign.id}-${Date.now()}.${ext}`;
-                  const { error: upErr } = await supabase.storage
-                    .from('site-assets')
-                    .upload(path, file, { upsert: true, contentType: file.type || 'audio/mpeg' });
-                  if (upErr) { toast.error(upErr.message); return; }
-                  const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
-                  setVoicemailDropUrl(pub.publicUrl);
-                  toast.success('Voicemail uploaded — click Save to apply');
+                  const { samples, durationSec } = await decodeAndResample(file);
+                  if (durationSec > 60) { toast.error('Recording must be 60 seconds or less'); return; }
+                  const pcmBytes = new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
+                  const { data: sess } = await supabase.auth.getSession();
+                  const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-voicemail-transcode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sess.session?.access_token || ''}` },
+                    body: JSON.stringify({
+                      name: file.name,
+                      original_filename: file.name,
+                      original_format: file.type || 'unknown',
+                      original_size: file.size,
+                      duration_sec: durationSec,
+                      pcm_base64: bytesToBase64(pcmBytes),
+                      codec: 'pcm_mulaw',
+                      set_active: false,
+                    }),
+                  });
+                  const json = await resp.json();
+                  if (!resp.ok || !json.ok) throw new Error(json?.error || `HTTP ${resp.status}`);
+                  setVoicemailDropUrl(`${json.playback_url}&v=${Date.now()}`);
+                  toast.success(`Voicemail converted (${durationSec.toFixed(1)}s) — click Save to apply`);
                 } finally {
                   setVmUploading(false);
                   (e.target as HTMLInputElement).value = '';
@@ -315,14 +383,14 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
               disabled={!voicemailDropEnabled || vmUploading}
               onClick={() => document.getElementById(`vm-upload-${campaign.id}`)?.click()}
             >
-              {vmUploading ? 'Uploading…' : 'Upload MP3 / WAV'}
+              {vmUploading ? 'Converting…' : 'Upload audio'}
             </Button>
             {voicemailDropUrl && (
               <audio src={voicemailDropUrl} controls className="h-8 flex-1 min-w-0" />
             )}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Twilio plays MP3 / WAV. Default: Warren's voicemail message.
+            Uploads are converted to the Twilio-safe signal automatically. Default: Warren's voicemail message.
           </p>
         </div>
 
