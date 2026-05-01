@@ -85,7 +85,7 @@ export default function VoidFixActivityTab() {
           .limit(500),
         supabase
           .from('powerdial_call_logs')
-          .select('id, phone, twilio_status, disposition, amd_result, customer_id, created_at, meta')
+          .select('id, phone, twilio_status, disposition, amd_result, customer_id, created_at, meta, source, missed, dial_call_status')
           .gte('created_at', since)
           .order('created_at', { ascending: false })
           .limit(500),
