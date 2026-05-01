@@ -334,6 +334,7 @@ export default function VoidFixActivityTab() {
               />
             </div>
             <FilterPill active={filter === 'all'} onClick={() => setFilter('all')}>All</FilterPill>
+            <FilterPill active={filter === 'missed'} onClick={() => setFilter('missed')}>Missed</FilterPill>
             <FilterPill active={filter === 'inbound_sms'} onClick={() => setFilter('inbound_sms')}>Inbound SMS</FilterPill>
             <FilterPill active={filter === 'outbound_sms'} onClick={() => setFilter('outbound_sms')}>Outbound SMS</FilterPill>
             <FilterPill active={filter === 'today'} onClick={() => setFilter('today')}>Today</FilterPill>
