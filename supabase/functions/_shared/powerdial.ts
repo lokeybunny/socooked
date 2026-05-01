@@ -27,7 +27,7 @@ export const DEFAULT_POWERDIAL_SETTINGS = {
 };
 
 const POWERDIAL_AI_ASSIST_FIRST_MESSAGE =
-  "One moment, this is about your property listing. I am transferring you over to Warren Guru right now.";
+  "Please hold while I transfer you to Warren about your property listing.";
 const POWERDIAL_AI_ASSIST_SYSTEM_MARKER = "[POWERDIAL_AI_ASSIST_WARM_TRANSFER]";
 
 export const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
