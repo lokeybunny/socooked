@@ -195,11 +195,12 @@ export function sanitizePowerDialAssistantId(value: unknown) {
 async function applyFastResponseSettings(assistantId: string) {
   try {
     const fastSettings = {
-      // Wait for the human to say "hello" (or any words) before the assistant speaks.
-      // This guarantees we only engage a real human, not dead-air/voicemail beeps.
-      firstMessageMode: "assistant-waits-for-user",
-      // Keep the greeting available so Vapi has something to say once the human speaks.
-      // (firstMessage itself is configured on the assistant in the Vapi dashboard.)
+      // Assistant speaks first the moment Twilio bridges the human leg, so the
+      // recipient immediately hears "Calling you in regards to your property
+      // listing. Standby, transferring you over to my boss." before the silent
+      // bridge to the office line completes.
+      firstMessageMode: "assistant-speaks-first",
+      firstMessage: "Calling you in regards to your property listing. Standby, transferring you over to my boss.",
       // How quickly the assistant starts responding once it detects end-of-speech
       startSpeakingPlan: {
         waitSeconds: 0.2,
