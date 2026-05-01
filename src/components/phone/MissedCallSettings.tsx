@@ -175,6 +175,17 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
   }
 
   async function markCallback(id: string, status: "callback_done" | "dismissed") {
+    if (status === "dismissed") {
+      const { error } = await supabase.from("missed_call_events").delete().eq("id", id);
+      if (error) {
+        toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+        return;
+      }
+      setMissed((rows) => rows.filter((row) => row.id !== id));
+      toast({ title: "Voicemail deleted", description: "Dismissed voicemail was removed." });
+      return;
+    }
+
     await supabase.from("missed_call_events").update({ callback_status: status }).eq("id", id);
     loadMissed();
   }
