@@ -118,7 +118,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
       .from("missed_call_events")
       .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, updated_at, voicemail_recording_url, voicemail_recording_sid, voicemail_duration, voicemail_received_at, customer:customers(full_name)")
       .order("updated_at", { ascending: false })
-      .limit(50);
+      .limit(500);
     const next = ((data as MissedRow[]) || []).sort(
       (a, b) => new Date(getMissedActivityTime(b)).getTime() - new Date(getMissedActivityTime(a)).getTime()
     );
