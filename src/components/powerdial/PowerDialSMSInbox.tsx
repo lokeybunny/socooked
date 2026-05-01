@@ -859,6 +859,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 gap-1"
+                onClick={() => {
+                  const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+                  const last10 = normalizeLast10(activePhone);
+                  moveToVideographyFunnel({ phone: activePhone, name: contacts[last10] || null });
+                }}
+                title="Move this contact to the Videography funnel"
+              >
+                <Workflow className="h-3.5 w-3.5" />
+                <span className="text-xs">Move to Funnel</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1"
                 onClick={() => activeThread && openNotes(null, activeThread)}
                 title="Open notes (shared with Phone)"
