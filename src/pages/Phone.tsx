@@ -1400,19 +1400,26 @@ export default function PhonePage() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1 text-sm">WARREN GURU softphone hub</p>
+        <div className="flex items-center justify-between">
+          <div className="flex-1" />
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground">Phone</h1>
+            <p className="text-muted-foreground mt-1 text-sm">WARREN GURU softphone hub</p>
+          </div>
+          <div className="flex-1 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setPhoneSettingsOpen(true)} className="gap-2">
+              <Settings className="h-4 w-4" /> Settings
+            </Button>
+          </div>
         </div>
 
         {/* ─── Centered Phone Hub ─── */}
-        {/* Three-column layout on desktop: [Activity] [Phone Keypad] [Interested Prospects].
-            On mobile/tablet, columns stack with the keypad first. */}
+        {/* Three-column layout on desktop: [Audit] [Phone Keypad] [Recent Missed Calls + Interested]. */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)_1fr] gap-6 items-start">
 
-          {/* ── Left: VoidFix Activity (missed calls + SMS feed) ── */}
+          {/* ── Left: Missed-call webhook audit ── */}
           <div className="order-2 xl:order-1 space-y-6">
-            <VoidFixActivityTab />
+            <MissedCallSettings section="audit" />
           </div>
 
           {/* ── Center: The Phone (focal point) ── */}
@@ -1442,14 +1449,9 @@ export default function PhonePage() {
                   </div>
                 </div>
               </div>
-              <TwilioKeypad
-                prefilledNumber={leads[currentLeadIndex]?.phone}
-              />
+              {/* Keypad starts empty — no auto-prefilled lead numbers */}
+              <TwilioKeypad />
             </div>
-
-            {/* Settings collapsibles directly under the phone — compact */}
-            <VoidFixFirstReplySettings />
-            <MissedCallSettings />
           </div>
 
           {/* ── Right: Interested Prospects ── */}
