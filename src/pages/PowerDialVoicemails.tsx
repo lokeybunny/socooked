@@ -319,22 +319,12 @@ export default function PowerDialVoicemails() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label>Recording name</Label>
-                <Input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="e.g. Warren default voicemail" />
-              </div>
-              <div>
-                <Label>Output codec</Label>
-                <select
-                  className="w-full mt-2 bg-background border border-input rounded-md px-3 py-2 text-sm"
-                  value={codec}
-                  onChange={(e) => setCodec(e.target.value as any)}
-                >
-                  <option value="pcm_mulaw">μ-law / PCMU (recommended)</option>
-                  <option value="pcm_s16le">16-bit PCM (fallback)</option>
-                </select>
-              </div>
+            <div>
+              <Label>Recording name</Label>
+              <Input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="e.g. Warren default voicemail" />
+              <p className="text-xs text-muted-foreground mt-2">
+                Auto-converted to Twilio-safe WAV (μ-law / 8kHz / mono) and loudness-normalized to match the working drop — no static.
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={setActiveOnUpload} onCheckedChange={setSetActiveOnUpload} />
