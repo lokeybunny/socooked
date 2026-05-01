@@ -340,7 +340,12 @@ export function Sidebar() {
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
         >
-          <group.icon className="h-4.5 w-4.5 shrink-0" />
+          <span className="relative shrink-0">
+            <group.icon className="h-4.5 w-4.5" />
+            {group.children.some(c => c.to === '/sms') && hasNewSms && !isOpen && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
+            )}
+          </span>
           {!collapsed && (
             <>
               <span className="flex-1 text-left">{group.label}</span>
