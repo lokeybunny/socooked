@@ -224,7 +224,7 @@ export function Sidebar() {
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.to;
-    const showDot = item.to === '/messages' && hasNewMessages;
+    const showDot = (item.to === '/messages' && hasNewMessages) || (item.to === '/sms' && hasNewSms);
     const showFunnelBadge = item.to === '/funnels' && funnelCount > 0;
 
     if (item.disabled) {
