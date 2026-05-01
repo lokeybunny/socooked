@@ -217,3 +217,9 @@ verify_jwt = false
 [functions.verify-proposal-signed]
 verify_jwt = false
 
+
+[functions.twilio-whisper]
+verify_jwt = false
+
+[functions.twilio-voicemail]
+verify_jwt = false
