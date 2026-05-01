@@ -1461,10 +1461,6 @@ export default function PhonePage() {
                     <div className="flex items-center gap-3 flex-wrap justify-center text-xs">
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Phone className="h-3.5 w-3.5 text-primary" />
-                        <span className="font-medium">Call Back:</span>
-                        <span className="text-foreground font-mono">(702) 701-6192</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
                         <span className="font-medium">Cell:</span>
                         <span className="text-foreground font-mono">(424) 465-1253</span>
                         <button
