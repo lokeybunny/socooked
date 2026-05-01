@@ -209,9 +209,12 @@ Deno.serve(async (req) => {
       rawPayload,
     });
 
-    // Acknowledge XML (no further TwiML — call is done)
+    // Acknowledge XML — empty when answered, redirect to voicemail when missed
     const ackXml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
+    const voicemailUrl = `${SUPABASE_URL}/functions/v1/twilio-voicemail`;
+    const voicemailXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Redirect method="POST">${voicemailUrl}</Redirect></Response>`;
     const ackResp = new Response(ackXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
+    const voicemailResp = () => new Response(voicemailXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
 
     if (!isMissed || !from) {
       await auditDialComplete({
