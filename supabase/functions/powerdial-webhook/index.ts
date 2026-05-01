@@ -345,12 +345,12 @@ async function redirectCallToVapi(
 }
 
 const DEFAULT_AI_ASSIST_GREETING =
-  "Hi, I'm calling you in regards to one of your property listings... Can I transfer you over to Warren?";
+  "Please hold while I transfer you to Warren about your property listing.";
 
 // Snappier greeting used when AMD reports a confident, fast human answer
 // (Twilio AnsweredBy === "human"). Shaves ~2s of audio off the first words.
 const SHORT_AI_ASSIST_GREETING =
-  "Hi! Quick call about your property listing... 1 sec, let me connect you over to my boss.";
+  DEFAULT_AI_ASSIST_GREETING;
 
 // ElevenLabs voice used for the AI Assist warm hand-off greeting.
 const AI_ASSIST_ELEVENLABS_VOICE_ID = "eXpIbVcVbLo8ZJQDlDnl";
@@ -437,11 +437,12 @@ async function generateElevenLabsGreetingBytes(
  * Builds a public URL pointing back at this webhook that, when fetched by Twilio,
  * streams the ElevenLabs MP3 inline. No storage bucket required.
  */
-async function buildAIGreetingUrl(voiceId: string, greetingText: string): Promise<string> {
+async function buildAIGreetingUrl(voiceId: string, greetingText: string): Promise<string | null> {
   const hash = await fingerprintGreeting(voiceId, greetingText);
   // Pre-warm cache so the audio request doesn't have to wait on TTS round-trip
   // (Twilio will fetch it within ~200ms).
-  await generateElevenLabsGreetingBytes(voiceId, greetingText);
+  const bytes = await generateElevenLabsGreetingBytes(voiceId, greetingText);
+  if (!bytes) return null;
 
   const url = new URL(`${SUPABASE_URL}/functions/v1/powerdial-webhook`);
   url.searchParams.set("type", "ai-greeting");
@@ -460,7 +461,7 @@ async function buildAIGreetingUrl(voiceId: string, greetingText: string): Promis
 async function redirectCallToAIAssistTransfer(
   callSid: string,
   humanTransferPhone: string,
-  _greetingText: string,
+  greetingText: string,
   options: {
     campaignId: string;
     queueItemId: string;
@@ -480,11 +481,18 @@ async function redirectCallToAIAssistTransfer(
       options.callLogId,
     );
 
-    // PowerDial-only behavior: bridge directly. Do not play a Vapi/Twilio
-    // greeting and do not attach twilio-whisper, so there is no name recording
-    // or press-1 requirement in this outbound handoff path.
+    const resolvedGreeting = (greetingText || DEFAULT_AI_ASSIST_GREETING).trim();
+    const greetingUrl = await buildAIGreetingUrl(AI_ASSIST_ELEVENLABS_VOICE_ID, resolvedGreeting);
+    const greetingTwiml = greetingUrl
+      ? `  <Play>${escapeXml(greetingUrl)}</Play>`
+      : `  <Say voice="Polly.Joanna">${escapeXml(resolvedGreeting)}</Say>`;
+
+    // PowerDial-only behavior: say the warm handoff line, then bridge directly.
+    // Do not attach twilio-whisper, so there is no name recording or press-1
+    // requirement in this outbound handoff path.
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+${greetingTwiml}
   <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(humanTransferPhone)}</Number>
   </Dial>
@@ -509,7 +517,7 @@ async function redirectCallToAIAssistTransfer(
     }
 
     console.log(
-      `[powerdial-webhook] AI Assist silent handoff: ${callSid} → bridge ${humanTransferPhone}`,
+      `[powerdial-webhook] AI Assist warm handoff: ${callSid} → greeting then bridge ${humanTransferPhone}`,
     );
     return true;
   } catch (err) {
