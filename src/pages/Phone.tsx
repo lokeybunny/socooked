@@ -14,8 +14,6 @@ import { Teleprompter } from '@/components/phone/Teleprompter';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import VoidFixActivityTab from '@/components/phone/VoidFixActivityTab';
-import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
-import MissedCallSettings from '@/components/phone/MissedCallSettings';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -1400,62 +1398,673 @@ export default function PhonePage() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="text-center">
+        <div>
           <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1 text-sm">WARREN GURU softphone hub</p>
+          <p className="text-muted-foreground mt-1">Softphone + audio transcription workspace.</p>
         </div>
 
-        {/* ─── Centered Phone Hub ─── */}
-        {/* Three-column layout on desktop: [Activity] [Phone Keypad] [Interested Prospects].
-            On mobile/tablet, columns stack with the keypad first. */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)_1fr] gap-6 items-start">
+        {/* VoidFix Android Activity */}
+        <VoidFixActivityTab />
 
-          {/* ── Left: VoidFix Activity (missed calls + SMS feed) ── */}
-          <div className="order-2 xl:order-1 space-y-6">
-            <VoidFixActivityTab />
-          </div>
+        {/* Two-column layout: Left = Transcription, Right = RingCentral */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
+          {/* ─── Left Column: Warm Leads + Transcription Tool + Recent ─── */}
+          <div className="space-y-6">
 
-          {/* ── Center: The Phone (focal point) ── */}
-          <div className="order-1 xl:order-2 xl:sticky xl:top-6 space-y-4">
-            <div className="glass-card p-6 rounded-3xl border-2 border-primary/20 shadow-2xl shadow-primary/10 space-y-4">
-              <div className="flex flex-col items-center gap-2">
-                <div className="text-center">
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Business</p>
-                  <p className="text-base font-bold text-foreground">WARREN GURU</p>
+            {/* ─── Cold Leads Quick-Dial Panel ─── */}
+            <div className="glass-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold text-foreground">Cold Leads</h2>
+                  <Badge variant="secondary" className="text-[10px]">{filteredLeads.length} of {leads.length}</Badge>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap justify-center text-xs">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-medium">Call Back:</span>
-                    <span className="text-foreground font-mono">(702) 701-6192</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    disabled={!currentLead || analyzing}
+                    onClick={() => handleAnalyzeLead()}
+                  >
+                    {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                    {analyzing ? 'Auditing...' : 'Analyze & Audit'}
+                  </Button>
+                  <div className="w-48">
+                    <Select value={clSectionFilter} onValueChange={v => { setClSectionFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="CL Section" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="all">All CL Sections</SelectItem>
+                        {CL_SECTIONS.filter(s => s.value !== 'bbb').map(sec => (
+                          <SelectItem key={sec.value} value={sec.value}>{sec.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <span className="font-medium">Cell:</span>
-                    <span className="text-foreground font-mono">(424) 465-1253</span>
-                    <button
-                      onClick={() => setTeleprompterOpen(true)}
-                      className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                      title="Open Teleprompter"
-                    >
-                      <MonitorPlay className="h-3.5 w-3.5" />
-                    </button>
+                  <div className="w-24">
+                    <Input
+                      placeholder="Area code"
+                      maxLength={3}
+                      value={areaCodeFilter}
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setAreaCodeFilter(v);
+                        setCurrentLeadIndex(0);
+                        setAnalyzeResult(null);
+                      }}
+                      className="h-8 text-xs text-center font-mono tracking-widest"
+                    />
                   </div>
                 </div>
               </div>
-              <TwilioKeypad
-                prefilledNumber={leads[currentLeadIndex]?.phone}
-              />
+              <p className="text-xs text-muted-foreground">
+                SpaceBot-sourced leads — one at a time. Copy phone → dial → transcribe → promote.
+                {areaCodeFilter.length === 3 && <span className="ml-1 text-primary font-medium">· Filtered by ({areaCodeFilter})</span>}
+              </p>
+
+              {!currentLead ? (
+                <div className="text-center py-8">
+                  <Phone className="h-6 w-6 mx-auto text-muted-foreground/40 mb-1.5" />
+                  <p className="text-xs text-muted-foreground">No cold leads in this category.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Single lead card */}
+                  {(() => {
+                    const lead = currentLead;
+                    const meta = typeof lead.meta === 'object' ? lead.meta : {};
+                    const noteTag = meta?.callback_at ? 'callback' : meta?.busy_until ? 'busy' : null;
+                    const callbackLabel = meta?.callback_at ? `Call back: ${format(new Date(meta.callback_at), 'MMM d, h:mm a')}` : null;
+                    return (
+                      <div
+                        className={cn(
+                          "rounded-xl border bg-card p-4 space-y-3 transition-colors",
+                          noteTag === 'busy' && "border-yellow-500/30",
+                          noteTag === 'callback' && "border-blue-500/30",
+                          !noteTag && "border-border"
+                        )}
+                        onDoubleClick={() => handleLeadDoubleClick(lead)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                            lead.status === 'prospect' && typeof lead.meta === 'object' && lead.meta?.ai_website
+                              ? "bg-yellow-500/20 ring-2 ring-yellow-400/50"
+                              : lead.source === 'craigslist' 
+                                ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "bg-yellow-500/15" : "bg-red-500/15")
+                                : noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
+                          )}>
+                            <User className={cn("h-5 w-5", 
+                              lead.status === 'prospect' && typeof lead.meta === 'object' && lead.meta?.ai_website
+                                ? "text-yellow-500"
+                                : lead.source === 'craigslist'
+                                  ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "text-yellow-600" : "text-red-500")
+                                  : noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground"
+                            )} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => handleLeadDoubleClick(lead)} className="text-base font-semibold text-primary hover:underline truncate cursor-pointer text-left">{lead.full_name}</button>
+                              {lead.source === 'craigslist' && (
+                                typeof lead.meta === 'object' && lead.meta?.has_website ? (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600 gap-0.5">
+                                    <Globe className="h-2.5 w-2.5" /> Has Website
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-red-500/40 text-red-500 gap-0.5">
+                                    No Website
+                                  </Badge>
+                                )
+                              )}
+                              {lead.source === 'craigslist' && meta?.craigslist_url && (
+                                <a href={meta.craigslist_url} target="_blank" rel="noopener noreferrer" title="View Craigslist posting" className="shrink-0 text-purple-500 hover:text-purple-400 transition-colors">
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              )}
+                              {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy (24h)</Badge>}
+                              {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">{callbackLabel}</Badge>}
+                              {lead.status === 'prospect' && (
+                                (typeof lead.meta === 'object' && lead.meta?.ai_website) ? (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-yellow-400/60 text-yellow-500 bg-yellow-500/10 gap-0.5 font-bold shadow-[0_0_6px_rgba(234,179,8,0.3)]">
+                                    <Zap className="h-2.5 w-2.5 fill-yellow-500" /> AI Ready — Callback
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-destructive/40 text-destructive gap-0.5 animate-pulse">
+                                    <Star className="h-2.5 w-2.5" /> Callback Prospect
+                                  </Badge>
+                                )
+                              )}
+                              {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-green-500/40 text-green-600 gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleSendReport(lead); }}>
+                                  <Check className="h-2.5 w-2.5" /> Audited
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              {lead.company && <span>{lead.company}</span>}
+                              {lead.source && <span>· via {lead.source}</span>}
+                              {lead.category && <span>· {lead.category}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Phone / Email copy row */}
+                        <div className="flex items-center gap-2">
+                          {lead.phone ? (
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-8 text-xs gap-1.5 flex-1"
+                              onClick={() => copyToClipboard(lead.phone, lead.full_name)}
+                            >
+                              <Copy className="h-3 w-3" />
+                              {lead.phone}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic flex-1">No phone on file</span>
+                          )}
+                          {lead.email && (
+                            <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => copyToClipboard(lead.email, 'Email')}>
+                              <Mail className="h-3 w-3" />
+                              Copy Email
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Analyze result */}
+                        {analyzeResult && analyzeResult.leadId === lead.id && (
+                          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                              <Globe className="h-3.5 w-3.5 text-primary" /> Audit Results
+                            </p>
+                            {analyzeResult.website && (
+                              <a href={analyzeResult.website.startsWith('http') ? analyzeResult.website : `https://${analyzeResult.website}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-xs text-primary hover:underline">
+                                <ExternalLink className="h-3 w-3" />
+                                {analyzeResult.website}
+                              </a>
+                            )}
+                            {analyzeResult.instagram && (
+                              <a href={`https://instagram.com/${analyzeResult.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-xs text-primary hover:underline">
+                                <Instagram className="h-3 w-3" />
+                                @{analyzeResult.instagram.replace('@', '')}
+                              </a>
+                            )}
+                            {analyzeResult.scores && (
+                              <div className="flex items-center gap-3 pt-1">
+                                <Badge variant="secondary" className="text-[10px]">Overall: {analyzeResult.scores.overall}/100</Badge>
+                                <Badge variant="secondary" className="text-[10px]">Website: {analyzeResult.scores.website}</Badge>
+                                <Badge variant="secondary" className="text-[10px]">Social: {analyzeResult.scores.social}</Badge>
+                              </div>
+                            )}
+                            {analyzeResult.pdfUrl && (
+                              <div className="flex items-center gap-2 pt-1">
+                                <a href={analyzeResult.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                  <Download className="h-3 w-3" /> View PDF
+                                </a>
+                                {lead.email && (
+                                  <Button
+                                    variant="outline" size="sm"
+                                    className="h-6 text-[10px] gap-1"
+                                    disabled={sendingReport || emailDraftLoading}
+                                    onClick={() => handleSendReport(lead)}
+                                  >
+                                    {emailDraftLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                    Send to {lead.full_name}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                            {!analyzeResult.website && !analyzeResult.instagram && (
+                              <p className="text-xs text-muted-foreground">No Instagram or website found.</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Previously analyzed — show resend option */}
+                        {!analyzeResult && typeof lead.meta === 'object' && lead.meta?.analyzed && lead.meta?.audit_pdf_url && (
+                          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-2">
+                            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                              <Check className="h-3.5 w-3.5 text-green-600" /> Previously Audited
+                              <span className="text-muted-foreground text-[10px]">
+                                {lead.meta.audit_date ? new Date(lead.meta.audit_date).toLocaleDateString() : ''}
+                              </span>
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <a href={lead.meta.audit_pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                <Download className="h-3 w-3" /> View Report
+                              </a>
+                              {lead.email && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 text-[10px] gap-1"
+                                  disabled={sendingReport || emailDraftLoading}
+                                  onClick={() => handleSendReport(lead)}
+                                >
+                                  {emailDraftLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                  Send Report
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Status actions */}
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
+                            onClick={() => handleLeadStatus(lead.id, lead.full_name, 'busy')}
+                          >
+                            <PhoneOff className="h-3 w-3 text-yellow-600" /> Busy
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
+                            onClick={() => handleLeadStatus(lead.id, lead.full_name, 'call_back')}
+                          >
+                            <Clock className="h-3 w-3 text-blue-500" /> Call Back
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1 border-green-500/40 text-green-600 hover:bg-green-500/10"
+                            onClick={() => { setInterestedLead({ id: lead.id, name: lead.full_name, category: lead.category, email: lead.email, phone: lead.phone }); setInterestedOpen(true); }}
+                          >
+                            <Star className="h-3 w-3" /> Interested
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
+                            onClick={() => handleLeadStatus(lead.id, lead.full_name, 'not_interested')}
+                          >
+                            <Ban className="h-3 w-3 text-destructive" /> Not Interested
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Next button */}
+                  {filteredLeads.length > 1 && (
+                    <Button variant="secondary" className="w-full gap-2" onClick={handleNextLead}>
+                      <ChevronRight className="h-4 w-4" />
+                      Next Lead (random)
+                    </Button>
+                  )}
+
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    Double-click for full details · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''} available
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Settings collapsibles directly under the phone — compact */}
-            <VoidFixFirstReplySettings />
-            <MissedCallSettings />
+            {/* Upload Card */}
+            <div className="glass-card p-6 space-y-5">
+              <div className="flex items-center gap-2">
+                <FileAudio className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Audio Transcription</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Drop audio files to transcribe. Files are archived to Google Drive and transcripts stored in CRM.
+              </p>
+
+              {/* Customer + Call Type + Category selects */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Customer</Label>
+                    <button
+                      type="button"
+                      onClick={() => setNewCustOpen(true)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <UserPlus className="h-3 w-3" /> New
+                    </button>
+                  </div>
+                  <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                    <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                    <SelectContent>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Call Type</Label>
+                  <Select value={callType} onValueChange={(v) => setCallType(v as CallType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CALL_TYPES.map(ct => (
+                        <SelectItem key={ct.value} value={ct.value}>
+                          <span className="flex items-center gap-2">
+                            <ct.icon className="h-3.5 w-3.5" />
+                            {ct.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CL_SECTIONS.filter(s => s.value !== 'bbb').map(sec => (
+                        <SelectItem key={sec.value} value={sec.value}>{sec.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Drag & Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
+                  dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                )}
+              >
+                <Upload className="h-7 w-7 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-foreground font-medium">Drag & drop audio files</p>
+                <p className="text-xs text-muted-foreground mt-1">MP3, WAV, M4A, OGG, FLAC, AAC, WebM</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac,.wma,.webm"
+                  className="hidden"
+                  onChange={handleFileInput}
+                />
+              </div>
+
+              {/* File list */}
+              {uploadFiles.length > 0 && (
+                <div className="space-y-2">
+                  {uploadFiles.map((file, i) => (
+                    <div key={i} className="flex items-center justify-between bg-muted rounded-md px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileAudio className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-foreground truncate">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">({formatFileSize(file.size)})</span>
+                      </div>
+                      <button onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Transcribe button */}
+              <Button
+                onClick={handleTranscribe}
+                disabled={transcribing || uploadFiles.length === 0 || !selectedCustomerId}
+                className="w-full gap-2"
+              >
+                {transcribing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {uploadingToDrive ? 'Uploading to Drive...' : 'Transcribing...'}
+                  </>
+                ) : (
+                  <>
+                    <FileAudio className="h-4 w-4" />
+                    Transcribe & Upload ({uploadFiles.length} file{uploadFiles.length !== 1 ? 's' : ''})
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Results */}
+            {results.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Results</h3>
+                {results.map((r) => (
+                  <div key={r.id} className={cn("glass-card p-4 space-y-2", r.success ? "" : "border-destructive/30")}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {r.success ? <Check className="h-4 w-4 text-primary" /> : <X className="h-4 w-4 text-destructive" />}
+                        <span className="text-sm font-medium text-foreground">{r.filename}</span>
+                        {r.success && r.callType && getTypeBadge(r.callType)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {r.driveLink && (
+                          <a href={r.driveLink} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                            <FolderUp className="h-3 w-3" /> Drive
+                          </a>
+                        )}
+                        {r.success && (
+                          <button onClick={() => setExpandedResult(expandedResult === r.id ? null : r.id)} className="text-muted-foreground hover:text-foreground ml-2">
+                            {expandedResult === r.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {r.success && r.summary && <p className="text-xs text-muted-foreground">{r.summary}</p>}
+                    {r.error && <p className="text-xs text-destructive">{r.error}</p>}
+                    {expandedResult === r.id && r.transcript && (
+                      <div className="mt-2 space-y-2">
+                        <div className="bg-muted rounded-md p-3 max-h-[300px] overflow-y-auto">
+                          <p className="text-sm text-foreground whitespace-pre-wrap">{r.transcript}</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => copyTranscript(r.transcript)} className="gap-1.5">
+                          <Copy className="h-3 w-3" /> Copy Transcript
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
           </div>
 
-          {/* ── Right: Interested Prospects ── */}
-          <div className="order-3 space-y-4">
+          {/* ─── Right Column: Twilio Manual Dialer ─── */}
+          <div className="space-y-4">
+            <div className="flex flex-col items-center gap-2">
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">Business name: WARREN GURU</p>
+              </div>
+              <div className="flex items-center gap-4 flex-wrap justify-center">
+                <Phone className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="font-medium">Call Back #:</span>
+                  <span className="text-foreground">(702) 701-6192</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <span className="font-medium">Cell:</span>
+                  <span className="text-foreground">(424) 465-1253</span>
+                  <button
+                    onClick={() => setTeleprompterOpen(true)}
+                    className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                    title="Open Teleprompter"
+                  >
+                    <MonitorPlay className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <TwilioKeypad
+              prefilledNumber={leads[currentLeadIndex]?.phone}
+            />
 
-            {/* Recent Transcriptions panel removed per request */}
+            {/* ─── Recent Transcriptions (grouped by customer) ─── */}
+            <div className="space-y-4">
+              <button
+                onClick={() => setTranscriptionsOpen(!transcriptionsOpen)}
+                className="w-full flex items-center justify-between glass-card px-4 py-3 hover:bg-muted/50 transition-colors rounded-xl"
+              >
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
+                  {filteredTranscriptions.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">{filteredTranscriptions.length}</Badge>
+                  )}
+                </div>
+                {transcriptionsOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </button>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={() => setColdCallVideoOpen(true)}
+                >
+                  <Play className="h-4 w-4" /> Watch Cold Call Video
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={() => setPriceStructureOpen(true)}
+                >
+                  <Tag className="h-4 w-4" /> Price Structure
+                </Button>
+              </div>
+
+              <Dialog open={coldCallVideoOpen} onOpenChange={setColdCallVideoOpen}>
+                <DialogContent className="max-w-3xl p-0 overflow-hidden">
+                  <DialogHeader className="p-4 pb-0">
+                    <DialogTitle>Cold Call Demo</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-4 pt-2">
+                    <video
+                      src="/videos/cold-call-demo.mp4"
+                      controls
+                      autoPlay
+                      playsInline
+                      className="w-full rounded-lg"
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={priceStructureOpen} onOpenChange={setPriceStructureOpen}>
+                <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden">
+                  <DialogHeader>
+                    <DialogTitle>Price Structure — Options A, B & C</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6 p-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-2">Option A & B — Website Offer</h3>
+                      <img src="/images/offer-options.png" alt="Website Offer Options A & B" className="w-full rounded-lg border border-border" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-2">Option C — Unlimited Website Updates</h3>
+                      <img src="/images/option-c-maintenance.png" alt="Option C Maintenance" className="w-full rounded-lg border border-border" />
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {transcriptionsOpen && (
+                <>
+                  <div className="relative w-full">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by customer name..."
+                      value={searchQuery}
+                      onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                      className="pl-9 h-9"
+                    />
+                  </div>
+                  {loading ? (
+                    <div className="glass-card p-8 text-center">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                    </div>
+                  ) : filteredTranscriptions.length === 0 ? (
+                    <div className="glass-card p-8 text-center">
+                      <FileAudio className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {searchQuery ? 'No transcriptions match your search.' : 'No transcriptions yet.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {paginatedGroups.map(([customerId, group]) => (
+                        <div key={customerId} className="glass-card overflow-hidden">
+                          <button
+                            onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <User className="h-4 w-4 text-primary shrink-0" />
+                              <span className="text-sm font-medium text-foreground truncate">{group.customer?.full_name}</span>
+                              <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
+                            </div>
+                            {expandedCustomer === customerId ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </button>
+                          {expandedCustomer === customerId && (
+                            <div className="border-t border-border divide-y divide-border">
+                              {group.items.map((t) => (
+                                <div key={t.id} className="px-4 py-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {getTypeBadge(t.source_type, t)}
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                      {t.duration_seconds && (
+                                        <span className="text-xs text-muted-foreground">
+                                          · {Math.floor(t.duration_seconds / 60)}:{String(t.duration_seconds % 60).padStart(2, '0')}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {t.audio_url && (
+                                        <Button
+                                          variant="ghost" size="sm"
+                                          className={cn("h-7 w-7 p-0", playingId === t.id ? "text-destructive hover:text-destructive" : "text-primary hover:text-primary")}
+                                          onClick={(e) => { e.stopPropagation(); handlePlayAudio(t); }}
+                                          disabled={downloadingId === t.id}
+                                          title={playingId === t.id ? "Stop" : "Play audio"}
+                                        >
+                                          {downloadingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : playingId === t.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                        </Button>
+                                      )}
+                                      <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
+                                        <Copy className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
+                                        {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
+                                  {expandedResult === t.id && (
+                                    <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
+                                      <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between pt-2">
+                          <p className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</p>
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)} className="h-8 w-8 p-0">
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)} className="h-8 w-8 p-0">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {/* ── Interested Prospects ── */}
             {(() => {

@@ -3434,85 +3434,6 @@ export type Database = {
         }
         Relationships: []
       }
-      missed_call_events: {
-        Row: {
-          auto_reply_communication_id: string | null
-          auto_reply_message: string | null
-          auto_reply_sent: boolean
-          call_log_id: string | null
-          callback_status: string
-          campaign_source: string | null
-          created_at: string
-          customer_id: string | null
-          error_message: string | null
-          id: string
-          meta: Json
-          phone_last10: string
-          phone_number: string
-          status: string
-          updated_at: string
-          voidfix_message_id: string | null
-        }
-        Insert: {
-          auto_reply_communication_id?: string | null
-          auto_reply_message?: string | null
-          auto_reply_sent?: boolean
-          call_log_id?: string | null
-          callback_status?: string
-          campaign_source?: string | null
-          created_at?: string
-          customer_id?: string | null
-          error_message?: string | null
-          id?: string
-          meta?: Json
-          phone_last10: string
-          phone_number: string
-          status?: string
-          updated_at?: string
-          voidfix_message_id?: string | null
-        }
-        Update: {
-          auto_reply_communication_id?: string | null
-          auto_reply_message?: string | null
-          auto_reply_sent?: boolean
-          call_log_id?: string | null
-          callback_status?: string
-          campaign_source?: string | null
-          created_at?: string
-          customer_id?: string | null
-          error_message?: string | null
-          id?: string
-          meta?: Json
-          phone_last10?: string
-          phone_number?: string
-          status?: string
-          updated_at?: string
-          voidfix_message_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "missed_call_events_auto_reply_communication_id_fkey"
-            columns: ["auto_reply_communication_id"]
-            isOneToOne: false
-            referencedRelation: "communications"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "missed_call_events_call_log_id_fkey"
-            columns: ["call_log_id"]
-            isOneToOne: false
-            referencedRelation: "powerdial_call_logs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "missed_call_events_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       narrative_evolution: {
         Row: {
           categories: string[]
@@ -4072,29 +3993,22 @@ export type Database = {
           ai_reason: string | null
           ai_sentiment: string | null
           amd_result: string | null
-          answered: boolean
           attempt_number: number
           batch_id: string | null
-          campaign_id: string | null
+          campaign_id: string
           connected_to_vapi: boolean
           created_at: string
           customer_id: string | null
-          dial_call_status: string | null
           dismissed_at: string | null
           disposition: string | null
           follow_up_needed: boolean
-          from_number: string | null
           id: string
           meta: Json | null
-          missed: boolean
-          parent_call_sid: string | null
           phone: string
           queue_item_id: string | null
           recording_url: string | null
           retry_eligible: boolean
-          source: string | null
           summary: string | null
-          to_number: string | null
           transcript: string | null
           twilio_call_sid: string | null
           twilio_status: string | null
@@ -4110,29 +4024,22 @@ export type Database = {
           ai_reason?: string | null
           ai_sentiment?: string | null
           amd_result?: string | null
-          answered?: boolean
           attempt_number?: number
           batch_id?: string | null
-          campaign_id?: string | null
+          campaign_id: string
           connected_to_vapi?: boolean
           created_at?: string
           customer_id?: string | null
-          dial_call_status?: string | null
           dismissed_at?: string | null
           disposition?: string | null
           follow_up_needed?: boolean
-          from_number?: string | null
           id?: string
           meta?: Json | null
-          missed?: boolean
-          parent_call_sid?: string | null
           phone: string
           queue_item_id?: string | null
           recording_url?: string | null
           retry_eligible?: boolean
-          source?: string | null
           summary?: string | null
-          to_number?: string | null
           transcript?: string | null
           twilio_call_sid?: string | null
           twilio_status?: string | null
@@ -4148,29 +4055,22 @@ export type Database = {
           ai_reason?: string | null
           ai_sentiment?: string | null
           amd_result?: string | null
-          answered?: boolean
           attempt_number?: number
           batch_id?: string | null
-          campaign_id?: string | null
+          campaign_id?: string
           connected_to_vapi?: boolean
           created_at?: string
           customer_id?: string | null
-          dial_call_status?: string | null
           dismissed_at?: string | null
           disposition?: string | null
           follow_up_needed?: boolean
-          from_number?: string | null
           id?: string
           meta?: Json | null
-          missed?: boolean
-          parent_call_sid?: string | null
           phone?: string
           queue_item_id?: string | null
           recording_url?: string | null
           retry_eligible?: boolean
-          source?: string | null
           summary?: string | null
-          to_number?: string | null
           transcript?: string | null
           twilio_call_sid?: string | null
           twilio_status?: string | null
