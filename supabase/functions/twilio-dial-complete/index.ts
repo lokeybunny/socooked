@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
         missedCallRowCreated: false,
         rawPayload,
       });
-      return ackResp;
+      return voicemailResp();
     }
 
     // Send auto-reply (if enabled)
