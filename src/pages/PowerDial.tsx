@@ -503,7 +503,7 @@ export default function PowerDial() {
                 <Switch
                   checked={activeCampaign.settings?.ai_enabled !== false}
                   onCheckedChange={async (checked) => {
-                    const DEFAULT_TRANSFER = '+14244651253';
+                    const DEFAULT_TRANSFER = '+17027016192';
                     const existingTransfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
                     const transfer = existingTransfer || (!checked ? DEFAULT_TRANSFER : '');
                     const newSettings = {
@@ -530,7 +530,7 @@ export default function PowerDial() {
                 <Switch
                   checked={Boolean(activeCampaign.settings?.ai_assist)}
                   onCheckedChange={async (checked) => {
-                    const DEFAULT_TRANSFER = '+14244651253';
+                    const DEFAULT_TRANSFER = '+17027016192';
                     const existingTransfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
                     const transfer = existingTransfer || (checked ? DEFAULT_TRANSFER : '');
                     const newSettings = {
