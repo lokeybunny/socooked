@@ -923,7 +923,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="p-3 border-t border-border flex gap-2">
+            <div className="p-3 border-t border-border flex items-end gap-2">
               <Textarea
                 placeholder="Type a reply..."
                 value={composeBody}
@@ -935,6 +935,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   }
                 }}
               />
+              <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="end" />
               <Button onClick={() => handleSend()} disabled={sending || !composeBody.trim()}>
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
