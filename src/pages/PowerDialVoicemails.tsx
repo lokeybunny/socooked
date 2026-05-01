@@ -90,7 +90,31 @@ async function decodeAndResample(file: File): Promise<{ samples: Float32Array; d
   src.connect(offline.destination);
   src.start();
   const rendered = await offline.startRendering();
-  return { samples: rendered.getChannelData(0).slice(), durationSec };
+  const raw = rendered.getChannelData(0).slice();
+
+  // Normalize so the recording matches the loudness profile of the working
+  // voicemail-guru file. μ-law over Twilio sounds like static if the input is
+  // either too hot (clipping) or too quiet (encoder noise floor dominates).
+  // Target peak: -3 dBFS (~0.707), with a hard ceiling at 0.95.
+  let peak = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const v = Math.abs(raw[i]);
+    if (v > peak) peak = v;
+  }
+  if (peak > 0) {
+    const target = 0.707;
+    const gain = Math.min(target / peak, 4); // cap gain so silent files don't get amplified to noise
+    if (Math.abs(gain - 1) > 0.01) {
+      for (let i = 0; i < raw.length; i++) {
+        let s = raw[i] * gain;
+        if (s > 0.95) s = 0.95;
+        else if (s < -0.95) s = -0.95;
+        raw[i] = s;
+      }
+    }
+  }
+
+  return { samples: raw, durationSec };
 }
 
 export default function PowerDialVoicemails() {
@@ -99,7 +123,9 @@ export default function PowerDialVoicemails() {
   const [uploading, setUploading] = useState(false);
   const [uploadName, setUploadName] = useState("");
   const [setActiveOnUpload, setSetActiveOnUpload] = useState(true);
-  const [codec, setCodec] = useState<"pcm_mulaw" | "pcm_s16le">("pcm_mulaw");
+  // Locked to μ-law: this matches the working voicemail-guru file
+  // (WAV / pcm_mulaw / 8000Hz / mono) — the only format Twilio plays cleanly.
+  const codec = "pcm_mulaw" as const;
   const [testPhone, setTestPhone] = useState("+14244658105");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -293,22 +319,12 @@ export default function PowerDialVoicemails() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label>Recording name</Label>
-                <Input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="e.g. Warren default voicemail" />
-              </div>
-              <div>
-                <Label>Output codec</Label>
-                <select
-                  className="w-full mt-2 bg-background border border-input rounded-md px-3 py-2 text-sm"
-                  value={codec}
-                  onChange={(e) => setCodec(e.target.value as any)}
-                >
-                  <option value="pcm_mulaw">μ-law / PCMU (recommended)</option>
-                  <option value="pcm_s16le">16-bit PCM (fallback)</option>
-                </select>
-              </div>
+            <div>
+              <Label>Recording name</Label>
+              <Input value={uploadName} onChange={(e) => setUploadName(e.target.value)} placeholder="e.g. Warren default voicemail" />
+              <p className="text-xs text-muted-foreground mt-2">
+                Auto-converted to Twilio-safe WAV (μ-law / 8kHz / mono) and loudness-normalized to match the working drop — no static.
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={setActiveOnUpload} onCheckedChange={setSetActiveOnUpload} />
