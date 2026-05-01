@@ -6,9 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
+import CallNotesPopup from '@/components/phone/CallNotesPopup';
+import EmojiButton from '@/components/sms/EmojiButton';
 
 type SMSMessage = {
   id: string;
@@ -61,6 +63,9 @@ export default function PowerDialSMSInbox() {
   const [proposalStep, setProposalStep] = useState<'email' | 'choose'>('email');
   const [proposalEmail, setProposalEmail] = useState('');
   const [proposalSending, setProposalSending] = useState(false);
+  // Notes popup (shared with Phone via sms_contacts.notes)
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesPhone, setNotesPhone] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
@@ -439,6 +444,14 @@ export default function PowerDialSMSInbox() {
     setProposalOpen(true);
   };
 
+  const openNotes = (e: React.MouseEvent | null, phoneKey: string) => {
+    if (e) e.stopPropagation();
+    const last10 = normalizeLast10(phoneKey);
+    if (last10.length !== 10) { toast.error('Invalid phone number'); return; }
+    setNotesPhone('+1' + last10);
+    setNotesOpen(true);
+  };
+
   const handleProposalContinue = async () => {
     const email = proposalEmail.trim();
     if (!email || !/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(email)) {
@@ -701,7 +714,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 >
                   <button
                     onClick={() => setActiveThread(key)}
-                    className="w-full text-left px-3 py-2.5 pr-24"
+                    className="w-full text-left px-3 py-2.5 pr-32"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -732,6 +745,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                       )}
                       <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
                     </div>
+                  </button>
+                  <button
+                    onClick={(e) => openNotes(e, key)}
+                    className="absolute top-2 right-[5.75rem] p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 text-amber-400 transition-opacity"
+                    title="Open notes (shared with Phone)"
+                    aria-label="Open notes"
+                  >
+                    <StickyNote className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={(e) => openSendProposal(e, key)}
@@ -785,10 +806,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               onChange={(e) => setComposeBody(e.target.value)}
               className="flex-1 min-h-[120px]"
             />
-            <Button onClick={() => handleSend(composeTo)} disabled={sending || !composeTo || !composeBody.trim()}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
-              Send
-            </Button>
+            <div className="flex items-center gap-2">
+              <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="start" />
+              <Button onClick={() => handleSend(composeTo)} disabled={sending || !composeTo || !composeBody.trim()} className="ml-auto">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+                Send
+              </Button>
+            </div>
           </div>
         ) : activeThread ? (
           <>
@@ -831,6 +855,16 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 );
               })()}
               <div className="flex-1" />
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1"
+                onClick={() => activeThread && openNotes(null, activeThread)}
+                title="Open notes (shared with Phone)"
+              >
+                <StickyNote className="h-3.5 w-3.5" />
+                <span className="text-xs">Notes</span>
+              </Button>
               <Button
                 size="sm"
                 variant="ghost"
@@ -889,7 +923,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="p-3 border-t border-border flex gap-2">
+            <div className="p-3 border-t border-border flex items-end gap-2">
               <Textarea
                 placeholder="Type a reply..."
                 value={composeBody}
@@ -901,6 +935,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   }
                 }}
               />
+              <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="end" />
               <Button onClick={() => handleSend()} disabled={sending || !composeBody.trim()}>
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
@@ -984,6 +1019,11 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Shared Contact Notes — same drag-anywhere popup used on the Phone page.
+        Backed by sms_contacts.notes (keyed by phone_last10), so notes saved here
+        appear on the Phone page for the same contact, and vice versa. */}
+    <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={notesPhone} />
     </>
   );
 }
