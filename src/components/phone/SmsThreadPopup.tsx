@@ -145,14 +145,25 @@ export function SmsThreadPopup({
                   Send and receive SMS via VoidFix. Identical to the SMS page thread.
                 </DialogDescription>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 gap-1 text-xs shrink-0 mr-6"
-                onClick={() => setNotesOpen(true)}
-              >
-                <StickyNote className="h-3.5 w-3.5" /> Notes
-              </Button>
+              <div className="flex items-center gap-1.5 shrink-0 mr-6">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+                  onClick={() => moveToVideographyFunnel({ phone, name: contactName || null })}
+                  title="Create a videography funnel lead from this contact"
+                >
+                  <Workflow className="h-3.5 w-3.5" /> Move to Funnel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => setNotesOpen(true)}
+                >
+                  <StickyNote className="h-3.5 w-3.5" /> Notes
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
