@@ -121,9 +121,10 @@ Deno.serve(async (req) => {
 
     // --- (1) Default: return voicemail TwiML to be played to caller ---
     const recCallback = `${SUPABASE_URL}/functions/v1/twilio-voicemail?step=recording`;
+    const greetingUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?file=guru`;
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="alice">Sorry we missed your call. Please leave a message after the beep, then hang up.</Say>
+  <Play>${escapeXml(greetingUrl)}</Play>
   <Record
     maxLength="120"
     timeout="5"
@@ -133,7 +134,6 @@ Deno.serve(async (req) => {
     recordingStatusCallbackMethod="POST"
     recordingStatusCallbackEvent="completed"
   />
-  <Say voice="alice">We did not receive a message. Goodbye.</Say>
   <Hangup/>
 </Response>`;
 
