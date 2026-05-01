@@ -211,7 +211,106 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
     });
   }
 
-  async function sendTestSms() {
+  const [bulkBusy, setBulkBusy] = useState(false);
+  async function bulkAddToCampaign() {
+    const numbers = Array.from(new Set(
+      missed
+        .filter((m) => m.callback_status === "open")
+        .map((m) => m.phone_number)
+        .filter(Boolean)
+    ));
+    if (numbers.length === 0) {
+      toast({ title: "Nothing to add", description: "No open missed calls or voicemails." });
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id;
+      if (!uid) throw new Error("Not signed in");
+
+      const today = new Date();
+      const ds = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const campaignName = `Callbacks ${ds}`;
+
+      // Reuse today's callback campaign if it exists, else create
+      let campaignId: string | null = null;
+      const { data: existing } = await supabase
+        .from("powerdial_campaigns")
+        .select("id")
+        .eq("name", campaignName)
+        .in("status", ["idle", "paused", "running"])
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (existing && existing.length > 0) {
+        campaignId = existing[0].id;
+      } else {
+        const { data: created, error: cErr } = await supabase
+          .from("powerdial_campaigns")
+          .insert({ name: campaignName, created_by: uid, status: "idle" })
+          .select("id")
+          .single();
+        if (cErr) throw cErr;
+        campaignId = created.id;
+      }
+
+      // Existing phones in this campaign (skip dupes)
+      const { data: alreadyIn } = await supabase
+        .from("powerdial_queue")
+        .select("phone")
+        .eq("campaign_id", campaignId);
+      const existingSet = new Set((alreadyIn || []).map((r: any) => r.phone));
+
+      const { data: lastPos } = await supabase
+        .from("powerdial_queue")
+        .select("position")
+        .eq("campaign_id", campaignId)
+        .order("position", { ascending: false })
+        .limit(1);
+      let nextPos = (lastPos?.[0]?.position ?? -1) + 1;
+
+      const lookup = new Map(missed.map((m) => [m.phone_number, m]));
+      const rowsToInsert = numbers
+        .filter((p) => !existingSet.has(p))
+        .map((p) => {
+          const m = lookup.get(p);
+          return {
+            campaign_id: campaignId!,
+            phone: p,
+            contact_name: m?.customer?.full_name || null,
+            customer_id: m?.customer_id || null,
+            position: nextPos++,
+            status: "pending",
+          };
+        });
+
+      if (rowsToInsert.length === 0) {
+        toast({ title: "All already in campaign", description: campaignName });
+      } else {
+        const { error: qErr } = await supabase.from("powerdial_queue").insert(rowsToInsert);
+        if (qErr) throw qErr;
+
+        const { data: campRow } = await supabase
+          .from("powerdial_campaigns")
+          .select("total_leads")
+          .eq("id", campaignId)
+          .single();
+        await supabase
+          .from("powerdial_campaigns")
+          .update({ total_leads: (campRow?.total_leads ?? 0) + rowsToInsert.length })
+          .eq("id", campaignId);
+
+        toast({
+          title: "Added to campaign",
+          description: `${rowsToInsert.length} number(s) → ${campaignName}`,
+        });
+      }
+    } catch (e) {
+      toast({ title: "Add campaign failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
+    }
+  }
     const raw = testPhone.trim();
     const digits = raw.replace(/\D/g, "");
     if (digits.length < 10) {
