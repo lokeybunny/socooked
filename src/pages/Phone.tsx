@@ -1400,60 +1400,60 @@ export default function PhonePage() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div>
+        <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1">Softphone + audio transcription workspace.</p>
+          <p className="text-muted-foreground mt-1 text-sm">WARREN GURU softphone hub</p>
         </div>
 
-        {/* VoidFix Android Activity */}
-        <VoidFixActivityTab />
+        {/* ─── Centered Phone Hub ─── */}
+        {/* Three-column layout on desktop: [Activity] [Phone Keypad] [Interested Prospects].
+            On mobile/tablet, columns stack with the keypad first. */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,420px)_1fr] gap-6 items-start">
 
-        {/* VoidFix First-Time Auto-Reply Settings */}
-        <VoidFixFirstReplySettings />
-
-        {/* Twilio Missed-Call → VoidFix Auto-Reply */}
-        <MissedCallSettings />
-
-
-        {/* Two-column layout: Left = Transcription, Right = RingCentral */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
-          {/* ─── Left Column: Warm Leads + Transcription Tool + Recent ─── */}
-          <div className="space-y-6">
-
-            {/* Cold Leads panel removed per request */}
-
-            {/* Audio Transcription panel removed per request */}
-
+          {/* ── Left: VoidFix Activity (missed calls + SMS feed) ── */}
+          <div className="order-2 xl:order-1 space-y-6">
+            <VoidFixActivityTab />
           </div>
 
-          {/* ─── Right Column: Twilio Manual Dialer ─── */}
-          <div className="space-y-4">
-            <div className="flex flex-col items-center gap-2">
-              <div className="text-center">
-                <p className="text-lg font-bold text-foreground">Business name: WARREN GURU</p>
-              </div>
-              <div className="flex items-center gap-4 flex-wrap justify-center">
-                <Phone className="h-5 w-5 text-primary" />
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <span className="font-medium">Call Back #:</span>
-                  <span className="text-foreground">(702) 701-6192</span>
+          {/* ── Center: The Phone (focal point) ── */}
+          <div className="order-1 xl:order-2 xl:sticky xl:top-6 space-y-4">
+            <div className="glass-card p-6 rounded-3xl border-2 border-primary/20 shadow-2xl shadow-primary/10 space-y-4">
+              <div className="flex flex-col items-center gap-2">
+                <div className="text-center">
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground">Business</p>
+                  <p className="text-base font-bold text-foreground">WARREN GURU</p>
                 </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <span className="font-medium">Cell:</span>
-                  <span className="text-foreground">(424) 465-1253</span>
-                  <button
-                    onClick={() => setTeleprompterOpen(true)}
-                    className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                    title="Open Teleprompter"
-                  >
-                    <MonitorPlay className="h-4 w-4" />
-                  </button>
+                <div className="flex items-center gap-3 flex-wrap justify-center text-xs">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5 text-primary" />
+                    <span className="font-medium">Call Back:</span>
+                    <span className="text-foreground font-mono">(702) 701-6192</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="font-medium">Cell:</span>
+                    <span className="text-foreground font-mono">(424) 465-1253</span>
+                    <button
+                      onClick={() => setTeleprompterOpen(true)}
+                      className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                      title="Open Teleprompter"
+                    >
+                      <MonitorPlay className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
+              <TwilioKeypad
+                prefilledNumber={leads[currentLeadIndex]?.phone}
+              />
             </div>
-            <TwilioKeypad
-              prefilledNumber={leads[currentLeadIndex]?.phone}
-            />
+
+            {/* Settings collapsibles directly under the phone — compact */}
+            <VoidFixFirstReplySettings />
+            <MissedCallSettings />
+          </div>
+
+          {/* ── Right: Interested Prospects ── */}
+          <div className="order-3 space-y-4">
 
             {/* Recent Transcriptions panel removed per request */}
 

@@ -85,7 +85,7 @@ export default function VoidFixActivityTab() {
           .limit(500),
         supabase
           .from('powerdial_call_logs')
-          .select('id, phone, twilio_status, disposition, amd_result, customer_id, created_at, meta')
+          .select('id, phone, twilio_status, disposition, amd_result, customer_id, created_at, meta, source, missed, dial_call_status')
           .gte('created_at', since)
           .order('created_at', { ascending: false })
           .limit(500),
@@ -100,9 +100,15 @@ export default function VoidFixActivityTab() {
       ]);
 
       const smsRows = (smsData || []) as SmsRow[];
-      const twilioCallRows: CallRow[] = (callData || []).map((r: any) => ({
-        ...r, source: 'twilio' as const, direction: 'outbound' as const,
-      }));
+      const twilioCallRows: CallRow[] = (callData || []).map((r: any) => {
+        // Inbound forwarded calls (VoidFix → Twilio → Verizon) come through with source='twilio_forwarded_voidfix'
+        const isForwardedInbound = (r.source || '').includes('twilio_forwarded') || r.meta?.inbound === true;
+        return {
+          ...r,
+          source: 'twilio' as const,
+          direction: (isForwardedInbound ? 'inbound' : 'outbound') as 'inbound' | 'outbound',
+        };
+      });
       const voidfixCallRows: CallRow[] = (voidfixCallData || []).map((r: any) => ({
         id: r.id,
         phone: r.phone_number || r.from_address || r.to_address || '',
@@ -180,15 +186,22 @@ export default function VoidFixActivityTab() {
     }
   };
 
+  // Helper: detect missed call across both sources
+  const isMissedCall = (c: CallRow) => {
+    if ((c as any).missed === true) return true;
+    const s = (c.twilio_status || '').toLowerCase();
+    const d = ((c as any).dial_call_status || '').toLowerCase();
+    if (['no-answer', 'busy', 'failed', 'missed', 'canceled'].includes(s)) return true;
+    if (['no-answer', 'busy', 'failed', 'canceled'].includes(d)) return true;
+    return (c.disposition || '').toLowerCase().includes('miss');
+  };
+
   // Stats (today)
   const stats = useMemo(() => {
     const todaySms = sms.filter(s => isToday(new Date(s.created_at)));
     const todayCalls = calls.filter(c => isToday(new Date(c.created_at)));
     return {
-      missedToday: todayCalls.filter(c =>
-        ['no-answer', 'busy', 'failed', 'missed'].includes((c.twilio_status || '').toLowerCase())
-        || (c.disposition || '').toLowerCase().includes('miss')
-      ).length,
+      missedToday: todayCalls.filter(isMissedCall).length,
       inboundToday: todaySms.filter(s => s.direction === 'inbound').length,
       outboundToday: todaySms.filter(s => s.direction === 'outbound').length,
     };
@@ -213,10 +226,9 @@ export default function VoidFixActivityTab() {
     const q = search.trim().toLowerCase();
     return feed.filter(item => {
       // filter
-      if (filter === 'missed' && item.kind !== 'call') return false;
-      if (filter === 'missed' && item.kind === 'call') {
-        const s = (item.row.twilio_status || '').toLowerCase();
-        if (!['no-answer', 'busy', 'failed', 'missed'].includes(s)) return false;
+      if (filter === 'missed') {
+        if (item.kind !== 'call') return false;
+        if (!isMissedCall(item.row)) return false;
       }
       if (filter === 'inbound_sms' && !(item.kind === 'sms' && item.row.direction === 'inbound')) return false;
       if (filter === 'outbound_sms' && !(item.kind === 'sms' && item.row.direction === 'outbound')) return false;
@@ -263,11 +275,15 @@ export default function VoidFixActivityTab() {
   };
 
   const callTypeBadge = (c: CallRow) => {
-    const s = (c.twilio_status || '').toLowerCase();
-    if (['no-answer', 'busy', 'failed', 'missed'].includes(s)) {
+    if (isMissedCall(c)) {
       return <Badge variant="destructive" className="gap-1 text-[10px]"><PhoneMissed className="h-3 w-3" />Missed</Badge>;
     }
-    if (s === 'completed') return <Badge variant="secondary" className="gap-1 text-[10px]"><PhoneIncoming className="h-3 w-3" />Completed</Badge>;
+    const s = (c.twilio_status || '').toLowerCase();
+    if (s === 'completed') {
+      return c.direction === 'inbound'
+        ? <Badge variant="secondary" className="gap-1 text-[10px]"><PhoneIncoming className="h-3 w-3" />Inbound</Badge>
+        : <Badge variant="secondary" className="gap-1 text-[10px]"><PhoneOutgoing className="h-3 w-3" />Outbound</Badge>;
+    }
     return <Badge variant="outline" className="gap-1 text-[10px]"><PhoneOutgoing className="h-3 w-3" />{c.twilio_status || 'unknown'}</Badge>;
   };
 
@@ -299,7 +315,8 @@ export default function VoidFixActivityTab() {
       {open && (
         <>
           {/* Stat cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={<PhoneMissed className="h-4 w-4 text-destructive" />} label="Missed calls today" value={stats.missedToday} />
             <StatCard icon={<MessageSquare className="h-4 w-4 text-primary" />} label="Inbound SMS today" value={stats.inboundToday} />
             <StatCard icon={<Send className="h-4 w-4 text-primary" />} label="Outbound SMS today" value={stats.outboundToday} />
             <StatCard icon={<Smartphone className="h-4 w-4 text-emerald-500" />} label="Device" value="Online" small />
@@ -317,6 +334,7 @@ export default function VoidFixActivityTab() {
               />
             </div>
             <FilterPill active={filter === 'all'} onClick={() => setFilter('all')}>All</FilterPill>
+            <FilterPill active={filter === 'missed'} onClick={() => setFilter('missed')}>Missed</FilterPill>
             <FilterPill active={filter === 'inbound_sms'} onClick={() => setFilter('inbound_sms')}>Inbound SMS</FilterPill>
             <FilterPill active={filter === 'outbound_sms'} onClick={() => setFilter('outbound_sms')}>Outbound SMS</FilterPill>
             <FilterPill active={filter === 'today'} onClick={() => setFilter('today')}>Today</FilterPill>
