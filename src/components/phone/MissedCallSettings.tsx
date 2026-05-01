@@ -349,9 +349,9 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
-      <Card>
+      {showVoiceWebhook && (<Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Twilio Voice Webhook</CardTitle>
           <CardDescription>Routes inbound calls on your Twilio number through this CRM.</CardDescription>
