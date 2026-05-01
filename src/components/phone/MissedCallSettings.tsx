@@ -485,7 +485,14 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                           </div>
                         </div>
                         {m.voicemail_recording_sid && (
-                          <VoicemailPlayer sid={m.voicemail_recording_sid} />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <VoicemailPlayer sid={m.voicemail_recording_sid} />
+                            <SaveToCampaignButton
+                              phone={m.phone_number}
+                              contactName={m.customer?.full_name || null}
+                              customerId={m.customer_id}
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
