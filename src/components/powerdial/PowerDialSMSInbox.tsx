@@ -806,10 +806,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               onChange={(e) => setComposeBody(e.target.value)}
               className="flex-1 min-h-[120px]"
             />
-            <Button onClick={() => handleSend(composeTo)} disabled={sending || !composeTo || !composeBody.trim()}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
-              Send
-            </Button>
+            <div className="flex items-center gap-2">
+              <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="start" />
+              <Button onClick={() => handleSend(composeTo)} disabled={sending || !composeTo || !composeBody.trim()} className="ml-auto">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+                Send
+              </Button>
+            </div>
           </div>
         ) : activeThread ? (
           <>
