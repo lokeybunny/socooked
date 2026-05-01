@@ -63,16 +63,23 @@ Deno.serve(async (req) => {
     const basic = btoa(`${owningAccountSid}:${TWILIO_AUTH_TOKEN}`);
     const range = req.headers.get("range") || undefined;
 
-    const upstream = await fetch(twilioUrl, {
+    const fetchTwilio = () => fetch(twilioUrl, {
       headers: {
         Authorization: `Basic ${basic}`,
         ...(range ? { Range: range } : {}),
       },
     });
 
+    let upstream = await fetchTwilio();
+    // Twilio sometimes returns 500 if the recording is still being processed; retry once
+    if (upstream.status === 500 || upstream.status === 404) {
+      await new Promise((r) => setTimeout(r, 1500));
+      upstream = await fetchTwilio();
+    }
+
     if (!upstream.ok && upstream.status !== 206) {
       const text = await upstream.text().catch(() => "");
-      return new Response(`Twilio error ${upstream.status}: ${text}`, { status: 502, headers: CORS });
+      return new Response(`Twilio error ${upstream.status} for ${twilioUrl}: ${text}`, { status: 502, headers: CORS });
     }
 
     const headers = new Headers(CORS);
