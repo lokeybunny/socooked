@@ -208,6 +208,7 @@ export default function SMS() {
           <TabsContent value="hook-reply"><HookReplyTab /></TabsContent>
           <TabsContent value="dnd"><DNDListTab /></TabsContent>
           <TabsContent value="auto-reply"><AutoReplyWorkflow /></TabsContent>
+          <TabsContent value="voidfix-first-reply"><VoidFixFirstReplySettings /></TabsContent>
           <TabsContent value="vm-followup"><VoicemailFollowupSettings /></TabsContent>
 
           <TabsContent value="blast">
