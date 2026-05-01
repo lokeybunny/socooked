@@ -129,12 +129,15 @@ Deno.serve(async (req) => {
     });
 
     const actionUrl = `${SUPABASE_URL}/functions/v1/twilio-dial-complete`;
+    const whisperUrl = `${SUPABASE_URL}/functions/v1/twilio-whisper?from=${encodeURIComponent(from)}`;
     const callerId = from || normalizePhone(TWILIO_FROM) || TWILIO_FROM;
 
+    // Whisper on the Verizon leg ("Press 1 to accept") prevents Verizon voicemail from
+    // auto-answering and falsely marking the call as completed.
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial timeout="${cfg.timeout_seconds}" action="${escapeXml(actionUrl)}" method="POST" callerId="${escapeXml(callerId)}" answerOnBridge="true">
-    <Number>${escapeXml(cfg.forward_to)}</Number>
+    <Number url="${escapeXml(whisperUrl)}" method="POST">${escapeXml(cfg.forward_to)}</Number>
   </Dial>
 </Response>`;
 
