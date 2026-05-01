@@ -72,5 +72,20 @@ Deno.serve(async (req) => {
     return json({ ok: true, voice_url: d.voice_url, sid });
   }
 
+  if (action === "list") {
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers.json?PageSize=50`, {
+      headers: { Authorization: basicAuth() },
+    });
+    const d = await r.json();
+    if (!r.ok) return json({ ok: false, error: d?.message || `twilio_${r.status}`, raw: d }, 500);
+    const numbers = (d?.incoming_phone_numbers || []).map((n: any) => ({
+      sid: n.sid,
+      phone_number: n.phone_number,
+      friendly_name: n.friendly_name,
+      voice_url: n.voice_url,
+    }));
+    return json({ ok: true, current_TWILIO_FROM_NUMBER: TWILIO_FROM, numbers });
+  }
+
   return json({ ok: false, error: "unknown_action" }, 400);
 });
