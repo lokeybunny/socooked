@@ -163,6 +163,9 @@ export default function PhonePage() {
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustSaving, setNewCustSaving] = useState(false);
 
+  // Phone page settings sheet
+  const [phoneSettingsOpen, setPhoneSettingsOpen] = useState(false);
+
   const loadData = useCallback(async () => {
     const [custRes, transRes, leadsRes, callbackProspectsRes] = await Promise.all([
       supabase.from('customers').select('id, full_name, phone, email'),
