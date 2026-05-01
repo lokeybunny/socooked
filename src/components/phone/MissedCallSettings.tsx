@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink, Send, ListPlus } from "lucide-react";
 import { SaveToCampaignButton } from "./SaveToCampaignButton";
+import { SmsThreadPopup } from "./SmsThreadPopup";
 
 const DEFAULT_MESSAGE =
   "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
@@ -99,6 +100,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
   const [auditLoading, setAuditLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testBusy, setTestBusy] = useState(false);
+  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
 
   async function loadCfg() {
     setLoading(true);
@@ -578,6 +580,14 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                             <Button size="sm" variant="ghost" asChild>
                               <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 h-7 text-xs"
+                              onClick={() => setSmsPopup({ phone: m.phone_number, name: m.customer?.full_name || null })}
+                            >
+                              <MessageSquare className="h-3.5 w-3.5" /> SMS
+                            </Button>
                             {m.callback_status === "open" && (
                               <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
                             )}
@@ -617,6 +627,15 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
           )}
         </CardContent>
       </Card>)}
+
+      {smsPopup && (
+        <SmsThreadPopup
+          open={!!smsPopup}
+          onOpenChange={(v) => { if (!v) setSmsPopup(null); }}
+          phone={smsPopup.phone}
+          contactName={smsPopup.name}
+        />
+      )}
     </div>
   );
 }
