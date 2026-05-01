@@ -155,6 +155,9 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
         left: pos.x,
         width: PANEL_WIDTH,
       }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Drag handle / header */}
       <div
