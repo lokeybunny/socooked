@@ -38,6 +38,8 @@ type CallRow = {
   customer_id: string | null;
   created_at: string;
   meta: any;
+  direction?: 'inbound' | 'outbound' | null;
+  source?: 'twilio' | 'voidfix';
 };
 
 type Filter = 'all' | 'missed' | 'inbound_sms' | 'outbound_sms' | 'today' | 'week' | 'unmatched';
@@ -72,7 +74,7 @@ export default function VoidFixActivityTab() {
     try {
       const since = subDays(new Date(), 30).toISOString();
 
-      const [{ data: smsData }, { data: callData }] = await Promise.all([
+      const [{ data: smsData }, { data: callData }, { data: voidfixCallData }] = await Promise.all([
         supabase
           .from('communications')
           .select('id, direction, status, phone_number, from_address, to_address, body, provider, created_at, customer_id, metadata')
@@ -87,10 +89,34 @@ export default function VoidFixActivityTab() {
           .gte('created_at', since)
           .order('created_at', { ascending: false })
           .limit(500),
+        supabase
+          .from('communications')
+          .select('id, direction, status, phone_number, from_address, to_address, created_at, customer_id, metadata')
+          .eq('type', 'call')
+          .eq('provider', 'voidfix')
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(500),
       ]);
 
       const smsRows = (smsData || []) as SmsRow[];
-      const callRows = (callData || []) as CallRow[];
+      const twilioCallRows: CallRow[] = (callData || []).map((r: any) => ({
+        ...r, source: 'twilio' as const, direction: 'outbound' as const,
+      }));
+      const voidfixCallRows: CallRow[] = (voidfixCallData || []).map((r: any) => ({
+        id: r.id,
+        phone: r.phone_number || r.from_address || r.to_address || '',
+        twilio_status: r.status,
+        disposition: r.status,
+        amd_result: null,
+        customer_id: r.customer_id,
+        created_at: r.created_at,
+        meta: r.metadata,
+        direction: r.direction,
+        source: 'voidfix' as const,
+      }));
+      const callRows: CallRow[] = [...voidfixCallRows, ...twilioCallRows]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setSms(smsRows);
       setCalls(callRows);
 
@@ -137,12 +163,16 @@ export default function VoidFixActivityTab() {
   const pullVoidfix = async () => {
     setSyncing(true);
     try {
-      const { error } = await supabase.functions.invoke('powerdial-sms', { body: { action: 'poll' } });
-      if (error) throw error;
-      toast.success('Pulled latest from VoidFix device');
+      const [smsRes, callsRes] = await Promise.all([
+        supabase.functions.invoke('powerdial-sms', { body: { action: 'poll' } }),
+        supabase.functions.invoke('powerdial-sms', { body: { action: 'poll_calls' } }),
+      ]);
+      if (smsRes.error && callsRes.error) throw smsRes.error;
+      const smsImported = (smsRes.data as any)?.imported ?? 0;
+      const callsImported = (callsRes.data as any)?.imported ?? 0;
+      toast.success(`Synced VoidFix: ${smsImported} new SMS, ${callsImported} new calls`);
       await load();
     } catch (e: any) {
-      // Fallback: just refresh from DB
       await load();
       toast.message('Refreshed from database');
     } finally {
