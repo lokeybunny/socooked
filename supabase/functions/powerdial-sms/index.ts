@@ -531,8 +531,9 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       }).select("id, created_at").single();
-      // No cell auto-reply for poll-imported inbound texts — auto-reply is
-      // landline-only (handled by twilio-sms-inbound).
+      // First-time texter auto-reply for poll-imported inbound
+      await maybeSendFirstTimeAutoReply(from);
+
       // Hook Reply classifier — awaited so the fetch survives in edge runtime
       try {
         await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
