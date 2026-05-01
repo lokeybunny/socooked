@@ -156,6 +156,11 @@ export function Sidebar() {
       localStorage.setItem('messages_last_seen', new Date().toISOString());
       lastSeenMessagesRef.current = new Date().toISOString();
     }
+    if (location.pathname === '/sms') {
+      setHasNewSms(false);
+      localStorage.setItem('sms_last_seen', new Date().toISOString());
+      lastSeenSmsRef.current = new Date().toISOString();
+    }
     if (location.pathname === '/funnels') {
       setFunnelCount(0);
       localStorage.setItem('funnels_last_seen', new Date().toISOString());
