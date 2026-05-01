@@ -1627,6 +1627,25 @@ export default function PhonePage() {
         </div>
       </div>
 
+      {/* Phone Settings Sheet — holds VoidFix activity, auto-reply config, voice webhook */}
+      <Sheet open={phoneSettingsOpen} onOpenChange={setPhoneSettingsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" /> Phone Settings
+            </SheetTitle>
+            <SheetDescription>
+              Auto-reply configuration, voice webhook, and VoidFix SMS activity.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-6">
+            <MissedCallSettings section="settings" />
+            <VoidFixFirstReplySettings />
+            <VoidFixActivityTab />
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* New Customer Dialog */}
       <Dialog open={newCustOpen} onOpenChange={setNewCustOpen}>
         <DialogContent className="sm:max-w-md">
