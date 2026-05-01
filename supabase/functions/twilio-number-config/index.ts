@@ -10,6 +10,7 @@ const CORS = {
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+const TWILIO_PHONE_SID = Deno.env.get("TWILIO_PHONE_SID") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
 function json(d: unknown, status = 200) {
