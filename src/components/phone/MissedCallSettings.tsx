@@ -311,6 +311,8 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
       setBulkBusy(false);
     }
   }
+
+  async function sendTestSms() {
     const raw = testPhone.trim();
     const digits = raw.replace(/\D/g, "");
     if (digits.length < 10) {
