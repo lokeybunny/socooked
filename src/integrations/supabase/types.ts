@@ -3451,6 +3451,11 @@ export type Database = {
           phone_number: string
           status: string
           updated_at: string
+          voicemail_duration: number | null
+          voicemail_received_at: string | null
+          voicemail_recording_sid: string | null
+          voicemail_recording_url: string | null
+          voicemail_transcription: string | null
           voidfix_message_id: string | null
         }
         Insert: {
@@ -3469,6 +3474,11 @@ export type Database = {
           phone_number: string
           status?: string
           updated_at?: string
+          voicemail_duration?: number | null
+          voicemail_received_at?: string | null
+          voicemail_recording_sid?: string | null
+          voicemail_recording_url?: string | null
+          voicemail_transcription?: string | null
           voidfix_message_id?: string | null
         }
         Update: {
@@ -3487,6 +3497,11 @@ export type Database = {
           phone_number?: string
           status?: string
           updated_at?: string
+          voicemail_duration?: number | null
+          voicemail_received_at?: string | null
+          voicemail_recording_sid?: string | null
+          voicemail_recording_url?: string | null
+          voicemail_transcription?: string | null
           voidfix_message_id?: string | null
         }
         Relationships: [
