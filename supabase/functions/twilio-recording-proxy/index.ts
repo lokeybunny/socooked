@@ -60,7 +60,10 @@ Deno.serve(async (req) => {
       ? storedUrl.replace(/\.(mp3|wav)(\?.*)?$/i, "")
       : `https://api.twilio.com/2010-04-01/Accounts/${owningAccountSid}/Recordings/${sid}`;
     const twilioUrl = `${baseUrl}.mp3`;
-    const basic = btoa(`${owningAccountSid}:${TWILIO_AUTH_TOKEN}`);
+    // Basic auth must use the credentials that own TWILIO_AUTH_TOKEN (the main account).
+    // The main account can access subaccount recording URLs.
+    const authSid = TWILIO_ACCOUNT_SID || owningAccountSid;
+    const basic = btoa(`${authSid}:${TWILIO_AUTH_TOKEN}`);
     const range = req.headers.get("range") || undefined;
 
     const fetchTwilio = () => fetch(twilioUrl, {
