@@ -100,6 +100,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
   const [auditLoading, setAuditLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
   const [testBusy, setTestBusy] = useState(false);
+  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
 
   async function loadCfg() {
     setLoading(true);
