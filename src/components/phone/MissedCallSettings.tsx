@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink } from "lucide-react";
+import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink, Send } from "lucide-react";
 
 const DEFAULT_MESSAGE =
   "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
@@ -60,6 +60,8 @@ export default function MissedCallSettings() {
   const [webhookBusy, setWebhookBusy] = useState(false);
   const [missed, setMissed] = useState<MissedRow[]>([]);
   const [missedLoading, setMissedLoading] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
 
   async function loadCfg() {
     setLoading(true);
@@ -134,6 +136,37 @@ export default function MissedCallSettings() {
     loadMissed();
   }
 
+  async function sendTestSms() {
+    const raw = testPhone.trim();
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length < 10) {
+      toast({ title: "Enter a valid phone", description: "Need at least 10 digits.", variant: "destructive" });
+      return;
+    }
+    const to = digits.length === 10 ? `+1${digits}` : digits.startsWith("1") ? `+${digits}` : `+${digits}`;
+    setTestBusy(true);
+    const { data, error } = await supabase.functions.invoke("powerdial-sms", {
+      body: {
+        action: "send",
+        to,
+        body: cfg.message,
+        source: "missed-call-test-button",
+        metadata: { source_kind: "missed_call_test" },
+      },
+    });
+    setTestBusy(false);
+    const ok = !error && (data as any)?.ok !== false;
+    if (!ok) {
+      toast({
+        title: "VoidFix send failed",
+        description: error?.message || (data as any)?.error || "Unknown error",
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Test SMS sent via VoidFix", description: `Sent to ${to}` });
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
@@ -190,6 +223,23 @@ export default function MissedCallSettings() {
               </div>
 
               <Button onClick={save} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Save settings</Button>
+
+              <div className="rounded-lg border border-dashed p-3 space-y-2 bg-muted/20">
+                <div className="flex items-center gap-2 text-sm font-medium"><Send className="h-4 w-4" /> Test VoidFix → SMS leg</div>
+                <p className="text-xs text-muted-foreground">Sends the auto-reply message above through VoidFix without involving Twilio. Confirms the SMS gateway works.</p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="+14244651253 or 4244651253"
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button onClick={sendTestSms} disabled={testBusy || !testPhone.trim()} variant="secondary">
+                    {testBusy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                    Send test SMS
+                  </Button>
+                </div>
+              </div>
             </>
           )}
         </CardContent>
