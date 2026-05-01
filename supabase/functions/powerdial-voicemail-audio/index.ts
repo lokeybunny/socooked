@@ -95,7 +95,14 @@ function audioHeaders(mime: string, length: number) {
     // re-fetch byte ranges which has caused mid-playback "application error"
     // TTS interruptions when a chunk request times out.
     "Accept-Ranges": "none",
-    "Cache-Control": "public, max-age=86400, immutable",
+    // IMPORTANT: do NOT use `immutable` or long max-age. When an admin
+    // re-uploads or activates a different voicemail recording, Twilio /
+    // Cloudflare edge nodes were serving the previously cached audio for the
+    // same `?id=<uuid>` URL, causing the wrong recording to play. Keep the
+    // window short and require revalidation. We also rely on a `?v=<ts>`
+    // cache-busting param from the webhook, but a conservative cache header
+    // is the belt-and-suspenders fix.
+    "Cache-Control": "public, max-age=30, must-revalidate",
     "X-Content-Type-Options": "nosniff",
   };
 }
