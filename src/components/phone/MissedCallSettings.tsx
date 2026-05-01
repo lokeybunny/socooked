@@ -155,13 +155,13 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
     loadWebhook();
     const ch = supabase
       .channel("missed-calls")
-      .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_events" }, () => loadMissed())
-      .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_webhook_audit" }, () => loadAudit())
+      .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_events" }, () => loadMissed({ silent: true }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_webhook_audit" }, () => loadAudit({ silent: true }))
       .subscribe();
-    // Polling fallback for snappy updates (every 5s)
+    // Silent background polling — no spinner, no flicker
     const poll = setInterval(() => {
-      loadMissed();
-      loadAudit();
+      loadMissed({ silent: true });
+      loadAudit({ silent: true });
     }, 5000);
     return () => { supabase.removeChannel(ch); clearInterval(poll); };
   }, []);
