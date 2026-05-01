@@ -444,6 +444,14 @@ export default function PowerDialSMSInbox() {
     setProposalOpen(true);
   };
 
+  const openNotes = (e: React.MouseEvent | null, phoneKey: string) => {
+    if (e) e.stopPropagation();
+    const last10 = normalizeLast10(phoneKey);
+    if (last10.length !== 10) { toast.error('Invalid phone number'); return; }
+    setNotesPhone('+1' + last10);
+    setNotesOpen(true);
+  };
+
   const handleProposalContinue = async () => {
     const email = proposalEmail.trim();
     if (!email || !/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(email)) {
