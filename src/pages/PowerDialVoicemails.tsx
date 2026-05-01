@@ -90,7 +90,31 @@ async function decodeAndResample(file: File): Promise<{ samples: Float32Array; d
   src.connect(offline.destination);
   src.start();
   const rendered = await offline.startRendering();
-  return { samples: rendered.getChannelData(0).slice(), durationSec };
+  const raw = rendered.getChannelData(0).slice();
+
+  // Normalize so the recording matches the loudness profile of the working
+  // voicemail-guru file. μ-law over Twilio sounds like static if the input is
+  // either too hot (clipping) or too quiet (encoder noise floor dominates).
+  // Target peak: -3 dBFS (~0.707), with a hard ceiling at 0.95.
+  let peak = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const v = Math.abs(raw[i]);
+    if (v > peak) peak = v;
+  }
+  if (peak > 0) {
+    const target = 0.707;
+    const gain = Math.min(target / peak, 4); // cap gain so silent files don't get amplified to noise
+    if (Math.abs(gain - 1) > 0.01) {
+      for (let i = 0; i < raw.length; i++) {
+        let s = raw[i] * gain;
+        if (s > 0.95) s = 0.95;
+        else if (s < -0.95) s = -0.95;
+        raw[i] = s;
+      }
+    }
+  }
+
+  return { samples: raw, durationSec };
 }
 
 export default function PowerDialVoicemails() {
