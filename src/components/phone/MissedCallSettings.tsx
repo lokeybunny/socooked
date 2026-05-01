@@ -525,7 +525,13 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
               <CardTitle className="flex items-center gap-2"><PhoneMissed className="h-5 w-5" /> Recent Missed Calls</CardTitle>
               <CardDescription>Recent missed calls and voicemails forwarded through Twilio (5 per page).</CardDescription>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" className="gap-1" onClick={bulkAddToCampaign} disabled={bulkBusy || missed.length === 0}>
+                {bulkBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListPlus className="h-3 w-3" />}
+                Add Campaign
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
