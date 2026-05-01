@@ -1019,6 +1019,11 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Shared Contact Notes — same drag-anywhere popup used on the Phone page.
+        Backed by sms_contacts.notes (keyed by phone_last10), so notes saved here
+        appear on the Phone page for the same contact, and vice versa. */}
+    <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={notesPhone} />
     </>
   );
 }
