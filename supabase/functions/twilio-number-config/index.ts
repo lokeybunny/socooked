@@ -10,7 +10,8 @@ const CORS = {
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN") || "";
 const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
-const TWILIO_PHONE_SID = Deno.env.get("TWILIO_PHONE_SID") || "";
+// Hardcoded fallback SID for +1 702-829-8105 (forwards to 702-701-6192)
+const TWILIO_PHONE_SID = Deno.env.get("TWILIO_PHONE_SID") || "PN886a8a5f97335d5a795f13d8b04ebee4";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
 function json(d: unknown, status = 200) {
