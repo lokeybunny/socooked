@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink, Send } from "lucide-react";
+import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink, Send, ListPlus } from "lucide-react";
 import { SaveToCampaignButton } from "./SaveToCampaignButton";
 
 const DEFAULT_MESSAGE =
@@ -209,6 +209,107 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
       title: status === "dismissed" ? "Voicemail dismissed" : "Marked as done",
       description: "Removed from missed-call list.",
     });
+  }
+
+  const [bulkBusy, setBulkBusy] = useState(false);
+  async function bulkAddToCampaign() {
+    const numbers = Array.from(new Set(
+      missed
+        .filter((m) => m.callback_status === "open")
+        .map((m) => m.phone_number)
+        .filter(Boolean)
+    ));
+    if (numbers.length === 0) {
+      toast({ title: "Nothing to add", description: "No open missed calls or voicemails." });
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes.user?.id;
+      if (!uid) throw new Error("Not signed in");
+
+      const today = new Date();
+      const ds = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const campaignName = `Callbacks ${ds}`;
+
+      // Reuse today's callback campaign if it exists, else create
+      let campaignId: string | null = null;
+      const { data: existing } = await supabase
+        .from("powerdial_campaigns")
+        .select("id")
+        .eq("name", campaignName)
+        .in("status", ["idle", "paused", "running"])
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (existing && existing.length > 0) {
+        campaignId = existing[0].id;
+      } else {
+        const { data: created, error: cErr } = await supabase
+          .from("powerdial_campaigns")
+          .insert({ name: campaignName, created_by: uid, status: "idle" })
+          .select("id")
+          .single();
+        if (cErr) throw cErr;
+        campaignId = created.id;
+      }
+
+      // Existing phones in this campaign (skip dupes)
+      const { data: alreadyIn } = await supabase
+        .from("powerdial_queue")
+        .select("phone")
+        .eq("campaign_id", campaignId);
+      const existingSet = new Set((alreadyIn || []).map((r: any) => r.phone));
+
+      const { data: lastPos } = await supabase
+        .from("powerdial_queue")
+        .select("position")
+        .eq("campaign_id", campaignId)
+        .order("position", { ascending: false })
+        .limit(1);
+      let nextPos = (lastPos?.[0]?.position ?? -1) + 1;
+
+      const lookup = new Map(missed.map((m) => [m.phone_number, m]));
+      const rowsToInsert = numbers
+        .filter((p) => !existingSet.has(p))
+        .map((p) => {
+          const m = lookup.get(p);
+          return {
+            campaign_id: campaignId!,
+            phone: p,
+            contact_name: m?.customer?.full_name || null,
+            customer_id: m?.customer_id || null,
+            position: nextPos++,
+            status: "pending",
+          };
+        });
+
+      if (rowsToInsert.length === 0) {
+        toast({ title: "All already in campaign", description: campaignName });
+      } else {
+        const { error: qErr } = await supabase.from("powerdial_queue").insert(rowsToInsert);
+        if (qErr) throw qErr;
+
+        const { data: campRow } = await supabase
+          .from("powerdial_campaigns")
+          .select("total_leads")
+          .eq("id", campaignId)
+          .single();
+        await supabase
+          .from("powerdial_campaigns")
+          .update({ total_leads: (campRow?.total_leads ?? 0) + rowsToInsert.length })
+          .eq("id", campaignId);
+
+        toast({
+          title: "Added to campaign",
+          description: `${rowsToInsert.length} number(s) → ${campaignName}`,
+        });
+      }
+    } catch (e) {
+      toast({ title: "Add campaign failed", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   async function sendTestSms() {
@@ -424,7 +525,13 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
               <CardTitle className="flex items-center gap-2"><PhoneMissed className="h-5 w-5" /> Recent Missed Calls</CardTitle>
               <CardDescription>Recent missed calls and voicemails forwarded through Twilio (5 per page).</CardDescription>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" className="gap-1" onClick={bulkAddToCampaign} disabled={bulkBusy || missed.length === 0}>
+                {bulkBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <ListPlus className="h-3 w-3" />}
+                Add Campaign
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -472,10 +579,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                               <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
                             </Button>
                             {m.callback_status === "open" && (
-                              <>
-                                <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "callback_done")}>Done</Button>
-                                <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
-                              </>
+                              <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
                             )}
                             {m.customer_id && (
                               <Button size="sm" variant="ghost" asChild>
