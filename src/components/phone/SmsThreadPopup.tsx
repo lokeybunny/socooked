@@ -118,7 +118,21 @@ export function SmsThreadPopup({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
+        <DialogContent
+          className="max-w-lg p-0 gap-0 overflow-hidden"
+          onPointerDownOutside={(e) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
+          }}
+          onFocusOutside={(e) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
+          }}
+        >
           <DialogHeader className="px-4 py-3 border-b">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
