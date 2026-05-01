@@ -40,6 +40,10 @@ type MissedRow = {
   voidfix_message_id: string | null;
   error_message: string | null;
   created_at: string;
+  voicemail_recording_url: string | null;
+  voicemail_recording_sid: string | null;
+  voicemail_duration: number | null;
+  voicemail_received_at: string | null;
   customer?: { full_name: string | null } | null;
 };
 
