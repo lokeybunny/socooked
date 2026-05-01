@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return ackResp;
+    return voicemailResp();
   } catch (err) {
     console.error("[twilio-dial-complete]", err);
     await auditDialComplete({ stage: "error", error: (err as Error).message });
