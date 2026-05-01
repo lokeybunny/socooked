@@ -331,7 +331,10 @@ async function applyFastResponseSettings(assistantId: string, humanTransferPhone
   }
 }
 
-export async function prepareVapiOutboundAssistant(assistantId: string): Promise<VapiAssistantPreparationResult> {
+export async function prepareVapiOutboundAssistant(
+  assistantId: string,
+  humanTransferPhone = DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE,
+): Promise<VapiAssistantPreparationResult> {
   const resolvedAssistantId = assistantId.trim();
 
   if (!resolvedAssistantId) {
@@ -353,7 +356,7 @@ export async function prepareVapiOutboundAssistant(assistantId: string): Promise
   }
 
   // Tune the assistant for instant first-word response (fire-and-forget; non-blocking on errors)
-  await applyFastResponseSettings(resolvedAssistantId);
+  await applyFastResponseSettings(resolvedAssistantId, humanTransferPhone);
 
   try {
     const patchResult = await fetchVapiJson(`/phone-number/${VAPI_PHONE_NUMBER_ID}`, {
