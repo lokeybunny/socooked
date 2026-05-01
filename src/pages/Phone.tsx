@@ -1411,6 +1411,9 @@ export default function PhonePage() {
         {/* VoidFix First-Time Auto-Reply Settings */}
         <VoidFixFirstReplySettings />
 
+        {/* Twilio Missed-Call → VoidFix Auto-Reply */}
+        <MissedCallSettings />
+
 
         {/* Two-column layout: Left = Transcription, Right = RingCentral */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
