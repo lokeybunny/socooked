@@ -451,7 +451,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
     </div>
   );
 }
