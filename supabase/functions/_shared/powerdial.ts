@@ -287,33 +287,6 @@ async function applyFastResponseSettings(assistantId: string, humanTransferPhone
         voiceSeconds: 0.2,
         backoffSeconds: 1.0,
       },
-      // ===== TELEPHONY AUDIO COLORING =====
-      // Make the AI voice sound like it's coming through a real phone line
-      // (8kHz narrowband + 300–3400Hz band-pass = classic PSTN/cell call sound).
-      // This blends the assistant audio with the rest of the call so she doesn't
-      // sound like a studio mic over a phone call.
-      transport: {
-        provider: "vapi",
-        // Force narrowband telephony sample rate on the outbound audio
-        audioSampleRate: 8000,
-      },
-      voice: {
-        // Apply a phone-line band-pass filter to the TTS output before it hits the PSTN
-        chunkPlan: {
-          enabled: true,
-          formatPlan: {
-            type: "pcm_mulaw",
-            sampleRate: 8000,
-            // Band-pass: cut everything below 300Hz and above 3400Hz (telephony band)
-            audioFilters: [
-              { type: "highpass", frequency: 300 },
-              { type: "lowpass", frequency: 3400 },
-              // Slight compression so it sits in the call mix naturally
-              { type: "compressor", threshold: -18, ratio: 3, attack: 5, release: 50 },
-            ],
-          },
-        },
-      },
     };
 
     const result = await fetchVapiJson(`/assistant/${assistantId}`, {
