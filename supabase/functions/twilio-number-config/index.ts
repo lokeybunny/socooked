@@ -63,10 +63,11 @@ Deno.serve(async (req) => {
   }
 
   if (action === "configure") {
-    // Allow explicit sid override (e.g. PN…) so we can wire a number even if TWILIO_FROM_NUMBER is misconfigured
+    // Priority: explicit body.sid > TWILIO_PHONE_SID env > lookup by TWILIO_FROM
     let sid: string | null = typeof body?.sid === "string" && body.sid.startsWith("PN") ? body.sid : null;
+    if (!sid && TWILIO_PHONE_SID.startsWith("PN")) sid = TWILIO_PHONE_SID;
     if (!sid) {
-      if (!TWILIO_FROM) return json({ ok: false, error: "missing_TWILIO_FROM_NUMBER_or_sid" }, 500);
+      if (!TWILIO_FROM) return json({ ok: false, error: "missing_TWILIO_PHONE_SID_or_FROM_NUMBER" }, 500);
       sid = await findNumberSid(TWILIO_FROM);
       if (!sid) return json({ ok: false, error: "number_not_found_in_account", number: TWILIO_FROM });
     }
