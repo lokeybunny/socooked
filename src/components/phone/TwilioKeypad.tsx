@@ -52,8 +52,16 @@ export default function TwilioKeypad({ prefilledNumber, onCallComplete }: Twilio
   const [callDuration, setCallDuration] = useState(0);
   const [dialing, setDialing] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const tickRef = useRef<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
+
+  // Auto-open notes popup when a call goes active
+  useEffect(() => {
+    if (activeCall && number.replace(/\D/g, '').length >= 10) {
+      setNotesOpen(true);
+    }
+  }, [activeCall]);
 
   useEffect(() => {
     if (prefilledNumber) setNumber(prefilledNumber.replace(/\D/g, ''));
