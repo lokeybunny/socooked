@@ -364,7 +364,12 @@ export function Sidebar() {
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
-                  <child.icon className="h-4 w-4 shrink-0" />
+                  <span className="relative shrink-0">
+                    <child.icon className="h-4 w-4" />
+                    {child.to === '/sms' && hasNewSms && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive border border-sidebar animate-pulse" />
+                    )}
+                  </span>
                   <span className="flex items-center gap-1.5">
                     {child.label}
                     {child.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
