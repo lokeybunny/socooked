@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, PhoneMissed, RefreshCw, CheckCircle2, AlertCircle, PhoneCall, MessageSquare, ExternalLink, Send } from "lucide-react";
+import { SaveToCampaignButton } from "./SaveToCampaignButton";
 
 const DEFAULT_MESSAGE =
   "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
@@ -484,7 +485,14 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                           </div>
                         </div>
                         {m.voicemail_recording_sid && (
-                          <VoicemailPlayer sid={m.voicemail_recording_sid} />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <VoicemailPlayer sid={m.voicemail_recording_sid} />
+                            <SaveToCampaignButton
+                              phone={m.phone_number}
+                              contactName={m.customer?.full_name || null}
+                              customerId={m.customer_id}
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
