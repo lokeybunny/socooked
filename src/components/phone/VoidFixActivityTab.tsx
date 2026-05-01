@@ -163,12 +163,16 @@ export default function VoidFixActivityTab() {
   const pullVoidfix = async () => {
     setSyncing(true);
     try {
-      const { error } = await supabase.functions.invoke('powerdial-sms', { body: { action: 'poll' } });
-      if (error) throw error;
-      toast.success('Pulled latest from VoidFix device');
+      const [smsRes, callsRes] = await Promise.all([
+        supabase.functions.invoke('powerdial-sms', { body: { action: 'poll' } }),
+        supabase.functions.invoke('powerdial-sms', { body: { action: 'poll_calls' } }),
+      ]);
+      if (smsRes.error && callsRes.error) throw smsRes.error;
+      const smsImported = (smsRes.data as any)?.imported ?? 0;
+      const callsImported = (callsRes.data as any)?.imported ?? 0;
+      toast.success(`Synced VoidFix: ${smsImported} new SMS, ${callsImported} new calls`);
       await load();
     } catch (e: any) {
-      // Fallback: just refresh from DB
       await load();
       toast.message('Refreshed from database');
     } finally {
