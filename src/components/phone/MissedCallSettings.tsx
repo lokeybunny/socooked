@@ -149,7 +149,12 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
       .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_events" }, () => loadMissed())
       .on("postgres_changes", { event: "*", schema: "public", table: "missed_call_webhook_audit" }, () => loadAudit())
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // Polling fallback for snappy updates (every 5s)
+    const poll = setInterval(() => {
+      loadMissed();
+      loadAudit();
+    }, 5000);
+    return () => { supabase.removeChannel(ch); clearInterval(poll); };
   }, []);
 
   async function save() {
