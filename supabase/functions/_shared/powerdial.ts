@@ -26,6 +26,10 @@ export const DEFAULT_POWERDIAL_SETTINGS = {
   voicemail_drop_url: "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren",
 };
 
+const POWERDIAL_AI_ASSIST_FIRST_MESSAGE =
+  "Calling you in regards to your property listing. Standby, transferring you over to my boss.";
+const POWERDIAL_AI_ASSIST_SYSTEM_MARKER = "[POWERDIAL_AI_ASSIST_WARM_TRANSFER]";
+
 export const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
@@ -190,17 +194,83 @@ export function sanitizePowerDialAssistantId(value: unknown) {
   return assistantId;
 }
 
-// Patch the assistant config so it triggers on the first "hello" with minimal delay.
+function buildPowerDialTransferTool(humanTransferPhone: string) {
+  if (!humanTransferPhone) return null;
+
+  return {
+    type: "transferCall",
+    function: {
+      name: "transfer_to_boss",
+      description: "PowerDial only: immediately warm-transfer the connected lead to Warren after the handoff line is spoken.",
+    },
+    destinations: [
+      {
+        type: "number",
+        number: humanTransferPhone,
+        description: "Warren's Verizon office line for PowerDial live handoffs",
+        // Do not let Vapi speak an extra transfer announcement to the lead.
+        message: "",
+        transferPlan: {
+          mode: "warm-transfer-wait-for-operator-to-speak-first-and-then-say-message",
+          message: "PowerDial is connecting a live property listing lead to Warren.",
+          timeout: 60,
+          dialTimeout: 30,
+          fallbackPlan: {
+            message: "I couldn't reach him right now, but he'll follow up with you shortly.",
+            endCallEnabled: true,
+          },
+        },
+      },
+    ],
+    messages: [
+      { type: "request-start", content: "" },
+      {
+        type: "request-failed",
+        content: "I couldn't reach him right now, but he'll follow up with you shortly.",
+        endCallAfterSpokenEnabled: true,
+      },
+    ],
+  };
+}
+
+function mergePowerDialAssistantModel(existingModel: any, humanTransferPhone: string) {
+  if (!existingModel || typeof existingModel !== "object") return undefined;
+
+  const systemContent = `${POWERDIAL_AI_ASSIST_SYSTEM_MARKER}\nPowerDial-only behavior: wait for the lead to say hello or speak first. Then say exactly: "${POWERDIAL_AI_ASSIST_FIRST_MESSAGE}" After that line, immediately call the transfer_to_boss tool. Do not ask for first name, last name, verification, reason for calling, or permission. Do not mention recording a name. Keep this handoff path separate from regular inbound phone calls.`;
+  const messages = Array.isArray(existingModel.messages) ? existingModel.messages : [];
+  const nextMessages = [
+    ...messages.filter((message: any) => !String(message?.content || "").includes(POWERDIAL_AI_ASSIST_SYSTEM_MARKER)),
+    { role: "system", content: systemContent },
+  ];
+
+  const transferTool = buildPowerDialTransferTool(humanTransferPhone);
+  const tools = Array.isArray(existingModel.tools) ? existingModel.tools : [];
+  const nextTools = transferTool
+    ? [
+        ...tools.filter((tool: any) => (tool?.function?.name || tool?.type) !== "transfer_to_boss"),
+        transferTool,
+      ]
+    : tools;
+
+  return {
+    ...existingModel,
+    messages: nextMessages,
+    tools: nextTools,
+  };
+}
+
+// Patch the assistant config so it waits for the first "hello", speaks the
+// PowerDial handoff line, then warm-transfers through Vapi to the Verizon line.
 // Safe to run on every prep — Vapi accepts repeated PATCHes idempotently.
-async function applyFastResponseSettings(assistantId: string) {
+async function applyFastResponseSettings(assistantId: string, humanTransferPhone = DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE) {
   try {
+    const currentAssistant = await fetchVapiJson(`/assistant/${assistantId}`, { method: "GET" });
+    const existingModel = currentAssistant.response.ok ? currentAssistant.data?.model : null;
+    const mergedModel = mergePowerDialAssistantModel(existingModel, normalizePhone(humanTransferPhone));
     const fastSettings = {
-      // Assistant speaks first the moment Twilio bridges the human leg, so the
-      // recipient immediately hears "Calling you in regards to your property
-      // listing. Standby, transferring you over to my boss." before the silent
-      // bridge to the office line completes.
-      firstMessageMode: "assistant-speaks-first",
-      firstMessage: "Calling you in regards to your property listing. Standby, transferring you over to my boss.",
+      firstMessageMode: "assistant-waits-for-user",
+      firstMessage: POWERDIAL_AI_ASSIST_FIRST_MESSAGE,
+      ...(mergedModel ? { model: mergedModel } : {}),
       // How quickly the assistant starts responding once it detects end-of-speech
       startSpeakingPlan: {
         waitSeconds: 0.2,
@@ -261,7 +331,10 @@ async function applyFastResponseSettings(assistantId: string) {
   }
 }
 
-export async function prepareVapiOutboundAssistant(assistantId: string): Promise<VapiAssistantPreparationResult> {
+export async function prepareVapiOutboundAssistant(
+  assistantId: string,
+  humanTransferPhone = DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE,
+): Promise<VapiAssistantPreparationResult> {
   const resolvedAssistantId = assistantId.trim();
 
   if (!resolvedAssistantId) {
@@ -283,7 +356,7 @@ export async function prepareVapiOutboundAssistant(assistantId: string): Promise
   }
 
   // Tune the assistant for instant first-word response (fire-and-forget; non-blocking on errors)
-  await applyFastResponseSettings(resolvedAssistantId);
+  await applyFastResponseSettings(resolvedAssistantId, humanTransferPhone);
 
   try {
     const patchResult = await fetchVapiJson(`/phone-number/${VAPI_PHONE_NUMBER_ID}`, {
@@ -579,7 +652,10 @@ async function placeCall(campaign: any, queueItem: any, logPrefix: string): Prom
   const safeCallLogId = callLogId || "";
   const configuredFrom = TWILIO_FROM ? normalizePhone(TWILIO_FROM) : "";
   const resolution = await resolveTwilioFromNumber(TWILIO_FROM);
-  const assistantPreparation = await prepareVapiOutboundAssistant(selectedAssistantId);
+  const assistantPreparation = await prepareVapiOutboundAssistant(
+    selectedAssistantId,
+    normalizePhone((campaign.settings || {})?.human_transfer_phone) || DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE,
+  );
   const baseMeta: Record<string, unknown> = {
     assistant_id: selectedAssistantId,
     assistant_source: "campaign_settings",

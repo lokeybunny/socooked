@@ -1072,16 +1072,17 @@ Deno.serve(async (req) => {
           return json({ ok: true, amd_result: amdResult, redirected, mode: "live_human_transfer", to: humanTransferPhone });
         }
 
-        // ===== AI ASSIST: AI greets/stalls, then silently bridge to human =====
-        // When ai_assist is true and a human transfer number is configured,
-        // we play a short greeting via Twilio TTS to the lead while we silently
-        // bridge the live agent in — the lead never hears a ring.
+        // ===== AI ASSIST: keep this inside Vapi =====
+        // PowerDial AI Assist must go through the configured Vapi assistant so
+        // it waits for the lead's hello, says the handoff line, then uses its
+        // Vapi transfer tool. Do not direct-bridge here or the assistant won't
+        // speak and carrier prompts can leak into the experience.
         const aiAssistEnabled = settingsObj.ai_assist !== false;
         const aiAssistGreetingRaw = typeof settingsObj.ai_assist_greeting === "string"
           ? settingsObj.ai_assist_greeting
           : "";
 
-        if (aiAssistEnabled && humanTransferPhone) {
+        if (settingsObj.ai_assist_twilio_direct === true && aiAssistEnabled && humanTransferPhone) {
           const redirected = await redirectCallToAIAssistTransfer(
             callSid,
             humanTransferPhone,
@@ -1153,7 +1154,7 @@ Deno.serve(async (req) => {
         console.log(`[powerdial-webhook] Resolved outbound assistant: ${assistantId} (frozen=${frozenAssistantId}, campaign=${(settingsObj as any)?.vapi_assistant_id || 'none'})`);
 
         // PATCH the Vapi phone number to use the correct outbound assistant BEFORE redirect
-        const assistantPreparation = await prepareVapiOutboundAssistant(assistantId);
+        const assistantPreparation = await prepareVapiOutboundAssistant(assistantId, humanTransferPhone);
         console.log(`[powerdial-webhook] Vapi assistant prep: ok=${assistantPreparation.ok}, current=${assistantPreparation.currentAssistantId}, target=${assistantId}`);
 
         const vapiPhoneNumber = assistantPreparation.phoneNumber || await getVapiPhoneNumber(VAPI_PHONE_NUMBER_ID);
