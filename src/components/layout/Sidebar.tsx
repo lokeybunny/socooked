@@ -72,8 +72,10 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [hasNewSms, setHasNewSms] = useState(false);
   const [funnelCount, setFunnelCount] = useState(0);
   const lastSeenMessagesRef = useRef<string | null>(null);
+  const lastSeenSmsRef = useRef<string | null>(null);
   const funnelLastSeenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -154,12 +156,47 @@ export function Sidebar() {
       localStorage.setItem('messages_last_seen', new Date().toISOString());
       lastSeenMessagesRef.current = new Date().toISOString();
     }
+    if (location.pathname === '/sms') {
+      setHasNewSms(false);
+      localStorage.setItem('sms_last_seen', new Date().toISOString());
+      lastSeenSmsRef.current = new Date().toISOString();
+    }
     if (location.pathname === '/funnels') {
       setFunnelCount(0);
       localStorage.setItem('funnels_last_seen', new Date().toISOString());
       funnelLastSeenRef.current = new Date().toISOString();
     }
   }, [location.pathname]);
+
+  // Detect new inbound SMS
+  useEffect(() => {
+    lastSeenSmsRef.current = localStorage.getItem('sms_last_seen');
+
+    const checkNewSms = async () => {
+      const lastSeen = lastSeenSmsRef.current || '2020-01-01T00:00:00Z';
+      const { data } = await supabase
+        .from('communications')
+        .select('id')
+        .eq('type', 'sms')
+        .eq('direction', 'inbound')
+        .gt('created_at', lastSeen)
+        .limit(1);
+      if (data && data.length > 0) setHasNewSms(true);
+    };
+    checkNewSms();
+
+    const channel = supabase
+      .channel('sidebar_sms_notif')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, (payload) => {
+        const row = payload.new as Record<string, unknown>;
+        if (row.type === 'sms' && row.direction === 'inbound' && location.pathname !== '/sms') {
+          setHasNewSms(true);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   // Fetch unseen funnel lead count
   useEffect(() => {
@@ -187,7 +224,7 @@ export function Sidebar() {
 
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.to;
-    const showDot = item.to === '/messages' && hasNewMessages;
+    const showDot = (item.to === '/messages' && hasNewMessages) || (item.to === '/sms' && hasNewSms);
     const showFunnelBadge = item.to === '/funnels' && funnelCount > 0;
 
     if (item.disabled) {
@@ -303,7 +340,12 @@ export function Sidebar() {
                 : "text-muted-foreground hover:bg-accent hover:text-foreground",
           )}
         >
-          <group.icon className="h-4.5 w-4.5 shrink-0" />
+          <span className="relative shrink-0">
+            <group.icon className="h-4.5 w-4.5" />
+            {group.children.some(c => c.to === '/sms') && hasNewSms && !isOpen && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
+            )}
+          </span>
           {!collapsed && (
             <>
               <span className="flex-1 text-left">{group.label}</span>
@@ -327,7 +369,12 @@ export function Sidebar() {
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
-                  <child.icon className="h-4 w-4 shrink-0" />
+                  <span className="relative shrink-0">
+                    <child.icon className="h-4 w-4" />
+                    {child.to === '/sms' && hasNewSms && (
+                      <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive border border-sidebar animate-pulse" />
+                    )}
+                  </span>
                   <span className="flex items-center gap-1.5">
                     {child.label}
                     {child.botIcon && <Bot className="h-3 w-3 text-primary/60" />}
