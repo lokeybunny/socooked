@@ -186,15 +186,22 @@ export default function VoidFixActivityTab() {
     }
   };
 
+  // Helper: detect missed call across both sources
+  const isMissedCall = (c: CallRow) => {
+    if ((c as any).missed === true) return true;
+    const s = (c.twilio_status || '').toLowerCase();
+    const d = ((c as any).dial_call_status || '').toLowerCase();
+    if (['no-answer', 'busy', 'failed', 'missed', 'canceled'].includes(s)) return true;
+    if (['no-answer', 'busy', 'failed', 'canceled'].includes(d)) return true;
+    return (c.disposition || '').toLowerCase().includes('miss');
+  };
+
   // Stats (today)
   const stats = useMemo(() => {
     const todaySms = sms.filter(s => isToday(new Date(s.created_at)));
     const todayCalls = calls.filter(c => isToday(new Date(c.created_at)));
     return {
-      missedToday: todayCalls.filter(c =>
-        ['no-answer', 'busy', 'failed', 'missed'].includes((c.twilio_status || '').toLowerCase())
-        || (c.disposition || '').toLowerCase().includes('miss')
-      ).length,
+      missedToday: todayCalls.filter(isMissedCall).length,
       inboundToday: todaySms.filter(s => s.direction === 'inbound').length,
       outboundToday: todaySms.filter(s => s.direction === 'outbound').length,
     };
