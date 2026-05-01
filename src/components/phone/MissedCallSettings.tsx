@@ -47,7 +47,7 @@ const DEFAULT_CFG: Cfg = {
   enabled: true,
   auto_reply_enabled: true,
   queue_enabled: true,
-  forward_to: "+14244658105",
+  forward_to: "+17027016192",
   timeout_seconds: 22,
   message: DEFAULT_MESSAGE,
 };
@@ -209,7 +209,7 @@ export default function MissedCallSettings() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Verizon forward number</Label>
-                  <Input value={cfg.forward_to} onChange={(e) => setCfg({ ...cfg, forward_to: e.target.value })} placeholder="+14244658105" />
+                  <Input value={cfg.forward_to} onChange={(e) => setCfg({ ...cfg, forward_to: e.target.value })} placeholder="+17027016192" />
                 </div>
                 <div>
                   <Label>Ring timeout (seconds)</Label>
