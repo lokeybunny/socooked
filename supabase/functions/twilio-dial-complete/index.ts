@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
         callLogId: logId,
         rawPayload,
       });
-      return ackResp;
+      return voicemailResp();
     }
 
     const last10 = from.replace(/\D/g, "").slice(-10);
