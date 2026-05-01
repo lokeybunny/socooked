@@ -226,10 +226,9 @@ export default function VoidFixActivityTab() {
     const q = search.trim().toLowerCase();
     return feed.filter(item => {
       // filter
-      if (filter === 'missed' && item.kind !== 'call') return false;
-      if (filter === 'missed' && item.kind === 'call') {
-        const s = (item.row.twilio_status || '').toLowerCase();
-        if (!['no-answer', 'busy', 'failed', 'missed'].includes(s)) return false;
+      if (filter === 'missed') {
+        if (item.kind !== 'call') return false;
+        if (!isMissedCall(item.row)) return false;
       }
       if (filter === 'inbound_sms' && !(item.kind === 'sms' && item.row.direction === 'inbound')) return false;
       if (filter === 'outbound_sms' && !(item.kind === 'sms' && item.row.direction === 'outbound')) return false;
