@@ -1,0 +1,236 @@
+// Twilio Dial action callback — fired after the <Dial> verb finishes.
+// Receives DialCallStatus (completed, no-answer, busy, failed, canceled).
+// On miss → fire VoidFix auto-reply + log missed_call_event + add to power dialer queue.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const DEFAULT_MISSED_MESSAGE =
+  "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
+
+const MISSED_STATES = new Set(["no-answer", "busy", "failed", "canceled"]);
+const DEDUPE_WINDOW_MIN = 10;
+
+function normalizePhone(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const s = String(raw);
+  const digits = s.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (s.startsWith("+")) return `+${digits}`;
+  return `+${digits}`;
+}
+
+async function loadCfg() {
+  const { data } = await sb.from("app_settings").select("value").eq("key", "voidfix_missed_call").maybeSingle();
+  const v = (data?.value as any) || {};
+  return {
+    enabled: v.enabled !== false,
+    queue_enabled: v.queue_enabled !== false,
+    message: typeof v.message === "string" && v.message.trim() ? v.message.trim() : DEFAULT_MISSED_MESSAGE,
+    auto_reply_enabled: v.auto_reply_enabled !== false,
+  };
+}
+
+async function findCustomerByPhone(phone: string): Promise<string | null> {
+  const last10 = phone.replace(/\D/g, "").slice(-10);
+  if (!last10 || last10.length !== 10) return null;
+  const { data } = await sb
+    .from("customers")
+    .select("id")
+    .or(`phone.ilike.%${last10}%`)
+    .not("status", "in", "(dead,lost,archived,deleted)")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  return data?.[0]?.id ?? null;
+}
+
+async function sendVoidfixAutoReply(toPhone: string, message: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        action: "send",
+        to: toPhone,
+        body: message,
+        source: "twilio-missed-call-auto-reply",
+        metadata: { source_kind: "missed_call" },
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || data?.ok === false) {
+      return { ok: false, error: data?.error || `status_${resp.status}` };
+    }
+    return { ok: true, id: data?.id || undefined };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  try {
+    const form = await req.formData();
+    const callSid = String(form.get("CallSid") || ""); // parent (caller→Twilio)
+    const dialCallSid = String(form.get("DialCallSid") || ""); // child (Twilio→Verizon)
+    const from = normalizePhone(String(form.get("From") || ""));
+    const to = normalizePhone(String(form.get("To") || ""));
+    const dialStatus = String(form.get("DialCallStatus") || "").toLowerCase();
+    const dialDuration = parseInt(String(form.get("DialCallDuration") || "0"), 10) || 0;
+
+    const isMissed = MISSED_STATES.has(dialStatus);
+    const isAnswered = dialStatus === "completed";
+
+    // Update the original call_logs row (matched by CallSid)
+    const { data: logRow } = await sb
+      .from("powerdial_call_logs")
+      .select("id, customer_id")
+      .eq("twilio_call_sid", callSid)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let logId = logRow?.id || null;
+    let customerId = logRow?.customer_id || null;
+    if (!customerId) customerId = await findCustomerByPhone(from);
+
+    if (logId) {
+      await sb
+        .from("powerdial_call_logs")
+        .update({
+          twilio_status: isAnswered ? "completed" : dialStatus || "no-answer",
+          dial_call_status: dialStatus,
+          parent_call_sid: dialCallSid || null,
+          missed: isMissed,
+          answered: isAnswered,
+          customer_id: customerId,
+          meta: { from_number: from, to_number: to, dial_duration: dialDuration, inbound: true },
+        })
+        .eq("id", logId);
+    } else {
+      const { data: inserted } = await sb
+        .from("powerdial_call_logs")
+        .insert({
+          twilio_call_sid: callSid,
+          parent_call_sid: dialCallSid || null,
+          twilio_status: isAnswered ? "completed" : dialStatus || "no-answer",
+          dial_call_status: dialStatus,
+          missed: isMissed,
+          answered: isAnswered,
+          phone: from || "unknown",
+          from_number: from,
+          to_number: to,
+          customer_id: customerId,
+          source: "twilio_forwarded_voidfix",
+          meta: { dial_duration: dialDuration, inbound: true },
+        })
+        .select("id")
+        .single();
+      logId = inserted?.id || null;
+    }
+
+    // Acknowledge XML (no further TwiML — call is done)
+    const ackXml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
+    const ackResp = new Response(ackXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
+
+    if (!isMissed || !from) return ackResp;
+
+    const cfg = await loadCfg();
+    if (!cfg.enabled) return ackResp;
+
+    const last10 = from.replace(/\D/g, "").slice(-10);
+
+    // Dedupe: only one missed_call_event + one auto-reply per number per 10min window
+    const since = new Date(Date.now() - DEDUPE_WINDOW_MIN * 60_000).toISOString();
+    const { data: recent } = await sb
+      .from("missed_call_events")
+      .select("id, auto_reply_sent")
+      .eq("phone_last10", last10)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const recentEvent = recent?.[0];
+
+    if (recentEvent) {
+      // Just link this newer call_log_id to the existing event; do NOT re-send auto-reply
+      await sb
+        .from("missed_call_events")
+        .update({
+          meta: { last_call_log_id: logId, last_at: new Date().toISOString() },
+        })
+        .eq("id", recentEvent.id);
+      return ackResp;
+    }
+
+    // Send auto-reply (if enabled)
+    let autoReplyResult: { ok: boolean; id?: string; error?: string } = { ok: false };
+    if (cfg.auto_reply_enabled) {
+      autoReplyResult = await sendVoidfixAutoReply(from, cfg.message);
+    }
+
+    // Insert missed_call_event
+    await sb.from("missed_call_events").insert({
+      call_log_id: logId,
+      customer_id: customerId,
+      phone_number: from,
+      phone_last10: last10,
+      status: autoReplyResult.ok ? "auto_replied" : (cfg.auto_reply_enabled ? "auto_reply_failed" : "logged"),
+      callback_status: "open",
+      auto_reply_sent: autoReplyResult.ok,
+      auto_reply_message: cfg.auto_reply_enabled ? cfg.message : null,
+      voidfix_message_id: autoReplyResult.id || null,
+      error_message: autoReplyResult.error || null,
+    });
+
+    // Add to power dialer callback queue (no campaign — generic callback queue uses NULL campaign)
+    if (cfg.queue_enabled) {
+      // Use the most recent active power-dialer campaign if one exists; otherwise skip
+      // (queue requires campaign_id). Fallback: skip silently.
+      const { data: anyCampaign } = await sb
+        .from("powerdial_campaigns")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (anyCampaign?.id) {
+        const { data: existing } = await sb
+          .from("powerdial_queue")
+          .select("id")
+          .eq("phone", from)
+          .in("status", ["pending", "retry_later"])
+          .limit(1);
+        if (!existing?.[0]) {
+          await sb.from("powerdial_queue").insert({
+            campaign_id: anyCampaign.id,
+            customer_id: customerId,
+            phone: from,
+            status: "pending",
+            position: 0,
+          });
+        }
+      }
+    }
+
+    return ackResp;
+  } catch (err) {
+    console.error("[twilio-dial-complete]", err);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
+    return new Response(xml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
+  }
+});
