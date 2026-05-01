@@ -57,9 +57,13 @@ Deno.serve(async (req) => {
   }
 
   if (action === "configure") {
-    if (!TWILIO_FROM) return json({ ok: false, error: "missing_TWILIO_FROM_NUMBER" }, 500);
-    const sid = await findNumberSid(TWILIO_FROM);
-    if (!sid) return json({ ok: false, error: "number_not_found_in_account", number: TWILIO_FROM });
+    // Allow explicit sid override (e.g. PN…) so we can wire a number even if TWILIO_FROM_NUMBER is misconfigured
+    let sid: string | null = typeof body?.sid === "string" && body.sid.startsWith("PN") ? body.sid : null;
+    if (!sid) {
+      if (!TWILIO_FROM) return json({ ok: false, error: "missing_TWILIO_FROM_NUMBER_or_sid" }, 500);
+      sid = await findNumberSid(TWILIO_FROM);
+      if (!sid) return json({ ok: false, error: "number_not_found_in_account", number: TWILIO_FROM });
+    }
     const targetUrl = `${SUPABASE_URL}/functions/v1/twilio-inbound-call`;
     const form = new URLSearchParams({ VoiceUrl: targetUrl, VoiceMethod: "POST" });
     const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/IncomingPhoneNumbers/${sid}.json`, {
