@@ -168,6 +168,36 @@ export function Sidebar() {
     }
   }, [location.pathname]);
 
+  // Detect new inbound SMS
+  useEffect(() => {
+    lastSeenSmsRef.current = localStorage.getItem('sms_last_seen');
+
+    const checkNewSms = async () => {
+      const lastSeen = lastSeenSmsRef.current || '2020-01-01T00:00:00Z';
+      const { data } = await supabase
+        .from('communications')
+        .select('id')
+        .eq('type', 'sms')
+        .eq('direction', 'inbound')
+        .gt('created_at', lastSeen)
+        .limit(1);
+      if (data && data.length > 0) setHasNewSms(true);
+    };
+    checkNewSms();
+
+    const channel = supabase
+      .channel('sidebar_sms_notif')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, (payload) => {
+        const row = payload.new as Record<string, unknown>;
+        if (row.type === 'sms' && row.direction === 'inbound' && location.pathname !== '/sms') {
+          setHasNewSms(true);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // Fetch unseen funnel lead count
   useEffect(() => {
     funnelLastSeenRef.current = localStorage.getItem('funnels_last_seen');
