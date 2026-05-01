@@ -116,83 +116,86 @@ export function SmsThreadPopup({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-4 py-3 border-b">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <DialogTitle className="flex items-center gap-2 text-base">
-                <MessageSquare className="h-4 w-4 text-emerald-400" />
-                {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Send and receive SMS via VoidFix. Identical to the SMS page thread.
-              </DialogDescription>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1 text-xs shrink-0 mr-6"
-              onClick={() => setNotesOpen(true)}
-            >
-              <StickyNote className="h-3.5 w-3.5" /> Notes
-            </Button>
-          </div>
-        </DialogHeader>
-
-        <ScrollArea ref={scrollRef as any} className="h-[420px] px-4 py-3 bg-muted/10">
-          {loading ? (
-            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
-          ) : messages.length === 0 ? (
-            <div className="text-center text-xs text-muted-foreground py-10">
-              No messages yet. Start the conversation below.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {messages.map((m) => {
-                const out = m.direction === "outbound";
-                return (
-                  <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                      out ? "bg-emerald-500 text-white rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
-                    }`}>
-                      <div>{m.body || ""}</div>
-                      <div className={`text-[10px] mt-1 ${out ? "text-white/70" : "text-muted-foreground"}`}>
-                        {new Date(m.created_at).toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={endRef} />
-            </div>
-          )}
-        </ScrollArea>
-
-        <div className="border-t p-3 space-y-2 bg-background">
-          <div className="flex items-end gap-2">
-            <Textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Type a message…"
-              rows={2}
-              className="resize-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
-              }}
-            />
-            <div className="flex flex-col gap-1">
-              <EmojiButton onSelect={(emoji) => setBody((b) => b + emoji)} />
-              <Button size="sm" onClick={send} disabled={sending || !body.trim()} className="bg-emerald-500 hover:bg-emerald-600">
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="flex items-center gap-2 text-base">
+                  <MessageSquare className="h-4 w-4 text-emerald-400" />
+                  {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Send and receive SMS via VoidFix. Identical to the SMS page thread.
+                </DialogDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-xs shrink-0 mr-6"
+                onClick={() => setNotesOpen(true)}
+              >
+                <StickyNote className="h-3.5 w-3.5" /> Notes
               </Button>
             </div>
+          </DialogHeader>
+
+          <ScrollArea ref={scrollRef as any} className="h-[420px] px-4 py-3 bg-muted/10">
+            {loading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+            ) : messages.length === 0 ? (
+              <div className="text-center text-xs text-muted-foreground py-10">
+                No messages yet. Start the conversation below.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {messages.map((m) => {
+                  const out = m.direction === "outbound";
+                  return (
+                    <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+                        out ? "bg-emerald-500 text-white rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
+                      }`}>
+                        <div>{m.body || ""}</div>
+                        <div className={`text-[10px] mt-1 ${out ? "text-white/70" : "text-muted-foreground"}`}>
+                          {new Date(m.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={endRef} />
+              </div>
+            )}
+          </ScrollArea>
+
+          <div className="border-t p-3 space-y-2 bg-background">
+            <div className="flex items-end gap-2">
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Type a message…"
+                rows={2}
+                className="resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+                }}
+              />
+              <div className="flex flex-col gap-1">
+                <EmojiButton onSelect={(emoji) => setBody((b) => b + emoji)} />
+                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className="bg-emerald-500 hover:bg-emerald-600">
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to send</p>
           </div>
-          <p className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to send</p>
-        </div>
-      </DialogContent>
+        </DialogContent>
+      </Dialog>
+      {/* Rendered OUTSIDE the Dialog so Radix's pointer-events lock doesn't block dragging */}
       <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={phone} />
-    </Dialog>
+    </>
   );
 }
 

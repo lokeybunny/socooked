@@ -146,7 +146,7 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
       ref={panelRef}
       role="dialog"
       aria-label="Contact Notes"
-      className="fixed z-50 rounded-xl border border-border bg-background shadow-2xl"
+      className="fixed z-[100] rounded-xl border border-border bg-background shadow-2xl pointer-events-auto"
       style={{
         top: pos.y,
         left: pos.x,
