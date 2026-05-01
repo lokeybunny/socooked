@@ -100,9 +100,15 @@ export default function VoidFixActivityTab() {
       ]);
 
       const smsRows = (smsData || []) as SmsRow[];
-      const twilioCallRows: CallRow[] = (callData || []).map((r: any) => ({
-        ...r, source: 'twilio' as const, direction: 'outbound' as const,
-      }));
+      const twilioCallRows: CallRow[] = (callData || []).map((r: any) => {
+        // Inbound forwarded calls (VoidFix → Twilio → Verizon) come through with source='twilio_forwarded_voidfix'
+        const isForwardedInbound = (r.source || '').includes('twilio_forwarded') || r.meta?.inbound === true;
+        return {
+          ...r,
+          source: 'twilio' as const,
+          direction: (isForwardedInbound ? 'inbound' : 'outbound') as 'inbound' | 'outbound',
+        };
+      });
       const voidfixCallRows: CallRow[] = (voidfixCallData || []).map((r: any) => ({
         id: r.id,
         phone: r.phone_number || r.from_address || r.to_address || '',
