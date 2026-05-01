@@ -482,5 +482,82 @@ Deno.serve(async (req) => {
     return json({ ok: true, imported, scanned: messages.length });
   }
 
+
+  if (action === "poll_calls") {
+    // Pull recent call log from the VoidFix Android device.
+    if (!VOIDFIX_API_KEY || !VOIDFIX_DEVICE_ID) {
+      return json({ ok: false, error: "missing_voidfix_credentials" }, 500);
+    }
+    const limit = Math.min(Number(payload?.limit) || 100, 500);
+    const form = new URLSearchParams({
+      key: VOIDFIX_API_KEY,
+      devices: VOIDFIX_DEVICE_ID,
+      limit: String(limit),
+    });
+    const resp = await fetch(VOIDFIX_CALLS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form,
+    });
+    const text = await resp.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch { return json({ ok: false, error: "voidfix_invalid_json", raw: text.slice(0, 300) }, 500); }
+
+    // VoidFix call records: { ID, number, type, duration, simSlot, callDate, deviceID }
+    // type values commonly: "Incoming"(1), "Outgoing"(2), "Missed"(3), "Voicemail"(4), "Rejected"(5), "Blocked"(6)
+    const calls: any[] = data?.data?.calls || data?.data?.messages || [];
+    let imported = 0;
+    for (const c of calls) {
+      const externalId = `voidfix-call-${String(c.ID || c.id || "")}`;
+      if (!externalId || externalId === "voidfix-call-") continue;
+
+      const { data: existing } = await sb
+        .from("communications")
+        .select("id")
+        .eq("external_id", externalId)
+        .limit(1);
+      if (existing && existing[0]) continue;
+
+      const rawType = String(c.type || "").toLowerCase();
+      const typeNum = Number(c.type);
+      let direction: "inbound" | "outbound" = "inbound";
+      let status = "received";
+      if (rawType.includes("outgo") || typeNum === 2) { direction = "outbound"; status = "completed"; }
+      else if (rawType.includes("miss") || typeNum === 3) { direction = "inbound"; status = "missed"; }
+      else if (rawType.includes("reject") || typeNum === 5) { direction = "inbound"; status = "rejected"; }
+      else if (rawType.includes("block") || typeNum === 6) { direction = "inbound"; status = "blocked"; }
+      else if (rawType.includes("voicemail") || typeNum === 4) { direction = "inbound"; status = "voicemail"; }
+      else { direction = "inbound"; status = "received"; }
+
+      const phone = normalizePhone(String(c.number || ""));
+      const customerId = await findCustomerByPhone(phone);
+      const callDate = c.callDate || c.date || null;
+      const durationSec = Number(c.duration || 0);
+
+      await sb.from("communications").insert({
+        type: "call",
+        direction,
+        body: null,
+        from_address: direction === "inbound" ? phone : (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null),
+        to_address: direction === "inbound" ? (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null) : phone,
+        phone_number: phone,
+        provider: "voidfix",
+        external_id: externalId,
+        status,
+        customer_id: customerId,
+        metadata: {
+          source: "voidfix-call-poll",
+          device_id: c.deviceID,
+          voidfix_type: c.type,
+          duration_sec: durationSec,
+          sim_slot: c.simSlot,
+        },
+        ...(callDate ? { created_at: new Date(callDate).toISOString() } : {}),
+      });
+      imported += 1;
+    }
+    return json({ ok: true, imported, scanned: calls.length });
+  }
+
   return json({ ok: false, error: "unknown_action" }, 400);
 });
