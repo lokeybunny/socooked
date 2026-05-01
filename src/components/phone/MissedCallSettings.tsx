@@ -92,6 +92,8 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
   const [webhookBusy, setWebhookBusy] = useState(false);
   const [missed, setMissed] = useState<MissedRow[]>([]);
   const [missedLoading, setMissedLoading] = useState(false);
+  const [missedPage, setMissedPage] = useState(0);
+  const MISSED_PAGE_SIZE = 5;
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [testPhone, setTestPhone] = useState("");
@@ -118,7 +120,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
       .from("missed_call_events")
       .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, updated_at, voicemail_recording_url, voicemail_recording_sid, voicemail_duration, voicemail_received_at, customer:customers(full_name)")
       .order("updated_at", { ascending: false })
-      .limit(50);
+      .limit(500);
     const next = ((data as MissedRow[]) || []).sort(
       (a, b) => new Date(getMissedActivityTime(b)).getTime() - new Date(getMissedActivityTime(a)).getTime()
     );
@@ -419,7 +421,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2"><PhoneMissed className="h-5 w-5" /> Recent Missed Calls</CardTitle>
-              <CardDescription>Last 50 missed calls and voicemails forwarded through Twilio.</CardDescription>
+              <CardDescription>Recent missed calls and voicemails forwarded through Twilio (5 per page).</CardDescription>
             </div>
             <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
           </div>
@@ -430,56 +432,76 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
           ) : missed.length === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-6">No missed calls yet.</div>
           ) : (
-            <div className="space-y-2">
-              {missed.map((m) => (
-                <div key={m.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-card/40">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-sm">{m.phone_number}</span>
-                        {m.customer?.full_name && <span className="text-sm text-muted-foreground">· {m.customer.full_name}</span>}
-                        {m.auto_reply_sent ? (
-                          <Badge variant="outline" className="text-green-400 border-green-600/40"><MessageSquare className="h-3 w-3 mr-1" /> Replied</Badge>
-                        ) : m.error_message ? (
-                          <Badge variant="destructive">Reply failed</Badge>
-                        ) : (
-                          <Badge variant="outline">No reply</Badge>
-                        )}
+            (() => {
+              const totalPages = Math.max(1, Math.ceil(missed.length / MISSED_PAGE_SIZE));
+              const safePage = Math.min(missedPage, totalPages - 1);
+              const start = safePage * MISSED_PAGE_SIZE;
+              const pageRows = missed.slice(start, start + MISSED_PAGE_SIZE);
+              return (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {pageRows.map((m) => (
+                      <div key={m.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-card/40">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-sm">{m.phone_number}</span>
+                              {m.customer?.full_name && <span className="text-sm text-muted-foreground">· {m.customer.full_name}</span>}
+                              {m.auto_reply_sent ? (
+                                <Badge variant="outline" className="text-green-400 border-green-600/40"><MessageSquare className="h-3 w-3 mr-1" /> Replied</Badge>
+                              ) : m.error_message ? (
+                                <Badge variant="destructive">Reply failed</Badge>
+                              ) : (
+                                <Badge variant="outline">No reply</Badge>
+                              )}
+                              {m.voicemail_recording_sid && (
+                                <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/40">
+                                  Voicemail{m.voicemail_duration ? ` · ${m.voicemail_duration}s` : ""}
+                                </Badge>
+                              )}
+                              <Badge variant={m.callback_status === "open" ? "default" : "outline"}>{m.callback_status}</Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {m.voicemail_received_at ? "Voicemail received" : "Missed call"}: {new Date(getMissedActivityTime(m)).toLocaleString()}
+                            </div>
+                            {m.error_message && <div className="text-xs text-destructive mt-1">{m.error_message}</div>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button size="sm" variant="ghost" asChild>
+                              <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
+                            </Button>
+                            {m.callback_status === "open" && (
+                              <>
+                                <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "callback_done")}>Done</Button>
+                                <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
+                              </>
+                            )}
+                            {m.customer_id && (
+                              <Button size="sm" variant="ghost" asChild>
+                                <a href={`/customers?id=${m.customer_id}`}><ExternalLink className="h-4 w-4" /></a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                         {m.voicemail_recording_sid && (
-                          <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/40">
-                            Voicemail{m.voicemail_duration ? ` · ${m.voicemail_duration}s` : ""}
-                          </Badge>
+                          <VoicemailPlayer sid={m.voicemail_recording_sid} />
                         )}
-                        <Badge variant={m.callback_status === "open" ? "default" : "outline"}>{m.callback_status}</Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {m.voicemail_received_at ? "Voicemail received" : "Missed call"}: {new Date(getMissedActivityTime(m)).toLocaleString()}
-                      </div>
-                      {m.error_message && <div className="text-xs text-destructive mt-1">{m.error_message}</div>}
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="text-xs text-muted-foreground">
+                      Showing {start + 1}–{Math.min(start + MISSED_PAGE_SIZE, missed.length)} of {missed.length}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button size="sm" variant="ghost" asChild>
-                        <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
-                      </Button>
-                      {m.callback_status === "open" && (
-                        <>
-                          <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "callback_done")}>Done</Button>
-                          <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
-                        </>
-                      )}
-                      {m.customer_id && (
-                        <Button size="sm" variant="ghost" asChild>
-                          <a href={`/customers?id=${m.customer_id}`}><ExternalLink className="h-4 w-4" /></a>
-                        </Button>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setMissedPage((p) => Math.max(0, p - 1))}>Previous</Button>
+                      <span className="text-xs text-muted-foreground">Page {safePage + 1} / {totalPages}</span>
+                      <Button size="sm" variant="outline" disabled={safePage >= totalPages - 1} onClick={() => setMissedPage((p) => p + 1)}>Next</Button>
                     </div>
                   </div>
-                  {m.voicemail_recording_sid && (
-                    <VoicemailPlayer sid={m.voicemail_recording_sid} />
-                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()
           )}
         </CardContent>
       </Card>)}
