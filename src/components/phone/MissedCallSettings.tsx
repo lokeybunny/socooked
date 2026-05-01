@@ -320,7 +320,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
               <CardTitle className="flex items-center gap-2"><AlertCircle className="h-5 w-5" /> Missed-Call Webhook Audit</CardTitle>
               <CardDescription>Every Twilio webhook attempt, Call SID, phone ID, and missed-call row result.</CardDescription>
             </div>
-            <Button size="sm" variant="ghost" onClick={loadAudit}><RefreshCw className="h-4 w-4" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => loadAudit()}><RefreshCw className="h-4 w-4" /></Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -417,7 +417,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
               <CardTitle className="flex items-center gap-2"><PhoneMissed className="h-5 w-5" /> Recent Missed Calls</CardTitle>
               <CardDescription>Last 50 missed calls forwarded through Twilio.</CardDescription>
             </div>
-            <Button size="sm" variant="ghost" onClick={loadMissed}><RefreshCw className="h-4 w-4" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => loadMissed()}><RefreshCw className="h-4 w-4" /></Button>
           </div>
         </CardHeader>
         <CardContent>
