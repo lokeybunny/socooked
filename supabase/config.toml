@@ -174,6 +174,12 @@ verify_jwt = false
 [functions.twilio-sms-inbound]
 verify_jwt = false
 
+[functions.twilio-inbound-call]
+verify_jwt = false
+
+[functions.twilio-dial-complete]
+verify_jwt = false
+
 [functions.twilio-inbound-poll]
 verify_jwt = false
 
