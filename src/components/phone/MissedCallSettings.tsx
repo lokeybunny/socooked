@@ -397,39 +397,49 @@ export default function MissedCallSettings() {
           ) : (
             <div className="space-y-2">
               {missed.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card/40">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm">{m.phone_number}</span>
-                      {m.customer?.full_name && <span className="text-sm text-muted-foreground">· {m.customer.full_name}</span>}
-                      {m.auto_reply_sent ? (
-                        <Badge variant="outline" className="text-green-400 border-green-600/40"><MessageSquare className="h-3 w-3 mr-1" /> Replied</Badge>
-                      ) : m.error_message ? (
-                        <Badge variant="destructive">Reply failed</Badge>
-                      ) : (
-                        <Badge variant="outline">No reply</Badge>
-                      )}
-                      <Badge variant={m.callback_status === "open" ? "default" : "outline"}>{m.callback_status}</Badge>
+                <div key={m.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-card/40">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm">{m.phone_number}</span>
+                        {m.customer?.full_name && <span className="text-sm text-muted-foreground">· {m.customer.full_name}</span>}
+                        {m.auto_reply_sent ? (
+                          <Badge variant="outline" className="text-green-400 border-green-600/40"><MessageSquare className="h-3 w-3 mr-1" /> Replied</Badge>
+                        ) : m.error_message ? (
+                          <Badge variant="destructive">Reply failed</Badge>
+                        ) : (
+                          <Badge variant="outline">No reply</Badge>
+                        )}
+                        {m.voicemail_recording_sid && (
+                          <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/40">
+                            Voicemail{m.voicemail_duration ? ` · ${m.voicemail_duration}s` : ""}
+                          </Badge>
+                        )}
+                        <Badge variant={m.callback_status === "open" ? "default" : "outline"}>{m.callback_status}</Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">{new Date(m.created_at).toLocaleString()}</div>
+                      {m.error_message && <div className="text-xs text-destructive mt-1">{m.error_message}</div>}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">{new Date(m.created_at).toLocaleString()}</div>
-                    {m.error_message && <div className="text-xs text-destructive mt-1">{m.error_message}</div>}
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Button size="sm" variant="ghost" asChild>
-                      <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
-                    </Button>
-                    {m.callback_status === "open" && (
-                      <>
-                        <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "callback_done")}>Done</Button>
-                        <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
-                      </>
-                    )}
-                    {m.customer_id && (
+                    <div className="flex items-center gap-1 shrink-0">
                       <Button size="sm" variant="ghost" asChild>
-                        <a href={`/customers?id=${m.customer_id}`}><ExternalLink className="h-4 w-4" /></a>
+                        <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
                       </Button>
-                    )}
+                      {m.callback_status === "open" && (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "callback_done")}>Done</Button>
+                          <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
+                        </>
+                      )}
+                      {m.customer_id && (
+                        <Button size="sm" variant="ghost" asChild>
+                          <a href={`/customers?id=${m.customer_id}`}><ExternalLink className="h-4 w-4" /></a>
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                  {m.voicemail_recording_sid && (
+                    <VoicemailPlayer sid={m.voicemail_recording_sid} />
+                  )}
                 </div>
               ))}
             </div>
