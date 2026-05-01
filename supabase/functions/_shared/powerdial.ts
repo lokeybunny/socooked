@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 export const DEFAULT_OUTBOUND_VAPI_ASSISTANT = "1eddf1f7-3ef8-4950-9a65-1fd68516208e";
-// Cell number used for PowerDial human transfers — bypasses the Verizon office-line
-// "record your name for verification" screening that fires on +17027016192.
-export const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = "+14244651253";
+// Verizon office line is the PowerDial human-transfer destination. The "press 1
+// to accept" whisper is intentional and is handled by twilio-whisper — it must
+// NOT be replaced with the cell line, otherwise Vapi loses its handoff target.
+export const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = "+17027016192";
 
 const POWERDIAL_INBOUND_VAPI_ASSISTANTS = new Set([
   "fea7fb27-2311-4f42-9bc1-d6e6fa966ab8",

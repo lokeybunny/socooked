@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 
 const DEFAULT_OUTBOUND_ASSISTANT = '1eddf1f7-3ef8-4950-9a65-1fd68516208e';
-const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = '+14244651253';
+const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = '+17027016192';
 const INBOUND_ASSISTANT_IDS = new Set([
   'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
   '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38',
