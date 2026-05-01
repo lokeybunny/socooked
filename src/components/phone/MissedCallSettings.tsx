@@ -286,9 +286,9 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
             </>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
-      <Card>
+      {showAudit && (<Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
