@@ -331,6 +331,12 @@ export default function TwilioKeypad({ prefilledNumber, onCallComplete }: Twilio
       <p className="text-[10px] text-muted-foreground text-center px-2">
         Calls go through your browser microphone — no callback or approval needed.
       </p>
+
+      <CallNotesPopup
+        open={notesOpen}
+        onOpenChange={setNotesOpen}
+        phone={number}
+      />
     </div>
   );
 }
