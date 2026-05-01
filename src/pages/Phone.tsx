@@ -1655,6 +1655,7 @@ export default function PhonePage() {
               );
             })()}
           </div>
+          </div>
         </div>
       </div>
 
