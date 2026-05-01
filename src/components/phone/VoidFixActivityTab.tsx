@@ -299,8 +299,7 @@ export default function VoidFixActivityTab() {
       {open && (
         <>
           {/* Stat cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard icon={<PhoneMissed className="h-4 w-4 text-destructive" />} label="Missed today" value={stats.missedToday} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <StatCard icon={<MessageSquare className="h-4 w-4 text-primary" />} label="Inbound SMS today" value={stats.inboundToday} />
             <StatCard icon={<Send className="h-4 w-4 text-primary" />} label="Outbound SMS today" value={stats.outboundToday} />
             <StatCard icon={<Smartphone className="h-4 w-4 text-emerald-500" />} label="Device" value="Online" small />
