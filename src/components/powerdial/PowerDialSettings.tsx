@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 
 const DEFAULT_OUTBOUND_ASSISTANT = '1eddf1f7-3ef8-4950-9a65-1fd68516208e';
+const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = '+14244651253';
 const INBOUND_ASSISTANT_IDS = new Set([
   'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
   '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38',
@@ -41,7 +42,7 @@ function getSettingsFormState(settings: any) {
     hoursEnd: nextSettings.calling_hours_end || '17:00',
     vapiAssistantId: knownAssistant ? persistedAssistantId : 'custom',
     customAssistantId: knownAssistant ? '' : persistedAssistantId,
-    humanTransferPhone: String(nextSettings.human_transfer_phone || ''),
+    humanTransferPhone: String(nextSettings.human_transfer_phone || DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE),
     aiAssistGreeting: String(
       nextSettings.ai_assist_greeting ||
         "Hey, I'm calling in regards to your property listings. Do you have a second to talk?",

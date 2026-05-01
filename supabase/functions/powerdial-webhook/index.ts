@@ -452,16 +452,15 @@ async function buildAIGreetingUrl(voiceId: string, greetingText: string): Promis
 }
 
 /**
- * AI Assist warm-handoff: Twilio plays a short stalling greeting to the lead
- * (rendered via ElevenLabs in voice eXpIbVcVbLo8ZJQDlDnl, with a Polly fallback),
- * then silently bridges them to the live human agent. Because we use
- * answerOnBridge="false", the lead never hears ringing — the agent just
- * appears on the line right after the greeting finishes.
+ * PowerDial AI Assist handoff: no greeting, no verification prompt, no whisper.
+ * Once a human is detected, Twilio silently bridges the lead straight to the
+ * configured live agent number. Regular inbound phone calls still use the
+ * separate twilio-whisper press-1 flow and are intentionally untouched.
  */
 async function redirectCallToAIAssistTransfer(
   callSid: string,
   humanTransferPhone: string,
-  greetingText: string,
+  _greetingText: string,
   options: {
     campaignId: string;
     queueItemId: string;
@@ -481,39 +480,11 @@ async function redirectCallToAIAssistTransfer(
       options.callLogId,
     );
 
-    // Adaptive greeting: if AMD is highly confident the lead just said "hello"
-    // (AnsweredBy === "human"), use the shorter greeting to start speaking ~2s
-    // sooner. Otherwise use the user-configured / default greeting.
-    const customGreeting = greetingText && greetingText.trim();
-    const sayText = customGreeting
-      ? customGreeting
-      : (options.answeredBy === "human"
-        ? SHORT_AI_ASSIST_GREETING
-        : DEFAULT_AI_ASSIST_GREETING);
-
-    // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
-    // so the warm hand-off never breaks even if ElevenLabs is down.
-    // Try ElevenLabs first; gracefully fall back to Polly.Joanna-Neural <Say>
-    // so the warm hand-off never breaks even if ElevenLabs is down.
-    // Audio is streamed inline from this same edge function — no storage bucket needed.
-    const elevenBytes = await generateElevenLabsGreetingBytes(
-      AI_ASSIST_ELEVENLABS_VOICE_ID,
-      sayText,
-    );
-    const elevenUrl = elevenBytes
-      ? await buildAIGreetingUrl(AI_ASSIST_ELEVENLABS_VOICE_ID, sayText)
-      : null;
-
-    const greetingTwiml = elevenUrl
-      ? `<Play>${escapeXml(elevenUrl)}</Play>`
-      : `<Say voice="Polly.Joanna-Neural">${escapeXml(sayText)}</Say>`;
-
-    // Sequence: AI voice greets the lead → short pause (gives agent time to
-    // be bridged silently) → silent dial bridges the human in.
-    // answerOnBridge="false" ensures NO ringback is audible to the lead.
+    // PowerDial-only behavior: bridge directly. Do not play a Vapi/Twilio
+    // greeting and do not attach twilio-whisper, so there is no name recording
+    // or press-1 requirement in this outbound handoff path.
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  ${greetingTwiml}
   <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(humanTransferPhone)}</Number>
   </Dial>
@@ -538,7 +509,7 @@ async function redirectCallToAIAssistTransfer(
     }
 
     console.log(
-      `[powerdial-webhook] AI Assist warm handoff: ${callSid} → ${elevenUrl ? "ElevenLabs" : "Polly fallback"} + bridge ${humanTransferPhone}`,
+      `[powerdial-webhook] AI Assist silent handoff: ${callSid} → bridge ${humanTransferPhone}`,
     );
     return true;
   } catch (err) {
