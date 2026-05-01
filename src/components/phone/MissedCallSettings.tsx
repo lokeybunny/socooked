@@ -555,8 +555,8 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
+                              {m.customer?.full_name && <span className="text-sm font-medium">{m.customer.full_name} -</span>}
                               <span className="font-mono text-sm">{m.phone_number}</span>
-                              {m.customer?.full_name && <span className="text-sm text-muted-foreground">· {m.customer.full_name}</span>}
                               {m.auto_reply_sent ? (
                                 <Badge variant="outline" className="text-green-400 border-green-600/40"><MessageSquare className="h-3 w-3 mr-1" /> Replied</Badge>
                               ) : m.error_message ? (
