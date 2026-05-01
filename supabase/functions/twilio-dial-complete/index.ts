@@ -20,7 +20,11 @@ const DEFAULT_MISSED_MESSAGE =
   "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
 
 const MISSED_STATES = new Set(["no-answer", "busy", "failed", "canceled"]);
+// Window for collapsing duplicate missed_call_event rows (avoids row spam from Twilio retries)
 const DEDUPE_WINDOW_MIN = 10;
+// Cooldown for sending the courtesy auto-reply SMS. If the same caller misses again
+// after this window has passed, send another auto-reply (still attached to the same event row).
+const AUTO_REPLY_COOLDOWN_MIN = 2;
 
 function normalizePhone(raw: string | null | undefined): string {
   if (!raw) return "";
@@ -260,7 +264,7 @@ Deno.serve(async (req) => {
     const since = new Date(Date.now() - DEDUPE_WINDOW_MIN * 60_000).toISOString();
     const { data: recent } = await sb
       .from("missed_call_events")
-      .select("id, auto_reply_sent")
+      .select("id, auto_reply_sent, auto_reply_message, voidfix_message_id, meta, updated_at, created_at")
       .eq("phone_last10", last10)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
@@ -269,15 +273,36 @@ Deno.serve(async (req) => {
     const recentEvent = recent?.[0];
 
     if (recentEvent) {
-      // Just link this newer call_log_id to the existing event; do NOT re-send auto-reply
+      // Decide whether to re-send the auto-reply: only if cooldown elapsed since last send.
+      const lastReplyAtIso = (recentEvent.meta as any)?.last_auto_reply_at || recentEvent.updated_at || recentEvent.created_at;
+      const lastReplyMs = lastReplyAtIso ? new Date(lastReplyAtIso).getTime() : 0;
+      const cooldownPassed = Date.now() - lastReplyMs >= AUTO_REPLY_COOLDOWN_MIN * 60_000;
+      const shouldResend = cfg.auto_reply_enabled && cooldownPassed;
+
+      let resendResult: { ok: boolean; id?: string; error?: string } = { ok: false };
+      if (shouldResend) {
+        resendResult = await sendVoidfixAutoReply(from, cfg.message);
+      }
+
+      // Always re-link the latest call_log_id so the voicemail callback can attach the recording.
       await sb
         .from("missed_call_events")
         .update({
-          meta: { last_call_log_id: logId, last_at: new Date().toISOString() },
+          call_log_id: logId,
+          meta: {
+            ...(recentEvent.meta as any || {}),
+            last_call_log_id: logId,
+            last_at: new Date().toISOString(),
+            ...(resendResult.ok ? { last_auto_reply_at: new Date().toISOString() } : {}),
+          },
+          ...(resendResult.ok ? { auto_reply_sent: true, voidfix_message_id: resendResult.id || recentEvent.voidfix_message_id } : {}),
         })
         .eq("id", recentEvent.id);
+
       await auditDialComplete({
-        stage: "missed_call_deduped",
+        stage: shouldResend
+          ? (resendResult.ok ? "missed_call_deduped_resent" : "missed_call_deduped_resend_failed")
+          : "missed_call_deduped",
         callSid,
         dialCallSid,
         from,
@@ -287,7 +312,7 @@ Deno.serve(async (req) => {
         callLogId: logId,
         missedCallEventId: recentEvent.id,
         missedCallRowCreated: false,
-        rawPayload,
+        rawPayload: { ...rawPayload, _resend: shouldResend, _resendError: resendResult.error || null },
       });
       return voicemailResp();
     }
