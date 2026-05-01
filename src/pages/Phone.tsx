@@ -1454,10 +1454,11 @@ export default function PhonePage() {
             </div>
           </div>
 
-          {/* ── Right: Interested Prospects ── */}
+          {/* ── Right: Recent Missed Calls + Interested Prospects ── */}
           <div className="order-3 space-y-4">
 
-            {/* Recent Transcriptions panel removed per request */}
+            {/* Recent missed calls (last 50, with voicemail playback) */}
+            <MissedCallSettings section="recent" />
 
             {/* ── Interested Prospects ── */}
             {(() => {
