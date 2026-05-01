@@ -383,9 +383,9 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
             <div className="flex justify-center py-2"><Loader2 className="h-4 w-4 animate-spin" /></div>
           )}
         </CardContent>
-      </Card>
+      </Card>)}
 
-      <Card>
+      {showRecent && (<Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
