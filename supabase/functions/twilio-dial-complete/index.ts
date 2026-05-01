@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
 
     if (recentEvent) {
       // Decide whether to re-send the auto-reply: only if cooldown elapsed since last send.
-      const lastReplyAtIso = (recentEvent.meta as any)?.last_auto_reply_at || recentEvent.updated_at || recentEvent.created_at;
+      const lastReplyAtIso = (recentEvent.meta as any)?.last_auto_reply_at || (recentEvent.auto_reply_sent ? recentEvent.created_at : null);
       const lastReplyMs = lastReplyAtIso ? new Date(lastReplyAtIso).getTime() : 0;
       const cooldownPassed = Date.now() - lastReplyMs >= AUTO_REPLY_COOLDOWN_MIN * 60_000;
       const shouldResend = cfg.auto_reply_enabled && cooldownPassed;
@@ -335,6 +335,7 @@ Deno.serve(async (req) => {
       auto_reply_message: cfg.auto_reply_enabled ? cfg.message : null,
       voidfix_message_id: autoReplyResult.id || null,
       error_message: autoReplyResult.error || null,
+      meta: autoReplyResult.ok ? { last_auto_reply_at: new Date().toISOString() } : {},
     }).select("id").single();
 
     await auditDialComplete({
