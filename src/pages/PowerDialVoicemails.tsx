@@ -123,7 +123,9 @@ export default function PowerDialVoicemails() {
   const [uploading, setUploading] = useState(false);
   const [uploadName, setUploadName] = useState("");
   const [setActiveOnUpload, setSetActiveOnUpload] = useState(true);
-  const [codec, setCodec] = useState<"pcm_mulaw" | "pcm_s16le">("pcm_mulaw");
+  // Locked to μ-law: this matches the working voicemail-guru file
+  // (WAV / pcm_mulaw / 8000Hz / mono) — the only format Twilio plays cleanly.
+  const codec = "pcm_mulaw" as const;
   const [testPhone, setTestPhone] = useState("+14244658105");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
