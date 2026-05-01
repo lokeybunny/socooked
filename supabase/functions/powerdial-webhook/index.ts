@@ -1307,11 +1307,14 @@ Deno.serve(async (req) => {
       try {
         const { data: activeRec } = await sb
           .from("voicemail_recordings")
-          .select("id, pause_before_sec, pause_after_sec, tts_fallback_text")
+          .select("id, pause_before_sec, pause_after_sec, tts_fallback_text, updated_at, created_at")
           .eq("is_active", true)
           .maybeSingle();
         if (activeRec?.id) {
-          vmDropUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${activeRec.id}`;
+          // Cache-bust on updated_at so re-uploads / new actives are not served
+          // from Twilio's edge cache of a prior recording.
+          const ver = encodeURIComponent(String(activeRec.updated_at || activeRec.created_at || Date.now()));
+          vmDropUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${activeRec.id}&v=${ver}`;
           pauseBeforeSec = Number(activeRec.pause_before_sec ?? 2);
           pauseAfterSec = Number(activeRec.pause_after_sec ?? 1);
           ttsFallbackText = activeRec.tts_fallback_text || null;
