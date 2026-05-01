@@ -12,6 +12,8 @@ const CORS = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const TWILIO_PHONE_SID = Deno.env.get("TWILIO_PHONE_NUMBER_SID") || "PN886a8a5f97335d5a795f13d8b04ebee4";
+const FORWARDED_TO_NUMBER = "+17027016192";
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const DEFAULT_MISSED_MESSAGE =
@@ -29,6 +31,48 @@ function normalizePhone(raw: string | null | undefined): string {
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (s.startsWith("+")) return `+${digits}`;
   return `+${digits}`;
+}
+
+function formToPayload(form: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of form.entries()) out[key] = String(value);
+  return out;
+}
+
+async function auditDialComplete(args: {
+  stage: string;
+  callSid?: string;
+  dialCallSid?: string;
+  from?: string;
+  to?: string;
+  dialStatus?: string;
+  isMissed?: boolean;
+  callLogId?: string | null;
+  missedCallEventId?: string | null;
+  callLogCreated?: boolean;
+  missedCallRowCreated?: boolean;
+  error?: string;
+  rawPayload?: Record<string, string>;
+}) {
+  const { error } = await sb.from("missed_call_webhook_audit").insert({
+    webhook_name: "twilio-dial-complete",
+    event_stage: args.stage,
+    call_sid: args.callSid || null,
+    dial_call_sid: args.dialCallSid || null,
+    phone_number: args.from || null,
+    to_number: args.to || null,
+    forwarded_phone_number: FORWARDED_TO_NUMBER,
+    twilio_phone_sid: TWILIO_PHONE_SID,
+    dial_status: args.dialStatus || null,
+    is_missed: typeof args.isMissed === "boolean" ? args.isMissed : null,
+    call_log_id: args.callLogId || null,
+    missed_call_event_id: args.missedCallEventId || null,
+    call_log_created: args.callLogCreated === true,
+    missed_call_row_created: args.missedCallRowCreated === true,
+    error_message: args.error || null,
+    raw_payload: args.rawPayload || {},
+  });
+  if (error) console.error("[twilio-dial-complete][audit]", error.message);
 }
 
 async function loadCfg() {
@@ -86,6 +130,7 @@ Deno.serve(async (req) => {
 
   try {
     const form = await req.formData();
+    const rawPayload = formToPayload(form);
     const callSid = String(form.get("CallSid") || ""); // parent (caller→Twilio)
     const dialCallSid = String(form.get("DialCallSid") || ""); // child (Twilio→Verizon)
     const from = normalizePhone(String(form.get("From") || ""));
@@ -109,8 +154,11 @@ Deno.serve(async (req) => {
     let customerId = logRow?.customer_id || null;
     if (!customerId) customerId = await findCustomerByPhone(from);
 
+    let callLogCreated = false;
+    let callLogError: string | undefined;
+
     if (logId) {
-      await sb
+      const { error: updateError } = await sb
         .from("powerdial_call_logs")
         .update({
           twilio_status: isAnswered ? "completed" : dialStatus || "no-answer",
@@ -122,8 +170,9 @@ Deno.serve(async (req) => {
           meta: { from_number: from, to_number: to, dial_duration: dialDuration, inbound: true },
         })
         .eq("id", logId);
+      callLogError = updateError?.message;
     } else {
-      const { data: inserted } = await sb
+      const { data: inserted, error: insertError } = await sb
         .from("powerdial_call_logs")
         .insert({
           twilio_call_sid: callSid,
@@ -142,16 +191,58 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
       logId = inserted?.id || null;
+      callLogCreated = Boolean(inserted?.id);
+      callLogError = insertError?.message;
     }
+
+    await auditDialComplete({
+      stage: callLogError ? "call_log_write_failed" : "dial_complete_received",
+      callSid,
+      dialCallSid,
+      from,
+      to,
+      dialStatus,
+      isMissed,
+      callLogId: logId,
+      callLogCreated,
+      error: callLogError,
+      rawPayload,
+    });
 
     // Acknowledge XML (no further TwiML — call is done)
     const ackXml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
     const ackResp = new Response(ackXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
 
-    if (!isMissed || !from) return ackResp;
+    if (!isMissed || !from) {
+      await auditDialComplete({
+        stage: !isMissed ? "not_missed" : "missing_caller_number",
+        callSid,
+        dialCallSid,
+        from,
+        to,
+        dialStatus,
+        isMissed,
+        callLogId: logId,
+        rawPayload,
+      });
+      return ackResp;
+    }
 
     const cfg = await loadCfg();
-    if (!cfg.enabled) return ackResp;
+    if (!cfg.enabled) {
+      await auditDialComplete({
+        stage: "missed_call_logging_disabled",
+        callSid,
+        dialCallSid,
+        from,
+        to,
+        dialStatus,
+        isMissed,
+        callLogId: logId,
+        rawPayload,
+      });
+      return ackResp;
+    }
 
     const last10 = from.replace(/\D/g, "").slice(-10);
 
@@ -175,6 +266,19 @@ Deno.serve(async (req) => {
           meta: { last_call_log_id: logId, last_at: new Date().toISOString() },
         })
         .eq("id", recentEvent.id);
+      await auditDialComplete({
+        stage: "missed_call_deduped",
+        callSid,
+        dialCallSid,
+        from,
+        to,
+        dialStatus,
+        isMissed,
+        callLogId: logId,
+        missedCallEventId: recentEvent.id,
+        missedCallRowCreated: false,
+        rawPayload,
+      });
       return ackResp;
     }
 
@@ -185,7 +289,7 @@ Deno.serve(async (req) => {
     }
 
     // Insert missed_call_event
-    await sb.from("missed_call_events").insert({
+    const { data: missedEvent, error: missedInsertError } = await sb.from("missed_call_events").insert({
       call_log_id: logId,
       customer_id: customerId,
       phone_number: from,
@@ -196,6 +300,21 @@ Deno.serve(async (req) => {
       auto_reply_message: cfg.auto_reply_enabled ? cfg.message : null,
       voidfix_message_id: autoReplyResult.id || null,
       error_message: autoReplyResult.error || null,
+    }).select("id").single();
+
+    await auditDialComplete({
+      stage: missedInsertError ? "missed_call_insert_failed" : "missed_call_created",
+      callSid,
+      dialCallSid,
+      from,
+      to,
+      dialStatus,
+      isMissed,
+      callLogId: logId,
+      missedCallEventId: missedEvent?.id || null,
+      missedCallRowCreated: Boolean(missedEvent?.id),
+      error: missedInsertError?.message,
+      rawPayload,
     });
 
     // Add to power dialer callback queue (no campaign — generic callback queue uses NULL campaign)
@@ -230,6 +349,7 @@ Deno.serve(async (req) => {
     return ackResp;
   } catch (err) {
     console.error("[twilio-dial-complete]", err);
+    await auditDialComplete({ stage: "error", error: (err as Error).message });
     const xml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
     return new Response(xml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
   }

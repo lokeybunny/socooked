@@ -13,6 +13,7 @@ const CORS = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+const TWILIO_PHONE_SID = Deno.env.get("TWILIO_PHONE_NUMBER_SID") || "PN886a8a5f97335d5a795f13d8b04ebee4";
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const DEFAULTS = {
@@ -33,6 +34,40 @@ function normalizePhone(raw: string | null | undefined): string {
 
 function escapeXml(v: string) {
   return v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function formToPayload(form: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of form.entries()) out[key] = String(value);
+  return out;
+}
+
+async function auditInbound(args: {
+  stage: string;
+  callSid?: string;
+  from?: string;
+  to?: string;
+  forwardedTo?: string;
+  callLogId?: string | null;
+  callLogCreated?: boolean;
+  error?: string;
+  rawPayload?: Record<string, string>;
+}) {
+  const { error } = await sb.from("missed_call_webhook_audit").insert({
+    webhook_name: "twilio-inbound-call",
+    event_stage: args.stage,
+    call_sid: args.callSid || null,
+    phone_number: args.from || null,
+    to_number: args.to || null,
+    forwarded_phone_number: args.forwardedTo || DEFAULTS.forward_to,
+    twilio_phone_sid: TWILIO_PHONE_SID,
+    call_log_id: args.callLogId || null,
+    call_log_created: args.callLogCreated === true,
+    missed_call_row_created: false,
+    error_message: args.error || null,
+    raw_payload: args.rawPayload || {},
+  });
+  if (error) console.error("[twilio-inbound-call][audit]", error.message);
 }
 
 async function loadCfg() {
@@ -70,7 +105,7 @@ Deno.serve(async (req) => {
     const customerId = await findCustomerByPhone(from);
 
     // Log the inbound leg (campaign_id NULL = forwarded inbound, not power-dialed)
-    await sb.from("powerdial_call_logs").insert({
+    const { data: insertedLog, error: insertError } = await sb.from("powerdial_call_logs").insert({
       twilio_call_sid: callSid,
       twilio_status: "ringing",
       phone: from || "unknown",
@@ -79,6 +114,18 @@ Deno.serve(async (req) => {
       customer_id: customerId,
       source: "twilio_forwarded_voidfix",
       meta: { inbound: true },
+    }).select("id").single();
+
+    await auditInbound({
+      stage: insertError ? "call_log_insert_failed" : "inbound_received",
+      callSid,
+      from,
+      to,
+      forwardedTo: cfg.forward_to,
+      callLogId: insertedLog?.id || null,
+      callLogCreated: Boolean(insertedLog?.id),
+      error: insertError?.message,
+      rawPayload: formToPayload(form),
     });
 
     const actionUrl = `${SUPABASE_URL}/functions/v1/twilio-dial-complete`;
@@ -94,6 +141,7 @@ Deno.serve(async (req) => {
     return new Response(xml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
   } catch (err) {
     console.error("[twilio-inbound-call]", err);
+    await auditInbound({ stage: "error", error: (err as Error).message });
     const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`;
     return new Response(xml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
   }

@@ -3513,6 +3513,69 @@ export type Database = {
           },
         ]
       }
+      missed_call_webhook_audit: {
+        Row: {
+          call_log_created: boolean
+          call_log_id: string | null
+          call_sid: string | null
+          created_at: string
+          dial_call_sid: string | null
+          dial_status: string | null
+          error_message: string | null
+          event_stage: string
+          forwarded_phone_number: string | null
+          id: string
+          is_missed: boolean | null
+          missed_call_event_id: string | null
+          missed_call_row_created: boolean
+          phone_number: string | null
+          raw_payload: Json
+          to_number: string | null
+          twilio_phone_sid: string | null
+          webhook_name: string
+        }
+        Insert: {
+          call_log_created?: boolean
+          call_log_id?: string | null
+          call_sid?: string | null
+          created_at?: string
+          dial_call_sid?: string | null
+          dial_status?: string | null
+          error_message?: string | null
+          event_stage: string
+          forwarded_phone_number?: string | null
+          id?: string
+          is_missed?: boolean | null
+          missed_call_event_id?: string | null
+          missed_call_row_created?: boolean
+          phone_number?: string | null
+          raw_payload?: Json
+          to_number?: string | null
+          twilio_phone_sid?: string | null
+          webhook_name: string
+        }
+        Update: {
+          call_log_created?: boolean
+          call_log_id?: string | null
+          call_sid?: string | null
+          created_at?: string
+          dial_call_sid?: string | null
+          dial_status?: string | null
+          error_message?: string | null
+          event_stage?: string
+          forwarded_phone_number?: string | null
+          id?: string
+          is_missed?: boolean | null
+          missed_call_event_id?: string | null
+          missed_call_row_created?: boolean
+          phone_number?: string | null
+          raw_payload?: Json
+          to_number?: string | null
+          twilio_phone_sid?: string | null
+          webhook_name?: string
+        }
+        Relationships: []
+      }
       narrative_evolution: {
         Row: {
           categories: string[]
