@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, StickyNote } from "lucide-react";
+import { Loader2, Save, StickyNote, X, GripHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 interface CallNotesPopupProps {
@@ -24,6 +24,9 @@ function formatPhone(p: string): string {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
+const PANEL_WIDTH = 420;
+const PANEL_HEIGHT_ESTIMATE = 520;
+
 export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesPopupProps) {
   const phoneKey = last10(phone);
   const [loading, setLoading] = useState(false);
@@ -32,6 +35,20 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
   const [email, setEmail] = useState("");
   const [instagram, setInstagram] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Draggable position (top-left in viewport coords). null = not yet positioned.
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Initial centered position when opened
+  useEffect(() => {
+    if (open && pos === null) {
+      const x = Math.max(16, (window.innerWidth - PANEL_WIDTH) / 2);
+      const y = Math.max(16, (window.innerHeight - PANEL_HEIGHT_ESTIMATE) / 2);
+      setPos({ x, y });
+    }
+  }, [open, pos]);
 
   useEffect(() => {
     if (!open || !phoneKey || phoneKey.length !== 10) return;
@@ -52,6 +69,49 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
     })();
     return () => { cancelled = true; };
   }, [open, phoneKey]);
+
+  // Drag handlers (pointer events for mouse + touch)
+  function onPointerDownHeader(e: React.PointerEvent<HTMLDivElement>) {
+    if (!panelRef.current || !pos) return;
+    // Ignore drag when clicking the close button
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-no-drag]")) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      offsetX: e.clientX - pos.x,
+      offsetY: e.clientY - pos.y,
+    };
+  }
+
+  function onPointerMoveHeader(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragRef.current) return;
+    const rect = panelRef.current?.getBoundingClientRect();
+    const w = rect?.width ?? PANEL_WIDTH;
+    const h = rect?.height ?? PANEL_HEIGHT_ESTIMATE;
+    const nextX = Math.min(
+      Math.max(0, e.clientX - dragRef.current.offsetX),
+      Math.max(0, window.innerWidth - w),
+    );
+    const nextY = Math.min(
+      Math.max(0, e.clientY - dragRef.current.offsetY),
+      Math.max(0, window.innerHeight - 40), // keep header reachable
+    );
+    setPos({ x: nextX, y: nextY });
+  }
+
+  function onPointerUpHeader(e: React.PointerEvent<HTMLDivElement>) {
+    dragRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch {}
+  }
+
+  // Reset position when closed so it re-centers next time
+  useEffect(() => {
+    if (!open) {
+      // small delay so close animation doesn't jump
+      const t = setTimeout(() => setPos(null), 200);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
 
   async function save() {
     if (phoneKey.length !== 10) {
@@ -79,19 +139,50 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
     }
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <StickyNote className="h-4 w-4 text-primary" />
-            Contact Notes
-          </DialogTitle>
-          <DialogDescription>
-            {formatPhone(phone)} — saved notes follow this contact across Phone & SMS.
-          </DialogDescription>
-        </DialogHeader>
+  if (!open || !pos) return null;
 
+  return createPortal(
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-label="Contact Notes"
+      className="fixed z-50 rounded-xl border border-border bg-background shadow-2xl"
+      style={{
+        top: pos.y,
+        left: pos.x,
+        width: PANEL_WIDTH,
+      }}
+    >
+      {/* Drag handle / header */}
+      <div
+        onPointerDown={onPointerDownHeader}
+        onPointerMove={onPointerMoveHeader}
+        onPointerUp={onPointerUpHeader}
+        onPointerCancel={onPointerUpHeader}
+        className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border cursor-grab active:cursor-grabbing select-none rounded-t-xl bg-muted/30"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <GripHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
+          <StickyNote className="h-4 w-4 text-primary shrink-0" />
+          <div className="min-w-0">
+            <div className="text-sm font-semibold leading-tight truncate">Contact Notes</div>
+            <div className="text-xs text-muted-foreground leading-tight truncate">
+              {formatPhone(phone)} — follows this contact across Phone & SMS
+            </div>
+          </div>
+        </div>
+        <button
+          data-no-drag
+          onClick={() => onOpenChange(false)}
+          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -128,7 +219,8 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   );
 }
