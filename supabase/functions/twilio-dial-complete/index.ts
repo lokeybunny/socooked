@@ -20,7 +20,11 @@ const DEFAULT_MISSED_MESSAGE =
   "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
 
 const MISSED_STATES = new Set(["no-answer", "busy", "failed", "canceled"]);
+// Window for collapsing duplicate missed_call_event rows (avoids row spam from Twilio retries)
 const DEDUPE_WINDOW_MIN = 10;
+// Cooldown for sending the courtesy auto-reply SMS. If the same caller misses again
+// after this window has passed, send another auto-reply (still attached to the same event row).
+const AUTO_REPLY_COOLDOWN_MIN = 2;
 
 function normalizePhone(raw: string | null | undefined): string {
   if (!raw) return "";
