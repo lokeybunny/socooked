@@ -108,26 +108,35 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
     setLoading(false);
   }
 
-  async function loadMissed() {
-    setMissedLoading(true);
+  async function loadMissed(opts: { silent?: boolean } = {}) {
+    if (!opts.silent) setMissedLoading(true);
     const { data } = await supabase
       .from("missed_call_events")
       .select("id, phone_number, customer_id, status, callback_status, auto_reply_sent, voidfix_message_id, error_message, created_at, voicemail_recording_url, voicemail_recording_sid, voicemail_duration, voicemail_received_at, customer:customers(full_name)")
       .order("created_at", { ascending: false })
       .limit(50);
-    setMissed((data as any) || []);
-    setMissedLoading(false);
+    const next = (data as any) || [];
+    setMissed((prev) => {
+      // Skip re-render if shallow signature unchanged (prevents flicker)
+      const sig = (rows: any[]) => rows.map((r) => `${r.id}:${r.status}:${r.callback_status}:${r.voicemail_recording_url || ''}`).join('|');
+      return sig(prev) === sig(next) ? prev : next;
+    });
+    if (!opts.silent) setMissedLoading(false);
   }
 
-  async function loadAudit() {
-    setAuditLoading(true);
+  async function loadAudit(opts: { silent?: boolean } = {}) {
+    if (!opts.silent) setAuditLoading(true);
     const { data } = await (supabase as any)
       .from("missed_call_webhook_audit")
       .select("id, webhook_name, event_stage, call_sid, dial_call_sid, phone_number, to_number, forwarded_phone_number, twilio_phone_sid, dial_status, is_missed, call_log_created, missed_call_row_created, error_message, created_at")
       .order("created_at", { ascending: false })
       .limit(75);
-    setAuditRows((data as AuditRow[]) || []);
-    setAuditLoading(false);
+    const next = (data as AuditRow[]) || [];
+    setAuditRows((prev) => {
+      const sig = (rows: AuditRow[]) => rows.map((r) => r.id).join('|');
+      return sig(prev) === sig(next) ? prev : next;
+    });
+    if (!opts.silent) setAuditLoading(false);
   }
 
   async function loadWebhook() {
