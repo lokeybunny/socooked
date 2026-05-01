@@ -40,17 +40,27 @@ Deno.serve(async (req) => {
       return new Response("Invalid recording sid", { status: 400, headers: CORS });
     }
 
-    // Verify the SID exists in our missed_call_events table
+    // Verify the SID exists in our missed_call_events table and get its stored URL
     const { data: ev } = await sb
       .from("missed_call_events")
-      .select("id")
+      .select("id, voicemail_recording_url")
       .eq("voicemail_recording_sid", sid)
       .limit(1)
       .maybeSingle();
     if (!ev?.id) return new Response("Not found", { status: 404, headers: CORS });
 
-    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${sid}.mp3`;
-    const basic = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+    // Prefer the stored URL (it has the correct AccountSid that owns the recording).
+    // Parse the owning AccountSid from the URL so basic-auth matches.
+    const storedUrl = (ev.voicemail_recording_url || "").trim();
+    const acctMatch = storedUrl.match(/\/Accounts\/(AC[a-f0-9]{32})\//i);
+    const owningAccountSid = acctMatch?.[1] || TWILIO_ACCOUNT_SID;
+
+    // Always request .mp3 explicitly, strip any existing extension
+    const baseUrl = storedUrl
+      ? storedUrl.replace(/\.(mp3|wav)(\?.*)?$/i, "")
+      : `https://api.twilio.com/2010-04-01/Accounts/${owningAccountSid}/Recordings/${sid}`;
+    const twilioUrl = `${baseUrl}.mp3`;
+    const basic = btoa(`${owningAccountSid}:${TWILIO_AUTH_TOKEN}`);
     const range = req.headers.get("range") || undefined;
 
     const upstream = await fetch(twilioUrl, {
