@@ -9,6 +9,8 @@ import { Save } from 'lucide-react';
 
 const DEFAULT_OUTBOUND_ASSISTANT = '1eddf1f7-3ef8-4950-9a65-1fd68516208e';
 const DEFAULT_POWERDIAL_HUMAN_TRANSFER_PHONE = '+17027016192';
+const TARGET_SAMPLE_RATE = 8000;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const INBOUND_ASSISTANT_IDS = new Set([
   'fea7fb27-2311-4f42-9bc1-d6e6fa966ab8',
   '29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38',
@@ -69,6 +71,59 @@ function sanitizeAssistantId(value: unknown) {
   }
 
   return assistantId;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
+  }
+  return btoa(binary);
+}
+
+async function decodeAndResample(file: File): Promise<{ samples: Float32Array; durationSec: number }> {
+  const arrayBuf = await file.arrayBuffer();
+  const tmpCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  let decoded: AudioBuffer;
+  try {
+    decoded = await tmpCtx.decodeAudioData(arrayBuf.slice(0));
+  } finally {
+    tmpCtx.close();
+  }
+
+  const durationSec = decoded.duration;
+  const targetLen = Math.ceil(durationSec * TARGET_SAMPLE_RATE);
+  const offline = new OfflineAudioContext(1, targetLen, TARGET_SAMPLE_RATE);
+  const src = offline.createBufferSource();
+  let monoBuf: AudioBuffer;
+  if (decoded.numberOfChannels === 1) {
+    monoBuf = decoded;
+  } else {
+    monoBuf = offline.createBuffer(1, decoded.length, decoded.sampleRate);
+    const out = monoBuf.getChannelData(0);
+    const channels: Float32Array[] = [];
+    for (let c = 0; c < decoded.numberOfChannels; c++) channels.push(decoded.getChannelData(c));
+    for (let i = 0; i < decoded.length; i++) {
+      let sum = 0;
+      for (let c = 0; c < channels.length; c++) sum += channels[c][i];
+      out[i] = sum / channels.length;
+    }
+  }
+
+  src.buffer = monoBuf;
+  src.connect(offline.destination);
+  src.start();
+  const rendered = await offline.startRendering();
+  const raw = rendered.getChannelData(0).slice();
+  let peak = 0;
+  for (let i = 0; i < raw.length; i++) peak = Math.max(peak, Math.abs(raw[i]));
+  if (peak > 0) {
+    const gain = Math.min(0.707 / peak, 4);
+    for (let i = 0; i < raw.length; i++) raw[i] = Math.max(-0.95, Math.min(0.95, raw[i] * gain));
+  }
+
+  return { samples: raw, durationSec };
 }
 
 export default function PowerDialSettings({ campaign, onUpdate }: Props) {
