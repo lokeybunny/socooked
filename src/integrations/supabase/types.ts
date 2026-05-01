@@ -5726,33 +5726,42 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          instagram: string | null
           name: string
+          notes: string | null
           phone: string | null
           phone_last10: string
           starred: boolean
           starred_at: string | null
+          tags: string[] | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           email?: string | null
           id?: string
+          instagram?: string | null
           name: string
+          notes?: string | null
           phone?: string | null
           phone_last10: string
           starred?: boolean
           starred_at?: string | null
+          tags?: string[] | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           email?: string | null
           id?: string
+          instagram?: string | null
           name?: string
+          notes?: string | null
           phone?: string | null
           phone_last10?: string
           starred?: boolean
           starred_at?: string | null
+          tags?: string[] | null
           updated_at?: string
         }
         Relationships: []
