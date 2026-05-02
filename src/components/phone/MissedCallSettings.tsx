@@ -549,57 +549,54 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
               const pageRows = missed.slice(start, start + MISSED_PAGE_SIZE);
               return (
                 <div className="space-y-3">
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {pageRows.map((m) => (
-                      <div key={m.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-card/40">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {m.customer?.full_name && <span className="text-sm font-medium">{m.customer.full_name} -</span>}
-                              <span className="font-mono text-sm">{m.phone_number}</span>
-                              {m.auto_reply_sent ? (
-                                <Badge variant="outline" className="text-green-400 border-green-600/40"><MessageSquare className="h-3 w-3 mr-1" /> Replied</Badge>
-                              ) : m.error_message ? (
-                                <Badge variant="destructive">Reply failed</Badge>
-                              ) : (
-                                <Badge variant="outline">No reply</Badge>
-                              )}
-                              {m.voicemail_recording_sid && (
-                                <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/40">
-                                  Voicemail{m.voicemail_duration ? ` · ${m.voicemail_duration}s` : ""}
-                                </Badge>
-                              )}
-                              <Badge variant={m.callback_status === "open" ? "default" : "outline"}>{m.callback_status}</Badge>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {m.voicemail_received_at ? "Voicemail received" : "Missed call"}: {new Date(getMissedActivityTime(m)).toLocaleString()}
-                            </div>
-                            {m.error_message && <div className="text-xs text-destructive mt-1">{m.error_message}</div>}
+                      <div key={m.id} className="flex flex-col gap-1 px-2 py-1.5 rounded-md border bg-card/40 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+                            {m.customer?.full_name && <span className="font-medium truncate max-w-[140px]">{m.customer.full_name}</span>}
+                            <span className="font-mono text-[11px] text-muted-foreground">{m.phone_number}</span>
+                            {m.auto_reply_sent ? (
+                              <Badge variant="outline" className="text-green-400 border-green-600/40 px-1 py-0 text-[10px] h-4">Replied</Badge>
+                            ) : m.error_message ? (
+                              <Badge variant="destructive" className="px-1 py-0 text-[10px] h-4">Failed</Badge>
+                            ) : null}
+                            {m.voicemail_recording_sid && (
+                              <Badge className="bg-blue-600/20 text-blue-400 border-blue-600/40 px-1 py-0 text-[10px] h-4">
+                                VM{m.voicemail_duration ? `·${m.voicemail_duration}s` : ""}
+                              </Badge>
+                            )}
+                            {m.callback_status === "open" && (
+                              <Badge variant="default" className="px-1 py-0 text-[10px] h-4">open</Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground ml-auto sm:ml-0">
+                              {new Date(getMissedActivityTime(m)).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button size="sm" variant="ghost" asChild>
-                              <a href={`tel:${m.phone_number}`}><PhoneCall className="h-4 w-4" /></a>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0" asChild>
+                              <a href={`tel:${m.phone_number}`}><PhoneCall className="h-3 w-3" /></a>
                             </Button>
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="gap-1 h-7 text-xs"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
                               onClick={() => setSmsPopup({ phone: m.phone_number, name: m.customer?.full_name || null })}
                             >
-                              <MessageSquare className="h-3.5 w-3.5" /> SMS
+                              <MessageSquare className="h-3 w-3" />
                             </Button>
                             {m.callback_status === "open" && (
-                              <Button size="sm" variant="ghost" onClick={() => markCallback(m.id, "dismissed")}>Dismiss</Button>
+                              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]" onClick={() => markCallback(m.id, "dismissed")}>✕</Button>
                             )}
                             {m.customer_id && (
-                              <Button size="sm" variant="ghost" asChild>
-                                <a href={`/customers?id=${m.customer_id}`}><ExternalLink className="h-4 w-4" /></a>
+                              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" asChild>
+                                <a href={`/customers?id=${m.customer_id}`}><ExternalLink className="h-3 w-3" /></a>
                               </Button>
                             )}
                           </div>
                         </div>
                         {m.voicemail_recording_sid && (
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <VoicemailPlayer sid={m.voicemail_recording_sid} />
                             <SaveToCampaignButton
                               phone={m.phone_number}
@@ -608,6 +605,7 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                             />
                           </div>
                         )}
+                        {m.error_message && <div className="text-[10px] text-destructive">{m.error_message}</div>}
                       </div>
                     ))}
                   </div>
