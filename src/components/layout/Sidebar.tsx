@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature, Activity, TrendingUp, Home, Building2,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature, Activity, TrendingUp, Home, Building2, Voicemail,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -50,6 +50,7 @@ const navEntries: NavEntry[] = [
       { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
       { to: '/sms', icon: MessageSquare, label: 'SMS', botIcon: true },
       { to: '/powerdial', icon: Sparkles, label: 'PowerD', purple: true },
+      { to: '/vmdrp', icon: Voicemail, label: 'VMDrp' },
     ],
   },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
