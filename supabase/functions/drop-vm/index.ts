@@ -549,28 +549,6 @@ Deno.serve(async (req) => {
       response: result.json,
     });
 
-    // ------------- VoidFix SMS handoff on delivery -------------
-    let voidfix_result: any = null;
-    if (delivered && campaign.delivery_tracking_enabled !== false) {
-      try {
-        console.log("[drop-vm] → VoidFix SMS handoff");
-        const sms = await supabase.functions.invoke("powerdial-sms", {
-          body: {
-            action: "send",
-            to: normalized,
-            body: "Hey this is Warren — just left you a quick voicemail.",
-            customer_id: customer_id || null,
-            source: "vmdrp-auto-followup",
-          },
-        });
-        voidfix_result = sms.data || { error: sms.error?.message };
-        console.log("[drop-vm] ← VoidFix", voidfix_result?.ok, voidfix_result?.error || "ok");
-      } catch (e: any) {
-        console.error("[drop-vm] VoidFix handoff failed:", e.message);
-        voidfix_result = { ok: false, error: e.message };
-      }
-    }
-
     return new Response(JSON.stringify({
       success: delivered,
       status,
@@ -578,7 +556,7 @@ Deno.serve(async (req) => {
       activity_token: result.json?.ActivityToken || null,
       vm_drop_status_url: result.json?.VmDropStatusUrl || result.json?.VMDropStatusUrl || null,
       campaign_token: campaign.campaign_token,
-      voidfix: voidfix_result,
+      followup_mode: campaign.delivery_tracking_enabled !== false ? "after_manual_status_refresh" : "disabled",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("drop-vm error:", err);
