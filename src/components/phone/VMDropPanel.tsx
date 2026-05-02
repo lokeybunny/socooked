@@ -21,6 +21,9 @@ type Campaign = {
   transfer_number: string;
   callback_type: number;
   is_default: boolean;
+  default_caller_id?: string | null;
+  webhook_url?: string | null;
+  delivery_tracking_enabled?: boolean;
   created_at: string;
 };
 
