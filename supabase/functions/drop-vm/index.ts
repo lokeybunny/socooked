@@ -1,5 +1,5 @@
 // Drop.co VMDrop edge function
-// Uses a Drop.co UI-created campaign token, sends ringless voicemails, exposes stats/logs.
+// Creates Drop.co campaigns via API, sends ringless voicemails, tracks status, exposes stats/logs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -44,8 +44,9 @@ Deno.serve(async (req) => {
     const {
       action = "send",
       phone, customer_id, lead_id, audio_url, transfer_number,
-      campaign_token, campaign_id, name,
+      name, enable_missed_call, callback_type,
       default_caller_id, webhook_url, delivery_tracking_enabled,
+      activity_token, contact_name, workflow_id,
     } = body;
 
     console.log("[drop-vm] action:", action, "phone:", phone ? "***" + String(phone).slice(-4) : "none");
@@ -57,27 +58,56 @@ Deno.serve(async (req) => {
       .eq("is_default", true)
       .maybeSingle();
 
-    // ------------- Action: save_campaign -------------
-    if (action === "save_campaign") {
-      const token = String(campaign_token || "").trim();
-      if (!token) throw new Error("Missing Drop.co Campaign Token");
+    // ------------- Action: create_campaign (calls Drop.co VMDropCreate) -------------
+    if (action === "create_campaign") {
+      const audio = audio_url || DEFAULT_AUDIO_URL;
+      const transfer = transfer_number || DEFAULT_TRANSFER_NUMBER;
+      const cname = (name || DEFAULT_CAMPAIGN_NAME).trim();
+      const cb = Number(callback_type ?? 1); // 1 = transfer to number
+
+      console.log("[drop-vm] → Drop.co VMDropCreate", { name: cname, audio: audio.slice(0, 60) + "…" });
+      const create = await dropApi("VMDropCreate", {
+        ApiKey: DROP_API_KEY,
+        VMDropName: cname,
+        VMDropFileUrl: audio,
+        EnableMissedCall: String(enable_missed_call !== false),
+        CallbackForwardingType: String(cb),
+        TransferNumber: normalizePhone(transfer) || transfer,
+      });
+      const j = create.json || {};
+      console.log("[drop-vm] ← VMDropCreate", create.status, j.ApiStatusCode, j.ApiStatusMessage);
+
+      if (!create.ok || j.ApiStatusCode !== 1000 || !j.CampaignToken) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: j.ApiStatusMessage || "Drop.co rejected campaign creation",
+          api_status_code: j.ApiStatusCode ?? null,
+          raw: j,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Demote any existing default and upsert this one as default
       await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
       const saved = await supabase.from("drop_campaigns").upsert({
-        campaign_token: token,
-        campaign_id: campaign_id ? Number(campaign_id) : null,
-        name: name || DEFAULT_CAMPAIGN_NAME,
-        audio_url: audio_url || DEFAULT_AUDIO_URL,
-        transfer_number: transfer_number || DEFAULT_TRANSFER_NUMBER,
-        default_caller_id: default_caller_id || transfer_number || DEFAULT_TRANSFER_NUMBER,
+        campaign_token: j.CampaignToken,
+        campaign_id: j.CampaignId ? Number(j.CampaignId) : null,
+        name: j.CampaignName || cname,
+        audio_url: audio,
+        vm_drop_file: j.VMDropFile || null,
+        vm_drop_duration: j.VMDropDuration ? Number(j.VMDropDuration) : null,
+        enable_missed_call: enable_missed_call !== false,
+        transfer_number: transfer,
+        default_caller_id: default_caller_id || transfer,
         webhook_url: webhook_url || null,
         delivery_tracking_enabled: delivery_tracking_enabled !== false,
-        callback_type: 1,
+        callback_type: cb,
         is_default: true,
-        meta: { source: "drop-ui" },
+        raw_response: j,
+        meta: { source: "drop-api-create" },
         updated_at: new Date().toISOString(),
       }, { onConflict: "campaign_token" }).select().single();
-      console.log("[drop-vm] save_campaign saved id:", saved.data?.id);
-      return new Response(JSON.stringify({ success: true, campaign: saved.data }), {
+
+      return new Response(JSON.stringify({ success: true, campaign: saved.data, raw: j }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -96,7 +126,6 @@ Deno.serve(async (req) => {
       });
     }
 
-
     // ------------- Action: disconnect_campaign -------------
     if (action === "disconnect_campaign") {
       if (campaign) {
@@ -112,7 +141,7 @@ Deno.serve(async (req) => {
       if (!campaign) {
         return new Response(JSON.stringify({
           success: false,
-          error: "No campaign saved. Paste a CampaignToken first.",
+          error: "No campaign saved. Create a Drop.co campaign first.",
           needs_setup: true,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -130,16 +159,49 @@ Deno.serve(async (req) => {
         api_status_message: j.ApiStatusMessage || null,
         campaign_name: j.CampaignName || campaign.name,
         campaign_id: j.CampaignId ?? campaign.campaign_id ?? null,
-        vm_drop_duration: j.VMDropDuration ?? null,
-        vm_drop_file: j.VMDropFile ?? null,
-        enable_missed_call: j.EnableMissedCall ?? null,
+        vm_drop_duration: j.VMDropDuration ?? campaign.vm_drop_duration ?? null,
+        vm_drop_file: j.VMDropFile ?? campaign.vm_drop_file ?? null,
+        enable_missed_call: j.EnableMissedCall ?? campaign.enable_missed_call ?? null,
         allowable_campaign_count: j.AllowableCampaignCount ?? null,
         raw: j,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ------------- Action: refresh_status (per-drop, uses ActivityToken) -------------
+    if (action === "refresh_status") {
+      const at = String(activity_token || "").trim();
+      if (!at) throw new Error("activity_token required");
+      const result = await dropApi("VMDropStatus", {
+        ApiKey: DROP_API_KEY,
+        ActivityToken: at,
+      });
+      const j = result.json || {};
+      // Map Drop.co statuses → our enum
+      const remote = String(j.Status || j.ActivityStatus || "").toLowerCase();
+      let mapped: string | null = null;
+      if (remote.includes("deliver")) mapped = "delivered";
+      else if (remote.includes("queue") || remote.includes("pending") || remote.includes("process")) mapped = "queued";
+      else if (remote.includes("fail") || remote.includes("error")) mapped = "failed";
+
+      if (mapped) {
+        await supabase
+          .from("drop_vm_logs")
+          .update({
+            status: mapped,
+            api_status_message: j.ApiStatusMessage || j.Status || null,
+            response: j,
+          })
+          .eq("activity_token", at);
+      }
+      return new Response(JSON.stringify({
+        success: result.ok && j.ApiStatusCode === 1000,
+        status: mapped,
+        raw: j,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ------------- Action: get_campaign -------------
-    if (action === "get_campaign" || action === "create_campaign") {
+    if (action === "get_campaign") {
       return new Response(JSON.stringify({ success: true, campaign, needs_setup: !campaign }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
@@ -182,7 +244,7 @@ Deno.serve(async (req) => {
       const limit = Math.min(Number(body.limit) || 25, 100);
       const { data: logs } = await supabase
         .from("drop_vm_logs")
-        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token")
+        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token, vm_drop_status_url")
         .order("created_at", { ascending: false })
         .limit(limit);
       return new Response(JSON.stringify({ success: true, logs: logs || [] }), {
@@ -195,7 +257,7 @@ Deno.serve(async (req) => {
       if (!campaign) {
         return new Response(JSON.stringify({
           success: false,
-          error: "Add a Drop.co campaign token before updating audio.",
+          error: "Create a Drop.co campaign before updating audio.",
           needs_setup: true,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -215,7 +277,7 @@ Deno.serve(async (req) => {
       console.error("[drop-vm] send blocked — no campaign saved");
       return new Response(JSON.stringify({
         success: false,
-        error: "Missing Drop.co Campaign Token",
+        error: "No Drop.co campaign — create one first",
         needs_setup: true,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -236,6 +298,9 @@ Deno.serve(async (req) => {
     };
     if (audio_url || campaign.audio_url) params.Audio = audio_url || campaign.audio_url;
     if (campaign.default_caller_id) params.CallerId = campaign.default_caller_id;
+    if (lead_id) params.C1 = String(lead_id);
+    if (contact_name) params.C2 = String(contact_name);
+    if (workflow_id) params.C3 = String(workflow_id);
 
     console.log("[drop-vm] → Drop.co Delivery", { phone: "***" + normalized.slice(-4), token: campaign.campaign_token.slice(0, 6) + "…" });
     const result = await dropApi("Delivery", params);
@@ -248,7 +313,9 @@ Deno.serve(async (req) => {
       campaign_token: campaign.campaign_token,
       phone: normalized,
       customer_id: customer_id || null,
+      lead_id: lead_id || null,
       activity_token: result.json?.ActivityToken || null,
+      vm_drop_status_url: result.json?.VmDropStatusUrl || result.json?.VMDropStatusUrl || null,
       status,
       api_status_code: result.json?.ApiStatusCode || null,
       api_status_message: result.json?.ApiStatusMessage || null,
@@ -281,6 +348,8 @@ Deno.serve(async (req) => {
       success: delivered,
       status,
       drop_response: result.json,
+      activity_token: result.json?.ActivityToken || null,
+      vm_drop_status_url: result.json?.VmDropStatusUrl || result.json?.VMDropStatusUrl || null,
       campaign_token: campaign.campaign_token,
       voidfix: voidfix_result,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
