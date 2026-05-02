@@ -363,6 +363,56 @@ export default function VMDropPanel() {
                         </Button>
                       </div>
                     </div>
+                    <div className="space-y-2 pt-1 border-t border-border/40 mt-3">
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-2">Drop.co Settings</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Default Caller ID</label>
+                          <Input
+                            value={callerIdDraft}
+                            onChange={(e) => setCallerIdDraft(e.target.value)}
+                            placeholder="4244651253"
+                            className="text-xs h-8 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Webhook URL</label>
+                          <Input
+                            value={webhookUrlDraft}
+                            onChange={(e) => setWebhookUrlDraft(e.target.value)}
+                            placeholder="https://…/dropco-webhook"
+                            className="text-xs h-8 font-mono"
+                          />
+                        </div>
+                      </div>
+                      <label className="flex items-center justify-between gap-2 text-xs cursor-pointer pt-1">
+                        <span className="text-foreground/90">
+                          Enable Delivery Tracking
+                          <span className="block text-[10px] text-muted-foreground">Auto-send VoidFix SMS on delivery</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={trackingEnabled}
+                          onChange={(e) => setTrackingEnabled(e.target.checked)}
+                          className="h-4 w-4 accent-primary"
+                        />
+                      </label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveSettings}
+                        disabled={
+                          savingSettings ||
+                          (callerIdDraft === (campaign.default_caller_id || "") &&
+                            webhookUrlDraft === (campaign.webhook_url || "") &&
+                            trackingEnabled === (campaign.delivery_tracking_enabled !== false))
+                        }
+                        className="w-full h-8 gap-2"
+                      >
+                        {savingSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save Settings
+                      </Button>
+                    </div>
                     {testResult && (
                       <div className={`rounded-lg border p-2.5 text-[11px] space-y-1 ${
                         testResult.valid
