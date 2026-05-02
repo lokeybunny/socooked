@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const DROP_API_BASE = "https://api.drop.co/api";
-const DEFAULT_AUDIO_URL = "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/voicemail-warren.wav";
+const DEFAULT_AUDIO_URL = "https://warren.guru/audio/voicemail-warren.wav";
 const DEFAULT_TRANSFER_NUMBER = "4244651253";
 const DEFAULT_CAMPAIGN_NAME = "Warren Default VM";
 
