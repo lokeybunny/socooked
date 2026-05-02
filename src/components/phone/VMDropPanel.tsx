@@ -117,21 +117,25 @@ export default function VMDropPanel() {
   useEffect(() => {
     refresh(false);
     const t = setInterval(() => refresh(false), 30000);
-    return () => clearInterval(t);
+    const statusPoll = setInterval(() => handleRefreshPending(false), 60000);
+    return () => {
+      clearInterval(t);
+      clearInterval(statusPoll);
+    };
   }, []);
 
-  async function handleRefreshPending() {
-    setRefreshingPending(true);
+  async function handleRefreshPending(showToast = true) {
+    if (showToast) setRefreshingPending(true);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: { action: "refresh_pending", limit: 10 },
     });
-    setRefreshingPending(false);
+    if (showToast) setRefreshingPending(false);
     if (error || !data?.success) {
-      toast.error(error?.message || data?.error || "Status sync failed");
+      if (showToast) toast.error(error?.message || data?.error || "Status sync failed");
       return;
     }
     const delivered = (data.results || []).filter((r: any) => r.status === "delivered").length;
-    toast.success(`Checked ${data.checked || 0} queued drop${data.checked === 1 ? "" : "s"}${delivered ? ` · ${delivered} delivered` : ""}`);
+    if (showToast) toast.success(`Checked ${data.checked || 0} queued drop${data.checked === 1 ? "" : "s"}${delivered ? ` · ${delivered} delivered` : ""}`);
     refresh(false);
   }
 
