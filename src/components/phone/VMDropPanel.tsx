@@ -8,7 +8,7 @@ import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
   Voicemail, Loader2, Send, RefreshCw, PhoneForwarded, CheckCircle2,
-  XCircle, Clock, Music2, Save, Wifi, Plus, Trash2, Star, StarOff, Library,
+  XCircle, Clock, Music2, Save, Wifi, Plus, Trash2, Star, StarOff, Library, DownloadCloud,
 } from "lucide-react";
 
 type Campaign = {
