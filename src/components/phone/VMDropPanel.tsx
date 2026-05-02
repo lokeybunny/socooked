@@ -671,15 +671,26 @@ export default function VMDropPanel() {
                   />
                   <Button
                     onClick={handleTestSend}
-                    disabled={sending || !active}
+                    disabled={sending || !active || !active?.campaign_token}
                     className="w-full bg-amber-500 hover:bg-amber-600 text-black gap-2"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Voicemail className="h-4 w-4" />}
-                    {sending ? "Dropping…" : active ? `Drop via ${active.name}` : "Activate a Campaign First"}
+                    {sending
+                      ? "Dropping…"
+                      : !active
+                        ? "Activate a Campaign First"
+                        : !active.campaign_token
+                          ? "Awaiting Token from Webhook…"
+                          : `Drop via ${active.name}`}
                   </Button>
-                  {active && (
+                  {active && active.campaign_token && (
                     <div className="text-[10px] text-muted-foreground text-center">
                       Will use campaign <span className="font-mono text-foreground/80">{active.name}</span>
+                    </div>
+                  )}
+                  {active && !active.campaign_token && (
+                    <div className="text-[10px] text-amber-400/90 text-center">
+                      Token will be auto-captured on the first webhook event from Drop.co for this campaign.
                     </div>
                   )}
                 </div>
