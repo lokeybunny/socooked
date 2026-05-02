@@ -481,8 +481,13 @@ Deno.serve(async (req) => {
           customer_name: bj.CustomerName || null,
           balance: bj.CurrentBalance ?? null,
           pending_cost: bj.PendingCost ?? null,
-          needs_setup: true,
-          message: apiKeyValid ? "API key OK — paste a CampaignToken to start dropping" : "API key rejected by Drop.co",
+          needs_setup: !campaign,
+          campaign_id: campaign?.campaign_id ?? null,
+          campaign_name: campaign?.name ?? null,
+          token_valid: false,
+          message: apiKeyValid
+            ? (campaign ? "API key OK — campaign will auto-prepare on first send" : "API key OK — add a Campaign ID to start")
+            : "API key rejected by Drop.co",
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -528,17 +533,13 @@ Deno.serve(async (req) => {
         ? await supabase.from("drop_campaigns").select("*").eq("id", targetId).maybeSingle()
         : { data: campaign };
       if (!target) throw new Error("Campaign not found");
-      if (!target.campaign_token) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "Campaign has no token yet — send one drop first so the webhook can capture it, then sync.",
-        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const prepared = await ensureApiCampaign(supabase, DROP_API_KEY, target);
+      const apiCampaign = prepared.campaign;
 
-      console.log("[drop-vm] → VMDropCampaignSettings", target.campaign_token.slice(0, 6) + "…");
+      console.log("[drop-vm] → VMDropCampaignSettings", apiCampaign.campaign_token.slice(0, 6) + "…");
       const r = await dropApi("VMDropCampaignSettings", {
         ApiKey: DROP_API_KEY,
-        CampaignToken: target.campaign_token,
+        CampaignToken: apiCampaign.campaign_token,
       });
       const j = r.json || {};
       console.log("[drop-vm] ← VMDropCampaignSettings", r.status, j.ApiStatusCode, j.ApiStatusMessage);
@@ -571,7 +572,7 @@ Deno.serve(async (req) => {
       if (remoteCallback != null) patch.callback_type = remoteCallback;
       if (remoteMissed != null) patch.enable_missed_call = remoteMissed;
 
-      const upd = await supabase.from("drop_campaigns").update(patch).eq("id", target.id).select().single();
+      const upd = await supabase.from("drop_campaigns").update(patch).eq("id", apiCampaign.id).select().single();
 
       return new Response(JSON.stringify({
         success: !upd.error,
@@ -581,6 +582,7 @@ Deno.serve(async (req) => {
           name: remoteName,
           duration: remoteDuration,
           transfer_number: remoteTransfer,
+          provisioned: prepared.provisioned,
         },
         raw: j,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
