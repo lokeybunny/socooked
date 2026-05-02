@@ -1734,7 +1734,7 @@ export type Database = {
           audio_url: string
           callback_type: number
           campaign_id: number | null
-          campaign_token: string
+          campaign_token: string | null
           created_at: string
           default_caller_id: string | null
           delivery_tracking_enabled: boolean
@@ -1754,7 +1754,7 @@ export type Database = {
           audio_url: string
           callback_type?: number
           campaign_id?: number | null
-          campaign_token: string
+          campaign_token?: string | null
           created_at?: string
           default_caller_id?: string | null
           delivery_tracking_enabled?: boolean
@@ -1774,7 +1774,7 @@ export type Database = {
           audio_url?: string
           callback_type?: number
           campaign_id?: number | null
-          campaign_token?: string
+          campaign_token?: string | null
           created_at?: string
           default_caller_id?: string | null
           delivery_tracking_enabled?: boolean

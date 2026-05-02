@@ -1,0 +1,2 @@
+ALTER TABLE public.drop_campaigns ALTER COLUMN campaign_token DROP NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS drop_campaigns_campaign_id_key ON public.drop_campaigns(campaign_id) WHERE campaign_id IS NOT NULL;
