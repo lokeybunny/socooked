@@ -417,39 +417,30 @@ Deno.serve(async (req) => {
         .select("*")
         .eq("activity_token", at)
         .maybeSingle();
-      const result = await dropApi("VMDropStatus", {
-        ApiKey: DROP_API_KEY,
-        ActivityToken: at,
+      if (!existingLog) throw new Error("Drop log not found for ActivityToken");
+      const refreshed = await refreshDropLogStatus(supabase, DROP_API_KEY, existingLog, campaign);
+      return new Response(JSON.stringify(refreshed), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ------------- Action: refresh_pending (poll recent queued logs when webhook is off) -------------
+    if (action === "refresh_pending") {
+      const limit = Math.min(Number(body.limit) || 10, 25);
+      const { data: pending } = await supabase
+        .from("drop_vm_logs")
+        .select("*")
+        .eq("status", "queued")
+        .not("activity_token", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      const results = [];
+      for (const log of pending || []) {
+        results.push(await refreshDropLogStatus(supabase, DROP_API_KEY, log, campaign));
+      }
+
+      return new Response(JSON.stringify({ success: true, checked: results.length, results }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
-      const j = result.json || {};
-      // Map Drop.co statuses → our enum
-      const mapped = mapDropStatus(j);
-      let voidfix_result: any = null;
-      const mergedResponse = { ...(existingLog?.response || {}), status_check: j };
-
-      if (mapped === "delivered" && existingLog) {
-        voidfix_result = await sendVoidFixFollowup(supabase, existingLog, campaign);
-        mergedResponse.voidfix = voidfix_result;
-        mergedResponse.voidfix_followup_sent = voidfix_result?.ok === true || Boolean(mergedResponse.voidfix_followup_sent);
-      }
-
-      if (mapped) {
-        await supabase
-          .from("drop_vm_logs")
-          .update({
-            status: mapped,
-            api_status_message: j.ApiStatusMessage || j.Status || null,
-            response: mergedResponse,
-          })
-          .eq("activity_token", at);
-      }
-      return new Response(JSON.stringify({
-        success: result.ok && j.ApiStatusCode === 1000,
-        status: mapped,
-        message: j.ApiStatusMessage || j.Status || null,
-        voidfix: voidfix_result,
-        raw: j,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // ------------- Action: get_campaign -------------
