@@ -533,7 +533,16 @@ Deno.serve(async (req) => {
         ? await supabase.from("drop_campaigns").select("*").eq("id", targetId).maybeSingle()
         : { data: campaign };
       if (!target) throw new Error("Campaign not found");
-      const prepared = await ensureApiCampaign(supabase, DROP_API_KEY, target);
+      if (!target.campaign_token) {
+        return new Response(JSON.stringify({
+          success: false,
+          awaiting_webhook: true,
+          error: "This campaign has no API token yet. Send a test drop from Drop.co's dashboard for campaign " +
+                 (target.campaign_id || target.name) + " — our webhook will auto-capture the token.",
+          campaign_id: target.campaign_id || null,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const prepared = { campaign: target, provisioned: false, raw: null };
       const apiCampaign = prepared.campaign;
 
       console.log("[drop-vm] → VMDropCampaignSettings", apiCampaign.campaign_token.slice(0, 6) + "…");
@@ -704,8 +713,27 @@ Deno.serve(async (req) => {
         needs_setup: true,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const preparedCampaign = await ensureApiCampaign(supabase, DROP_API_KEY, campaign);
-    campaign = preparedCampaign.campaign;
+    let preparedCampaign: { campaign: any; provisioned: boolean; raw: any } = { campaign, provisioned: false, raw: null };
+    if (!campaign.campaign_token) {
+      try {
+        preparedCampaign = await ensureApiCampaign(supabase, DROP_API_KEY, campaign);
+        campaign = preparedCampaign.campaign;
+      } catch (e: any) {
+        const msg = String(e?.message || e);
+        console.warn("[drop-vm] auto-provision blocked:", msg);
+        return new Response(JSON.stringify({
+          success: false,
+          needs_setup: true,
+          awaiting_webhook: true,
+          error: "Drop.co requires a one-time webhook capture to activate this campaign. In Drop.co → Campaigns → " +
+                 (campaign.campaign_id || campaign.name) +
+                 " → send any test drop (or save settings). Our webhook will auto-capture the token within seconds, then retry.",
+          drop_message: msg,
+          campaign_id: campaign.campaign_id || null,
+          webhook_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/drop-webhook`,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
     if (!phone) throw new Error("phone is required");
     const normalized = normalizePhone(phone);
     if (normalized.length !== 10) throw new Error(`Invalid phone: ${phone}`);
