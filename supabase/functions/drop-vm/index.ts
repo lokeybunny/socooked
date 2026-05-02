@@ -471,7 +471,7 @@ Deno.serve(async (req) => {
       const limit = Math.min(Number(body.limit) || 25, 100);
       const { data: logs } = await supabase
         .from("drop_vm_logs")
-        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token, vm_drop_status_url")
+        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token, vm_drop_status_url, response")
         .order("created_at", { ascending: false })
         .limit(limit);
       return new Response(JSON.stringify({ success: true, logs: logs || [] }), {
