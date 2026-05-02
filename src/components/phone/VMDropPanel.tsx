@@ -187,6 +187,32 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleConnectToken() {
+    const token = pasteToken.trim();
+    if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
+
+    setConnecting(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "connect_token",
+        campaign_token: token,
+        transfer_number: newTransfer.trim(),
+        callback_type: newCallbackType,
+        name: newName.trim(),
+      },
+    });
+    setConnecting(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Drop.co rejected this token");
+      return;
+    }
+    toast.success(`Connected: ${data.campaign?.name || "campaign"}`);
+    setCampaign(data.campaign);
+    setPasteToken("");
+    refresh(false);
+  }
+
   async function handleSaveSettings() {
     if (!campaign) return;
     setSavingSettings(true);
