@@ -21,6 +21,9 @@ type Campaign = {
   transfer_number: string;
   callback_type: number;
   is_default: boolean;
+  default_caller_id?: string | null;
+  webhook_url?: string | null;
+  delivery_tracking_enabled?: boolean;
   created_at: string;
 };
 
@@ -62,6 +65,10 @@ export default function VMDropPanel() {
   const [campaignTokenDraft, setCampaignTokenDraft] = useState("");
   const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
   const [campaignIdDraft, setCampaignIdDraft] = useState("");
+  const [callerIdDraft, setCallerIdDraft] = useState("");
+  const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
+  const [trackingEnabled, setTrackingEnabled] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [savingCampaign, setSavingCampaign] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -81,6 +88,9 @@ export default function VMDropPanel() {
         setCampaignTokenDraft(statsRes.data.campaign?.campaign_token || "");
         setCampaignNameDraft(statsRes.data.campaign?.name || "Warren Default VM");
         setCampaignIdDraft(statsRes.data.campaign?.campaign_id?.toString?.() || "");
+        setCallerIdDraft(statsRes.data.campaign?.default_caller_id || "");
+        setWebhookUrlDraft(statsRes.data.campaign?.webhook_url || "");
+        setTrackingEnabled(statsRes.data.campaign?.delivery_tracking_enabled !== false);
       }
       if (logsRes.data?.success) setLogs(logsRes.data.logs || []);
     } catch (e: any) {
@@ -151,6 +161,9 @@ export default function VMDropPanel() {
         name: campaignNameDraft.trim() || "Warren Default VM",
         audio_url: audioDraft || undefined,
         transfer_number: campaign?.transfer_number || "4244651253",
+        default_caller_id: callerIdDraft.trim() || undefined,
+        webhook_url: webhookUrlDraft.trim() || undefined,
+        delivery_tracking_enabled: trackingEnabled,
       },
     });
     setSavingCampaign(false);
@@ -161,6 +174,26 @@ export default function VMDropPanel() {
     toast.success("Drop.co campaign connected");
     setCampaign(data.campaign);
     refresh(false);
+  }
+
+  async function handleSaveSettings() {
+    if (!campaign) return;
+    setSavingSettings(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "update_settings",
+        default_caller_id: callerIdDraft.trim() || null,
+        webhook_url: webhookUrlDraft.trim() || null,
+        delivery_tracking_enabled: trackingEnabled,
+      },
+    });
+    setSavingSettings(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to save settings");
+      return;
+    }
+    toast.success("Drop.co settings saved");
+    setCampaign(data.campaign);
   }
 
   async function handleDisconnect() {
@@ -329,6 +362,56 @@ export default function VMDropPanel() {
                           Save
                         </Button>
                       </div>
+                    </div>
+                    <div className="space-y-2 pt-1 border-t border-border/40 mt-3">
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-2">Drop.co Settings</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Default Caller ID</label>
+                          <Input
+                            value={callerIdDraft}
+                            onChange={(e) => setCallerIdDraft(e.target.value)}
+                            placeholder="4244651253"
+                            className="text-xs h-8 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground">Webhook URL</label>
+                          <Input
+                            value={webhookUrlDraft}
+                            onChange={(e) => setWebhookUrlDraft(e.target.value)}
+                            placeholder="https://…/dropco-webhook"
+                            className="text-xs h-8 font-mono"
+                          />
+                        </div>
+                      </div>
+                      <label className="flex items-center justify-between gap-2 text-xs cursor-pointer pt-1">
+                        <span className="text-foreground/90">
+                          Enable Delivery Tracking
+                          <span className="block text-[10px] text-muted-foreground">Auto-send VoidFix SMS on delivery</span>
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={trackingEnabled}
+                          onChange={(e) => setTrackingEnabled(e.target.checked)}
+                          className="h-4 w-4 accent-primary"
+                        />
+                      </label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveSettings}
+                        disabled={
+                          savingSettings ||
+                          (callerIdDraft === (campaign.default_caller_id || "") &&
+                            webhookUrlDraft === (campaign.webhook_url || "") &&
+                            trackingEnabled === (campaign.delivery_tracking_enabled !== false))
+                        }
+                        className="w-full h-8 gap-2"
+                      >
+                        {savingSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        Save Settings
+                      </Button>
                     </div>
                     {testResult && (
                       <div className={`rounded-lg border p-2.5 text-[11px] space-y-1 ${

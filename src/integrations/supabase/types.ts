@@ -1736,12 +1736,15 @@ export type Database = {
           campaign_id: number | null
           campaign_token: string
           created_at: string
+          default_caller_id: string | null
+          delivery_tracking_enabled: boolean
           id: string
           is_default: boolean
           meta: Json
           name: string
           transfer_number: string | null
           updated_at: string
+          webhook_url: string | null
         }
         Insert: {
           audio_url: string
@@ -1749,12 +1752,15 @@ export type Database = {
           campaign_id?: number | null
           campaign_token: string
           created_at?: string
+          default_caller_id?: string | null
+          delivery_tracking_enabled?: boolean
           id?: string
           is_default?: boolean
           meta?: Json
           name: string
           transfer_number?: string | null
           updated_at?: string
+          webhook_url?: string | null
         }
         Update: {
           audio_url?: string
@@ -1762,12 +1768,15 @@ export type Database = {
           campaign_id?: number | null
           campaign_token?: string
           created_at?: string
+          default_caller_id?: string | null
+          delivery_tracking_enabled?: boolean
           id?: string
           is_default?: boolean
           meta?: Json
           name?: string
           transfer_number?: string | null
           updated_at?: string
+          webhook_url?: string | null
         }
         Relationships: []
       }
@@ -1806,6 +1815,45 @@ export type Database = {
           id?: string
           phone?: string
           response?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
+      dropco_logs: {
+        Row: {
+          activity_token: string | null
+          campaign_id: string | null
+          campaign_token: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          lead_id: string | null
+          phone: string | null
+          raw_payload: Json | null
+          status: string
+        }
+        Insert: {
+          activity_token?: string | null
+          campaign_id?: string | null
+          campaign_token?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          lead_id?: string | null
+          phone?: string | null
+          raw_payload?: Json | null
+          status: string
+        }
+        Update: {
+          activity_token?: string | null
+          campaign_id?: string | null
+          campaign_token?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          lead_id?: string | null
+          phone?: string | null
+          raw_payload?: Json | null
           status?: string
         }
         Relationships: []
