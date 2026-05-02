@@ -848,3 +848,12 @@ function Feature({ icon, children }: { icon: React.ReactNode; children: React.Re
     </div>
   );
 }
+
+function PreviewRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 min-w-0">
+      <span className="text-muted-foreground text-[10px] uppercase tracking-wider shrink-0">{label}</span>
+      <span className={`text-foreground truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
+}
