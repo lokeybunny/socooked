@@ -118,6 +118,96 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ------------- Action: lookup_campaign_id (try to resolve numeric ID → CampaignToken) -------------
+    // Drop.co's public API does NOT expose an ID→Token lookup endpoint. We try a few
+    // best-effort calls (VMDropStatus with CampaignId, then VMDropList if available).
+    // If none work, we return clear guidance so the user can grab the token from the dashboard.
+    if (action === "lookup_campaign_id") {
+      const idRaw = String(body.campaign_id || "").trim();
+      const id = idRaw.replace(/\D/g, "");
+      if (!id) throw new Error("campaign_id is required");
+
+      console.log("[drop-vm] → lookup CampaignId", id);
+
+      // Attempt 1: VMDropStatus with CampaignId param (some accounts accept this)
+      const attempt1 = await dropApi("VMDropStatus", { ApiKey: DROP_API_KEY, CampaignId: id });
+      const a1 = attempt1.json || {};
+      if (attempt1.ok && a1.ApiStatusCode === 1000 && a1.CampaignToken) {
+        return new Response(JSON.stringify({
+          success: true,
+          campaign_token: a1.CampaignToken,
+          preview: {
+            campaign_token: a1.CampaignToken,
+            campaign_name: a1.CampaignName || null,
+            campaign_id: a1.CampaignId ?? Number(id),
+            vm_drop_file: a1.VMDropFile || null,
+            vm_drop_duration: a1.VMDropDuration ?? null,
+            enable_missed_call: a1.EnableMissedCall ?? null,
+            callback_forwarding_type: a1.CallbackForwardingType ?? null,
+            transfer_number: a1.TransferNumber || null,
+            allowable_campaign_count: a1.AllowableCampaignCount ?? null,
+            status: a1.Status || "active",
+          },
+          source: "VMDropStatus(CampaignId)",
+          raw: a1,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Attempt 2: VMDropList (some accounts expose this; iterate to find matching ID)
+      const attempt2 = await dropApi("VMDropList", { ApiKey: DROP_API_KEY });
+      const a2 = attempt2.json || {};
+      const list: any[] = Array.isArray(a2.Campaigns) ? a2.Campaigns
+                       : Array.isArray(a2.VMDrops) ? a2.VMDrops
+                       : Array.isArray(a2) ? a2 : [];
+      if (attempt2.ok && a2.ApiStatusCode === 1000 && list.length > 0) {
+        const match = list.find((c: any) =>
+          String(c.CampaignId ?? c.Id ?? c.id ?? "") === id ||
+          Number(c.CampaignId ?? c.Id ?? c.id) === Number(id)
+        );
+        if (match && (match.CampaignToken || match.Token)) {
+          const token = match.CampaignToken || match.Token;
+          return new Response(JSON.stringify({
+            success: true,
+            campaign_token: token,
+            preview: {
+              campaign_token: token,
+              campaign_name: match.CampaignName || match.Name || null,
+              campaign_id: Number(id),
+              vm_drop_file: match.VMDropFile || null,
+              vm_drop_duration: match.VMDropDuration ?? null,
+              enable_missed_call: match.EnableMissedCall ?? null,
+              callback_forwarding_type: match.CallbackForwardingType ?? null,
+              transfer_number: match.TransferNumber || null,
+              allowable_campaign_count: null,
+              status: match.Status || "active",
+            },
+            source: "VMDropList",
+            raw: match,
+          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+
+      // No public endpoint resolved it — return guidance
+      return new Response(JSON.stringify({
+        success: false,
+        campaign_id: Number(id),
+        error: `Drop.co's public API doesn't expose a way to convert CampaignId ${id} into a CampaignToken. Open app.drop.co → your campaign → copy the CampaignToken (UUID-style string) from the API/Integration section, then paste it in the "Paste Token" tab.`,
+        guidance: {
+          steps: [
+            "Log into app.drop.co",
+            `Open the campaign with ID ${id}`,
+            "Look for 'CampaignToken' or 'API Token' (a long UUID, NOT the numeric ID)",
+            "Copy that UUID and paste it in the 'Paste Token' tab here",
+          ],
+          dashboard_url: "https://app.drop.co",
+        },
+        attempts: {
+          status_with_id: { http: attempt1.status, code: a1.ApiStatusCode, message: a1.ApiStatusMessage },
+          list: { http: attempt2.status, code: a2.ApiStatusCode, message: a2.ApiStatusMessage },
+        },
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ------------- Action: validate_token (preview only — no DB write) -------------
     if (action === "validate_token") {
       const token = String(body.campaign_token || "").trim();
