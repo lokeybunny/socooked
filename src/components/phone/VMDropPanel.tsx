@@ -639,6 +639,31 @@ export default function VMDropPanel() {
                               />
                             </div>
                           )}
+                          {!c.campaign_token && (
+                            <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 space-y-1.5">
+                              <div className="text-[10px] text-amber-300/90 leading-snug">
+                                Drop.co's API can't look up a CampaignToken from a Campaign ID. Paste the UUID from
+                                <span className="font-mono"> app.drop.co → Campaigns → {c.name} → Settings</span> to activate.
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  value={tokenDrafts[c.id] || ""}
+                                  onChange={(e) => setTokenDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
+                                  placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
+                                  className="h-7 text-[11px] font-mono"
+                                  onKeyDown={(e) => { if (e.key === "Enter") handleAttachToken(c); }}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAttachToken(c)}
+                                  disabled={attachingId === c.id || !(tokenDrafts[c.id] || "").trim()}
+                                  className="h-7 px-2 text-[10px] gap-1 bg-amber-500 hover:bg-amber-600 text-black"
+                                >
+                                  {attachingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Attach"}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button
