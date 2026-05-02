@@ -59,11 +59,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     // ------------- Action: create_campaign (calls Drop.co VMDropCreate) -------------
+    // NOTE: Many Drop.co accounts have API campaign creation DISABLED — they require
+    // campaigns to be created in the Drop.co web UI. We try the API; if it's blocked
+    // we surface a clear error so the user falls back to "Connect existing token".
     if (action === "create_campaign") {
       const audio = audio_url || DEFAULT_AUDIO_URL;
       const transfer = transfer_number || DEFAULT_TRANSFER_NUMBER;
       const cname = (name || DEFAULT_CAMPAIGN_NAME).trim();
-      const cb = Number(callback_type ?? 1); // 1 = transfer to number
+      const cb = Number(callback_type ?? 1);
 
       console.log("[drop-vm] → Drop.co VMDropCreate", { name: cname, audio: audio.slice(0, 60) + "…" });
       const create = await dropApi("VMDropCreate", {
@@ -78,15 +81,18 @@ Deno.serve(async (req) => {
       console.log("[drop-vm] ← VMDropCreate", create.status, j.ApiStatusCode, j.ApiStatusMessage);
 
       if (!create.ok || j.ApiStatusCode !== 1000 || !j.CampaignToken) {
+        const blocked = String(j.ApiStatusMessage || "").toLowerCase().includes("set up in the ui");
         return new Response(JSON.stringify({
           success: false,
-          error: j.ApiStatusMessage || "Drop.co rejected campaign creation",
+          error: blocked
+            ? "Drop.co disables API campaign creation for this account. Create the campaign in the Drop.co dashboard, then paste the CampaignToken below."
+            : (j.ApiStatusMessage || "Drop.co rejected campaign creation"),
           api_status_code: j.ApiStatusCode ?? null,
+          api_blocked: blocked,
           raw: j,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Demote any existing default and upsert this one as default
       await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
       const saved = await supabase.from("drop_campaigns").upsert({
         campaign_token: j.CampaignToken,
@@ -108,6 +114,52 @@ Deno.serve(async (req) => {
       }, { onConflict: "campaign_token" }).select().single();
 
       return new Response(JSON.stringify({ success: true, campaign: saved.data, raw: j }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // ------------- Action: connect_token (paste existing CampaignToken from Drop.co UI) -------------
+    if (action === "connect_token") {
+      const token = String(body.campaign_token || "").trim();
+      if (!token) throw new Error("campaign_token is required");
+
+      // Validate against Drop.co by fetching VMDropStatus
+      console.log("[drop-vm] → VMDropStatus (validate token)");
+      const check = await dropApi("VMDropStatus", { ApiKey: DROP_API_KEY, CampaignToken: token });
+      const cj = check.json || {};
+      console.log("[drop-vm] ← VMDropStatus", check.status, cj.ApiStatusCode, cj.ApiStatusMessage);
+
+      if (!check.ok || cj.ApiStatusCode !== 1000) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: cj.ApiStatusMessage || "Drop.co rejected this CampaignToken",
+          api_status_code: cj.ApiStatusCode ?? null,
+          raw: cj,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const transfer = transfer_number || DEFAULT_TRANSFER_NUMBER;
+      await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
+      const saved = await supabase.from("drop_campaigns").upsert({
+        campaign_token: token,
+        campaign_id: cj.CampaignId ? Number(cj.CampaignId) : null,
+        name: cj.CampaignName || (name || DEFAULT_CAMPAIGN_NAME),
+        audio_url: cj.VMDropFile || audio_url || DEFAULT_AUDIO_URL,
+        vm_drop_file: cj.VMDropFile || null,
+        vm_drop_duration: cj.VMDropDuration ? Number(cj.VMDropDuration) : null,
+        enable_missed_call: cj.EnableMissedCall ?? true,
+        transfer_number: transfer,
+        default_caller_id: default_caller_id || transfer,
+        webhook_url: webhook_url || null,
+        delivery_tracking_enabled: delivery_tracking_enabled !== false,
+        callback_type: Number(callback_type ?? 1),
+        is_default: true,
+        raw_response: cj,
+        meta: { source: "drop-token-paste" },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "campaign_token" }).select().single();
+
+      return new Response(JSON.stringify({ success: true, campaign: saved.data, raw: cj }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
