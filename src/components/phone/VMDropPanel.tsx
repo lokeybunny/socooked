@@ -161,6 +161,9 @@ export default function VMDropPanel() {
         name: campaignNameDraft.trim() || "Warren Default VM",
         audio_url: audioDraft || undefined,
         transfer_number: campaign?.transfer_number || "4244651253",
+        default_caller_id: callerIdDraft.trim() || undefined,
+        webhook_url: webhookUrlDraft.trim() || undefined,
+        delivery_tracking_enabled: trackingEnabled,
       },
     });
     setSavingCampaign(false);
