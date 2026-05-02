@@ -76,7 +76,6 @@ export default function VMDropPanel() {
 
   // Settings drafts (active campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
-  const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
   const [trackingEnabled, setTrackingEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -100,7 +99,6 @@ export default function VMDropPanel() {
         setActive(listRes.data.active);
         if (listRes.data.active) {
           setCallerIdDraft(listRes.data.active.default_caller_id || "");
-          setWebhookUrlDraft(listRes.data.active.webhook_url || "");
           setTrackingEnabled(listRes.data.active.delivery_tracking_enabled !== false);
         }
       }
@@ -237,7 +235,7 @@ export default function VMDropPanel() {
       body: {
         action: "update_settings",
         default_caller_id: callerIdDraft.trim() || null,
-        webhook_url: webhookUrlDraft.trim() || null,
+        webhook_url: null,
         delivery_tracking_enabled: trackingEnabled,
       },
     });
