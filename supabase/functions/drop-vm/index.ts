@@ -1,5 +1,5 @@
 // Drop.co VMDrop edge function
-// Creates default campaign on first use, then sends ringless voicemails
+// Creates default campaign on first use, sends ringless voicemails, exposes stats/logs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { action = "send", phone, customer_id, audio_url } = body;
+    const { action = "send", phone, customer_id, audio_url, transfer_number } = body;
 
     // ------------- Ensure default campaign exists -------------
     let { data: campaign } = await supabase
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
         VMDropFileUrl: audioForCampaign,
         EnableMissedCall: "true",
         CallbackForwardingType: "1",
-        TransferNumber: DEFAULT_TRANSFER_NUMBER,
+        TransferNumber: transfer_number || DEFAULT_TRANSFER_NUMBER,
       });
 
       if (!created.ok || !created.json?.CampaignToken) {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         campaign_id: created.json.CampaignId,
         name: created.json.CampaignName,
         audio_url: audioForCampaign,
-        transfer_number: DEFAULT_TRANSFER_NUMBER,
+        transfer_number: transfer_number || DEFAULT_TRANSFER_NUMBER,
         callback_type: 1,
         is_default: true,
         meta: created.json,
@@ -82,13 +82,71 @@ Deno.serve(async (req) => {
       campaign = insert.data;
     }
 
-    if (action === "create_campaign") {
+    // ------------- Action: get_campaign -------------
+    if (action === "get_campaign" || action === "create_campaign") {
       return new Response(JSON.stringify({ success: true, campaign }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // ------------- Send the VM drop -------------
+    // ------------- Action: stats -------------
+    if (action === "stats") {
+      const { count: totalCount } = await supabase
+        .from("drop_vm_logs")
+        .select("*", { count: "exact", head: true });
+      const { count: queuedCount } = await supabase
+        .from("drop_vm_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "queued");
+      const { count: failedCount } = await supabase
+        .from("drop_vm_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "failed");
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: last24Count } = await supabase
+        .from("drop_vm_logs")
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", since);
+
+      return new Response(JSON.stringify({
+        success: true,
+        stats: {
+          total: totalCount || 0,
+          queued: queuedCount || 0,
+          failed: failedCount || 0,
+          last_24h: last24Count || 0,
+        },
+        campaign,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ------------- Action: list_logs -------------
+    if (action === "list_logs") {
+      const limit = Math.min(Number(body.limit) || 25, 100);
+      const { data: logs } = await supabase
+        .from("drop_vm_logs")
+        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      return new Response(JSON.stringify({ success: true, logs: logs || [] }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // ------------- Action: update_audio -------------
+    if (action === "update_audio") {
+      if (!audio_url) throw new Error("audio_url is required");
+      await supabase
+        .from("drop_campaigns")
+        .update({ audio_url, updated_at: new Date().toISOString() })
+        .eq("id", campaign.id);
+      campaign.audio_url = audio_url;
+      return new Response(JSON.stringify({ success: true, campaign }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // ------------- Action: send (default) -------------
     if (!phone) throw new Error("phone is required");
     const normalized = normalizePhone(phone);
     if (normalized.length !== 10) throw new Error(`Invalid phone: ${phone}`);
