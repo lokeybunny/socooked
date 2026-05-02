@@ -88,6 +88,9 @@ export default function VMDropPanel() {
         setCampaignTokenDraft(statsRes.data.campaign?.campaign_token || "");
         setCampaignNameDraft(statsRes.data.campaign?.name || "Warren Default VM");
         setCampaignIdDraft(statsRes.data.campaign?.campaign_id?.toString?.() || "");
+        setCallerIdDraft(statsRes.data.campaign?.default_caller_id || "");
+        setWebhookUrlDraft(statsRes.data.campaign?.webhook_url || "");
+        setTrackingEnabled(statsRes.data.campaign?.delivery_tracking_enabled !== false);
       }
       if (logsRes.data?.success) setLogs(logsRes.data.logs || []);
     } catch (e: any) {
