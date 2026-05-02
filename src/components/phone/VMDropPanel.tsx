@@ -9,7 +9,7 @@ import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
   Voicemail, Loader2, Play, Send, RefreshCw, PhoneForwarded,
-  CheckCircle2, XCircle, Clock, Music2, Save, Unplug, Wifi,
+  CheckCircle2, XCircle, Clock, Music2, Save, Unplug, Wifi, Plus,
 } from "lucide-react";
 
 type Campaign = {
@@ -24,6 +24,9 @@ type Campaign = {
   default_caller_id?: string | null;
   webhook_url?: string | null;
   delivery_tracking_enabled?: boolean;
+  enable_missed_call?: boolean;
+  vm_drop_file?: string | null;
+  vm_drop_duration?: number | null;
   created_at: string;
 };
 
@@ -34,6 +37,7 @@ type LogRow = {
   api_status_message: string | null;
   created_at: string;
   activity_token: string | null;
+  vm_drop_status_url?: string | null;
 };
 
 type Stats = { total: number; queued: number; failed: number; last_24h: number };
@@ -62,17 +66,25 @@ export default function VMDropPanel() {
 
   const [audioDraft, setAudioDraft] = useState("");
   const [savingAudio, setSavingAudio] = useState(false);
-  const [campaignTokenDraft, setCampaignTokenDraft] = useState("");
-  const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
-  const [campaignIdDraft, setCampaignIdDraft] = useState("");
+
+  // Create-campaign form state
+  const [newName, setNewName] = useState("Warren Default VM");
+  const [newAudioUrl, setNewAudioUrl] = useState("https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/content-uploads/audio/voicemail-warren.mp3");
+  const [newTransfer, setNewTransfer] = useState("4244651253");
+  const [newEnableMissedCall, setNewEnableMissedCall] = useState(true);
+  const [newCallbackType, setNewCallbackType] = useState<number>(1);
+  const [creating, setCreating] = useState(false);
+
+  // Settings drafts (live campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
   const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
   const [trackingEnabled, setTrackingEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [savingCampaign, setSavingCampaign] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ valid: boolean; message: string; details?: Record<string, any> } | null>(null);
+
+  const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
@@ -85,9 +97,6 @@ export default function VMDropPanel() {
         setStats(statsRes.data.stats);
         setCampaign(statsRes.data.campaign);
         setAudioDraft(statsRes.data.campaign?.audio_url || "");
-        setCampaignTokenDraft(statsRes.data.campaign?.campaign_token || "");
-        setCampaignNameDraft(statsRes.data.campaign?.name || "Warren Default VM");
-        setCampaignIdDraft(statsRes.data.campaign?.campaign_id?.toString?.() || "");
         setCallerIdDraft(statsRes.data.campaign?.default_caller_id || "");
         setWebhookUrlDraft(statsRes.data.campaign?.webhook_url || "");
         setTrackingEnabled(statsRes.data.campaign?.delivery_tracking_enabled !== false);
@@ -109,7 +118,7 @@ export default function VMDropPanel() {
 
   async function handleTestSend() {
     if (!campaign) {
-      toast.error("Connect a Drop.co campaign token first");
+      toast.error("Create a Drop.co campaign first");
       return;
     }
     if (!testPhone || testPhone.replace(/\D/g, "").length < 10) {
@@ -127,7 +136,7 @@ export default function VMDropPanel() {
 
   async function handleSaveAudio() {
     if (!campaign) {
-      toast.error("Save a Drop.co campaign token first");
+      toast.error("Create a Drop.co campaign first");
       return;
     }
     if (!audioDraft || !audioDraft.startsWith("http")) {
@@ -147,31 +156,28 @@ export default function VMDropPanel() {
     setCampaign(data.campaign);
   }
 
-  async function handleSaveCampaign() {
-    if (!campaignTokenDraft.trim()) {
-      toast.error("Paste the CampaignToken from Drop.co");
-      return;
-    }
-    setSavingCampaign(true);
+  async function handleCreateCampaign() {
+    if (!newName.trim()) return toast.error("Enter a campaign name");
+    if (!newAudioUrl.startsWith("http")) return toast.error("Enter a public audio URL");
+    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
+
+    setCreating(true);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: {
-        action: "save_campaign",
-        campaign_token: campaignTokenDraft.trim(),
-        campaign_id: campaignIdDraft.trim() || null,
-        name: campaignNameDraft.trim() || "Warren Default VM",
-        audio_url: audioDraft || undefined,
-        transfer_number: campaign?.transfer_number || "4244651253",
-        default_caller_id: callerIdDraft.trim() || undefined,
-        webhook_url: webhookUrlDraft.trim() || undefined,
-        delivery_tracking_enabled: trackingEnabled,
+        action: "create_campaign",
+        name: newName.trim(),
+        audio_url: newAudioUrl.trim(),
+        transfer_number: newTransfer.trim(),
+        enable_missed_call: newEnableMissedCall,
+        callback_type: newCallbackType,
       },
     });
-    setSavingCampaign(false);
+    setCreating(false);
     if (error || !data?.success) {
-      toast.error(data?.error || "Failed to save Drop.co campaign");
+      toast.error(data?.error || error?.message || "Drop.co rejected the create request");
       return;
     }
-    toast.success("Drop.co campaign connected");
+    toast.success(`Campaign created — token captured`);
     setCampaign(data.campaign);
     refresh(false);
   }
@@ -198,7 +204,7 @@ export default function VMDropPanel() {
 
   async function handleDisconnect() {
     if (!campaign) return;
-    if (!confirm(`Disconnect Drop.co campaign "${campaign.name}"?\n\nYou'll need to paste a CampaignToken again before sending more drops.`)) return;
+    if (!confirm(`Disconnect Drop.co campaign "${campaign.name}"?\n\nYou'll need to create a new campaign before sending more drops.`)) return;
     setDisconnecting(true);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: { action: "disconnect_campaign" },
@@ -210,15 +216,13 @@ export default function VMDropPanel() {
     }
     toast.success("Campaign disconnected");
     setCampaign(null);
-    setCampaignTokenDraft("");
-    setCampaignIdDraft("");
     setAudioDraft("");
     refresh(false);
   }
 
   async function handleTestConnection() {
     if (!campaign) {
-      toast.error("Save a campaign token first");
+      toast.error("Create a campaign first");
       return;
     }
     setTesting(true);
@@ -250,6 +254,24 @@ export default function VMDropPanel() {
     });
     if (valid) toast.success("Drop.co connection OK");
     else toast.error("Connection check failed");
+  }
+
+  async function handleRefreshLog(log: LogRow) {
+    if (!log.activity_token) {
+      toast.error("No ActivityToken — can't refresh status");
+      return;
+    }
+    setRefreshingLog(log.id);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "refresh_status", activity_token: log.activity_token },
+    });
+    setRefreshingLog(null);
+    if (error || !data?.success) {
+      toast.error(data?.raw?.ApiStatusMessage || error?.message || "Status refresh failed");
+      return;
+    }
+    toast.success(`Status: ${data.status || "unknown"}`);
+    refresh(false);
   }
 
   const statusBadge = (s: string) => {
@@ -302,7 +324,7 @@ export default function VMDropPanel() {
               <div className="rounded-xl border border-border/60 bg-background/40 p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                    <Music2 className="h-3.5 w-3.5" /> Active Campaign
+                    <Music2 className="h-3.5 w-3.5" /> {campaign ? "Active Campaign" : "No Campaign Connected"}
                   </div>
                   {campaign && (
                     <div className="flex items-center gap-1">
@@ -324,18 +346,26 @@ export default function VMDropPanel() {
                         className="h-7 px-2 gap-1 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unplug className="h-3 w-3" />}
-                        Disconnect / Replace
+                        Disconnect
                       </Button>
                     </div>
                   )}
                 </div>
+
                 {campaign ? (
                   <div className="space-y-2 text-sm">
                     <div>
                       <div className="text-foreground font-medium">{campaign.name}</div>
                       <div className="text-[11px] text-muted-foreground font-mono break-all">
-                        token: {campaign.campaign_token}
+                        token: {campaign.campaign_token.slice(0, 10)}…{campaign.campaign_token.slice(-6)}
                       </div>
+                      {(campaign.campaign_id || campaign.vm_drop_duration) && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {campaign.campaign_id && <>ID: <span className="font-mono text-foreground/80">{campaign.campaign_id}</span></>}
+                          {campaign.campaign_id && campaign.vm_drop_duration && " · "}
+                          {campaign.vm_drop_duration && <>Duration: <span className="font-mono text-foreground/80">{campaign.vm_drop_duration}s</span></>}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <PhoneForwarded className="h-3.5 w-3.5 text-primary" />
@@ -343,7 +373,7 @@ export default function VMDropPanel() {
                     </div>
                     <audio controls preload="none" src={campaign.audio_url} className="w-full h-9" />
                     <div className="space-y-2 pt-1">
-                      <label className="text-[11px] text-muted-foreground">Audio URL</label>
+                      <label className="text-[11px] text-muted-foreground">Audio URL (local override)</label>
                       <div className="flex gap-2">
                         <Input
                           value={audioDraft}
@@ -442,40 +472,76 @@ export default function VMDropPanel() {
                     )}
                   </div>
                 ) : (
+                  // ============= CREATE CAMPAIGN FORM =============
                   <div className="space-y-3">
                     <div className="text-sm text-muted-foreground">
-                      Drop.co requires campaigns to be created in their UI. Paste the CampaignToken here to connect VMDrp.
+                      Create a Drop.co VMDrop campaign through the API. The CampaignToken is captured automatically — no manual paste required.
                     </div>
-                    <Input
-                      value={campaignTokenDraft}
-                      onChange={(e) => setCampaignTokenDraft(e.target.value)}
-                      placeholder="CampaignToken"
-                      className="text-xs h-8 font-mono"
-                    />
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign Name</label>
+                      <Input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder="Warren Default VM"
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Public Audio URL</label>
+                      <Input
+                        value={newAudioUrl}
+                        onChange={(e) => setNewAudioUrl(e.target.value)}
+                        placeholder="https://…/voicemail.mp3"
+                        className="text-xs h-8 font-mono"
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        value={campaignNameDraft}
-                        onChange={(e) => setCampaignNameDraft(e.target.value)}
-                        placeholder="Campaign name"
-                        className="text-xs h-8"
-                      />
-                      <Input
-                        value={campaignIdDraft}
-                        onChange={(e) => setCampaignIdDraft(e.target.value)}
-                        placeholder="Campaign ID optional"
-                        className="text-xs h-8"
-                      />
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
+                        <Input
+                          value={newTransfer}
+                          onChange={(e) => setNewTransfer(e.target.value)}
+                          placeholder="4244651253"
+                          className="text-xs h-8 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Callback Type</label>
+                        <select
+                          value={newCallbackType}
+                          onChange={(e) => setNewCallbackType(Number(e.target.value))}
+                          className="w-full text-xs h-8 rounded-md border border-input bg-background px-2"
+                        >
+                          <option value={1}>1 — Transfer to number</option>
+                          <option value={0}>0 — None</option>
+                          <option value={2}>2 — Voicemail box</option>
+                        </select>
+                      </div>
                     </div>
-                    <Input
-                      value={audioDraft}
-                      onChange={(e) => setAudioDraft(e.target.value)}
-                      placeholder="Public voicemail audio URL optional"
-                      className="text-xs h-8"
-                    />
-                    <Button size="sm" variant="outline" onClick={handleSaveCampaign} disabled={savingCampaign} className="w-full h-8 gap-2">
-                      {savingCampaign ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                      Save Campaign Token
+                    <label className="flex items-center justify-between gap-2 text-xs cursor-pointer">
+                      <span className="text-foreground/90">
+                        Enable Missed Call
+                        <span className="block text-[10px] text-muted-foreground">Recipient sees a missed call so they call back</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={newEnableMissedCall}
+                        onChange={(e) => setNewEnableMissedCall(e.target.checked)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                    </label>
+                    <Button
+                      size="sm"
+                      onClick={handleCreateCampaign}
+                      disabled={creating}
+                      className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                    >
+                      {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                      {creating ? "Creating campaign…" : "Create Drop.co Campaign"}
                     </Button>
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      Calls <span className="font-mono">VMDropCreate</span> · captures CampaignToken from response
+                    </p>
                   </div>
                 )}
               </div>
@@ -499,7 +565,7 @@ export default function VMDropPanel() {
                     className="w-full bg-amber-500 hover:bg-amber-600 text-black gap-2"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Voicemail className="h-4 w-4" />}
-                    {sending ? "Dropping…" : campaign ? "Drop VM Now" : "Connect Campaign First"}
+                    {sending ? "Dropping…" : campaign ? "Drop VM Now" : "Create Campaign First"}
                   </Button>
                   <p className="text-[11px] text-muted-foreground leading-snug">
                     Lands directly in their voicemail without ringing. If they call back the missed number, they're transferred to{" "}
@@ -535,6 +601,18 @@ export default function VMDropPanel() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {statusBadge(l.status)}
+                          {l.activity_token && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRefreshLog(l)}
+                              disabled={refreshingLog === l.id}
+                              className="h-6 px-1.5 text-[10px] gap-1"
+                              title="Refresh status from Drop.co"
+                            >
+                              <RefreshCw className={`h-3 w-3 ${refreshingLog === l.id ? "animate-spin" : ""}`} />
+                            </Button>
+                          )}
                           <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                             {fmtTime(l.created_at)}
                           </span>
@@ -553,9 +631,9 @@ export default function VMDropPanel() {
                 <Feature icon={<Voicemail className="h-3.5 w-3.5 text-amber-400" />}>Ringless voicemail (no ring on recipient)</Feature>
                 <Feature icon={<PhoneForwarded className="h-3.5 w-3.5 text-primary" />}>Auto-transfer callbacks to your cell</Feature>
                 <Feature icon={<Music2 className="h-3.5 w-3.5 text-primary" />}>Custom audio per campaign</Feature>
-                <Feature icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}>Per-drop delivery logging</Feature>
+                <Feature icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}>Per-drop delivery logging + status refresh</Feature>
                 <Feature icon={<Play className="h-3.5 w-3.5 text-primary" />}>Preview the active VM audio</Feature>
-                <Feature icon={<Send className="h-3.5 w-3.5 text-primary" />}>One-click drop from any contact thread</Feature>
+                <Feature icon={<Send className="h-3.5 w-3.5 text-primary" />}>VoidFix SMS auto-handoff on delivery</Feature>
               </div>
             </div>
           </>
