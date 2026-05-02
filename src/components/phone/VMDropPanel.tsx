@@ -91,7 +91,12 @@ export default function VMDropPanel() {
     allowable_campaign_count: any;
     status: string;
   }>(null);
-  const [setupMode, setSetupMode] = useState<"paste" | "api">("paste");
+  const [setupMode, setSetupMode] = useState<"paste" | "id" | "api">("paste");
+
+  // Campaign-ID lookup state
+  const [campaignIdInput, setCampaignIdInput] = useState("");
+  const [lookingUpId, setLookingUpId] = useState(false);
+  const [idLookupGuidance, setIdLookupGuidance] = useState<null | { error: string; steps: string[]; dashboard_url: string }>(null);
 
   // Settings drafts (live campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
@@ -198,6 +203,42 @@ export default function VMDropPanel() {
     toast.success(`Campaign created — token captured`);
     setCampaign(data.campaign);
     refresh(false);
+  }
+
+  async function handleLookupById() {
+    const id = campaignIdInput.replace(/\D/g, "");
+    if (!id) return toast.error("Enter the numeric Campaign ID (e.g. 68797)");
+    setLookingUpId(true);
+    setIdLookupGuidance(null);
+    setTokenPreview(null);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "lookup_campaign_id", campaign_id: id },
+    });
+    setLookingUpId(false);
+    if (error) {
+      toast.error(error.message || "Lookup failed");
+      return;
+    }
+    if (data?.success && data?.campaign_token) {
+      setPasteToken(data.campaign_token);
+      setTokenPreview(data.preview);
+      if (data.preview?.campaign_name && (!newName || newName === "Warren Default VM")) {
+        setNewName(data.preview.campaign_name);
+      }
+      if (data.preview?.transfer_number) {
+        setNewTransfer(data.preview.transfer_number.replace(/\D/g, "").slice(-10) || newTransfer);
+      }
+      setSetupMode("paste");
+      toast.success(`Found token for ID ${id} — review & connect`);
+      return;
+    }
+    // Guidance fallback
+    setIdLookupGuidance({
+      error: data?.error || "Drop.co didn't return a token for that ID",
+      steps: data?.guidance?.steps || [],
+      dashboard_url: data?.guidance?.dashboard_url || "https://app.drop.co",
+    });
+    toast.error("Drop.co's API can't resolve that ID — see instructions");
   }
 
   async function handleValidateToken() {
@@ -555,7 +596,17 @@ export default function VMDropPanel() {
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        Paste Token (recommended)
+                        Paste Token
+                      </button>
+                      <button
+                        onClick={() => setSetupMode("id")}
+                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
+                          setupMode === "id"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        By Campaign ID
                       </button>
                       <button
                         onClick={() => setSetupMode("api")}
@@ -659,6 +710,69 @@ export default function VMDropPanel() {
                           {connecting ? "Saving…" : tokenPreview ? "Save & Connect Campaign" : "Validate token first"}
                         </Button>
 
+                      </>
+                    ) : setupMode === "id" ? (
+                      <>
+                        <div className="text-xs text-muted-foreground leading-relaxed">
+                          Enter the numeric Campaign ID from Drop.co (e.g. <span className="font-mono text-foreground">68797</span>). We'll attempt to resolve it to a CampaignToken via Drop.co's API.
+                          <br />
+                          <span className="text-amber-300/90">Note: Drop.co's public API often blocks ID lookups — if it fails, follow the dashboard steps shown.</span>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign ID</label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={campaignIdInput}
+                              onChange={(e) => { setCampaignIdInput(e.target.value); setIdLookupGuidance(null); }}
+                              placeholder="68797"
+                              inputMode="numeric"
+                              className="text-xs h-8 font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleLookupById}
+                              disabled={lookingUpId || !campaignIdInput.trim()}
+                              className="h-8 gap-1 shrink-0"
+                            >
+                              {lookingUpId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                              {lookingUpId ? "Looking up…" : "Fetch Token"}
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Tries <span className="font-mono">VMDropStatus(CampaignId)</span> then <span className="font-mono">VMDropList</span>
+                          </p>
+                        </div>
+
+                        {idLookupGuidance && (
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-amber-300 font-medium">
+                              <XCircle className="h-3.5 w-3.5" /> Drop.co won't expose this token via API
+                            </div>
+                            <div className="text-foreground/80">{idLookupGuidance.error}</div>
+                            {idLookupGuidance.steps.length > 0 && (
+                              <ol className="list-decimal list-inside space-y-0.5 text-foreground/80 pl-1">
+                                {idLookupGuidance.steps.map((s, i) => <li key={i}>{s}</li>)}
+                              </ol>
+                            )}
+                            <a
+                              href={idLookupGuidance.dashboard_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-block text-primary underline text-[11px]"
+                            >
+                              Open app.drop.co →
+                            </a>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSetupMode("paste")}
+                              className="w-full h-7 text-[11px] mt-1"
+                            >
+                              Switch to Paste Token
+                            </Button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
