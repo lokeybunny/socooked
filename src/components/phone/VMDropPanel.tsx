@@ -92,10 +92,9 @@ export default function VMDropPanel() {
       return;
     }
     setSending(true);
-    const res = await sendDropVm({ phone: testPhone });
+    const ok = await sendRinglessVM({ phone: testPhone });
     setSending(false);
-    if (res?.success) {
-      toast.success(`VM dropped to ${fmtPhone(testPhone)}`);
+    if (ok) {
       setTestPhone("");
       refresh(false);
     }
