@@ -75,6 +75,11 @@ export default function VMDropPanel() {
   const [newCallbackType, setNewCallbackType] = useState<number>(1);
   const [creating, setCreating] = useState(false);
 
+  // Paste-token state (fallback for accounts where API create is disabled)
+  const [pasteToken, setPasteToken] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [setupMode, setSetupMode] = useState<"paste" | "api">("paste");
+
   // Settings drafts (live campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
   const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
@@ -179,6 +184,32 @@ export default function VMDropPanel() {
     }
     toast.success(`Campaign created — token captured`);
     setCampaign(data.campaign);
+    refresh(false);
+  }
+
+  async function handleConnectToken() {
+    const token = pasteToken.trim();
+    if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
+
+    setConnecting(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "connect_token",
+        campaign_token: token,
+        transfer_number: newTransfer.trim(),
+        callback_type: newCallbackType,
+        name: newName.trim(),
+      },
+    });
+    setConnecting(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Drop.co rejected this token");
+      return;
+    }
+    toast.success(`Connected: ${data.campaign?.name || "campaign"}`);
+    setCampaign(data.campaign);
+    setPasteToken("");
     refresh(false);
   }
 
@@ -472,76 +503,153 @@ export default function VMDropPanel() {
                     )}
                   </div>
                 ) : (
-                  // ============= CREATE CAMPAIGN FORM =============
+                  // ============= CONNECT CAMPAIGN =============
                   <div className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
-                      Create a Drop.co VMDrop campaign through the API. The CampaignToken is captured automatically — no manual paste required.
+                    {/* Mode toggle */}
+                    <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border/40">
+                      <button
+                        onClick={() => setSetupMode("paste")}
+                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
+                          setupMode === "paste"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Paste Token (recommended)
+                      </button>
+                      <button
+                        onClick={() => setSetupMode("api")}
+                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
+                          setupMode === "api"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        API Create
+                      </button>
                     </div>
-                    <div>
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign Name</label>
-                      <Input
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        placeholder="Warren Default VM"
-                        className="text-xs h-8"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Public Audio URL</label>
-                      <Input
-                        value={newAudioUrl}
-                        onChange={(e) => setNewAudioUrl(e.target.value)}
-                        placeholder="https://…/voicemail.mp3"
-                        className="text-xs h-8 font-mono"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
-                        <Input
-                          value={newTransfer}
-                          onChange={(e) => setNewTransfer(e.target.value)}
-                          placeholder="4244651253"
-                          className="text-xs h-8 font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Callback Type</label>
-                        <select
-                          value={newCallbackType}
-                          onChange={(e) => setNewCallbackType(Number(e.target.value))}
-                          className="w-full text-xs h-8 rounded-md border border-input bg-background px-2"
+
+                    {setupMode === "paste" ? (
+                      <>
+                        <div className="text-xs text-muted-foreground leading-relaxed">
+                          Drop.co requires campaigns to be created in their dashboard.
+                          <br />
+                          1. Open <a href="https://app.drop.co" target="_blank" rel="noreferrer" className="text-primary underline">app.drop.co</a> → create a VMDrop campaign
+                          <br />
+                          2. Copy the <span className="font-mono text-foreground">CampaignToken</span> and paste below
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken</label>
+                          <Input
+                            value={pasteToken}
+                            onChange={(e) => setPasteToken(e.target.value)}
+                            placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
+                            className="text-xs h-8 font-mono"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
+                            <Input
+                              value={newTransfer}
+                              onChange={(e) => setNewTransfer(e.target.value)}
+                              placeholder="4244651253"
+                              className="text-xs h-8 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Name</label>
+                            <Input
+                              value={newName}
+                              onChange={(e) => setNewName(e.target.value)}
+                              placeholder="Warren Default VM"
+                              className="text-xs h-8"
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleConnectToken}
+                          disabled={connecting}
+                          className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
-                          <option value={1}>1 — Transfer to number</option>
-                          <option value={0}>0 — None</option>
-                          <option value={2}>2 — Voicemail box</option>
-                        </select>
-                      </div>
-                    </div>
-                    <label className="flex items-center justify-between gap-2 text-xs cursor-pointer">
-                      <span className="text-foreground/90">
-                        Enable Missed Call
-                        <span className="block text-[10px] text-muted-foreground">Recipient sees a missed call so they call back</span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={newEnableMissedCall}
-                        onChange={(e) => setNewEnableMissedCall(e.target.checked)}
-                        className="h-4 w-4 accent-primary"
-                      />
-                    </label>
-                    <Button
-                      size="sm"
-                      onClick={handleCreateCampaign}
-                      disabled={creating}
-                      className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-                    >
-                      {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                      {creating ? "Creating campaign…" : "Create Drop.co Campaign"}
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground text-center">
-                      Calls <span className="font-mono">VMDropCreate</span> · captures CampaignToken from response
-                    </p>
+                          {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          {connecting ? "Validating…" : "Connect Drop.co Campaign"}
+                        </Button>
+                        <p className="text-[10px] text-muted-foreground text-center">
+                          Validates token via <span className="font-mono">VMDropStatus</span> · audio + duration auto-loaded
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-xs text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-md p-2 leading-relaxed">
+                          ⚠️ Drop.co disables API campaign creation for most accounts. If you get
+                          <span className="font-mono"> "set up in the UI"</span>, switch to "Paste Token" above.
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign Name</label>
+                          <Input
+                            value={newName}
+                            onChange={(e) => setNewName(e.target.value)}
+                            placeholder="Warren Default VM"
+                            className="text-xs h-8"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Public Audio URL</label>
+                          <Input
+                            value={newAudioUrl}
+                            onChange={(e) => setNewAudioUrl(e.target.value)}
+                            placeholder="https://…/voicemail.mp3"
+                            className="text-xs h-8 font-mono"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
+                            <Input
+                              value={newTransfer}
+                              onChange={(e) => setNewTransfer(e.target.value)}
+                              placeholder="4244651253"
+                              className="text-xs h-8 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Callback Type</label>
+                            <select
+                              value={newCallbackType}
+                              onChange={(e) => setNewCallbackType(Number(e.target.value))}
+                              className="w-full text-xs h-8 rounded-md border border-input bg-background px-2"
+                            >
+                              <option value={1}>1 — Transfer to number</option>
+                              <option value={0}>0 — None</option>
+                              <option value={2}>2 — Voicemail box</option>
+                            </select>
+                          </div>
+                        </div>
+                        <label className="flex items-center justify-between gap-2 text-xs cursor-pointer">
+                          <span className="text-foreground/90">
+                            Enable Missed Call
+                            <span className="block text-[10px] text-muted-foreground">Recipient sees a missed call so they call back</span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={newEnableMissedCall}
+                            onChange={(e) => setNewEnableMissedCall(e.target.checked)}
+                            className="h-4 w-4 accent-primary"
+                          />
+                        </label>
+                        <Button
+                          size="sm"
+                          onClick={handleCreateCampaign}
+                          disabled={creating}
+                          className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                        >
+                          {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                          {creating ? "Creating campaign…" : "Try API Create"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
