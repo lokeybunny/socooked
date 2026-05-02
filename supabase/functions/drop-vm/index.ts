@@ -81,6 +81,37 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ------------- Action: test_connection -------------
+    if (action === "test_connection") {
+      if (!campaign) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "No campaign saved. Paste a CampaignToken first.",
+          needs_setup: true,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const result = await dropApi("VMDropStatus", {
+        ApiKey: DROP_API_KEY,
+        CampaignToken: campaign.campaign_token,
+      });
+      const j = result.json || {};
+      const valid = result.ok && j.ApiStatusCode === 1000;
+      return new Response(JSON.stringify({
+        success: valid,
+        valid,
+        http_status: result.status,
+        api_status_code: j.ApiStatusCode ?? null,
+        api_status_message: j.ApiStatusMessage || null,
+        campaign_name: j.CampaignName || campaign.name,
+        campaign_id: j.CampaignId ?? campaign.campaign_id ?? null,
+        vm_drop_duration: j.VMDropDuration ?? null,
+        vm_drop_file: j.VMDropFile ?? null,
+        enable_missed_call: j.EnableMissedCall ?? null,
+        allowable_campaign_count: j.AllowableCampaignCount ?? null,
+        raw: j,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ------------- Action: get_campaign -------------
     if (action === "get_campaign" || action === "create_campaign") {
       return new Response(JSON.stringify({ success: true, campaign, needs_setup: !campaign }), {

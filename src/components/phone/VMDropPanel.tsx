@@ -9,7 +9,7 @@ import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
   Voicemail, Loader2, Play, Send, RefreshCw, PhoneForwarded,
-  CheckCircle2, XCircle, Clock, Music2, Save, Unplug,
+  CheckCircle2, XCircle, Clock, Music2, Save, Unplug, Wifi,
 } from "lucide-react";
 
 type Campaign = {
@@ -64,6 +64,8 @@ export default function VMDropPanel() {
   const [campaignIdDraft, setCampaignIdDraft] = useState("");
   const [savingCampaign, setSavingCampaign] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ valid: boolean; message: string; details?: Record<string, any> } | null>(null);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
@@ -181,6 +183,42 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleTestConnection() {
+    if (!campaign) {
+      toast.error("Save a campaign token first");
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "test_connection" },
+    });
+    setTesting(false);
+    if (error) {
+      const msg = "Edge function error: " + error.message;
+      setTestResult({ valid: false, message: msg });
+      toast.error(msg);
+      return;
+    }
+    const valid = !!data?.valid;
+    const msg = data?.api_status_message || (valid ? "Campaign is live" : "Campaign validation failed");
+    setTestResult({
+      valid,
+      message: msg,
+      details: {
+        "Campaign": data?.campaign_name,
+        "Campaign ID": data?.campaign_id,
+        "VM Duration": data?.vm_drop_duration ? `${data.vm_drop_duration}s` : null,
+        "VM File": data?.vm_drop_file,
+        "Missed-Call": data?.enable_missed_call ? "Enabled" : "Disabled",
+        "Slots": data?.allowable_campaign_count,
+        "API Code": data?.api_status_code,
+      },
+    });
+    if (valid) toast.success("Drop.co connection OK");
+    else toast.error("Connection check failed");
+  }
+
   const statusBadge = (s: string) => {
     if (s === "queued") return <Badge variant="secondary" className="gap-1 text-[10px]"><Clock className="h-3 w-3" />Queued</Badge>;
     if (s === "delivered") return <Badge variant="default" className="gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Delivered</Badge>;
@@ -234,16 +272,28 @@ export default function VMDropPanel() {
                     <Music2 className="h-3.5 w-3.5" /> Active Campaign
                   </div>
                   {campaign && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={handleDisconnect}
-                      disabled={disconnecting}
-                      className="h-7 px-2 gap-1 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unplug className="h-3 w-3" />}
-                      Disconnect / Replace
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleTestConnection}
+                        disabled={testing}
+                        className="h-7 px-2 gap-1 text-[11px] text-primary hover:text-primary hover:bg-primary/10"
+                      >
+                        {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
+                        Test connection
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleDisconnect}
+                        disabled={disconnecting}
+                        className="h-7 px-2 gap-1 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unplug className="h-3 w-3" />}
+                        Disconnect / Replace
+                      </Button>
+                    </div>
                   )}
                 </div>
                 {campaign ? (
@@ -280,6 +330,33 @@ export default function VMDropPanel() {
                         </Button>
                       </div>
                     </div>
+                    {testResult && (
+                      <div className={`rounded-lg border p-2.5 text-[11px] space-y-1 ${
+                        testResult.valid
+                          ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
+                          : "border-destructive/30 bg-destructive/5 text-destructive"
+                      }`}>
+                        <div className="flex items-center gap-1.5 font-medium">
+                          {testResult.valid
+                            ? <CheckCircle2 className="h-3.5 w-3.5" />
+                            : <XCircle className="h-3.5 w-3.5" />}
+                          {testResult.valid ? "Connection OK" : "Connection failed"}
+                        </div>
+                        <div className="text-foreground/80 break-words">{testResult.message}</div>
+                        {testResult.details && (
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 text-muted-foreground">
+                            {Object.entries(testResult.details)
+                              .filter(([, v]) => v !== null && v !== undefined && v !== "")
+                              .map(([k, v]) => (
+                                <div key={k} className="truncate">
+                                  <span className="text-foreground/60">{k}:</span>{" "}
+                                  <span className="text-foreground/90 font-mono">{String(v)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
