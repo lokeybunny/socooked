@@ -16,6 +16,7 @@ type Campaign = {
   id: string;
   name: string;
   campaign_token: string;
+  campaign_id?: number | null;
   audio_url: string;
   transfer_number: string;
   callback_type: number;
@@ -58,6 +59,10 @@ export default function VMDropPanel() {
 
   const [audioDraft, setAudioDraft] = useState("");
   const [savingAudio, setSavingAudio] = useState(false);
+  const [campaignTokenDraft, setCampaignTokenDraft] = useState("");
+  const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
+  const [campaignIdDraft, setCampaignIdDraft] = useState("");
+  const [savingCampaign, setSavingCampaign] = useState(false);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
@@ -70,6 +75,9 @@ export default function VMDropPanel() {
         setStats(statsRes.data.stats);
         setCampaign(statsRes.data.campaign);
         setAudioDraft(statsRes.data.campaign?.audio_url || "");
+        setCampaignTokenDraft(statsRes.data.campaign?.campaign_token || "");
+        setCampaignNameDraft(statsRes.data.campaign?.name || "Warren Default VM");
+        setCampaignIdDraft(statsRes.data.campaign?.campaign_id?.toString?.() || "");
       }
       if (logsRes.data?.success) setLogs(logsRes.data.logs || []);
     } catch (e: any) {
@@ -87,6 +95,10 @@ export default function VMDropPanel() {
   }, []);
 
   async function handleTestSend() {
+    if (!campaign) {
+      toast.error("Connect a Drop.co campaign token first");
+      return;
+    }
     if (!testPhone || testPhone.replace(/\D/g, "").length < 10) {
       toast.error("Enter a 10-digit phone number");
       return;
@@ -101,6 +113,10 @@ export default function VMDropPanel() {
   }
 
   async function handleSaveAudio() {
+    if (!campaign) {
+      toast.error("Save a Drop.co campaign token first");
+      return;
+    }
     if (!audioDraft || !audioDraft.startsWith("http")) {
       toast.error("Enter a valid public audio URL");
       return;
@@ -116,6 +132,32 @@ export default function VMDropPanel() {
     }
     toast.success("VM audio updated");
     setCampaign(data.campaign);
+  }
+
+  async function handleSaveCampaign() {
+    if (!campaignTokenDraft.trim()) {
+      toast.error("Paste the CampaignToken from Drop.co");
+      return;
+    }
+    setSavingCampaign(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "save_campaign",
+        campaign_token: campaignTokenDraft.trim(),
+        campaign_id: campaignIdDraft.trim() || null,
+        name: campaignNameDraft.trim() || "Warren Default VM",
+        audio_url: audioDraft || undefined,
+        transfer_number: campaign?.transfer_number || "4244651253",
+      },
+    });
+    setSavingCampaign(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to save Drop.co campaign");
+      return;
+    }
+    toast.success("Drop.co campaign connected");
+    setCampaign(data.campaign);
+    refresh(false);
   }
 
   const statusBadge = (s: string) => {
@@ -205,7 +247,41 @@ export default function VMDropPanel() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">No campaign yet — sending your first VM will create one automatically.</div>
+                  <div className="space-y-3">
+                    <div className="text-sm text-muted-foreground">
+                      Drop.co requires campaigns to be created in their UI. Paste the CampaignToken here to connect VMDrp.
+                    </div>
+                    <Input
+                      value={campaignTokenDraft}
+                      onChange={(e) => setCampaignTokenDraft(e.target.value)}
+                      placeholder="CampaignToken"
+                      className="text-xs h-8 font-mono"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        value={campaignNameDraft}
+                        onChange={(e) => setCampaignNameDraft(e.target.value)}
+                        placeholder="Campaign name"
+                        className="text-xs h-8"
+                      />
+                      <Input
+                        value={campaignIdDraft}
+                        onChange={(e) => setCampaignIdDraft(e.target.value)}
+                        placeholder="Campaign ID optional"
+                        className="text-xs h-8"
+                      />
+                    </div>
+                    <Input
+                      value={audioDraft}
+                      onChange={(e) => setAudioDraft(e.target.value)}
+                      placeholder="Public voicemail audio URL optional"
+                      className="text-xs h-8"
+                    />
+                    <Button size="sm" variant="outline" onClick={handleSaveCampaign} disabled={savingCampaign} className="w-full h-8 gap-2">
+                      {savingCampaign ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      Save Campaign Token
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -224,11 +300,11 @@ export default function VMDropPanel() {
                   />
                   <Button
                     onClick={handleTestSend}
-                    disabled={sending}
+                    disabled={sending || !campaign}
                     className="w-full bg-amber-500 hover:bg-amber-600 text-black gap-2"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Voicemail className="h-4 w-4" />}
-                    {sending ? "Dropping…" : "Drop VM Now"}
+                    {sending ? "Dropping…" : campaign ? "Drop VM Now" : "Connect Campaign First"}
                   </Button>
                   <p className="text-[11px] text-muted-foreground leading-snug">
                     Lands directly in their voicemail without ringing. If they call back the missed number, they're transferred to{" "}

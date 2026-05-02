@@ -41,45 +41,34 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { action = "send", phone, customer_id, audio_url, transfer_number } = body;
+    const { action = "send", phone, customer_id, audio_url, transfer_number, campaign_token, campaign_id, name } = body;
 
-    // ------------- Ensure default campaign exists -------------
+    // ------------- Load saved Drop.co campaign -------------
     let { data: campaign } = await supabase
       .from("drop_campaigns")
       .select("*")
       .eq("is_default", true)
       .maybeSingle();
 
-    if (!campaign) {
-      const audioForCampaign = audio_url || DEFAULT_AUDIO_URL;
-      const created = await dropApi("VMDropCreate", {
-        ApiKey: DROP_API_KEY,
-        VMDropName: `${DEFAULT_CAMPAIGN_NAME} ${Date.now()}`,
-        VMDropFileUrl: audioForCampaign,
-        EnableMissedCall: "true",
-        CallbackForwardingType: "1",
-        TransferNumber: transfer_number || DEFAULT_TRANSFER_NUMBER,
-      });
-
-      if (!created.ok || !created.json?.CampaignToken) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "Failed to create Drop.co campaign",
-          drop_response: created.json,
-        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      const insert = await supabase.from("drop_campaigns").insert({
-        campaign_token: created.json.CampaignToken,
-        campaign_id: created.json.CampaignId,
-        name: created.json.CampaignName,
-        audio_url: audioForCampaign,
+    // ------------- Action: save_campaign -------------
+    if (action === "save_campaign") {
+      const token = String(campaign_token || "").trim();
+      if (!token) throw new Error("Campaign token is required. Create the campaign in Drop.co, then paste its CampaignToken here.");
+      await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
+      const saved = await supabase.from("drop_campaigns").upsert({
+        campaign_token: token,
+        campaign_id: campaign_id ? Number(campaign_id) : null,
+        name: name || DEFAULT_CAMPAIGN_NAME,
+        audio_url: audio_url || DEFAULT_AUDIO_URL,
         transfer_number: transfer_number || DEFAULT_TRANSFER_NUMBER,
         callback_type: 1,
         is_default: true,
-        meta: created.json,
-      }).select().single();
-      campaign = insert.data;
+        meta: { source: "drop-ui" },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "campaign_token" }).select().single();
+      return new Response(JSON.stringify({ success: true, campaign: saved.data }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
     // ------------- Action: get_campaign -------------
@@ -117,6 +106,7 @@ Deno.serve(async (req) => {
           last_24h: last24Count || 0,
         },
         campaign,
+        needs_setup: !campaign,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -135,6 +125,7 @@ Deno.serve(async (req) => {
 
     // ------------- Action: update_audio -------------
     if (action === "update_audio") {
+      if (!campaign) throw new Error("Add a Drop.co campaign token before updating audio.");
       if (!audio_url) throw new Error("audio_url is required");
       await supabase
         .from("drop_campaigns")
@@ -147,6 +138,13 @@ Deno.serve(async (req) => {
     }
 
     // ------------- Action: send (default) -------------
+    if (!campaign) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: "Drop.co campaigns must be created in the Drop.co UI first. Save the campaign token in VMDrp before sending.",
+        needs_setup: true,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     if (!phone) throw new Error("phone is required");
     const normalized = normalizePhone(phone);
     if (normalized.length !== 10) throw new Error(`Invalid phone: ${phone}`);
