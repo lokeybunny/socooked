@@ -183,6 +183,42 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleTestConnection() {
+    if (!campaign) {
+      toast.error("Save a campaign token first");
+      return;
+    }
+    setTesting(true);
+    setTestResult(null);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "test_connection" },
+    });
+    setTesting(false);
+    if (error) {
+      const msg = "Edge function error: " + error.message;
+      setTestResult({ valid: false, message: msg });
+      toast.error(msg);
+      return;
+    }
+    const valid = !!data?.valid;
+    const msg = data?.api_status_message || (valid ? "Campaign is live" : "Campaign validation failed");
+    setTestResult({
+      valid,
+      message: msg,
+      details: {
+        "Campaign": data?.campaign_name,
+        "Campaign ID": data?.campaign_id,
+        "VM Duration": data?.vm_drop_duration ? `${data.vm_drop_duration}s` : null,
+        "VM File": data?.vm_drop_file,
+        "Missed-Call": data?.enable_missed_call ? "Enabled" : "Disabled",
+        "Slots": data?.allowable_campaign_count,
+        "API Code": data?.api_status_code,
+      },
+    });
+    if (valid) toast.success("Drop.co connection OK");
+    else toast.error("Connection check failed");
+  }
+
   const statusBadge = (s: string) => {
     if (s === "queued") return <Badge variant="secondary" className="gap-1 text-[10px]"><Clock className="h-3 w-3" />Queued</Badge>;
     if (s === "delivered") return <Badge variant="default" className="gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Delivered</Badge>;
