@@ -1729,6 +1729,87 @@ export type Database = {
           },
         ]
       }
+      drop_campaigns: {
+        Row: {
+          audio_url: string
+          callback_type: number
+          campaign_id: number | null
+          campaign_token: string
+          created_at: string
+          id: string
+          is_default: boolean
+          meta: Json
+          name: string
+          transfer_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_url: string
+          callback_type?: number
+          campaign_id?: number | null
+          campaign_token: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          meta?: Json
+          name: string
+          transfer_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string
+          callback_type?: number
+          campaign_id?: number | null
+          campaign_token?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          meta?: Json
+          name?: string
+          transfer_number?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      drop_vm_logs: {
+        Row: {
+          activity_token: string | null
+          api_status_code: number | null
+          api_status_message: string | null
+          campaign_token: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          phone: string
+          response: Json | null
+          status: string
+        }
+        Insert: {
+          activity_token?: string | null
+          api_status_code?: number | null
+          api_status_message?: string | null
+          campaign_token: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          phone: string
+          response?: Json | null
+          status?: string
+        }
+        Update: {
+          activity_token?: string | null
+          api_status_code?: number | null
+          api_status_message?: string | null
+          campaign_token?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          phone?: string
+          response?: Json | null
+          status?: string
+        }
+        Relationships: []
+      }
       generation_jobs: {
         Row: {
           backend_logs: string | null
