@@ -1738,12 +1738,16 @@ export type Database = {
           created_at: string
           default_caller_id: string | null
           delivery_tracking_enabled: boolean
+          enable_missed_call: boolean
           id: string
           is_default: boolean
           meta: Json
           name: string
+          raw_response: Json | null
           transfer_number: string | null
           updated_at: string
+          vm_drop_duration: number | null
+          vm_drop_file: string | null
           webhook_url: string | null
         }
         Insert: {
@@ -1754,12 +1758,16 @@ export type Database = {
           created_at?: string
           default_caller_id?: string | null
           delivery_tracking_enabled?: boolean
+          enable_missed_call?: boolean
           id?: string
           is_default?: boolean
           meta?: Json
           name: string
+          raw_response?: Json | null
           transfer_number?: string | null
           updated_at?: string
+          vm_drop_duration?: number | null
+          vm_drop_file?: string | null
           webhook_url?: string | null
         }
         Update: {
@@ -1770,12 +1778,16 @@ export type Database = {
           created_at?: string
           default_caller_id?: string | null
           delivery_tracking_enabled?: boolean
+          enable_missed_call?: boolean
           id?: string
           is_default?: boolean
           meta?: Json
           name?: string
+          raw_response?: Json | null
           transfer_number?: string | null
           updated_at?: string
+          vm_drop_duration?: number | null
+          vm_drop_file?: string | null
           webhook_url?: string | null
         }
         Relationships: []
@@ -1789,9 +1801,11 @@ export type Database = {
           created_at: string
           customer_id: string | null
           id: string
+          lead_id: string | null
           phone: string
           response: Json | null
           status: string
+          vm_drop_status_url: string | null
         }
         Insert: {
           activity_token?: string | null
@@ -1801,9 +1815,11 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           id?: string
+          lead_id?: string | null
           phone: string
           response?: Json | null
           status?: string
+          vm_drop_status_url?: string | null
         }
         Update: {
           activity_token?: string | null
@@ -1813,9 +1829,11 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           id?: string
+          lead_id?: string | null
           phone?: string
           response?: Json | null
           status?: string
+          vm_drop_status_url?: string | null
         }
         Relationships: []
       }
