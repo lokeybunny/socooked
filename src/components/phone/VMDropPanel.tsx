@@ -14,7 +14,7 @@ import {
 type Campaign = {
   id: string;
   name: string;
-  campaign_token: string;
+  campaign_token: string | null;
   campaign_id?: number | null;
   audio_url: string;
   transfer_number: string;
