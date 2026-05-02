@@ -3,13 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
 import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
-  Voicemail, Loader2, Play, Send, RefreshCw, PhoneForwarded,
-  CheckCircle2, XCircle, Clock, Music2, Save, Unplug, Wifi, Plus,
+  Voicemail, Loader2, Send, RefreshCw, PhoneForwarded, CheckCircle2,
+  XCircle, Clock, Music2, Save, Wifi, Plus, Trash2, Star, StarOff, Library,
 } from "lucide-react";
 
 type Campaign = {
@@ -25,9 +24,9 @@ type Campaign = {
   webhook_url?: string | null;
   delivery_tracking_enabled?: boolean;
   enable_missed_call?: boolean;
-  vm_drop_file?: string | null;
   vm_drop_duration?: number | null;
   created_at: string;
+  updated_at?: string;
 };
 
 type LogRow = {
@@ -55,7 +54,8 @@ function fmtTime(iso: string) {
 }
 
 export default function VMDropPanel() {
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [active, setActive] = useState<Campaign | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,66 +64,45 @@ export default function VMDropPanel() {
   const [testPhone, setTestPhone] = useState("");
   const [sending, setSending] = useState(false);
 
-  const [audioDraft, setAudioDraft] = useState("");
-  const [savingAudio, setSavingAudio] = useState(false);
-
-  // Create-campaign form state
-  const [newName, setNewName] = useState("Warren Default VM");
-  const [newAudioUrl, setNewAudioUrl] = useState("https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/content-uploads/audio/voicemail-warren.mp3");
-  const [newTransfer, setNewTransfer] = useState("4244651253");
-  const [newEnableMissedCall, setNewEnableMissedCall] = useState(true);
-  const [newCallbackType, setNewCallbackType] = useState<number>(1);
-  const [creating, setCreating] = useState(false);
-
-  // Paste-token state (fallback for accounts where API create is disabled)
+  // Add-campaign form
+  const [showAddForm, setShowAddForm] = useState(false);
   const [pasteToken, setPasteToken] = useState("");
-  const [connecting, setConnecting] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newTransfer, setNewTransfer] = useState("4244651253");
   const [validating, setValidating] = useState(false);
-  const [tokenPreview, setTokenPreview] = useState<null | {
-    campaign_token: string;
-    campaign_name: string | null;
-    campaign_id: number | null;
-    vm_drop_file: string | null;
-    vm_drop_duration: number | null;
-    enable_missed_call: any;
-    callback_forwarding_type: any;
-    transfer_number: string | null;
-    allowable_campaign_count: any;
-    status: string;
-  }>(null);
-  const [setupMode, setSetupMode] = useState<"paste" | "id" | "api">("paste");
+  const [saving, setSaving] = useState(false);
+  const [tokenPreview, setTokenPreview] = useState<any>(null);
 
-  // Campaign-ID lookup state
-  const [campaignIdInput, setCampaignIdInput] = useState("");
-  const [lookingUpId, setLookingUpId] = useState(false);
-  const [idLookupGuidance, setIdLookupGuidance] = useState<null | { error: string; steps: string[]; dashboard_url: string }>(null);
-
-  // Settings drafts (live campaign)
+  // Settings drafts (active campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
   const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
   const [trackingEnabled, setTrackingEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ valid: boolean; message: string; details?: Record<string, any> } | null>(null);
 
+  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
     try {
-      const [statsRes, logsRes] = await Promise.all([
+      const [listRes, statsRes, logsRes] = await Promise.all([
+        supabase.functions.invoke("drop-vm", { body: { action: "list_campaigns" } }),
         supabase.functions.invoke("drop-vm", { body: { action: "stats" } }),
         supabase.functions.invoke("drop-vm", { body: { action: "list_logs", limit: 25 } }),
       ]);
-      if (statsRes.data?.success) {
-        setStats(statsRes.data.stats);
-        setCampaign(statsRes.data.campaign);
-        setAudioDraft(statsRes.data.campaign?.audio_url || "");
-        setCallerIdDraft(statsRes.data.campaign?.default_caller_id || "");
-        setWebhookUrlDraft(statsRes.data.campaign?.webhook_url || "");
-        setTrackingEnabled(statsRes.data.campaign?.delivery_tracking_enabled !== false);
+      if (listRes.data?.success) {
+        setCampaigns(listRes.data.campaigns || []);
+        setActive(listRes.data.active);
+        if (listRes.data.active) {
+          setCallerIdDraft(listRes.data.active.default_caller_id || "");
+          setWebhookUrlDraft(listRes.data.active.webhook_url || "");
+          setTrackingEnabled(listRes.data.active.delivery_tracking_enabled !== false);
+        }
       }
+      if (statsRes.data?.success) setStats(statsRes.data.stats);
       if (logsRes.data?.success) setLogs(logsRes.data.logs || []);
     } catch (e: any) {
       toast.error("Failed to load VMDrp data: " + e.message);
@@ -140,13 +119,9 @@ export default function VMDropPanel() {
   }, []);
 
   async function handleTestSend() {
-    if (!campaign) {
-      toast.error("Create a Drop.co campaign first");
-      return;
-    }
+    if (!active) return toast.error("Activate a campaign first");
     if (!testPhone || testPhone.replace(/\D/g, "").length < 10) {
-      toast.error("Enter a 10-digit phone number");
-      return;
+      return toast.error("Enter a 10-digit phone number");
     }
     setSending(true);
     const ok = await sendRinglessVM({ phone: testPhone });
@@ -157,93 +132,9 @@ export default function VMDropPanel() {
     }
   }
 
-  async function handleSaveAudio() {
-    if (!campaign) {
-      toast.error("Create a Drop.co campaign first");
-      return;
-    }
-    if (!audioDraft || !audioDraft.startsWith("http")) {
-      toast.error("Enter a valid public audio URL");
-      return;
-    }
-    setSavingAudio(true);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: { action: "update_audio", audio_url: audioDraft },
-    });
-    setSavingAudio(false);
-    if (error || !data?.success) {
-      toast.error("Failed to update audio");
-      return;
-    }
-    toast.success("VM audio updated");
-    setCampaign(data.campaign);
-  }
-
-  async function handleCreateCampaign() {
-    if (!newName.trim()) return toast.error("Enter a campaign name");
-    if (!newAudioUrl.startsWith("http")) return toast.error("Enter a public audio URL");
-    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
-
-    setCreating(true);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: {
-        action: "create_campaign",
-        name: newName.trim(),
-        audio_url: newAudioUrl.trim(),
-        transfer_number: newTransfer.trim(),
-        enable_missed_call: newEnableMissedCall,
-        callback_type: newCallbackType,
-      },
-    });
-    setCreating(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Drop.co rejected the create request");
-      return;
-    }
-    toast.success(`Campaign created — token captured`);
-    setCampaign(data.campaign);
-    refresh(false);
-  }
-
-  async function handleLookupById() {
-    const id = campaignIdInput.replace(/\D/g, "");
-    if (!id) return toast.error("Enter the numeric Campaign ID (e.g. 68797)");
-    setLookingUpId(true);
-    setIdLookupGuidance(null);
-    setTokenPreview(null);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: { action: "lookup_campaign_id", campaign_id: id },
-    });
-    setLookingUpId(false);
-    if (error) {
-      toast.error(error.message || "Lookup failed");
-      return;
-    }
-    if (data?.success && data?.campaign_token) {
-      setPasteToken(data.campaign_token);
-      setTokenPreview(data.preview);
-      if (data.preview?.campaign_name && (!newName || newName === "Warren Default VM")) {
-        setNewName(data.preview.campaign_name);
-      }
-      if (data.preview?.transfer_number) {
-        setNewTransfer(data.preview.transfer_number.replace(/\D/g, "").slice(-10) || newTransfer);
-      }
-      setSetupMode("paste");
-      toast.success(`Found token for ID ${id} — review & connect`);
-      return;
-    }
-    // Guidance fallback
-    setIdLookupGuidance({
-      error: data?.error || "Drop.co didn't return a token for that ID",
-      steps: data?.guidance?.steps || [],
-      dashboard_url: data?.guidance?.dashboard_url || "https://app.drop.co",
-    });
-    toast.error("Drop.co's API can't resolve that ID — see instructions");
-  }
-
   async function handleValidateToken() {
     const token = pasteToken.trim();
-    if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    if (!token) return toast.error("Paste your CampaignToken from app.drop.co");
     setValidating(true);
     setTokenPreview(null);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
@@ -251,51 +142,75 @@ export default function VMDropPanel() {
     });
     setValidating(false);
     if (error || !data?.valid) {
-      const msg = data?.error || data?.api_status_message || error?.message || "Drop.co rejected this CampaignToken";
-      toast.error(msg);
+      toast.error(data?.error || data?.api_status_message || error?.message || "Token rejected");
       return;
     }
     setTokenPreview(data.preview);
-    // Auto-fill local name from Drop.co if user hasn't customized
-    if (data.preview?.campaign_name && (!newName || newName === "Warren Default VM")) {
-      setNewName(data.preview.campaign_name);
-    }
-    if (data.preview?.transfer_number) {
-      setNewTransfer(data.preview.transfer_number.replace(/\D/g, "").slice(-10) || newTransfer);
-    }
+    if (!newName && data.preview?.campaign_name) setNewName(data.preview.campaign_name);
     toast.success(`Validated: ${data.preview?.campaign_name || "campaign"}`);
   }
 
-  async function handleConnectToken() {
+  async function handleSaveCampaign() {
     const token = pasteToken.trim();
-    if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
-    if (!tokenPreview) return toast.error("Click Validate first to verify the token with Drop.co");
+    if (!token) return toast.error("Paste a CampaignToken first");
+    if (!tokenPreview) return toast.error("Click Validate first");
     if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
 
-    setConnecting(true);
+    setSaving(true);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: {
-        action: "connect_token",
+        action: "save_token",
         campaign_token: token,
-        transfer_number: newTransfer.trim(),
-        callback_type: newCallbackType,
         name: newName.trim(),
+        transfer_number: newTransfer.trim(),
+        set_default: campaigns.length === 0, // make default if first
       },
     });
-    setConnecting(false);
+    setSaving(false);
     if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Drop.co rejected this token");
+      toast.error(data?.error || error?.message || "Failed to save");
       return;
     }
-    toast.success(`Connected: ${data.campaign?.name || "campaign"}`);
-    setCampaign(data.campaign);
+    toast.success(`Saved: ${data.campaign?.name}`);
     setPasteToken("");
+    setNewName("");
     setTokenPreview(null);
+    setShowAddForm(false);
+    refresh(false);
+  }
+
+  async function handleSetDefault(c: Campaign) {
+    if (c.is_default) return;
+    setSwitchingTo(c.id);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "set_default", id: c.id },
+    });
+    setSwitchingTo(null);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to switch");
+      return;
+    }
+    toast.success(`Now active: ${c.name}`);
+    refresh(false);
+  }
+
+  async function handleDelete(c: Campaign) {
+    if (!confirm(`Remove "${c.name}" from your library?\n\nThe campaign on Drop.co is NOT deleted — only this saved reference.`)) return;
+    setDeletingId(c.id);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "delete_campaign", id: c.id },
+    });
+    setDeletingId(null);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to remove");
+      return;
+    }
+    toast.success("Removed from library");
     refresh(false);
   }
 
   async function handleSaveSettings() {
-    if (!campaign) return;
+    if (!active) return;
     setSavingSettings(true);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: {
@@ -310,33 +225,11 @@ export default function VMDropPanel() {
       toast.error(data?.error || "Failed to save settings");
       return;
     }
-    toast.success("Drop.co settings saved");
-    setCampaign(data.campaign);
-  }
-
-  async function handleDisconnect() {
-    if (!campaign) return;
-    if (!confirm(`Disconnect Drop.co campaign "${campaign.name}"?\n\nYou'll need to create a new campaign before sending more drops.`)) return;
-    setDisconnecting(true);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: { action: "disconnect_campaign" },
-    });
-    setDisconnecting(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || "Failed to disconnect campaign");
-      return;
-    }
-    toast.success("Campaign disconnected");
-    setCampaign(null);
-    setAudioDraft("");
+    toast.success("Settings saved");
     refresh(false);
   }
 
   async function handleTestConnection() {
-    if (!campaign) {
-      toast.error("Create a campaign first");
-      return;
-    }
     setTesting(true);
     setTestResult(null);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
@@ -344,24 +237,21 @@ export default function VMDropPanel() {
     });
     setTesting(false);
     if (error) {
-      const msg = "Edge function error: " + error.message;
-      setTestResult({ valid: false, message: msg });
-      toast.error(msg);
-      return;
+      setTestResult({ valid: false, message: error.message });
+      return toast.error("Test failed: " + error.message);
     }
     const valid = !!data?.valid;
-    const msg = data?.api_status_message || (valid ? "Campaign is live" : "Campaign validation failed");
     setTestResult({
       valid,
-      message: msg,
+      message: data?.message || data?.api_status_message || (valid ? "Connection OK" : "Failed"),
       details: {
-        "Campaign": data?.campaign_name,
-        "Campaign ID": data?.campaign_id,
-        "VM Duration": data?.vm_drop_duration ? `${data.vm_drop_duration}s` : null,
-        "VM File": data?.vm_drop_file,
-        "Missed-Call": data?.enable_missed_call ? "Enabled" : "Disabled",
-        "Slots": data?.allowable_campaign_count,
-        "API Code": data?.api_status_code,
+        "Customer": data?.customer_name,
+        "Balance": data?.balance != null ? `$${data.balance}` : null,
+        "Pending": data?.pending_cost != null ? `$${data.pending_cost}` : null,
+        "Active": data?.campaign_name,
+        "Successes (30d)": data?.success_count,
+        "Failures (30d)": data?.fail_count,
+        "Delivery Rate": data?.delivery_rate ? `${data.delivery_rate}%` : null,
       },
     });
     if (valid) toast.success("Drop.co connection OK");
@@ -369,17 +259,14 @@ export default function VMDropPanel() {
   }
 
   async function handleRefreshLog(log: LogRow) {
-    if (!log.activity_token) {
-      toast.error("No ActivityToken — can't refresh status");
-      return;
-    }
+    if (!log.activity_token) return toast.error("No ActivityToken — can't refresh");
     setRefreshingLog(log.id);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: { action: "refresh_status", activity_token: log.activity_token },
     });
     setRefreshingLog(null);
     if (error || !data?.success) {
-      toast.error(data?.raw?.ApiStatusMessage || error?.message || "Status refresh failed");
+      toast.error(error?.message || "Refresh failed");
       return;
     }
     toast.success(`Status: ${data.status || "unknown"}`);
@@ -408,10 +295,16 @@ export default function VMDropPanel() {
               </div>
             </div>
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={() => refresh(true)} disabled={refreshing} className="gap-2">
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={handleTestConnection} disabled={testing} className="h-8 gap-1 text-xs">
+              {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+              Test API
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refresh(true)} disabled={refreshing} className="h-8 gap-2">
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CardHeader>
 
@@ -422,6 +315,34 @@ export default function VMDropPanel() {
           </div>
         ) : (
           <>
+            {/* Test result banner */}
+            {testResult && (
+              <div className={`rounded-lg border p-2.5 text-[11px] space-y-1 ${
+                testResult.valid
+                  ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
+                  : "border-destructive/30 bg-destructive/5 text-destructive"
+              }`}>
+                <div className="flex items-center gap-1.5 font-medium">
+                  {testResult.valid ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                  {testResult.valid ? "Drop.co API OK" : "Connection failed"}
+                  <button onClick={() => setTestResult(null)} className="ml-auto text-[10px] opacity-60 hover:opacity-100">×</button>
+                </div>
+                <div className="text-foreground/80 break-words">{testResult.message}</div>
+                {testResult.details && (
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 text-muted-foreground">
+                    {Object.entries(testResult.details)
+                      .filter(([, v]) => v !== null && v !== undefined && v !== "")
+                      .map(([k, v]) => (
+                        <div key={k} className="truncate">
+                          <span className="text-foreground/60">{k}:</span>{" "}
+                          <span className="text-foreground/90 font-mono">{String(v)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatTile label="Total Drops" value={stats?.total ?? 0} accent="text-foreground" />
@@ -430,425 +351,219 @@ export default function VMDropPanel() {
               <StatTile label="Failed" value={stats?.failed ?? 0} accent="text-destructive" />
             </div>
 
-            {/* Campaign + Send */}
-            <div className="grid md:grid-cols-2 gap-4">
-              {/* Campaign info */}
-              <div className="rounded-xl border border-border/60 bg-background/40 p-4 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                    <Music2 className="h-3.5 w-3.5" /> {campaign ? "Active Campaign" : "No Campaign Connected"}
-                  </div>
-                  {campaign && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleTestConnection}
-                        disabled={testing}
-                        className="h-7 px-2 gap-1 text-[11px] text-primary hover:text-primary hover:bg-primary/10"
-                      >
-                        {testing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wifi className="h-3 w-3" />}
-                        Test connection
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={handleDisconnect}
-                        disabled={disconnecting}
-                        className="h-7 px-2 gap-1 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unplug className="h-3 w-3" />}
-                        Disconnect
-                      </Button>
-                    </div>
-                  )}
+            {/* ============= CAMPAIGNS LIBRARY ============= */}
+            <div className="rounded-xl border border-border/60 bg-background/40 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  <Library className="h-3.5 w-3.5" /> Campaign Library
+                  <Badge variant="outline" className="text-[10px] h-5">{campaigns.length}</Badge>
                 </div>
+                <Button
+                  size="sm"
+                  variant={showAddForm ? "ghost" : "outline"}
+                  onClick={() => { setShowAddForm(!showAddForm); setTokenPreview(null); }}
+                  className="h-7 px-2 gap-1 text-[11px]"
+                >
+                  {showAddForm ? "Cancel" : <><Plus className="h-3 w-3" />Add Campaign</>}
+                </Button>
+              </div>
 
-                {campaign ? (
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <div className="text-foreground font-medium">{campaign.name}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono break-all">
-                        token: {campaign.campaign_token.slice(0, 10)}…{campaign.campaign_token.slice(-6)}
-                      </div>
-                      {(campaign.campaign_id || campaign.vm_drop_duration) && (
-                        <div className="text-[10px] text-muted-foreground">
-                          {campaign.campaign_id && <>ID: <span className="font-mono text-foreground/80">{campaign.campaign_id}</span></>}
-                          {campaign.campaign_id && campaign.vm_drop_duration && " · "}
-                          {campaign.vm_drop_duration && <>Duration: <span className="font-mono text-foreground/80">{campaign.vm_drop_duration}s</span></>}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <PhoneForwarded className="h-3.5 w-3.5 text-primary" />
-                      Callbacks → <span className="font-mono text-foreground">{fmtPhone(campaign.transfer_number)}</span>
-                    </div>
-                    <audio controls preload="none" src={campaign.audio_url} className="w-full h-9" />
-                    <div className="space-y-2 pt-1">
-                      <label className="text-[11px] text-muted-foreground">Audio URL (local override)</label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={audioDraft}
-                          onChange={(e) => setAudioDraft(e.target.value)}
-                          placeholder="https://…/voicemail.mp3"
-                          className="text-xs h-8"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleSaveAudio}
-                          disabled={savingAudio || audioDraft === campaign.audio_url}
-                          className="h-8 gap-1"
-                        >
-                          {savingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                          Save
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="space-y-2 pt-1 border-t border-border/40 mt-3">
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-2">Drop.co Settings</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] text-muted-foreground">Default Caller ID</label>
-                          <Input
-                            value={callerIdDraft}
-                            onChange={(e) => setCallerIdDraft(e.target.value)}
-                            placeholder="4244651253"
-                            className="text-xs h-8 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground">Webhook URL</label>
-                          <Input
-                            value={webhookUrlDraft}
-                            onChange={(e) => setWebhookUrlDraft(e.target.value)}
-                            placeholder="https://…/dropco-webhook"
-                            className="text-xs h-8 font-mono"
-                          />
-                        </div>
-                      </div>
-                      <label className="flex items-center justify-between gap-2 text-xs cursor-pointer pt-1">
-                        <span className="text-foreground/90">
-                          Enable Delivery Tracking
-                          <span className="block text-[10px] text-muted-foreground">Auto-send VoidFix SMS on delivery</span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={trackingEnabled}
-                          onChange={(e) => setTrackingEnabled(e.target.checked)}
-                          className="h-4 w-4 accent-primary"
-                        />
-                      </label>
+              {/* Add new campaign form */}
+              {showAddForm && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                  <div className="text-[11px] text-muted-foreground leading-relaxed">
+                    Paste a CampaignToken from <a href="https://app.drop.co" target="_blank" rel="noreferrer" className="text-primary underline">app.drop.co</a>.
+                    Once saved, you'll never need to paste it again — just click to switch.
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken (UUID)</label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={pasteToken}
+                        onChange={(e) => { setPasteToken(e.target.value); setTokenPreview(null); }}
+                        placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
+                        className="text-xs h-8 font-mono"
+                      />
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={handleSaveSettings}
-                        disabled={
-                          savingSettings ||
-                          (callerIdDraft === (campaign.default_caller_id || "") &&
-                            webhookUrlDraft === (campaign.webhook_url || "") &&
-                            trackingEnabled === (campaign.delivery_tracking_enabled !== false))
-                        }
-                        className="w-full h-8 gap-2"
+                        onClick={handleValidateToken}
+                        disabled={validating || !pasteToken.trim()}
+                        className="h-8 gap-1 shrink-0"
                       >
-                        {savingSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                        Save Settings
+                        {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                        Validate
                       </Button>
                     </div>
-                    {testResult && (
-                      <div className={`rounded-lg border p-2.5 text-[11px] space-y-1 ${
-                        testResult.valid
-                          ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
-                          : "border-destructive/30 bg-destructive/5 text-destructive"
-                      }`}>
-                        <div className="flex items-center gap-1.5 font-medium">
-                          {testResult.valid
-                            ? <CheckCircle2 className="h-3.5 w-3.5" />
-                            : <XCircle className="h-3.5 w-3.5" />}
-                          {testResult.valid ? "Connection OK" : "Connection failed"}
-                        </div>
-                        <div className="text-foreground/80 break-words">{testResult.message}</div>
-                        {testResult.details && (
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 text-muted-foreground">
-                            {Object.entries(testResult.details)
-                              .filter(([, v]) => v !== null && v !== undefined && v !== "")
-                              .map(([k, v]) => (
-                                <div key={k} className="truncate">
-                                  <span className="text-foreground/60">{k}:</span>{" "}
-                                  <span className="text-foreground/90 font-mono">{String(v)}</span>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
-                ) : (
-                  // ============= CONNECT CAMPAIGN =============
-                  <div className="space-y-3">
-                    {/* Mode toggle */}
-                    <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border/40">
-                      <button
-                        onClick={() => setSetupMode("paste")}
-                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
-                          setupMode === "paste"
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        Paste Token
-                      </button>
-                      <button
-                        onClick={() => setSetupMode("id")}
-                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
-                          setupMode === "id"
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        By Campaign ID
-                      </button>
-                      <button
-                        onClick={() => setSetupMode("api")}
-                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
-                          setupMode === "api"
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        API Create
-                      </button>
+
+                  {tokenPreview && (
+                    <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Validated by Drop.co
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-2 text-foreground/80">
+                        <div>Name: <span className="font-mono">{tokenPreview.campaign_name || "—"}</span></div>
+                        <div>ID: <span className="font-mono">{tokenPreview.campaign_id ?? "—"}</span></div>
+                        <div>Successes (30d): <span className="font-mono">{tokenPreview.success_count}</span></div>
+                        <div>Delivery: <span className="font-mono">{tokenPreview.delivery_rate}%</span></div>
+                      </div>
                     </div>
+                  )}
 
-                    {setupMode === "paste" ? (
-                      <>
-                        <div className="text-xs text-muted-foreground leading-relaxed">
-                          Drop.co requires campaigns to be created in their dashboard.
-                          <br />
-                          1. Open <a href="https://app.drop.co" target="_blank" rel="noreferrer" className="text-primary underline">app.drop.co</a> → create a VMDrop campaign
-                          <br />
-                          2. Copy the <span className="font-mono text-foreground">CampaignToken</span> and paste below
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken</label>
-                          <div className="flex gap-2">
-                            <Input
-                              value={pasteToken}
-                              onChange={(e) => { setPasteToken(e.target.value); setTokenPreview(null); }}
-                              placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
-                              className="text-xs h-8 font-mono"
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleValidateToken}
-                              disabled={validating || !pasteToken.trim()}
-                              className="h-8 gap-1 shrink-0"
-                            >
-                              {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                              {validating ? "Checking…" : "Validate"}
-                            </Button>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            Calls <span className="font-mono">VMDropStatus</span> on Drop.co — preview before saving
-                          </p>
-                        </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Name</label>
+                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="My VM Campaign" className="text-xs h-8" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
+                      <Input value={newTransfer} onChange={(e) => setNewTransfer(e.target.value)} placeholder="4244651253" className="text-xs h-8 font-mono" />
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveCampaign}
+                    disabled={saving || !tokenPreview}
+                    className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    {saving ? "Saving…" : "Save to Library"}
+                  </Button>
+                </div>
+              )}
 
-                        {tokenPreview && (
-                          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
-                            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-emerald-400">
-                              <CheckCircle2 className="h-3.5 w-3.5" /> Validated by Drop.co
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-                              <PreviewRow label="Campaign" value={tokenPreview.campaign_name || "—"} />
-                              <PreviewRow label="ID" value={tokenPreview.campaign_id ?? "—"} mono />
-                              <PreviewRow label="Status" value={tokenPreview.status || "active"} />
-                              <PreviewRow label="Duration" value={tokenPreview.vm_drop_duration ? `${tokenPreview.vm_drop_duration}s` : "—"} mono />
-                              <PreviewRow label="Missed Call" value={tokenPreview.enable_missed_call ? "Enabled" : "Disabled"} />
-                              <PreviewRow label="Slots" value={tokenPreview.allowable_campaign_count ?? "—"} mono />
-                              {tokenPreview.transfer_number && (
-                                <PreviewRow label="Transfer" value={fmtPhone(tokenPreview.transfer_number)} mono />
-                              )}
-                              <PreviewRow label="Callback Type" value={String(tokenPreview.callback_forwarding_type ?? "—")} mono />
-                            </div>
-                            {tokenPreview.vm_drop_file && (
-                              <div className="pt-1">
-                                <div className="text-[10px] text-muted-foreground mb-1">Voicemail audio:</div>
-                                <audio controls preload="none" src={tokenPreview.vm_drop_file} className="w-full h-8" />
-                              </div>
+              {/* Campaigns list */}
+              {campaigns.length === 0 && !showAddForm && (
+                <div className="text-center py-6 text-xs text-muted-foreground">
+                  <Music2 className="h-6 w-6 mx-auto mb-2 opacity-40" />
+                  No campaigns saved yet. Click <span className="text-foreground">Add Campaign</span> to paste your first CampaignToken from Drop.co.
+                </div>
+              )}
+
+              {campaigns.length > 0 && (
+                <div className="space-y-2">
+                  {campaigns.map((c) => (
+                    <div
+                      key={c.id}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        c.is_default
+                          ? "border-amber-500/40 bg-amber-500/5"
+                          : "border-border/40 bg-background/40 hover:border-border"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            {c.is_default ? (
+                              <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                            ) : (
+                              <button
+                                onClick={() => handleSetDefault(c)}
+                                disabled={switchingTo === c.id}
+                                title="Set as active campaign"
+                                className="text-muted-foreground hover:text-amber-400 transition-colors"
+                              >
+                                {switchingTo === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StarOff className="h-3.5 w-3.5" />}
+                              </button>
                             )}
+                            <div className="font-medium text-sm truncate">{c.name}</div>
+                            {c.is_default && <Badge variant="default" className="h-4 text-[9px] px-1.5">ACTIVE</Badge>}
                           </div>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
-                            <Input
-                              value={newTransfer}
-                              onChange={(e) => setNewTransfer(e.target.value)}
-                              placeholder="4244651253"
-                              className="text-xs h-8 font-mono"
-                            />
+                          <div className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">
+                            {c.campaign_id && <>ID {c.campaign_id} · </>}
+                            {c.campaign_token.slice(0, 8)}…{c.campaign_token.slice(-6)}
                           </div>
-                          <div>
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Name</label>
-                            <Input
-                              value={newName}
-                              onChange={(e) => setNewName(e.target.value)}
-                              placeholder="Warren Default VM"
-                              className="text-xs h-8"
-                            />
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                            <PhoneForwarded className="h-3 w-3" />
+                            <span className="font-mono">{fmtPhone(c.transfer_number)}</span>
                           </div>
                         </div>
-                        <Button
-                          size="sm"
-                          onClick={handleConnectToken}
-                          disabled={connecting || !tokenPreview}
-                          className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-                        >
-                          {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                          {connecting ? "Saving…" : tokenPreview ? "Save & Connect Campaign" : "Validate token first"}
-                        </Button>
-
-                      </>
-                    ) : setupMode === "id" ? (
-                      <>
-                        <div className="text-xs text-muted-foreground leading-relaxed">
-                          Enter the numeric Campaign ID from Drop.co (e.g. <span className="font-mono text-foreground">68797</span>). We'll attempt to resolve it to a CampaignToken via Drop.co's API.
-                          <br />
-                          <span className="text-amber-300/90">Note: Drop.co's public API often blocks ID lookups — if it fails, follow the dashboard steps shown.</span>
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign ID</label>
-                          <div className="flex gap-2">
-                            <Input
-                              value={campaignIdInput}
-                              onChange={(e) => { setCampaignIdInput(e.target.value); setIdLookupGuidance(null); }}
-                              placeholder="68797"
-                              inputMode="numeric"
-                              className="text-xs h-8 font-mono"
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={handleLookupById}
-                              disabled={lookingUpId || !campaignIdInput.trim()}
-                              className="h-8 gap-1 shrink-0"
-                            >
-                              {lookingUpId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                              {lookingUpId ? "Looking up…" : "Fetch Token"}
-                            </Button>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            Tries <span className="font-mono">VMDropStatus(CampaignId)</span> then <span className="font-mono">VMDropList</span>
-                          </p>
-                        </div>
-
-                        {idLookupGuidance && (
-                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2 text-[11px]">
-                            <div className="flex items-center gap-1.5 text-amber-300 font-medium">
-                              <XCircle className="h-3.5 w-3.5" /> Drop.co won't expose this token via API
-                            </div>
-                            <div className="text-foreground/80">{idLookupGuidance.error}</div>
-                            {idLookupGuidance.steps.length > 0 && (
-                              <ol className="list-decimal list-inside space-y-0.5 text-foreground/80 pl-1">
-                                {idLookupGuidance.steps.map((s, i) => <li key={i}>{s}</li>)}
-                              </ol>
-                            )}
-                            <a
-                              href={idLookupGuidance.dashboard_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-block text-primary underline text-[11px]"
-                            >
-                              Open app.drop.co →
-                            </a>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!c.is_default && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => setSetupMode("paste")}
-                              className="w-full h-7 text-[11px] mt-1"
+                              onClick={() => handleSetDefault(c)}
+                              disabled={switchingTo === c.id}
+                              className="h-7 px-2 text-[10px] gap-1"
                             >
-                              Switch to Paste Token
+                              {switchingTo === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Activate"}
                             </Button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-xs text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-md p-2 leading-relaxed">
-                          ⚠️ Drop.co disables API campaign creation for most accounts. If you get
-                          <span className="font-mono"> "set up in the UI"</span>, switch to "Paste Token" above.
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(c)}
+                            disabled={deletingId === c.id}
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            {deletingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                          </Button>
                         </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign Name</label>
-                          <Input
-                            value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
-                            placeholder="Warren Default VM"
-                            className="text-xs h-8"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Public Audio URL</label>
-                          <Input
-                            value={newAudioUrl}
-                            onChange={(e) => setNewAudioUrl(e.target.value)}
-                            placeholder="https://…/voicemail.mp3"
-                            className="text-xs h-8 font-mono"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
-                            <Input
-                              value={newTransfer}
-                              onChange={(e) => setNewTransfer(e.target.value)}
-                              placeholder="4244651253"
-                              className="text-xs h-8 font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Callback Type</label>
-                            <select
-                              value={newCallbackType}
-                              onChange={(e) => setNewCallbackType(Number(e.target.value))}
-                              className="w-full text-xs h-8 rounded-md border border-input bg-background px-2"
-                            >
-                              <option value={1}>1 — Transfer to number</option>
-                              <option value={0}>0 — None</option>
-                              <option value={2}>2 — Voicemail box</option>
-                            </select>
-                          </div>
-                        </div>
-                        <label className="flex items-center justify-between gap-2 text-xs cursor-pointer">
-                          <span className="text-foreground/90">
-                            Enable Missed Call
-                            <span className="block text-[10px] text-muted-foreground">Recipient sees a missed call so they call back</span>
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={newEnableMissedCall}
-                            onChange={(e) => setNewEnableMissedCall(e.target.checked)}
-                            className="h-4 w-4 accent-primary"
-                          />
-                        </label>
-                        <Button
-                          size="sm"
-                          onClick={handleCreateCampaign}
-                          disabled={creating}
-                          className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-                        >
-                          {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                          {creating ? "Creating campaign…" : "Try API Create"}
-                        </Button>
-                      </>
-                    )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ============= ACTIVE CAMPAIGN SETTINGS + DROP ============= */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Active campaign settings */}
+              <div className="rounded-xl border border-border/60 bg-background/40 p-4 space-y-3">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Music2 className="h-3.5 w-3.5" />
+                  {active ? "Active Campaign Settings" : "No Campaign Active"}
+                </div>
+                {active ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">Default Caller ID</label>
+                        <Input value={callerIdDraft} onChange={(e) => setCallerIdDraft(e.target.value)} placeholder="4244651253" className="text-xs h-8 font-mono" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">Webhook URL</label>
+                        <Input value={webhookUrlDraft} onChange={(e) => setWebhookUrlDraft(e.target.value)} placeholder="https://…/dropco-webhook" className="text-xs h-8 font-mono" />
+                      </div>
+                    </div>
+                    <label className="flex items-center justify-between gap-2 text-xs cursor-pointer">
+                      <span className="text-foreground/90">
+                        Auto-send VoidFix SMS on delivery
+                        <span className="block text-[10px] text-muted-foreground">Follow-up text after voicemail drops</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={trackingEnabled}
+                        onChange={(e) => setTrackingEnabled(e.target.checked)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                    </label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveSettings}
+                      disabled={
+                        savingSettings ||
+                        (callerIdDraft === (active.default_caller_id || "") &&
+                          webhookUrlDraft === (active.webhook_url || "") &&
+                          trackingEnabled === (active.delivery_tracking_enabled !== false))
+                      }
+                      className="w-full h-8 gap-2"
+                    >
+                      {savingSettings ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                      Save Settings
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-xs text-muted-foreground py-3 text-center">
+                    Add a campaign above and activate it to configure settings.
                   </div>
                 )}
               </div>
 
-              {/* Send a drop */}
+              {/* Drop a VM */}
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
                 <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-amber-300">
                   <Send className="h-3.5 w-3.5" /> Drop a Voicemail
@@ -863,80 +578,50 @@ export default function VMDropPanel() {
                   />
                   <Button
                     onClick={handleTestSend}
-                    disabled={sending || !campaign}
+                    disabled={sending || !active}
                     className="w-full bg-amber-500 hover:bg-amber-600 text-black gap-2"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Voicemail className="h-4 w-4" />}
-                    {sending ? "Dropping…" : campaign ? "Drop VM Now" : "Create Campaign First"}
+                    {sending ? "Dropping…" : active ? `Drop via ${active.name}` : "Activate a Campaign First"}
                   </Button>
-                  <p className="text-[11px] text-muted-foreground leading-snug">
-                    Lands directly in their voicemail without ringing. If they call back the missed number, they're transferred to{" "}
-                    <span className="font-mono text-foreground">{fmtPhone(campaign?.transfer_number || "4244651253")}</span>.
-                  </p>
+                  {active && (
+                    <div className="text-[10px] text-muted-foreground text-center">
+                      Will use campaign <span className="font-mono text-foreground/80">{active.name}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            <Separator />
-
-            {/* Recent activity */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Recent Drops</div>
-                <div className="text-[11px] text-muted-foreground">{logs.length} shown</div>
-              </div>
-
+            {/* ============= LOGS ============= */}
+            <div className="rounded-xl border border-border/60 bg-background/40 p-4 space-y-3">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Recent Drops</div>
               {logs.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border/50 rounded-lg">
-                  No drops yet. Send your first one above.
-                </div>
+                <div className="text-xs text-muted-foreground text-center py-4">No drops yet.</div>
               ) : (
-                <div className="rounded-lg border border-border/50 overflow-hidden">
-                  <div className="max-h-72 overflow-y-auto divide-y divide-border/40">
-                    {logs.map((l) => (
-                      <div key={l.id} className="px-3 py-2 flex items-center justify-between gap-3 hover:bg-muted/30 transition-colors">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-mono text-foreground">{fmtPhone(l.phone)}</div>
-                          {l.api_status_message && (
-                            <div className="text-[10px] text-muted-foreground truncate">{l.api_status_message}</div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {statusBadge(l.status)}
-                          {l.activity_token && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleRefreshLog(l)}
-                              disabled={refreshingLog === l.id}
-                              className="h-6 px-1.5 text-[10px] gap-1"
-                              title="Refresh status from Drop.co"
-                            >
-                              <RefreshCw className={`h-3 w-3 ${refreshingLog === l.id ? "animate-spin" : ""}`} />
-                            </Button>
-                          )}
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {fmtTime(l.created_at)}
-                          </span>
-                        </div>
+                <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                  {logs.map((log) => (
+                    <div key={log.id} className="flex items-center justify-between gap-2 text-xs py-1.5 px-2 rounded bg-background/30 hover:bg-background/60">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-mono text-foreground">{fmtPhone(log.phone)}</div>
+                        <div className="text-[10px] text-muted-foreground">{fmtTime(log.created_at)}</div>
                       </div>
-                    ))}
-                  </div>
+                      {statusBadge(log.status)}
+                      {log.activity_token && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRefreshLog(log)}
+                          disabled={refreshingLog === log.id}
+                          className="h-6 w-6 p-0"
+                        >
+                          {refreshingLog === log.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
-
-            {/* Features list */}
-            <div className="rounded-xl border border-border/40 bg-background/30 p-4">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-3">VMDrp Features</div>
-              <div className="grid sm:grid-cols-2 gap-2 text-xs text-foreground/90">
-                <Feature icon={<Voicemail className="h-3.5 w-3.5 text-amber-400" />}>Ringless voicemail (no ring on recipient)</Feature>
-                <Feature icon={<PhoneForwarded className="h-3.5 w-3.5 text-primary" />}>Auto-transfer callbacks to your cell</Feature>
-                <Feature icon={<Music2 className="h-3.5 w-3.5 text-primary" />}>Custom audio per campaign</Feature>
-                <Feature icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}>Per-drop delivery logging + status refresh</Feature>
-                <Feature icon={<Play className="h-3.5 w-3.5 text-primary" />}>Preview the active VM audio</Feature>
-                <Feature icon={<Send className="h-3.5 w-3.5 text-primary" />}>VoidFix SMS auto-handoff on delivery</Feature>
-              </div>
             </div>
           </>
         )}
@@ -947,27 +632,9 @@ export default function VMDropPanel() {
 
 function StatTile({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
-    <div className="rounded-xl border border-border/50 bg-background/40 p-3">
-      <div className={`text-2xl font-bold ${accent}`}>{value.toLocaleString()}</div>
+    <div className="rounded-lg border border-border/40 bg-background/40 p-3 text-center">
+      <div className={`text-2xl font-bold ${accent}`}>{value}</div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">{label}</div>
-    </div>
-  );
-}
-
-function Feature({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-2">
-      <div className="mt-0.5">{icon}</div>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function PreviewRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-2 min-w-0">
-      <span className="text-muted-foreground text-[10px] uppercase tracking-wider shrink-0">{label}</span>
-      <span className={`text-foreground truncate ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }
