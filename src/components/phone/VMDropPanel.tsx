@@ -176,6 +176,26 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleSaveSettings() {
+    if (!campaign) return;
+    setSavingSettings(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "update_settings",
+        default_caller_id: callerIdDraft.trim() || null,
+        webhook_url: webhookUrlDraft.trim() || null,
+        delivery_tracking_enabled: trackingEnabled,
+      },
+    });
+    setSavingSettings(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to save settings");
+      return;
+    }
+    toast.success("Drop.co settings saved");
+    setCampaign(data.campaign);
+  }
+
   async function handleDisconnect() {
     if (!campaign) return;
     if (!confirm(`Disconnect Drop.co campaign "${campaign.name}"?\n\nYou'll need to paste a CampaignToken again before sending more drops.`)) return;
