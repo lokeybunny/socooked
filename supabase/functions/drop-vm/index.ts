@@ -275,6 +275,61 @@ Deno.serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ------------- Action: save_id (save by Campaign ID alone — token gets auto-captured by webhook) -------------
+    if (action === "save_id") {
+      const cidRaw = body.campaign_id;
+      const cid = Number(cidRaw);
+      if (!cid || isNaN(cid)) throw new Error("campaign_id is required (numeric)");
+      const localName = (name || "").trim() || `Campaign ${cid}`;
+      const transfer = transfer_number || DEFAULT_TRANSFER_NUMBER;
+      const setAsDefault = body.set_default !== false;
+
+      // Check if this Campaign ID is already saved
+      const { data: existing } = await supabase
+        .from("drop_campaigns")
+        .select("*")
+        .eq("campaign_id", cid)
+        .maybeSingle();
+
+      if (existing) {
+        if (setAsDefault) {
+          await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
+          await supabase.from("drop_campaigns").update({ is_default: true, updated_at: new Date().toISOString() }).eq("id", existing.id);
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          campaign: { ...existing, is_default: setAsDefault || existing.is_default },
+          message: existing.campaign_token
+            ? "Campaign already in library"
+            : "Saved — token will be auto-captured on first webhook event",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      if (setAsDefault) {
+        await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
+      }
+      const ins = await supabase.from("drop_campaigns").insert({
+        campaign_id: cid,
+        campaign_token: null,
+        name: localName,
+        audio_url: audio_url || DEFAULT_AUDIO_URL,
+        enable_missed_call: enable_missed_call !== false,
+        transfer_number: transfer,
+        default_caller_id: default_caller_id || transfer,
+        delivery_tracking_enabled: delivery_tracking_enabled !== false,
+        callback_type: Number(callback_type ?? 1),
+        is_default: setAsDefault,
+        meta: { source: "id-only", saved_at: new Date().toISOString() },
+      }).select().single();
+
+      return new Response(JSON.stringify({
+        success: !ins.error,
+        campaign: ins.data,
+        error: ins.error?.message,
+        message: "Saved by Campaign ID. The CampaignToken will be auto-captured the next time Drop.co sends a webhook event for this campaign (e.g. after your first drop).",
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ------------- Action: save_token (validate via VMDropStats then save to library) -------------
     if (action === "save_token" || action === "connect_token") {
       const token = String(body.campaign_token || "").trim();
