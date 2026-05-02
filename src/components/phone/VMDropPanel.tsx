@@ -67,14 +67,10 @@ export default function VMDropPanel() {
 
   // Add-campaign form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addMode, setAddMode] = useState<"id" | "token">("id");
-  const [pasteToken, setPasteToken] = useState("");
   const [pasteId, setPasteId] = useState("");
   const [newName, setNewName] = useState("");
   const [newTransfer, setNewTransfer] = useState("4244651253");
-  const [validating, setValidating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [tokenPreview, setTokenPreview] = useState<any>(null);
 
   // Settings drafts (active campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
@@ -86,8 +82,6 @@ export default function VMDropPanel() {
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [attachingId, setAttachingId] = useState<string | null>(null);
-  const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
   const [refreshingPending, setRefreshingPending] = useState(false);
 
@@ -154,53 +148,6 @@ export default function VMDropPanel() {
       setTestPhone("");
       refresh(false);
     }
-  }
-
-  async function handleValidateToken() {
-    const token = pasteToken.trim();
-    if (!token) return toast.error("Paste your CampaignToken from app.drop.co");
-    setValidating(true);
-    setTokenPreview(null);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: { action: "validate_token", campaign_token: token },
-    });
-    setValidating(false);
-    if (error || !data?.valid) {
-      toast.error(data?.error || data?.api_status_message || error?.message || "Token rejected");
-      return;
-    }
-    setTokenPreview(data.preview);
-    if (!newName && data.preview?.campaign_name) setNewName(data.preview.campaign_name);
-    toast.success(`Validated: ${data.preview?.campaign_name || "campaign"}`);
-  }
-
-  async function handleSaveCampaign() {
-    const token = pasteToken.trim();
-    if (!token) return toast.error("Paste a CampaignToken first");
-    if (!tokenPreview) return toast.error("Click Validate first");
-    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
-
-    setSaving(true);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: {
-        action: "save_token",
-        campaign_token: token,
-        name: newName.trim(),
-        transfer_number: newTransfer.trim(),
-        set_default: campaigns.length === 0,
-      },
-    });
-    setSaving(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Failed to save");
-      return;
-    }
-    toast.success(`Saved: ${data.campaign?.name}`);
-    setPasteToken("");
-    setNewName("");
-    setTokenPreview(null);
-    setShowAddForm(false);
-    refresh(false);
   }
 
   async function handleSaveById() {
