@@ -212,11 +212,16 @@ Deno.serve(async (req) => {
 
     // ------------- Action: send (default) -------------
     if (!campaign) {
+      console.error("[drop-vm] send blocked — no campaign saved");
       return new Response(JSON.stringify({
         success: false,
-        error: "Drop.co campaigns must be created in the Drop.co UI first. Save the campaign token in VMDrp before sending.",
+        error: "Missing Drop.co Campaign Token",
         needs_setup: true,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (!campaign.campaign_token) {
+      console.error("[drop-vm] send blocked — campaign row missing token");
+      throw new Error("Missing Drop.co Campaign Token");
     }
     if (!phone) throw new Error("phone is required");
     const normalized = normalizePhone(phone);
@@ -229,25 +234,55 @@ Deno.serve(async (req) => {
       AllowDuplicates: "true",
       Source: "phone-app",
     };
-    if (audio_url) params.Audio = audio_url;
+    if (audio_url || campaign.audio_url) params.Audio = audio_url || campaign.audio_url;
+    if (campaign.default_caller_id) params.CallerId = campaign.default_caller_id;
 
+    console.log("[drop-vm] → Drop.co Delivery", { phone: "***" + normalized.slice(-4), token: campaign.campaign_token.slice(0, 6) + "…" });
     const result = await dropApi("Delivery", params);
+    console.log("[drop-vm] ← Drop.co", result.status, result.json?.ApiStatusCode, result.json?.ApiStatusMessage);
+
+    const delivered = result.ok && result.json?.ApiStatusCode === 1000;
+    const status = delivered ? "queued" : "failed";
 
     await supabase.from("drop_vm_logs").insert({
       campaign_token: campaign.campaign_token,
       phone: normalized,
       customer_id: customer_id || null,
       activity_token: result.json?.ActivityToken || null,
-      status: result.ok && result.json?.ApiStatusCode === 1000 ? "queued" : "failed",
+      status,
       api_status_code: result.json?.ApiStatusCode || null,
       api_status_message: result.json?.ApiStatusMessage || null,
       response: result.json,
     });
 
+    // ------------- VoidFix SMS handoff on delivery -------------
+    let voidfix_result: any = null;
+    if (delivered && campaign.delivery_tracking_enabled !== false) {
+      try {
+        console.log("[drop-vm] → VoidFix SMS handoff");
+        const sms = await supabase.functions.invoke("powerdial-sms", {
+          body: {
+            action: "send",
+            to: normalized,
+            body: "Hey this is Warren — just left you a quick voicemail.",
+            customer_id: customer_id || null,
+            source: "vmdrp-auto-followup",
+          },
+        });
+        voidfix_result = sms.data || { error: sms.error?.message };
+        console.log("[drop-vm] ← VoidFix", voidfix_result?.ok, voidfix_result?.error || "ok");
+      } catch (e: any) {
+        console.error("[drop-vm] VoidFix handoff failed:", e.message);
+        voidfix_result = { ok: false, error: e.message };
+      }
+    }
+
     return new Response(JSON.stringify({
-      success: result.ok && result.json?.ApiStatusCode === 1000,
+      success: delivered,
+      status,
       drop_response: result.json,
       campaign_token: campaign.campaign_token,
+      voidfix: voidfix_result,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("drop-vm error:", err);
