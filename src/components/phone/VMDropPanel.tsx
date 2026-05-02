@@ -711,6 +711,69 @@ export default function VMDropPanel() {
                         </Button>
 
                       </>
+                    ) : setupMode === "id" ? (
+                      <>
+                        <div className="text-xs text-muted-foreground leading-relaxed">
+                          Enter the numeric Campaign ID from Drop.co (e.g. <span className="font-mono text-foreground">68797</span>). We'll attempt to resolve it to a CampaignToken via Drop.co's API.
+                          <br />
+                          <span className="text-amber-300/90">Note: Drop.co's public API often blocks ID lookups — if it fails, follow the dashboard steps shown.</span>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign ID</label>
+                          <div className="flex gap-2">
+                            <Input
+                              value={campaignIdInput}
+                              onChange={(e) => { setCampaignIdInput(e.target.value); setIdLookupGuidance(null); }}
+                              placeholder="68797"
+                              inputMode="numeric"
+                              className="text-xs h-8 font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleLookupById}
+                              disabled={lookingUpId || !campaignIdInput.trim()}
+                              className="h-8 gap-1 shrink-0"
+                            >
+                              {lookingUpId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                              {lookingUpId ? "Looking up…" : "Fetch Token"}
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Tries <span className="font-mono">VMDropStatus(CampaignId)</span> then <span className="font-mono">VMDropList</span>
+                          </p>
+                        </div>
+
+                        {idLookupGuidance && (
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-amber-300 font-medium">
+                              <XCircle className="h-3.5 w-3.5" /> Drop.co won't expose this token via API
+                            </div>
+                            <div className="text-foreground/80">{idLookupGuidance.error}</div>
+                            {idLookupGuidance.steps.length > 0 && (
+                              <ol className="list-decimal list-inside space-y-0.5 text-foreground/80 pl-1">
+                                {idLookupGuidance.steps.map((s, i) => <li key={i}>{s}</li>)}
+                              </ol>
+                            )}
+                            <a
+                              href={idLookupGuidance.dashboard_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-block text-primary underline text-[11px]"
+                            >
+                              Open app.drop.co →
+                            </a>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setSetupMode("paste")}
+                              className="w-full h-7 text-[11px] mt-1"
+                            >
+                              Switch to Paste Token
+                            </Button>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <>
                         <div className="text-xs text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-md p-2 leading-relaxed">
