@@ -1,4 +1,4 @@
-import AppLayout from "@/components/layout/AppLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import VMDropPanel from "@/components/phone/VMDropPanel";
 
 export default function VMDrp() {
