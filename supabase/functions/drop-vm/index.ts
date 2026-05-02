@@ -118,104 +118,76 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ------------- Action: lookup_campaign_id (try to resolve numeric ID → CampaignToken) -------------
-    // Drop.co's public API does NOT expose an ID→Token lookup endpoint. We try a few
-    // best-effort calls (VMDropStatus with CampaignId, then VMDropList if available).
-    // If none work, we return clear guidance so the user can grab the token from the dashboard.
-    if (action === "lookup_campaign_id") {
-      const idRaw = String(body.campaign_id || "").trim();
-      const id = idRaw.replace(/\D/g, "");
-      if (!id) throw new Error("campaign_id is required");
-
-      console.log("[drop-vm] → lookup CampaignId", id);
-
-      // Attempt 1: VMDropStatus with CampaignId param (some accounts accept this)
-      const attempt1 = await dropApi("VMDropStatus", { ApiKey: DROP_API_KEY, CampaignId: id });
-      const a1 = attempt1.json || {};
-      if (attempt1.ok && a1.ApiStatusCode === 1000 && a1.CampaignToken) {
-        return new Response(JSON.stringify({
-          success: true,
-          campaign_token: a1.CampaignToken,
-          preview: {
-            campaign_token: a1.CampaignToken,
-            campaign_name: a1.CampaignName || null,
-            campaign_id: a1.CampaignId ?? Number(id),
-            vm_drop_file: a1.VMDropFile || null,
-            vm_drop_duration: a1.VMDropDuration ?? null,
-            enable_missed_call: a1.EnableMissedCall ?? null,
-            callback_forwarding_type: a1.CallbackForwardingType ?? null,
-            transfer_number: a1.TransferNumber || null,
-            allowable_campaign_count: a1.AllowableCampaignCount ?? null,
-            status: a1.Status || "active",
-          },
-          source: "VMDropStatus(CampaignId)",
-          raw: a1,
-        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      // Attempt 2: VMDropList (some accounts expose this; iterate to find matching ID)
-      const attempt2 = await dropApi("VMDropList", { ApiKey: DROP_API_KEY });
-      const a2 = attempt2.json || {};
-      const list: any[] = Array.isArray(a2.Campaigns) ? a2.Campaigns
-                       : Array.isArray(a2.VMDrops) ? a2.VMDrops
-                       : Array.isArray(a2) ? a2 : [];
-      if (attempt2.ok && a2.ApiStatusCode === 1000 && list.length > 0) {
-        const match = list.find((c: any) =>
-          String(c.CampaignId ?? c.Id ?? c.id ?? "") === id ||
-          Number(c.CampaignId ?? c.Id ?? c.id) === Number(id)
-        );
-        if (match && (match.CampaignToken || match.Token)) {
-          const token = match.CampaignToken || match.Token;
-          return new Response(JSON.stringify({
-            success: true,
-            campaign_token: token,
-            preview: {
-              campaign_token: token,
-              campaign_name: match.CampaignName || match.Name || null,
-              campaign_id: Number(id),
-              vm_drop_file: match.VMDropFile || null,
-              vm_drop_duration: match.VMDropDuration ?? null,
-              enable_missed_call: match.EnableMissedCall ?? null,
-              callback_forwarding_type: match.CallbackForwardingType ?? null,
-              transfer_number: match.TransferNumber || null,
-              allowable_campaign_count: null,
-              status: match.Status || "active",
-            },
-            source: "VMDropList",
-            raw: match,
-          }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-      }
-
-      // No public endpoint resolved it — return guidance
+    // ------------- Action: list_campaigns (saved campaigns library) -------------
+    if (action === "list_campaigns") {
+      const { data: campaigns } = await supabase
+        .from("drop_campaigns")
+        .select("*")
+        .order("is_default", { ascending: false })
+        .order("updated_at", { ascending: false });
       return new Response(JSON.stringify({
-        success: false,
-        campaign_id: Number(id),
-        error: `Drop.co's public API doesn't expose a way to convert CampaignId ${id} into a CampaignToken. Open app.drop.co → your campaign → copy the CampaignToken (UUID-style string) from the API/Integration section, then paste it in the "Paste Token" tab.`,
-        guidance: {
-          steps: [
-            "Log into app.drop.co",
-            `Open the campaign with ID ${id}`,
-            "Look for 'CampaignToken' or 'API Token' (a long UUID, NOT the numeric ID)",
-            "Copy that UUID and paste it in the 'Paste Token' tab here",
-          ],
-          dashboard_url: "https://app.drop.co",
-        },
-        attempts: {
-          status_with_id: { http: attempt1.status, code: a1.ApiStatusCode, message: a1.ApiStatusMessage },
-          list: { http: attempt2.status, code: a2.ApiStatusCode, message: a2.ApiStatusMessage },
-        },
+        success: true,
+        campaigns: campaigns || [],
+        active: campaign,
+        needs_setup: !campaign,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ------------- Action: validate_token (preview only — no DB write) -------------
+    // ------------- Action: set_default (switch active campaign by id or token) -------------
+    if (action === "set_default") {
+      const targetId = body.id ? String(body.id) : null;
+      const targetToken = body.campaign_token ? String(body.campaign_token) : null;
+      if (!targetId && !targetToken) throw new Error("id or campaign_token required");
+
+      await supabase.from("drop_campaigns").update({ is_default: false }).neq("id", "00000000-0000-0000-0000-000000000000");
+      const q = supabase.from("drop_campaigns").update({ is_default: true, updated_at: new Date().toISOString() });
+      const upd = targetId ? await q.eq("id", targetId).select().single()
+                            : await q.eq("campaign_token", targetToken!).select().single();
+      return new Response(JSON.stringify({ success: !upd.error, campaign: upd.data, error: upd.error?.message }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // ------------- Action: delete_campaign (remove from library) -------------
+    if (action === "delete_campaign") {
+      const targetId = body.id ? String(body.id) : null;
+      if (!targetId) throw new Error("id required");
+      const wasDefault = campaign?.id === targetId;
+      const del = await supabase.from("drop_campaigns").delete().eq("id", targetId);
+      // If we deleted the default, promote the most recent remaining one
+      if (wasDefault) {
+        const { data: next } = await supabase
+          .from("drop_campaigns").select("id").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        if (next?.id) {
+          await supabase.from("drop_campaigns").update({ is_default: true }).eq("id", next.id);
+        }
+      }
+      return new Response(JSON.stringify({ success: !del.error, error: del.error?.message }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    // ------------- Action: validate_token (uses VMDropStats — the only public endpoint that accepts CampaignToken) -------------
     if (action === "validate_token") {
       const token = String(body.campaign_token || "").trim();
       if (!token) throw new Error("campaign_token is required");
-      console.log("[drop-vm] → VMDropStatus (preview validate)");
-      const check = await dropApi("VMDropStatus", { ApiKey: DROP_API_KEY, CampaignToken: token });
+
+      // VMDropStats requires DateFrom/DateTo in MM/DD/YYYY format
+      const today = new Date();
+      const past = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+
+      console.log("[drop-vm] → VMDropStats (validate token via stats)");
+      const check = await dropApi("VMDropStats", {
+        ApiKey: DROP_API_KEY,
+        CampaignToken: token,
+        DateFrom: fmt(past),
+        DateTo: fmt(today),
+      });
       const cj = check.json || {};
       const valid = check.ok && cj.ApiStatusCode === 1000;
+      console.log("[drop-vm] ← VMDropStats", check.status, cj.ApiStatusCode, cj.ApiStatusMessage);
+
       return new Response(JSON.stringify({
         success: valid,
         valid,
@@ -223,32 +195,36 @@ Deno.serve(async (req) => {
         api_status_message: cj.ApiStatusMessage || null,
         preview: valid ? {
           campaign_token: token,
-          campaign_name: cj.CampaignName || null,
+          campaign_name: cj.CampaignName || cj.Results?.Name || null,
           campaign_id: cj.CampaignId ?? null,
-          vm_drop_file: cj.VMDropFile || null,
-          vm_drop_duration: cj.VMDropDuration ?? null,
-          enable_missed_call: cj.EnableMissedCall ?? null,
-          callback_forwarding_type: cj.CallbackForwardingType ?? null,
-          transfer_number: cj.TransferNumber || null,
-          allowable_campaign_count: cj.AllowableCampaignCount ?? null,
-          status: cj.Status || cj.CampaignStatus || "active",
+          success_count: cj.Results?.SuccessCount ?? 0,
+          fail_count: cj.Results?.FailCount ?? 0,
+          delivery_rate: cj.Results?.DeliveryRate ?? 0,
+          callback_count: cj.Results?.CallbackCount ?? 0,
+          transfer_count: cj.Results?.TransferCount ?? 0,
         } : null,
         error: valid ? null : (cj.ApiStatusMessage || "Drop.co rejected this CampaignToken"),
         raw: cj,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ------------- Action: connect_token (paste existing CampaignToken from Drop.co UI) -------------
-    if (action === "connect_token") {
+    // ------------- Action: save_token (validate via VMDropStats then save to library) -------------
+    if (action === "save_token" || action === "connect_token") {
       const token = String(body.campaign_token || "").trim();
       if (!token) throw new Error("campaign_token is required");
+      const localName = (name || "").trim();
 
-      // Validate against Drop.co by fetching VMDropStatus
-      console.log("[drop-vm] → VMDropStatus (validate token)");
-      const check = await dropApi("VMDropStatus", { ApiKey: DROP_API_KEY, CampaignToken: token });
+      // Validate via VMDropStats
+      const today = new Date();
+      const past = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+      const check = await dropApi("VMDropStats", {
+        ApiKey: DROP_API_KEY,
+        CampaignToken: token,
+        DateFrom: fmt(past),
+        DateTo: fmt(today),
+      });
       const cj = check.json || {};
-      console.log("[drop-vm] ← VMDropStatus", check.status, cj.ApiStatusCode, cj.ApiStatusMessage);
-
       if (!check.ok || cj.ApiStatusCode !== 1000) {
         return new Response(JSON.stringify({
           success: false,
@@ -259,23 +235,24 @@ Deno.serve(async (req) => {
       }
 
       const transfer = transfer_number || DEFAULT_TRANSFER_NUMBER;
-      await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
+      const setAsDefault = body.set_default !== false;
+      if (setAsDefault) {
+        await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
+      }
       const saved = await supabase.from("drop_campaigns").upsert({
         campaign_token: token,
         campaign_id: cj.CampaignId ? Number(cj.CampaignId) : null,
-        name: cj.CampaignName || (name || DEFAULT_CAMPAIGN_NAME),
-        audio_url: cj.VMDropFile || audio_url || DEFAULT_AUDIO_URL,
-        vm_drop_file: cj.VMDropFile || null,
-        vm_drop_duration: cj.VMDropDuration ? Number(cj.VMDropDuration) : null,
-        enable_missed_call: cj.EnableMissedCall ?? true,
+        name: localName || cj.CampaignName || cj.Results?.Name || DEFAULT_CAMPAIGN_NAME,
+        audio_url: audio_url || DEFAULT_AUDIO_URL,
+        enable_missed_call: enable_missed_call !== false,
         transfer_number: transfer,
         default_caller_id: default_caller_id || transfer,
         webhook_url: webhook_url || null,
         delivery_tracking_enabled: delivery_tracking_enabled !== false,
         callback_type: Number(callback_type ?? 1),
-        is_default: true,
+        is_default: setAsDefault,
         raw_response: cj,
-        meta: { source: "drop-token-paste" },
+        meta: { source: "token-paste", saved_at: new Date().toISOString() },
         updated_at: new Date().toISOString(),
       }, { onConflict: "campaign_token" }).select().single();
 
@@ -292,52 +269,82 @@ Deno.serve(async (req) => {
       if (webhook_url !== undefined) patch.webhook_url = webhook_url || null;
       if (delivery_tracking_enabled !== undefined) patch.delivery_tracking_enabled = !!delivery_tracking_enabled;
       if (transfer_number !== undefined) patch.transfer_number = transfer_number || DEFAULT_TRANSFER_NUMBER;
+      if (name !== undefined) patch.name = String(name).trim() || campaign.name;
       const upd = await supabase.from("drop_campaigns").update(patch).eq("id", campaign.id).select().single();
       return new Response(JSON.stringify({ success: true, campaign: upd.data }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // ------------- Action: disconnect_campaign -------------
+    // ------------- Action: disconnect_campaign (delete active) -------------
     if (action === "disconnect_campaign") {
       if (campaign) {
         await supabase.from("drop_campaigns").delete().eq("id", campaign.id);
+        // Promote next most-recent campaign as default
+        const { data: next } = await supabase
+          .from("drop_campaigns").select("id").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        if (next?.id) {
+          await supabase.from("drop_campaigns").update({ is_default: true }).eq("id", next.id);
+        }
       }
       return new Response(JSON.stringify({ success: true, campaign: null, needs_setup: true }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
-    // ------------- Action: test_connection -------------
+    // ------------- Action: test_connection (combines BalanceCheck + active campaign stats) -------------
     if (action === "test_connection") {
+      // BalanceCheck verifies the API key works
+      const bal = await dropApi("BalanceCheck", { ApiKey: DROP_API_KEY });
+      const bj = bal.json || {};
+      const apiKeyValid = bal.ok && bj.ApiStatusCode === 1000;
+
       if (!campaign) {
         return new Response(JSON.stringify({
-          success: false,
-          error: "No campaign saved. Create a Drop.co campaign first.",
+          success: apiKeyValid,
+          valid: apiKeyValid,
+          api_key_valid: apiKeyValid,
+          api_status_code: bj.ApiStatusCode ?? null,
+          api_status_message: bj.ApiStatusMessage || null,
+          customer_name: bj.CustomerName || null,
+          balance: bj.CurrentBalance ?? null,
+          pending_cost: bj.PendingCost ?? null,
           needs_setup: true,
+          message: apiKeyValid ? "API key OK — paste a CampaignToken to start dropping" : "API key rejected by Drop.co",
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const result = await dropApi("VMDropStatus", {
+
+      // Also fetch stats for the active campaign
+      const today = new Date();
+      const past = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+      const stats = await dropApi("VMDropStats", {
         ApiKey: DROP_API_KEY,
         CampaignToken: campaign.campaign_token,
+        DateFrom: fmt(past),
+        DateTo: fmt(today),
       });
-      const j = result.json || {};
-      const valid = result.ok && j.ApiStatusCode === 1000;
+      const sj = stats.json || {};
+      const tokenValid = stats.ok && sj.ApiStatusCode === 1000;
+
       return new Response(JSON.stringify({
-        success: valid,
-        valid,
-        http_status: result.status,
-        api_status_code: j.ApiStatusCode ?? null,
-        api_status_message: j.ApiStatusMessage || null,
-        campaign_name: j.CampaignName || campaign.name,
-        campaign_id: j.CampaignId ?? campaign.campaign_id ?? null,
-        vm_drop_duration: j.VMDropDuration ?? campaign.vm_drop_duration ?? null,
-        vm_drop_file: j.VMDropFile ?? campaign.vm_drop_file ?? null,
-        enable_missed_call: j.EnableMissedCall ?? campaign.enable_missed_call ?? null,
-        allowable_campaign_count: j.AllowableCampaignCount ?? null,
-        raw: j,
+        success: apiKeyValid && tokenValid,
+        valid: apiKeyValid && tokenValid,
+        api_key_valid: apiKeyValid,
+        token_valid: tokenValid,
+        api_status_code: sj.ApiStatusCode ?? bj.ApiStatusCode ?? null,
+        api_status_message: sj.ApiStatusMessage || bj.ApiStatusMessage || null,
+        customer_name: bj.CustomerName || null,
+        balance: bj.CurrentBalance ?? null,
+        campaign_name: sj.CampaignName || campaign.name,
+        campaign_id: sj.CampaignId ?? campaign.campaign_id ?? null,
+        success_count: sj.Results?.SuccessCount ?? 0,
+        fail_count: sj.Results?.FailCount ?? 0,
+        delivery_rate: sj.Results?.DeliveryRate ?? 0,
+        raw: { balance: bj, stats: sj },
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     // ------------- Action: refresh_status (per-drop, uses ActivityToken) -------------
     if (action === "refresh_status") {
