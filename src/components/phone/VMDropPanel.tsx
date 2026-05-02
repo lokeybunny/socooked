@@ -278,6 +278,37 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleAttachToken(c: Campaign) {
+    const token = (tokenDrafts[c.id] || "").trim();
+    if (!token) return toast.error("Paste the CampaignToken (UUID) from Drop.co");
+    if (!/^[0-9a-f-]{30,}$/i.test(token)) return toast.error("That doesn't look like a valid UUID token");
+
+    setAttachingId(c.id);
+    // Validate + save the token (creates/updates a row keyed on token)
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "save_token",
+        campaign_token: token,
+        name: c.name,
+        transfer_number: c.transfer_number,
+        set_default: c.is_default,
+      },
+    });
+    if (error || !data?.success) {
+      setAttachingId(null);
+      toast.error(data?.error || error?.message || "Drop.co rejected this token");
+      return;
+    }
+    // Remove the old ID-only orphan row (only if a different row was created)
+    if (data.campaign?.id && data.campaign.id !== c.id) {
+      await supabase.functions.invoke("drop-vm", { body: { action: "delete_campaign", id: c.id } });
+    }
+    setAttachingId(null);
+    setTokenDrafts((d) => { const n = { ...d }; delete n[c.id]; return n; });
+    toast.success("Token attached — campaign is live");
+    refresh(false);
+  }
+
   async function handleSaveSettings() {
     if (!active) return;
     setSavingSettings(true);
