@@ -283,10 +283,11 @@ export default function VMDropPanel() {
     });
     setRefreshingLog(null);
     if (error || !data?.success) {
-      toast.error(error?.message || "Refresh failed");
+      toast.error(error?.message || data?.message || "Refresh failed");
       return;
     }
-    toast.success(`Status: ${data.status || "unknown"}`);
+    const suffix = data.voidfix?.ok ? " · VoidFix sent" : "";
+    toast.success(`Status: ${data.status || data.message || "unknown"}${suffix}`);
     refresh(false);
   }
 
