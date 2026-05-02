@@ -16,6 +16,7 @@ type Campaign = {
   id: string;
   name: string;
   campaign_token: string;
+  campaign_id?: number | null;
   audio_url: string;
   transfer_number: string;
   callback_type: number;
