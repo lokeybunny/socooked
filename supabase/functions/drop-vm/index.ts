@@ -202,14 +202,10 @@ Deno.serve(async (req) => {
       console.log("[drop-vm] ← VMDropCreate", create.status, j.ApiStatusCode, j.ApiStatusMessage);
 
       if (!create.ok || j.ApiStatusCode !== 1000 || !j.CampaignToken) {
-        const blocked = String(j.ApiStatusMessage || "").toLowerCase().includes("set up in the ui");
         return new Response(JSON.stringify({
           success: false,
-          error: blocked
-            ? "Drop.co disables API campaign creation for this account. Create the campaign in the Drop.co dashboard, then paste the CampaignToken below."
-            : (j.ApiStatusMessage || "Drop.co rejected campaign creation"),
+          error: j.ApiStatusMessage || "Drop.co rejected campaign creation",
           api_status_code: j.ApiStatusCode ?? null,
-          api_blocked: blocked,
           raw: j,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -329,7 +325,7 @@ Deno.serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ------------- Action: save_id (save by Campaign ID alone — token gets auto-captured by webhook) -------------
+    // ------------- Action: save_id (save visible Campaign ID; first send auto-provisions an API-ready campaign) -------------
     if (action === "save_id") {
       const cidRaw = body.campaign_id;
       const cid = Number(cidRaw);
@@ -355,7 +351,7 @@ Deno.serve(async (req) => {
           campaign: { ...existing, is_default: setAsDefault || existing.is_default },
           message: existing.campaign_token
             ? "Campaign already in library"
-            : "Saved — token will be auto-captured on first webhook event",
+            : "Saved — first send will prepare the API campaign automatically",
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -380,7 +376,7 @@ Deno.serve(async (req) => {
         success: !ins.error,
         campaign: ins.data,
         error: ins.error?.message,
-        message: "Saved by Campaign ID. The CampaignToken will be auto-captured the next time Drop.co sends a webhook event for this campaign (e.g. after your first drop).",
+        message: "Saved by Campaign ID. The first send will prepare the API-ready Drop.co campaign automatically.",
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
