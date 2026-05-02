@@ -533,7 +533,16 @@ Deno.serve(async (req) => {
         ? await supabase.from("drop_campaigns").select("*").eq("id", targetId).maybeSingle()
         : { data: campaign };
       if (!target) throw new Error("Campaign not found");
-      const prepared = await ensureApiCampaign(supabase, DROP_API_KEY, target);
+      if (!target.campaign_token) {
+        return new Response(JSON.stringify({
+          success: false,
+          awaiting_webhook: true,
+          error: "This campaign has no API token yet. Send a test drop from Drop.co's dashboard for campaign " +
+                 (target.campaign_id || target.name) + " — our webhook will auto-capture the token.",
+          campaign_id: target.campaign_id || null,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const prepared = { campaign: target, provisioned: false, raw: null };
       const apiCampaign = prepared.campaign;
 
       console.log("[drop-vm] → VMDropCampaignSettings", apiCampaign.campaign_token.slice(0, 6) + "…");
