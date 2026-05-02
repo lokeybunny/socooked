@@ -67,7 +67,9 @@ export default function VMDropPanel() {
 
   // Add-campaign form
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addMode, setAddMode] = useState<"id" | "token">("id");
   const [pasteToken, setPasteToken] = useState("");
+  const [pasteId, setPasteId] = useState("");
   const [newName, setNewName] = useState("");
   const [newTransfer, setNewTransfer] = useState("4244651253");
   const [validating, setValidating] = useState(false);
