@@ -37,6 +37,7 @@ type LogRow = {
   created_at: string;
   activity_token: string | null;
   vm_drop_status_url?: string | null;
+  response?: Record<string, any> | null;
 };
 
 type Stats = { total: number; queued: number; failed: number; last_24h: number };
@@ -84,6 +85,7 @@ export default function VMDropPanel() {
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
+  const [refreshingPending, setRefreshingPending] = useState(false);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
