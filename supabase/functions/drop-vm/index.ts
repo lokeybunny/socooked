@@ -18,6 +18,43 @@ function normalizePhone(raw: string): string {
   return digits.slice(-10);
 }
 
+function mapDropStatus(payload: any): string | null {
+  const text = [
+    payload?.Status,
+    payload?.ActivityStatus,
+    payload?.DeliveryStatus,
+    payload?.VMDropStatus,
+    payload?.VmDropStatus,
+    payload?.ApiStatusMessage,
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (text.includes("deliver") || text.includes("success") || text.includes("complete")) return "delivered";
+  if (text.includes("queue") || text.includes("pending") || text.includes("process") || text.includes("accepted")) return "queued";
+  if (text.includes("fail") || text.includes("error") || text.includes("invalid") || text.includes("reject")) return "failed";
+  return null;
+}
+
+async function sendVoidFixFollowup(supabase: ReturnType<typeof createClient>, log: any, campaign: any) {
+  if (!log?.phone || campaign?.delivery_tracking_enabled === false) return null;
+  if (log.response?.voidfix_followup_sent === true) return log.response?.voidfix || { skipped: "already_sent" };
+
+  try {
+    console.log("[drop-vm] → VoidFix SMS handoff after confirmed delivery");
+    const sms = await supabase.functions.invoke("powerdial-sms", {
+      body: {
+        action: "send",
+        to: log.phone,
+        body: "Hey this is Warren — just left you a quick voicemail.",
+        customer_id: log.customer_id || null,
+        source: "vmdrp-confirmed-delivery-followup",
+      },
+    });
+    return sms.data || { ok: false, error: sms.error?.message };
+  } catch (e: any) {
+    console.error("[drop-vm] VoidFix handoff failed:", e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
 async function dropApi(endpoint: string, params: Record<string, string>) {
   const url = new URL(`${DROP_API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
