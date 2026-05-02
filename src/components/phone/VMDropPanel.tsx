@@ -63,6 +63,7 @@ export default function VMDropPanel() {
   const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
   const [campaignIdDraft, setCampaignIdDraft] = useState("");
   const [savingCampaign, setSavingCampaign] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
