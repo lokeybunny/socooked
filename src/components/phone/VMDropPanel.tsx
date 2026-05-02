@@ -67,14 +67,10 @@ export default function VMDropPanel() {
 
   // Add-campaign form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addMode, setAddMode] = useState<"id" | "token">("id");
-  const [pasteToken, setPasteToken] = useState("");
   const [pasteId, setPasteId] = useState("");
   const [newName, setNewName] = useState("");
   const [newTransfer, setNewTransfer] = useState("4244651253");
-  const [validating, setValidating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [tokenPreview, setTokenPreview] = useState<any>(null);
 
   // Settings drafts (active campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
@@ -86,8 +82,6 @@ export default function VMDropPanel() {
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [attachingId, setAttachingId] = useState<string | null>(null);
-  const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
   const [refreshingPending, setRefreshingPending] = useState(false);
 
@@ -156,53 +150,6 @@ export default function VMDropPanel() {
     }
   }
 
-  async function handleValidateToken() {
-    const token = pasteToken.trim();
-    if (!token) return toast.error("Paste your CampaignToken from app.drop.co");
-    setValidating(true);
-    setTokenPreview(null);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: { action: "validate_token", campaign_token: token },
-    });
-    setValidating(false);
-    if (error || !data?.valid) {
-      toast.error(data?.error || data?.api_status_message || error?.message || "Token rejected");
-      return;
-    }
-    setTokenPreview(data.preview);
-    if (!newName && data.preview?.campaign_name) setNewName(data.preview.campaign_name);
-    toast.success(`Validated: ${data.preview?.campaign_name || "campaign"}`);
-  }
-
-  async function handleSaveCampaign() {
-    const token = pasteToken.trim();
-    if (!token) return toast.error("Paste a CampaignToken first");
-    if (!tokenPreview) return toast.error("Click Validate first");
-    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
-
-    setSaving(true);
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: {
-        action: "save_token",
-        campaign_token: token,
-        name: newName.trim(),
-        transfer_number: newTransfer.trim(),
-        set_default: campaigns.length === 0,
-      },
-    });
-    setSaving(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Failed to save");
-      return;
-    }
-    toast.success(`Saved: ${data.campaign?.name}`);
-    setPasteToken("");
-    setNewName("");
-    setTokenPreview(null);
-    setShowAddForm(false);
-    refresh(false);
-  }
-
   async function handleSaveById() {
     const cid = parseInt(pasteId.trim(), 10);
     if (!cid || isNaN(cid)) return toast.error("Enter a numeric Campaign ID (e.g. 68797)");
@@ -261,9 +208,6 @@ export default function VMDropPanel() {
   }
 
   async function handleSyncCampaign(c: Campaign) {
-    if (!c.campaign_token) {
-      return toast.error("No token yet — send one drop first so the webhook captures the token, then sync.");
-    }
     setSyncingId(c.id);
     const { data, error } = await supabase.functions.invoke("drop-vm", {
       body: { action: "sync_campaign", id: c.id },
@@ -275,37 +219,6 @@ export default function VMDropPanel() {
     }
     const audio = data.synced?.audio_url;
     toast.success(audio ? `Synced — audio: ${audio.split("/").pop()}` : "Synced from Drop.co");
-    refresh(false);
-  }
-
-  async function handleAttachToken(c: Campaign) {
-    const token = (tokenDrafts[c.id] || "").trim();
-    if (!token) return toast.error("Paste the CampaignToken (UUID) from Drop.co");
-    if (!/^[0-9a-f-]{30,}$/i.test(token)) return toast.error("That doesn't look like a valid UUID token");
-
-    setAttachingId(c.id);
-    // Validate + save the token (creates/updates a row keyed on token)
-    const { data, error } = await supabase.functions.invoke("drop-vm", {
-      body: {
-        action: "save_token",
-        campaign_token: token,
-        name: c.name,
-        transfer_number: c.transfer_number,
-        set_default: c.is_default,
-      },
-    });
-    if (error || !data?.success) {
-      setAttachingId(null);
-      toast.error(data?.error || error?.message || "Drop.co rejected this token");
-      return;
-    }
-    // Remove the old ID-only orphan row (only if a different row was created)
-    if (data.campaign?.id && data.campaign.id !== c.id) {
-      await supabase.functions.invoke("drop-vm", { body: { action: "delete_campaign", id: c.id } });
-    }
-    setAttachingId(null);
-    setTokenDrafts((d) => { const n = { ...d }; delete n[c.id]; return n; });
-    toast.success("Token attached — campaign is live");
     refresh(false);
   }
 
@@ -462,7 +375,7 @@ export default function VMDropPanel() {
                 <Button
                   size="sm"
                   variant={showAddForm ? "ghost" : "outline"}
-                  onClick={() => { setShowAddForm(!showAddForm); setTokenPreview(null); }}
+                  onClick={() => setShowAddForm(!showAddForm)}
                   className="h-7 px-2 gap-1 text-[11px]"
                 >
                   {showAddForm ? "Cancel" : <><Plus className="h-3 w-3" />Add Campaign</>}
@@ -472,92 +385,25 @@ export default function VMDropPanel() {
               {/* Add new campaign form */}
               {showAddForm && (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
-                  {/* Mode toggle */}
-                  <div className="flex items-center gap-1 p-0.5 rounded-md bg-background/40 border border-border/40 w-fit">
-                    <button
-                      onClick={() => setAddMode("id")}
-                      className={`px-2.5 py-1 text-[10px] uppercase tracking-wider rounded ${
-                        addMode === "id" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      By Campaign ID ✓ Easy
-                    </button>
-                    <button
-                      onClick={() => setAddMode("token")}
-                      className={`px-2.5 py-1 text-[10px] uppercase tracking-wider rounded ${
-                        addMode === "token" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      By Token (advanced)
-                    </button>
+                  <div className="text-[11px] text-muted-foreground leading-relaxed">
+                    Enter the <strong className="text-foreground">Campaign ID</strong> shown in Drop.co (e.g. <code className="text-primary">68797</code>).
+                    The app will prepare the API-ready campaign automatically on first send.
                   </div>
-
-                  {addMode === "id" ? (
-                    <>
-                      <div className="text-[11px] text-muted-foreground leading-relaxed">
-                        Just enter the <strong className="text-foreground">Campaign ID</strong> shown in your Drop.co dashboard
-                        (e.g. <code className="text-primary">68797</code>). The full token will be auto-captured by the
-                        webhook on the first delivery event — no UUID needed.
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign ID</label>
-                        <Input
-                          value={pasteId}
-                          onChange={(e) => setPasteId(e.target.value.replace(/\D/g, ""))}
-                          placeholder="68797"
-                          inputMode="numeric"
-                          className="text-sm h-9 font-mono"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-[11px] text-muted-foreground leading-relaxed">
-                        Paste a CampaignToken from <a href="https://app.drop.co" target="_blank" rel="noreferrer" className="text-primary underline">app.drop.co</a>
-                        — used only for instant validation. If you don't have it, switch to{" "}
-                        <button onClick={() => setAddMode("id")} className="text-primary underline">By Campaign ID</button>.
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken (UUID)</label>
-                        <div className="flex gap-2">
-                          <Input
-                            value={pasteToken}
-                            onChange={(e) => { setPasteToken(e.target.value); setTokenPreview(null); }}
-                            placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
-                            className="text-xs h-8 font-mono"
-                          />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleValidateToken}
-                            disabled={validating || !pasteToken.trim()}
-                            className="h-8 gap-1 shrink-0"
-                          >
-                            {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                            Validate
-                          </Button>
-                        </div>
-                      </div>
-                      {tokenPreview && (
-                        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1 text-[11px]">
-                          <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Validated by Drop.co
-                          </div>
-                          <div className="grid grid-cols-2 gap-x-2 text-foreground/80">
-                            <div>Name: <span className="font-mono">{tokenPreview.campaign_name || "—"}</span></div>
-                            <div>ID: <span className="font-mono">{tokenPreview.campaign_id ?? "—"}</span></div>
-                            <div>Successes (30d): <span className="font-mono">{tokenPreview.success_count}</span></div>
-                            <div>Delivery: <span className="font-mono">{tokenPreview.delivery_rate}%</span></div>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+                  <div>
+                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign ID</label>
+                    <Input
+                      value={pasteId}
+                      onChange={(e) => setPasteId(e.target.value.replace(/\D/g, ""))}
+                      placeholder="68797"
+                      inputMode="numeric"
+                      className="text-sm h-9 font-mono"
+                    />
+                  </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Name</label>
-                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={addMode === "id" ? `Campaign ${pasteId || "…"}` : "My VM Campaign"} className="text-xs h-8" />
+                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={`Campaign ${pasteId || "…"}`} className="text-xs h-8" />
                     </div>
                     <div>
                       <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
@@ -566,12 +412,12 @@ export default function VMDropPanel() {
                   </div>
                   <Button
                     size="sm"
-                    onClick={addMode === "id" ? handleSaveById : handleSaveCampaign}
-                    disabled={saving || (addMode === "id" ? !pasteId.trim() : !tokenPreview)}
+                    onClick={handleSaveById}
+                    disabled={saving || !pasteId.trim()}
                     className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                    {saving ? "Saving…" : addMode === "id" ? "Save Campaign" : "Save to Library"}
+                    {saving ? "Saving…" : "Save Campaign"}
                   </Button>
                 </div>
               )}
@@ -612,17 +458,13 @@ export default function VMDropPanel() {
                             )}
                             <div className="font-medium text-sm truncate">{c.name}</div>
                             {c.is_default && <Badge variant="default" className="h-4 text-[9px] px-1.5">ACTIVE</Badge>}
-                            {!c.campaign_token && (
-                              <Badge variant="outline" className="h-4 text-[9px] px-1.5 border-amber-500/40 text-amber-400">
-                                AWAITING WEBHOOK
-                              </Badge>
-                            )}
+                            {!c.campaign_token && <Badge variant="secondary" className="h-4 text-[9px] px-1.5">READY</Badge>}
                           </div>
                           <div className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">
                             {c.campaign_id && <>ID {c.campaign_id}</>}
                             {c.campaign_token
                               ? <> · {c.campaign_token.slice(0, 8)}…{c.campaign_token.slice(-6)}</>
-                              : <span className="text-amber-400/80"> · token captures on first event</span>}
+                              : <span className="text-muted-foreground"> · auto-prepares on first send</span>}
                           </div>
                           <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
                             <PhoneForwarded className="h-3 w-3" />
@@ -639,39 +481,14 @@ export default function VMDropPanel() {
                               />
                             </div>
                           )}
-                          {!c.campaign_token && (
-                            <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 space-y-1.5">
-                              <div className="text-[10px] text-amber-300/90 leading-snug">
-                                Drop.co's API can't look up a CampaignToken from a Campaign ID. Paste the UUID from
-                                <span className="font-mono"> app.drop.co → Campaigns → {c.name} → Settings</span> to activate.
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <Input
-                                  value={tokenDrafts[c.id] || ""}
-                                  onChange={(e) => setTokenDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
-                                  placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
-                                  className="h-7 text-[11px] font-mono"
-                                  onKeyDown={(e) => { if (e.key === "Enter") handleAttachToken(c); }}
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleAttachToken(c)}
-                                  disabled={attachingId === c.id || !(tokenDrafts[c.id] || "").trim()}
-                                  className="h-7 px-2 text-[10px] gap-1 bg-amber-500 hover:bg-amber-600 text-black"
-                                >
-                                  {attachingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Attach"}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => handleSyncCampaign(c)}
-                            disabled={syncingId === c.id || !c.campaign_token}
-                            title={c.campaign_token ? "Pull live audio + settings from Drop.co" : "Needs token first"}
+                            disabled={syncingId === c.id}
+                            title="Pull live audio + settings from Drop.co"
                             className="h-7 px-2 text-[10px] gap-1"
                           >
                             {syncingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <DownloadCloud className="h-3 w-3" />}
@@ -770,7 +587,7 @@ export default function VMDropPanel() {
                   />
                   <Button
                     onClick={handleTestSend}
-                    disabled={sending || !active || !active?.campaign_token}
+                    disabled={sending || !active}
                     className="w-full bg-amber-500 hover:bg-amber-600 text-black gap-2"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Voicemail className="h-4 w-4" />}
@@ -779,7 +596,7 @@ export default function VMDropPanel() {
                       : !active
                         ? "Activate a Campaign First"
                         : !active.campaign_token
-                          ? "Awaiting Token from Webhook…"
+                          ? `Prepare & Drop via ${active.name}`
                           : `Drop via ${active.name}`}
                   </Button>
                   {active && active.campaign_token && (
@@ -788,8 +605,8 @@ export default function VMDropPanel() {
                     </div>
                   )}
                   {active && !active.campaign_token && (
-                    <div className="text-[10px] text-amber-400/90 text-center">
-                      Token will be auto-captured on the first webhook event from Drop.co for this campaign.
+                    <div className="text-[10px] text-muted-foreground text-center">
+                      First send will prepare the Drop.co API campaign automatically.
                     </div>
                   )}
                 </div>
@@ -801,7 +618,7 @@ export default function VMDropPanel() {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Recent Drops</div>
-                  <div className="text-[10px] text-muted-foreground">Webhook live at <code className="text-primary">/drop-webhook</code> — auto-captures CampaignToken &amp; fires VoidFix on confirmed delivery.</div>
+                  <div className="text-[10px] text-muted-foreground">Webhook live at <code className="text-primary">/drop-webhook</code> — syncs delivery status &amp; fires VoidFix on confirmed delivery.</div>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => handleRefreshPending(true)} disabled={refreshingPending} className="h-8 gap-1 text-[11px] shrink-0">
                   {refreshingPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}

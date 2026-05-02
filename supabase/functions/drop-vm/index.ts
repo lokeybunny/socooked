@@ -95,6 +95,60 @@ async function dropApi(endpoint: string, params: Record<string, string>) {
   return { ok: res.ok, status: res.status, json };
 }
 
+async function ensureApiCampaign(supabase: ReturnType<typeof createClient>, apiKey: string, target: any) {
+  if (target?.campaign_token) return { campaign: target, provisioned: false, raw: null };
+  if (!target) throw new Error("No Drop.co campaign saved yet");
+
+  const audio = target.audio_url || DEFAULT_AUDIO_URL;
+  const transfer = target.transfer_number || target.default_caller_id || DEFAULT_TRANSFER_NUMBER;
+  const baseName = String(target.name || DEFAULT_CAMPAIGN_NAME).trim();
+  const apiName = `${baseName} API ${Date.now().toString().slice(-6)}`;
+
+  console.log("[drop-vm] → Auto-provision VMDropCreate", { name: apiName, source_campaign_id: target.campaign_id || null });
+  const created = await dropApi("VMDropCreate", {
+    ApiKey: apiKey,
+    VMDropName: apiName,
+    VMDropFileUrl: audio,
+    EnableMissedCall: String(target.enable_missed_call !== false),
+    CallbackForwardingType: String(target.callback_type ?? 1),
+    TransferNumber: normalizePhone(transfer) || transfer,
+  });
+  const j = created.json || {};
+  console.log("[drop-vm] ← Auto-provision VMDropCreate", created.status, j.ApiStatusCode, j.ApiStatusMessage);
+
+  if (!created.ok || j.ApiStatusCode !== 1000 || !j.CampaignToken) {
+    throw new Error(j.ApiStatusMessage || "Drop.co could not prepare an API-ready campaign");
+  }
+
+  const patch = {
+    campaign_token: j.CampaignToken,
+    campaign_id: j.CampaignId ? Number(j.CampaignId) : target.campaign_id,
+    name: j.CampaignName || apiName,
+    audio_url: audio,
+    vm_drop_file: j.VMDropFile || audio,
+    vm_drop_duration: j.VMDropDuration ? Number(j.VMDropDuration) : target.vm_drop_duration || null,
+    transfer_number: transfer,
+    raw_response: j,
+    meta: {
+      ...(target.meta || {}),
+      source: "api-auto-provisioned",
+      original_campaign_id: target.campaign_id || null,
+      api_campaign_id: j.CampaignId ? Number(j.CampaignId) : null,
+      api_provisioned_at: new Date().toISOString(),
+    },
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("drop_campaigns")
+    .update(patch)
+    .eq("id", target.id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return { campaign: data, provisioned: true, raw: j };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -148,14 +202,10 @@ Deno.serve(async (req) => {
       console.log("[drop-vm] ← VMDropCreate", create.status, j.ApiStatusCode, j.ApiStatusMessage);
 
       if (!create.ok || j.ApiStatusCode !== 1000 || !j.CampaignToken) {
-        const blocked = String(j.ApiStatusMessage || "").toLowerCase().includes("set up in the ui");
         return new Response(JSON.stringify({
           success: false,
-          error: blocked
-            ? "Drop.co disables API campaign creation for this account. Create the campaign in the Drop.co dashboard, then paste the CampaignToken below."
-            : (j.ApiStatusMessage || "Drop.co rejected campaign creation"),
+          error: j.ApiStatusMessage || "Drop.co rejected campaign creation",
           api_status_code: j.ApiStatusCode ?? null,
-          api_blocked: blocked,
           raw: j,
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
@@ -275,7 +325,7 @@ Deno.serve(async (req) => {
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ------------- Action: save_id (save by Campaign ID alone — token gets auto-captured by webhook) -------------
+    // ------------- Action: save_id (save visible Campaign ID; first send auto-provisions an API-ready campaign) -------------
     if (action === "save_id") {
       const cidRaw = body.campaign_id;
       const cid = Number(cidRaw);
@@ -301,7 +351,7 @@ Deno.serve(async (req) => {
           campaign: { ...existing, is_default: setAsDefault || existing.is_default },
           message: existing.campaign_token
             ? "Campaign already in library"
-            : "Saved — token will be auto-captured on first webhook event",
+            : "Saved — first send will prepare the API campaign automatically",
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -326,7 +376,7 @@ Deno.serve(async (req) => {
         success: !ins.error,
         campaign: ins.data,
         error: ins.error?.message,
-        message: "Saved by Campaign ID. The CampaignToken will be auto-captured the next time Drop.co sends a webhook event for this campaign (e.g. after your first drop).",
+        message: "Saved by Campaign ID. The first send will prepare the API-ready Drop.co campaign automatically.",
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -431,8 +481,13 @@ Deno.serve(async (req) => {
           customer_name: bj.CustomerName || null,
           balance: bj.CurrentBalance ?? null,
           pending_cost: bj.PendingCost ?? null,
-          needs_setup: true,
-          message: apiKeyValid ? "API key OK — paste a CampaignToken to start dropping" : "API key rejected by Drop.co",
+          needs_setup: !campaign,
+          campaign_id: campaign?.campaign_id ?? null,
+          campaign_name: campaign?.name ?? null,
+          token_valid: false,
+          message: apiKeyValid
+            ? (campaign ? "API key OK — campaign will auto-prepare on first send" : "API key OK — add a Campaign ID to start")
+            : "API key rejected by Drop.co",
         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
@@ -478,17 +533,13 @@ Deno.serve(async (req) => {
         ? await supabase.from("drop_campaigns").select("*").eq("id", targetId).maybeSingle()
         : { data: campaign };
       if (!target) throw new Error("Campaign not found");
-      if (!target.campaign_token) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "Campaign has no token yet — send one drop first so the webhook can capture it, then sync.",
-        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const prepared = await ensureApiCampaign(supabase, DROP_API_KEY, target);
+      const apiCampaign = prepared.campaign;
 
-      console.log("[drop-vm] → VMDropCampaignSettings", target.campaign_token.slice(0, 6) + "…");
+      console.log("[drop-vm] → VMDropCampaignSettings", apiCampaign.campaign_token.slice(0, 6) + "…");
       const r = await dropApi("VMDropCampaignSettings", {
         ApiKey: DROP_API_KEY,
-        CampaignToken: target.campaign_token,
+        CampaignToken: apiCampaign.campaign_token,
       });
       const j = r.json || {};
       console.log("[drop-vm] ← VMDropCampaignSettings", r.status, j.ApiStatusCode, j.ApiStatusMessage);
@@ -521,7 +572,7 @@ Deno.serve(async (req) => {
       if (remoteCallback != null) patch.callback_type = remoteCallback;
       if (remoteMissed != null) patch.enable_missed_call = remoteMissed;
 
-      const upd = await supabase.from("drop_campaigns").update(patch).eq("id", target.id).select().single();
+      const upd = await supabase.from("drop_campaigns").update(patch).eq("id", apiCampaign.id).select().single();
 
       return new Response(JSON.stringify({
         success: !upd.error,
@@ -531,6 +582,7 @@ Deno.serve(async (req) => {
           name: remoteName,
           duration: remoteDuration,
           transfer_number: remoteTransfer,
+          provisioned: prepared.provisioned,
         },
         raw: j,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -652,10 +704,8 @@ Deno.serve(async (req) => {
         needs_setup: true,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    if (!campaign.campaign_token) {
-      console.error("[drop-vm] send blocked — campaign row missing token");
-      throw new Error("Missing Drop.co Campaign Token");
-    }
+    const preparedCampaign = await ensureApiCampaign(supabase, DROP_API_KEY, campaign);
+    campaign = preparedCampaign.campaign;
     if (!phone) throw new Error("phone is required");
     const normalized = normalizePhone(phone);
     if (normalized.length !== 10) throw new Error(`Invalid phone: ${phone}`);
@@ -704,6 +754,8 @@ Deno.serve(async (req) => {
       activity_token: result.json?.ActivityToken || null,
       vm_drop_status_url: result.json?.VmDropStatusUrl || result.json?.VMDropStatusUrl || null,
       campaign_token: campaign.campaign_token,
+      campaign_id: campaign.campaign_id || null,
+      provisioned_campaign: preparedCampaign.provisioned,
       followup_mode: campaign.delivery_tracking_enabled !== false ? "after_manual_status_refresh" : "disabled",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
