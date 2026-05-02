@@ -76,6 +76,7 @@ const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-cou
 const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
 const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
+const VMDrp = lazyWithRetry(() => import("./pages/VMDrp"), "page-vmdrp");
 const SMSPage = lazyWithRetry(() => import("./pages/SMS"), "page-sms");
 const CallTest = lazyWithRetry(() => import("./pages/CallTest"), "page-call-test");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
@@ -137,6 +138,7 @@ const App = () => (
                 <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
                 <Route path="/powerdial/voicemails" element={<WarrenOnlyGate><PowerDialVoicemails /></WarrenOnlyGate>} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
+                <Route path="/vmdrp" element={<WarrenOnlyGate><VMDrp /></WarrenOnlyGate>} />
                 <Route path="/calltest" element={<WarrenOnlyGate><CallTest /></WarrenOnlyGate>} />
                 <Route path="/funnels" element={<WarrenOnlyGate><Funnels /></WarrenOnlyGate>} />
                 <Route path="/portal/sign/:threadId" element={<PortalSign />} />

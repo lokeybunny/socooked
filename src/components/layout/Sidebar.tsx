@@ -50,6 +50,7 @@ const navEntries: NavEntry[] = [
       { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
       { to: '/sms', icon: MessageSquare, label: 'SMS', botIcon: true },
       { to: '/powerdial', icon: Sparkles, label: 'PowerD', purple: true },
+      { to: '/vmdrp', icon: Voicemail, label: 'VMDrp' },
     ],
   },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
