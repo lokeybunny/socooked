@@ -528,7 +528,7 @@ export default function VMDropPanel() {
               {campaigns.length === 0 && !showAddForm && (
                 <div className="text-center py-6 text-xs text-muted-foreground">
                   <Music2 className="h-6 w-6 mx-auto mb-2 opacity-40" />
-                  No campaigns saved yet. Click <span className="text-foreground">Add Campaign</span> to paste your first CampaignToken from Drop.co.
+                  No campaigns saved yet. Click <span className="text-foreground">Add Campaign</span> and just enter your Drop.co Campaign ID.
                 </div>
               )}
 
@@ -545,7 +545,7 @@ export default function VMDropPanel() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {c.is_default ? (
                               <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" />
                             ) : (
@@ -560,10 +560,17 @@ export default function VMDropPanel() {
                             )}
                             <div className="font-medium text-sm truncate">{c.name}</div>
                             {c.is_default && <Badge variant="default" className="h-4 text-[9px] px-1.5">ACTIVE</Badge>}
+                            {!c.campaign_token && (
+                              <Badge variant="outline" className="h-4 text-[9px] px-1.5 border-amber-500/40 text-amber-400">
+                                AWAITING WEBHOOK
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">
-                            {c.campaign_id && <>ID {c.campaign_id} · </>}
-                            {c.campaign_token.slice(0, 8)}…{c.campaign_token.slice(-6)}
+                            {c.campaign_id && <>ID {c.campaign_id}</>}
+                            {c.campaign_token
+                              ? <> · {c.campaign_token.slice(0, 8)}…{c.campaign_token.slice(-6)}</>
+                              : <span className="text-amber-400/80"> · token captures on first event</span>}
                           </div>
                           <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
                             <PhoneForwarded className="h-3 w-3" />
