@@ -78,6 +78,19 @@ export default function VMDropPanel() {
   // Paste-token state (fallback for accounts where API create is disabled)
   const [pasteToken, setPasteToken] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [tokenPreview, setTokenPreview] = useState<null | {
+    campaign_token: string;
+    campaign_name: string | null;
+    campaign_id: number | null;
+    vm_drop_file: string | null;
+    vm_drop_duration: number | null;
+    enable_missed_call: any;
+    callback_forwarding_type: any;
+    transfer_number: string | null;
+    allowable_campaign_count: any;
+    status: string;
+  }>(null);
   const [setupMode, setSetupMode] = useState<"paste" | "api">("paste");
 
   // Settings drafts (live campaign)
@@ -187,9 +200,35 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleValidateToken() {
+    const token = pasteToken.trim();
+    if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    setValidating(true);
+    setTokenPreview(null);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "validate_token", campaign_token: token },
+    });
+    setValidating(false);
+    if (error || !data?.valid) {
+      const msg = data?.error || data?.api_status_message || error?.message || "Drop.co rejected this CampaignToken";
+      toast.error(msg);
+      return;
+    }
+    setTokenPreview(data.preview);
+    // Auto-fill local name from Drop.co if user hasn't customized
+    if (data.preview?.campaign_name && (!newName || newName === "Warren Default VM")) {
+      setNewName(data.preview.campaign_name);
+    }
+    if (data.preview?.transfer_number) {
+      setNewTransfer(data.preview.transfer_number.replace(/\D/g, "").slice(-10) || newTransfer);
+    }
+    toast.success(`Validated: ${data.preview?.campaign_name || "campaign"}`);
+  }
+
   async function handleConnectToken() {
     const token = pasteToken.trim();
     if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    if (!tokenPreview) return toast.error("Click Validate first to verify the token with Drop.co");
     if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
 
     setConnecting(true);
@@ -210,6 +249,7 @@ export default function VMDropPanel() {
     toast.success(`Connected: ${data.campaign?.name || "campaign"}`);
     setCampaign(data.campaign);
     setPasteToken("");
+    setTokenPreview(null);
     refresh(false);
   }
 
@@ -540,13 +580,55 @@ export default function VMDropPanel() {
                         </div>
                         <div>
                           <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken</label>
-                          <Input
-                            value={pasteToken}
-                            onChange={(e) => setPasteToken(e.target.value)}
-                            placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
-                            className="text-xs h-8 font-mono"
-                          />
+                          <div className="flex gap-2">
+                            <Input
+                              value={pasteToken}
+                              onChange={(e) => { setPasteToken(e.target.value); setTokenPreview(null); }}
+                              placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
+                              className="text-xs h-8 font-mono"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleValidateToken}
+                              disabled={validating || !pasteToken.trim()}
+                              className="h-8 gap-1 shrink-0"
+                            >
+                              {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                              {validating ? "Checking…" : "Validate"}
+                            </Button>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Calls <span className="font-mono">VMDropStatus</span> on Drop.co — preview before saving
+                          </p>
                         </div>
+
+                        {tokenPreview && (
+                          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+                            <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-emerald-400">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Validated by Drop.co
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                              <PreviewRow label="Campaign" value={tokenPreview.campaign_name || "—"} />
+                              <PreviewRow label="ID" value={tokenPreview.campaign_id ?? "—"} mono />
+                              <PreviewRow label="Status" value={tokenPreview.status || "active"} />
+                              <PreviewRow label="Duration" value={tokenPreview.vm_drop_duration ? `${tokenPreview.vm_drop_duration}s` : "—"} mono />
+                              <PreviewRow label="Missed Call" value={tokenPreview.enable_missed_call ? "Enabled" : "Disabled"} />
+                              <PreviewRow label="Slots" value={tokenPreview.allowable_campaign_count ?? "—"} mono />
+                              {tokenPreview.transfer_number && (
+                                <PreviewRow label="Transfer" value={fmtPhone(tokenPreview.transfer_number)} mono />
+                              )}
+                              <PreviewRow label="Callback Type" value={String(tokenPreview.callback_forwarding_type ?? "—")} mono />
+                            </div>
+                            {tokenPreview.vm_drop_file && (
+                              <div className="pt-1">
+                                <div className="text-[10px] text-muted-foreground mb-1">Voicemail audio:</div>
+                                <audio controls preload="none" src={tokenPreview.vm_drop_file} className="w-full h-8" />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
@@ -570,15 +652,13 @@ export default function VMDropPanel() {
                         <Button
                           size="sm"
                           onClick={handleConnectToken}
-                          disabled={connecting}
+                          disabled={connecting || !tokenPreview}
                           className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
-                          {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                          {connecting ? "Validating…" : "Connect Drop.co Campaign"}
+                          {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                          {connecting ? "Saving…" : tokenPreview ? "Save & Connect Campaign" : "Validate token first"}
                         </Button>
-                        <p className="text-[10px] text-muted-foreground text-center">
-                          Validates token via <span className="font-mono">VMDropStatus</span> · audio + duration auto-loaded
-                        </p>
+
                       </>
                     ) : (
                       <>
@@ -765,6 +845,15 @@ function Feature({ icon, children }: { icon: React.ReactNode; children: React.Re
     <div className="flex items-start gap-2">
       <div className="mt-0.5">{icon}</div>
       <div>{children}</div>
+    </div>
+  );
+}
+
+function PreviewRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 min-w-0">
+      <span className="text-muted-foreground text-[10px] uppercase tracking-wider shrink-0">{label}</span>
+      <span className={`text-foreground truncate ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
 }

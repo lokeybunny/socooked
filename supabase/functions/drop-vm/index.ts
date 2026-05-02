@@ -118,6 +118,36 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ------------- Action: validate_token (preview only — no DB write) -------------
+    if (action === "validate_token") {
+      const token = String(body.campaign_token || "").trim();
+      if (!token) throw new Error("campaign_token is required");
+      console.log("[drop-vm] → VMDropStatus (preview validate)");
+      const check = await dropApi("VMDropStatus", { ApiKey: DROP_API_KEY, CampaignToken: token });
+      const cj = check.json || {};
+      const valid = check.ok && cj.ApiStatusCode === 1000;
+      return new Response(JSON.stringify({
+        success: valid,
+        valid,
+        api_status_code: cj.ApiStatusCode ?? null,
+        api_status_message: cj.ApiStatusMessage || null,
+        preview: valid ? {
+          campaign_token: token,
+          campaign_name: cj.CampaignName || null,
+          campaign_id: cj.CampaignId ?? null,
+          vm_drop_file: cj.VMDropFile || null,
+          vm_drop_duration: cj.VMDropDuration ?? null,
+          enable_missed_call: cj.EnableMissedCall ?? null,
+          callback_forwarding_type: cj.CallbackForwardingType ?? null,
+          transfer_number: cj.TransferNumber || null,
+          allowable_campaign_count: cj.AllowableCampaignCount ?? null,
+          status: cj.Status || cj.CampaignStatus || "active",
+        } : null,
+        error: valid ? null : (cj.ApiStatusMessage || "Drop.co rejected this CampaignToken"),
+        raw: cj,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ------------- Action: connect_token (paste existing CampaignToken from Drop.co UI) -------------
     if (action === "connect_token") {
       const token = String(body.campaign_token || "").trim();
