@@ -86,6 +86,8 @@ export default function VMDropPanel() {
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [attachingId, setAttachingId] = useState<string | null>(null);
+  const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
   const [refreshingPending, setRefreshingPending] = useState(false);
 
