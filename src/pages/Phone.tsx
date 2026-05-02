@@ -14,6 +14,7 @@ import { Teleprompter } from '@/components/phone/Teleprompter';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import VoidFixActivityTab from '@/components/phone/VoidFixActivityTab';
+import VMDropPanel from '@/components/phone/VMDropPanel';
 import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import MissedCallSettings from '@/components/phone/MissedCallSettings';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
@@ -1492,6 +1493,11 @@ export default function PhonePage() {
 
           </div>
           </div>
+        </div>
+
+        {/* ─── VMDrp: Drop.co Ringless Voicemail Hub ─── */}
+        <div className="mx-auto w-full max-w-[1600px]">
+          <VMDropPanel />
         </div>
       </div>
 
