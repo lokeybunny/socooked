@@ -95,6 +95,60 @@ async function dropApi(endpoint: string, params: Record<string, string>) {
   return { ok: res.ok, status: res.status, json };
 }
 
+async function ensureApiCampaign(supabase: ReturnType<typeof createClient>, apiKey: string, target: any) {
+  if (target?.campaign_token) return { campaign: target, provisioned: false, raw: null };
+  if (!target) throw new Error("No Drop.co campaign saved yet");
+
+  const audio = target.audio_url || DEFAULT_AUDIO_URL;
+  const transfer = target.transfer_number || target.default_caller_id || DEFAULT_TRANSFER_NUMBER;
+  const baseName = String(target.name || DEFAULT_CAMPAIGN_NAME).trim();
+  const apiName = `${baseName} API ${Date.now().toString().slice(-6)}`;
+
+  console.log("[drop-vm] → Auto-provision VMDropCreate", { name: apiName, source_campaign_id: target.campaign_id || null });
+  const created = await dropApi("VMDropCreate", {
+    ApiKey: apiKey,
+    VMDropName: apiName,
+    VMDropFileUrl: audio,
+    EnableMissedCall: String(target.enable_missed_call !== false),
+    CallbackForwardingType: String(target.callback_type ?? 1),
+    TransferNumber: normalizePhone(transfer) || transfer,
+  });
+  const j = created.json || {};
+  console.log("[drop-vm] ← Auto-provision VMDropCreate", created.status, j.ApiStatusCode, j.ApiStatusMessage);
+
+  if (!created.ok || j.ApiStatusCode !== 1000 || !j.CampaignToken) {
+    throw new Error(j.ApiStatusMessage || "Drop.co could not prepare an API-ready campaign");
+  }
+
+  const patch = {
+    campaign_token: j.CampaignToken,
+    campaign_id: j.CampaignId ? Number(j.CampaignId) : target.campaign_id,
+    name: j.CampaignName || apiName,
+    audio_url: audio,
+    vm_drop_file: j.VMDropFile || audio,
+    vm_drop_duration: j.VMDropDuration ? Number(j.VMDropDuration) : target.vm_drop_duration || null,
+    transfer_number: transfer,
+    raw_response: j,
+    meta: {
+      ...(target.meta || {}),
+      source: "api-auto-provisioned",
+      original_campaign_id: target.campaign_id || null,
+      api_campaign_id: j.CampaignId ? Number(j.CampaignId) : null,
+      api_provisioned_at: new Date().toISOString(),
+    },
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("drop_campaigns")
+    .update(patch)
+    .eq("id", target.id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return { campaign: data, provisioned: true, raw: j };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
