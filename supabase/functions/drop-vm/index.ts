@@ -41,46 +41,14 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { action = "send", phone, customer_id, audio_url, transfer_number } = body;
+    const { action = "send", phone, customer_id, audio_url, transfer_number, campaign_token, campaign_id, name } = body;
 
-    // ------------- Ensure default campaign exists -------------
+    // ------------- Load saved Drop.co campaign -------------
     let { data: campaign } = await supabase
       .from("drop_campaigns")
       .select("*")
       .eq("is_default", true)
       .maybeSingle();
-
-    if (!campaign) {
-      const audioForCampaign = audio_url || DEFAULT_AUDIO_URL;
-      const created = await dropApi("VMDropCreate", {
-        ApiKey: DROP_API_KEY,
-        VMDropName: `${DEFAULT_CAMPAIGN_NAME} ${Date.now()}`,
-        VMDropFileUrl: audioForCampaign,
-        EnableMissedCall: "true",
-        CallbackForwardingType: "1",
-        TransferNumber: transfer_number || DEFAULT_TRANSFER_NUMBER,
-      });
-
-      if (!created.ok || !created.json?.CampaignToken) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: "Failed to create Drop.co campaign",
-          drop_response: created.json,
-        }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-
-      const insert = await supabase.from("drop_campaigns").insert({
-        campaign_token: created.json.CampaignToken,
-        campaign_id: created.json.CampaignId,
-        name: created.json.CampaignName,
-        audio_url: audioForCampaign,
-        transfer_number: transfer_number || DEFAULT_TRANSFER_NUMBER,
-        callback_type: 1,
-        is_default: true,
-        meta: created.json,
-      }).select().single();
-      campaign = insert.data;
-    }
 
     // ------------- Action: get_campaign -------------
     if (action === "get_campaign" || action === "create_campaign") {
