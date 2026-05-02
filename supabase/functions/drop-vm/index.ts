@@ -1,5 +1,5 @@
 // Drop.co VMDrop edge function
-// Creates default campaign on first use, sends ringless voicemails, exposes stats/logs.
+// Uses a Drop.co UI-created campaign token, sends ringless voicemails, exposes stats/logs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
     // ------------- Action: get_campaign -------------
     if (action === "get_campaign" || action === "create_campaign") {
-      return new Response(JSON.stringify({ success: true, campaign }), {
+      return new Response(JSON.stringify({ success: true, campaign, needs_setup: !campaign }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -125,7 +125,13 @@ Deno.serve(async (req) => {
 
     // ------------- Action: update_audio -------------
     if (action === "update_audio") {
-      if (!campaign) throw new Error("Add a Drop.co campaign token before updating audio.");
+      if (!campaign) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Add a Drop.co campaign token before updating audio.",
+          needs_setup: true,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       if (!audio_url) throw new Error("audio_url is required");
       await supabase
         .from("drop_campaigns")
