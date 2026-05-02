@@ -71,6 +71,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ------------- Action: disconnect_campaign -------------
+    if (action === "disconnect_campaign") {
+      if (campaign) {
+        await supabase.from("drop_campaigns").delete().eq("id", campaign.id);
+      }
+      return new Response(JSON.stringify({ success: true, campaign: null, needs_setup: true }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
     // ------------- Action: get_campaign -------------
     if (action === "get_campaign" || action === "create_campaign") {
       return new Response(JSON.stringify({ success: true, campaign, needs_setup: !campaign }), {

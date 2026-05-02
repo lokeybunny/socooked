@@ -9,7 +9,7 @@ import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
   Voicemail, Loader2, Play, Send, RefreshCw, PhoneForwarded,
-  CheckCircle2, XCircle, Clock, Music2, Save,
+  CheckCircle2, XCircle, Clock, Music2, Save, Unplug,
 } from "lucide-react";
 
 type Campaign = {
@@ -63,6 +63,7 @@ export default function VMDropPanel() {
   const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
   const [campaignIdDraft, setCampaignIdDraft] = useState("");
   const [savingCampaign, setSavingCampaign] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
@@ -160,6 +161,26 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleDisconnect() {
+    if (!campaign) return;
+    if (!confirm(`Disconnect Drop.co campaign "${campaign.name}"?\n\nYou'll need to paste a CampaignToken again before sending more drops.`)) return;
+    setDisconnecting(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "disconnect_campaign" },
+    });
+    setDisconnecting(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to disconnect campaign");
+      return;
+    }
+    toast.success("Campaign disconnected");
+    setCampaign(null);
+    setCampaignTokenDraft("");
+    setCampaignIdDraft("");
+    setAudioDraft("");
+    refresh(false);
+  }
+
   const statusBadge = (s: string) => {
     if (s === "queued") return <Badge variant="secondary" className="gap-1 text-[10px]"><Clock className="h-3 w-3" />Queued</Badge>;
     if (s === "delivered") return <Badge variant="default" className="gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Delivered</Badge>;
@@ -208,8 +229,22 @@ export default function VMDropPanel() {
             <div className="grid md:grid-cols-2 gap-4">
               {/* Campaign info */}
               <div className="rounded-xl border border-border/60 bg-background/40 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  <Music2 className="h-3.5 w-3.5" /> Active Campaign
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                    <Music2 className="h-3.5 w-3.5" /> Active Campaign
+                  </div>
+                  {campaign && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleDisconnect}
+                      disabled={disconnecting}
+                      className="h-7 px-2 gap-1 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unplug className="h-3 w-3" />}
+                      Disconnect / Replace
+                    </Button>
+                  )}
                 </div>
                 {campaign ? (
                   <div className="space-y-2 text-sm">
