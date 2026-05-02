@@ -65,6 +65,10 @@ export default function VMDropPanel() {
   const [campaignTokenDraft, setCampaignTokenDraft] = useState("");
   const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
   const [campaignIdDraft, setCampaignIdDraft] = useState("");
+  const [callerIdDraft, setCallerIdDraft] = useState("");
+  const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
+  const [trackingEnabled, setTrackingEnabled] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [savingCampaign, setSavingCampaign] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [testing, setTesting] = useState(false);
