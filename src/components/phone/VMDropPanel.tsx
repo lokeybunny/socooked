@@ -184,7 +184,7 @@ export default function VMDropPanel() {
         campaign_token: token,
         name: newName.trim(),
         transfer_number: newTransfer.trim(),
-        set_default: campaigns.length === 0, // make default if first
+        set_default: campaigns.length === 0,
       },
     });
     setSaving(false);
@@ -196,6 +196,33 @@ export default function VMDropPanel() {
     setPasteToken("");
     setNewName("");
     setTokenPreview(null);
+    setShowAddForm(false);
+    refresh(false);
+  }
+
+  async function handleSaveById() {
+    const cid = parseInt(pasteId.trim(), 10);
+    if (!cid || isNaN(cid)) return toast.error("Enter a numeric Campaign ID (e.g. 68797)");
+    if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
+
+    setSaving(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "save_id",
+        campaign_id: cid,
+        name: newName.trim(),
+        transfer_number: newTransfer.trim(),
+        set_default: campaigns.length === 0,
+      },
+    });
+    setSaving(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Failed to save");
+      return;
+    }
+    toast.success(data.message || `Saved Campaign ${cid}`);
+    setPasteId("");
+    setNewName("");
     setShowAddForm(false);
     refresh(false);
   }
