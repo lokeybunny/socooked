@@ -75,6 +75,11 @@ export default function VMDropPanel() {
   const [newCallbackType, setNewCallbackType] = useState<number>(1);
   const [creating, setCreating] = useState(false);
 
+  // Paste-token state (fallback for accounts where API create is disabled)
+  const [pasteToken, setPasteToken] = useState("");
+  const [connecting, setConnecting] = useState(false);
+  const [setupMode, setSetupMode] = useState<"paste" | "api">("paste");
+
   // Settings drafts (live campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
   const [webhookUrlDraft, setWebhookUrlDraft] = useState("");
