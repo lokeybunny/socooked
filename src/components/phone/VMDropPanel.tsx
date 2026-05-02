@@ -595,8 +595,30 @@ export default function VMDropPanel() {
                             <PhoneForwarded className="h-3 w-3" />
                             <span className="font-mono">{fmtPhone(c.transfer_number)}</span>
                           </div>
+                          {c.audio_url && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <Music2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <audio
+                                src={c.audio_url}
+                                controls
+                                preload="none"
+                                className="h-7 w-full max-w-[260px]"
+                              />
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleSyncCampaign(c)}
+                            disabled={syncingId === c.id || !c.campaign_token}
+                            title={c.campaign_token ? "Pull live audio + settings from Drop.co" : "Needs token first"}
+                            className="h-7 px-2 text-[10px] gap-1"
+                          >
+                            {syncingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <DownloadCloud className="h-3 w-3" />}
+                            Sync
+                          </Button>
                           {!c.is_default && (
                             <Button
                               size="sm"
