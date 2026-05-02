@@ -78,6 +78,19 @@ export default function VMDropPanel() {
   // Paste-token state (fallback for accounts where API create is disabled)
   const [pasteToken, setPasteToken] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [tokenPreview, setTokenPreview] = useState<null | {
+    campaign_token: string;
+    campaign_name: string | null;
+    campaign_id: number | null;
+    vm_drop_file: string | null;
+    vm_drop_duration: number | null;
+    enable_missed_call: any;
+    callback_forwarding_type: any;
+    transfer_number: string | null;
+    allowable_campaign_count: any;
+    status: string;
+  }>(null);
   const [setupMode, setSetupMode] = useState<"paste" | "api">("paste");
 
   // Settings drafts (live campaign)
