@@ -120,6 +120,21 @@ export default function VMDropPanel() {
     return () => clearInterval(t);
   }, []);
 
+  async function handleRefreshPending() {
+    setRefreshingPending(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "refresh_pending", limit: 10 },
+    });
+    setRefreshingPending(false);
+    if (error || !data?.success) {
+      toast.error(error?.message || data?.error || "Status sync failed");
+      return;
+    }
+    const delivered = (data.results || []).filter((r: any) => r.status === "delivered").length;
+    toast.success(`Checked ${data.checked || 0} queued drop${data.checked === 1 ? "" : "s"}${delivered ? ` · ${delivered} delivered` : ""}`);
+    refresh(false);
+  }
+
   async function handleTestSend() {
     if (!active) return toast.error("Activate a campaign first");
     if (!testPhone || testPhone.replace(/\D/g, "").length < 10) {
