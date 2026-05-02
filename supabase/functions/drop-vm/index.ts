@@ -387,17 +387,26 @@ Deno.serve(async (req) => {
     if (action === "refresh_status") {
       const at = String(activity_token || "").trim();
       if (!at) throw new Error("activity_token required");
+      const { data: existingLog } = await supabase
+        .from("drop_vm_logs")
+        .select("*")
+        .eq("activity_token", at)
+        .maybeSingle();
       const result = await dropApi("VMDropStatus", {
         ApiKey: DROP_API_KEY,
         ActivityToken: at,
       });
       const j = result.json || {};
       // Map Drop.co statuses → our enum
-      const remote = String(j.Status || j.ActivityStatus || "").toLowerCase();
-      let mapped: string | null = null;
-      if (remote.includes("deliver")) mapped = "delivered";
-      else if (remote.includes("queue") || remote.includes("pending") || remote.includes("process")) mapped = "queued";
-      else if (remote.includes("fail") || remote.includes("error")) mapped = "failed";
+      const mapped = mapDropStatus(j);
+      let voidfix_result: any = null;
+      const mergedResponse = { ...(existingLog?.response || {}), status_check: j };
+
+      if (mapped === "delivered" && existingLog) {
+        voidfix_result = await sendVoidFixFollowup(supabase, existingLog, campaign);
+        mergedResponse.voidfix = voidfix_result;
+        mergedResponse.voidfix_followup_sent = voidfix_result?.ok === true || Boolean(mergedResponse.voidfix_followup_sent);
+      }
 
       if (mapped) {
         await supabase
@@ -405,13 +414,15 @@ Deno.serve(async (req) => {
           .update({
             status: mapped,
             api_status_message: j.ApiStatusMessage || j.Status || null,
-            response: j,
+            response: mergedResponse,
           })
           .eq("activity_token", at);
       }
       return new Response(JSON.stringify({
         success: result.ok && j.ApiStatusCode === 1000,
         status: mapped,
+        message: j.ApiStatusMessage || j.Status || null,
+        voidfix: voidfix_result,
         raw: j,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
