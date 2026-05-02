@@ -258,6 +258,24 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleSyncCampaign(c: Campaign) {
+    if (!c.campaign_token) {
+      return toast.error("No token yet — send one drop first so the webhook captures the token, then sync.");
+    }
+    setSyncingId(c.id);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "sync_campaign", id: c.id },
+    });
+    setSyncingId(null);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Sync failed");
+      return;
+    }
+    const audio = data.synced?.audio_url;
+    toast.success(audio ? `Synced — audio: ${audio.split("/").pop()}` : "Synced from Drop.co");
+    refresh(false);
+  }
+
   async function handleSaveSettings() {
     if (!active) return;
     setSavingSettings(true);
