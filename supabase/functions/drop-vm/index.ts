@@ -41,7 +41,14 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { action = "send", phone, customer_id, audio_url, transfer_number, campaign_token, campaign_id, name } = body;
+    const {
+      action = "send",
+      phone, customer_id, lead_id, audio_url, transfer_number,
+      campaign_token, campaign_id, name,
+      default_caller_id, webhook_url, delivery_tracking_enabled,
+    } = body;
+
+    console.log("[drop-vm] action:", action, "phone:", phone ? "***" + String(phone).slice(-4) : "none");
 
     // ------------- Load saved Drop.co campaign -------------
     let { data: campaign } = await supabase
@@ -53,7 +60,7 @@ Deno.serve(async (req) => {
     // ------------- Action: save_campaign -------------
     if (action === "save_campaign") {
       const token = String(campaign_token || "").trim();
-      if (!token) throw new Error("Campaign token is required. Create the campaign in Drop.co, then paste its CampaignToken here.");
+      if (!token) throw new Error("Missing Drop.co Campaign Token");
       await supabase.from("drop_campaigns").update({ is_default: false }).eq("is_default", true);
       const saved = await supabase.from("drop_campaigns").upsert({
         campaign_token: token,
@@ -61,15 +68,34 @@ Deno.serve(async (req) => {
         name: name || DEFAULT_CAMPAIGN_NAME,
         audio_url: audio_url || DEFAULT_AUDIO_URL,
         transfer_number: transfer_number || DEFAULT_TRANSFER_NUMBER,
+        default_caller_id: default_caller_id || transfer_number || DEFAULT_TRANSFER_NUMBER,
+        webhook_url: webhook_url || null,
+        delivery_tracking_enabled: delivery_tracking_enabled !== false,
         callback_type: 1,
         is_default: true,
         meta: { source: "drop-ui" },
         updated_at: new Date().toISOString(),
       }, { onConflict: "campaign_token" }).select().single();
+      console.log("[drop-vm] save_campaign saved id:", saved.data?.id);
       return new Response(JSON.stringify({ success: true, campaign: saved.data }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
+
+    // ------------- Action: update_settings -------------
+    if (action === "update_settings") {
+      if (!campaign) throw new Error("No campaign saved yet");
+      const patch: Record<string, any> = { updated_at: new Date().toISOString() };
+      if (default_caller_id !== undefined) patch.default_caller_id = default_caller_id || null;
+      if (webhook_url !== undefined) patch.webhook_url = webhook_url || null;
+      if (delivery_tracking_enabled !== undefined) patch.delivery_tracking_enabled = !!delivery_tracking_enabled;
+      if (transfer_number !== undefined) patch.transfer_number = transfer_number || DEFAULT_TRANSFER_NUMBER;
+      const upd = await supabase.from("drop_campaigns").update(patch).eq("id", campaign.id).select().single();
+      return new Response(JSON.stringify({ success: true, campaign: upd.data }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
 
     // ------------- Action: disconnect_campaign -------------
     if (action === "disconnect_campaign") {
