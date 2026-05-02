@@ -468,6 +468,74 @@ Deno.serve(async (req) => {
     }
 
 
+    // ------------- Action: sync_campaign (pull real audio + settings from Drop.co) -------------
+    // Uses VMDropCampaignSettings to read what's actually configured on the
+    // Drop.co campaign so the UI reflects the truth (not whatever we guessed
+    // locally). Updates audio_url, vm_drop_file, vm_drop_duration, and name.
+    if (action === "sync_campaign") {
+      const targetId = body.id ? String(body.id) : null;
+      const { data: target } = targetId
+        ? await supabase.from("drop_campaigns").select("*").eq("id", targetId).maybeSingle()
+        : { data: campaign };
+      if (!target) throw new Error("Campaign not found");
+      if (!target.campaign_token) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Campaign has no token yet — send one drop first so the webhook can capture it, then sync.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      console.log("[drop-vm] → VMDropCampaignSettings", target.campaign_token.slice(0, 6) + "…");
+      const r = await dropApi("VMDropCampaignSettings", {
+        ApiKey: DROP_API_KEY,
+        CampaignToken: target.campaign_token,
+      });
+      const j = r.json || {};
+      console.log("[drop-vm] ← VMDropCampaignSettings", r.status, j.ApiStatusCode, j.ApiStatusMessage);
+
+      if (!r.ok || j.ApiStatusCode !== 1000) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: j.ApiStatusMessage || "Drop.co rejected settings lookup",
+          raw: j,
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Drop.co returns audio under different keys depending on the response variant
+      const remoteAudio = j.VMDropFileUrl || j.VMDropFile || j.AudioUrl || j.Audio || null;
+      const remoteName = j.VMDropName || j.CampaignName || null;
+      const remoteDuration = j.VMDropDuration ? Number(j.VMDropDuration) : null;
+      const remoteTransfer = j.TransferNumber || null;
+      const remoteCallback = j.CallbackForwardingType != null ? Number(j.CallbackForwardingType) : null;
+      const remoteMissed = j.EnableMissedCall != null ? (j.EnableMissedCall === true || String(j.EnableMissedCall).toLowerCase() === "true") : null;
+
+      const patch: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+        raw_response: j,
+      };
+      if (remoteAudio) patch.audio_url = remoteAudio;
+      if (remoteName) patch.name = remoteName;
+      if (remoteDuration) patch.vm_drop_duration = remoteDuration;
+      if (remoteAudio) patch.vm_drop_file = remoteAudio;
+      if (remoteTransfer) patch.transfer_number = remoteTransfer;
+      if (remoteCallback != null) patch.callback_type = remoteCallback;
+      if (remoteMissed != null) patch.enable_missed_call = remoteMissed;
+
+      const upd = await supabase.from("drop_campaigns").update(patch).eq("id", target.id).select().single();
+
+      return new Response(JSON.stringify({
+        success: !upd.error,
+        campaign: upd.data,
+        synced: {
+          audio_url: remoteAudio,
+          name: remoteName,
+          duration: remoteDuration,
+          transfer_number: remoteTransfer,
+        },
+        raw: j,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // ------------- Action: refresh_status (per-drop, uses ActivityToken) -------------
     if (action === "refresh_status") {
       const at = String(activity_token || "").trim();
@@ -599,7 +667,11 @@ Deno.serve(async (req) => {
       AllowDuplicates: "true",
       Source: "phone-app",
     };
-    if (audio_url || campaign.audio_url) params.Audio = audio_url || campaign.audio_url;
+    // IMPORTANT: do NOT pass Audio — let Drop.co use the audio file configured
+    // on the campaign itself (looked up by CampaignToken). Passing an Audio URL
+    // here can override the campaign's voicemail and make it ambiguous which
+    // file actually played. Only send override if explicitly requested.
+    if (audio_url) params.Audio = audio_url;
     if (campaign.default_caller_id) params.CallerId = campaign.default_caller_id;
     if (lead_id) params.C1 = String(lead_id);
     if (contact_name) params.C2 = String(contact_name);

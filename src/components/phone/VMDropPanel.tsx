@@ -8,7 +8,7 @@ import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
   Voicemail, Loader2, Send, RefreshCw, PhoneForwarded, CheckCircle2,
-  XCircle, Clock, Music2, Save, Wifi, Plus, Trash2, Star, StarOff, Library,
+  XCircle, Clock, Music2, Save, Wifi, Plus, Trash2, Star, StarOff, Library, DownloadCloud,
 } from "lucide-react";
 
 type Campaign = {
@@ -85,6 +85,7 @@ export default function VMDropPanel() {
 
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
   const [refreshingPending, setRefreshingPending] = useState(false);
 
@@ -254,6 +255,24 @@ export default function VMDropPanel() {
       return;
     }
     toast.success("Removed from library");
+    refresh(false);
+  }
+
+  async function handleSyncCampaign(c: Campaign) {
+    if (!c.campaign_token) {
+      return toast.error("No token yet — send one drop first so the webhook captures the token, then sync.");
+    }
+    setSyncingId(c.id);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "sync_campaign", id: c.id },
+    });
+    setSyncingId(null);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Sync failed");
+      return;
+    }
+    const audio = data.synced?.audio_url;
+    toast.success(audio ? `Synced — audio: ${audio.split("/").pop()}` : "Synced from Drop.co");
     refresh(false);
   }
 
@@ -576,8 +595,30 @@ export default function VMDropPanel() {
                             <PhoneForwarded className="h-3 w-3" />
                             <span className="font-mono">{fmtPhone(c.transfer_number)}</span>
                           </div>
+                          {c.audio_url && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <Music2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <audio
+                                src={c.audio_url}
+                                controls
+                                preload="none"
+                                className="h-7 w-full max-w-[260px]"
+                              />
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleSyncCampaign(c)}
+                            disabled={syncingId === c.id || !c.campaign_token}
+                            title={c.campaign_token ? "Pull live audio + settings from Drop.co" : "Needs token first"}
+                            className="h-7 px-2 text-[10px] gap-1"
+                          >
+                            {syncingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <DownloadCloud className="h-3 w-3" />}
+                            Sync
+                          </Button>
                           {!c.is_default && (
                             <Button
                               size="sm"
