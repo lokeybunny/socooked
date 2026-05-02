@@ -538,14 +538,10 @@ export default function VMDropPanel() {
                 </div>
                 {active ? (
                   <>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <div>
                         <label className="text-[10px] text-muted-foreground">Default Caller ID</label>
                         <Input value={callerIdDraft} onChange={(e) => setCallerIdDraft(e.target.value)} placeholder="4244651253" className="text-xs h-8 font-mono" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground">Webhook URL</label>
-                        <Input value={webhookUrlDraft} onChange={(e) => setWebhookUrlDraft(e.target.value)} placeholder="https://…/dropco-webhook" className="text-xs h-8 font-mono" />
                       </div>
                     </div>
                     <label className="flex items-center justify-between gap-2 text-xs cursor-pointer">
@@ -567,7 +563,6 @@ export default function VMDropPanel() {
                       disabled={
                         savingSettings ||
                         (callerIdDraft === (active.default_caller_id || "") &&
-                          webhookUrlDraft === (active.webhook_url || "") &&
                           trackingEnabled === (active.delivery_tracking_enabled !== false))
                       }
                       className="w-full h-8 gap-2"
