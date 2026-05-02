@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import { sendDropVm } from "@/lib/dropVm";
+import { sendRinglessVM } from "@/lib/dropVm";
 import { toast } from "sonner";
 import {
   Voicemail, Loader2, Play, Send, RefreshCw, PhoneForwarded,
