@@ -91,7 +91,12 @@ export default function VMDropPanel() {
     allowable_campaign_count: any;
     status: string;
   }>(null);
-  const [setupMode, setSetupMode] = useState<"paste" | "api">("paste");
+  const [setupMode, setSetupMode] = useState<"paste" | "id" | "api">("paste");
+
+  // Campaign-ID lookup state
+  const [campaignIdInput, setCampaignIdInput] = useState("");
+  const [lookingUpId, setLookingUpId] = useState(false);
+  const [idLookupGuidance, setIdLookupGuidance] = useState<null | { error: string; steps: string[]; dashboard_url: string }>(null);
 
   // Settings drafts (live campaign)
   const [callerIdDraft, setCallerIdDraft] = useState("");
