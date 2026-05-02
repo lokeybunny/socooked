@@ -420,50 +420,92 @@ export default function VMDropPanel() {
               {/* Add new campaign form */}
               {showAddForm && (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
-                  <div className="text-[11px] text-muted-foreground leading-relaxed">
-                    Paste a CampaignToken from <a href="https://app.drop.co" target="_blank" rel="noreferrer" className="text-primary underline">app.drop.co</a>.
-                    Once saved, you'll never need to paste it again — just click to switch.
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken (UUID)</label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={pasteToken}
-                        onChange={(e) => { setPasteToken(e.target.value); setTokenPreview(null); }}
-                        placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
-                        className="text-xs h-8 font-mono"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleValidateToken}
-                        disabled={validating || !pasteToken.trim()}
-                        className="h-8 gap-1 shrink-0"
-                      >
-                        {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-                        Validate
-                      </Button>
-                    </div>
+                  {/* Mode toggle */}
+                  <div className="flex items-center gap-1 p-0.5 rounded-md bg-background/40 border border-border/40 w-fit">
+                    <button
+                      onClick={() => setAddMode("id")}
+                      className={`px-2.5 py-1 text-[10px] uppercase tracking-wider rounded ${
+                        addMode === "id" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      By Campaign ID ✓ Easy
+                    </button>
+                    <button
+                      onClick={() => setAddMode("token")}
+                      className={`px-2.5 py-1 text-[10px] uppercase tracking-wider rounded ${
+                        addMode === "token" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      By Token (advanced)
+                    </button>
                   </div>
 
-                  {tokenPreview && (
-                    <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1 text-[11px]">
-                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Validated by Drop.co
+                  {addMode === "id" ? (
+                    <>
+                      <div className="text-[11px] text-muted-foreground leading-relaxed">
+                        Just enter the <strong className="text-foreground">Campaign ID</strong> shown in your Drop.co dashboard
+                        (e.g. <code className="text-primary">68797</code>). The full token will be auto-captured by the
+                        webhook on the first delivery event — no UUID needed.
                       </div>
-                      <div className="grid grid-cols-2 gap-x-2 text-foreground/80">
-                        <div>Name: <span className="font-mono">{tokenPreview.campaign_name || "—"}</span></div>
-                        <div>ID: <span className="font-mono">{tokenPreview.campaign_id ?? "—"}</span></div>
-                        <div>Successes (30d): <span className="font-mono">{tokenPreview.success_count}</span></div>
-                        <div>Delivery: <span className="font-mono">{tokenPreview.delivery_rate}%</span></div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Campaign ID</label>
+                        <Input
+                          value={pasteId}
+                          onChange={(e) => setPasteId(e.target.value.replace(/\D/g, ""))}
+                          placeholder="68797"
+                          inputMode="numeric"
+                          className="text-sm h-9 font-mono"
+                        />
                       </div>
-                    </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[11px] text-muted-foreground leading-relaxed">
+                        Paste a CampaignToken from <a href="https://app.drop.co" target="_blank" rel="noreferrer" className="text-primary underline">app.drop.co</a>
+                        — used only for instant validation. If you don't have it, switch to{" "}
+                        <button onClick={() => setAddMode("id")} className="text-primary underline">By Campaign ID</button>.
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">CampaignToken (UUID)</label>
+                        <div className="flex gap-2">
+                          <Input
+                            value={pasteToken}
+                            onChange={(e) => { setPasteToken(e.target.value); setTokenPreview(null); }}
+                            placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
+                            className="text-xs h-8 font-mono"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleValidateToken}
+                            disabled={validating || !pasteToken.trim()}
+                            className="h-8 gap-1 shrink-0"
+                          >
+                            {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+                            Validate
+                          </Button>
+                        </div>
+                      </div>
+                      {tokenPreview && (
+                        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 space-y-1 text-[11px]">
+                          <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Validated by Drop.co
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-2 text-foreground/80">
+                            <div>Name: <span className="font-mono">{tokenPreview.campaign_name || "—"}</span></div>
+                            <div>ID: <span className="font-mono">{tokenPreview.campaign_id ?? "—"}</span></div>
+                            <div>Successes (30d): <span className="font-mono">{tokenPreview.success_count}</span></div>
+                            <div>Delivery: <span className="font-mono">{tokenPreview.delivery_rate}%</span></div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Local Name</label>
-                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="My VM Campaign" className="text-xs h-8" />
+                      <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={addMode === "id" ? `Campaign ${pasteId || "…"}` : "My VM Campaign"} className="text-xs h-8" />
                     </div>
                     <div>
                       <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Transfer Number</label>
@@ -472,12 +514,12 @@ export default function VMDropPanel() {
                   </div>
                   <Button
                     size="sm"
-                    onClick={handleSaveCampaign}
-                    disabled={saving || !tokenPreview}
+                    onClick={addMode === "id" ? handleSaveById : handleSaveCampaign}
+                    disabled={saving || (addMode === "id" ? !pasteId.trim() : !tokenPreview)}
                     className="w-full h-9 gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                    {saving ? "Saving…" : "Save to Library"}
+                    {saving ? "Saving…" : addMode === "id" ? "Save Campaign" : "Save to Library"}
                   </Button>
                 </div>
               )}
