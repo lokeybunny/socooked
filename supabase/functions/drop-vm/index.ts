@@ -18,6 +18,73 @@ function normalizePhone(raw: string): string {
   return digits.slice(-10);
 }
 
+function mapDropStatus(payload: any): string | null {
+  const text = [
+    payload?.Status,
+    payload?.ActivityStatus,
+    payload?.DeliveryStatus,
+    payload?.VMDropStatus,
+    payload?.VmDropStatus,
+    payload?.ApiStatusMessage,
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (text.includes("deliver") || text.includes("success") || text.includes("complete")) return "delivered";
+  if (text.includes("queue") || text.includes("pending") || text.includes("process") || text.includes("accepted")) return "queued";
+  if (text.includes("fail") || text.includes("error") || text.includes("invalid") || text.includes("reject")) return "failed";
+  return null;
+}
+
+async function sendVoidFixFollowup(supabase: ReturnType<typeof createClient>, log: any, campaign: any) {
+  if (!log?.phone || campaign?.delivery_tracking_enabled === false) return null;
+  if (log.response?.voidfix_followup_sent === true) return log.response?.voidfix || { skipped: "already_sent" };
+
+  try {
+    console.log("[drop-vm] → VoidFix SMS handoff after confirmed delivery");
+    const sms = await supabase.functions.invoke("powerdial-sms", {
+      body: {
+        action: "send",
+        to: log.phone,
+        body: "Hey this is Warren — just left you a quick voicemail.",
+        customer_id: log.customer_id || null,
+        source: "vmdrp-confirmed-delivery-followup",
+      },
+    });
+    return sms.data || { ok: false, error: sms.error?.message };
+  } catch (e: any) {
+    console.error("[drop-vm] VoidFix handoff failed:", e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+async function refreshDropLogStatus(supabase: ReturnType<typeof createClient>, apiKey: string, log: any, fallbackCampaign: any) {
+  const result = await dropApi("VMDropStatus", { ApiKey: apiKey, ActivityToken: log.activity_token });
+  const j = result.json || {};
+  const mapped = mapDropStatus(j);
+  let voidfix_result: any = null;
+  const { data: savedCampaign } = await supabase
+    .from("drop_campaigns")
+    .select("*")
+    .eq("campaign_token", log.campaign_token)
+    .maybeSingle();
+  const campaignForLog = savedCampaign || fallbackCampaign;
+  const mergedResponse = { ...(log.response || {}), status_check: j };
+
+  if (mapped === "delivered") {
+    voidfix_result = await sendVoidFixFollowup(supabase, log, campaignForLog);
+    mergedResponse.voidfix = voidfix_result;
+    mergedResponse.voidfix_followup_sent = voidfix_result?.ok === true || Boolean(mergedResponse.voidfix_followup_sent);
+  }
+
+  if (mapped) {
+    await supabase.from("drop_vm_logs").update({
+      status: mapped,
+      api_status_message: j.ApiStatusMessage || j.Status || j.ActivityStatus || null,
+      response: mergedResponse,
+    }).eq("id", log.id);
+  }
+
+  return { id: log.id, phone: log.phone, success: result.ok && j.ApiStatusCode === 1000, status: mapped, message: j.ApiStatusMessage || j.Status || null, voidfix: voidfix_result, raw: j };
+}
+
 async function dropApi(endpoint: string, params: Record<string, string>) {
   const url = new URL(`${DROP_API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -350,33 +417,35 @@ Deno.serve(async (req) => {
     if (action === "refresh_status") {
       const at = String(activity_token || "").trim();
       if (!at) throw new Error("activity_token required");
-      const result = await dropApi("VMDropStatus", {
-        ApiKey: DROP_API_KEY,
-        ActivityToken: at,
-      });
-      const j = result.json || {};
-      // Map Drop.co statuses → our enum
-      const remote = String(j.Status || j.ActivityStatus || "").toLowerCase();
-      let mapped: string | null = null;
-      if (remote.includes("deliver")) mapped = "delivered";
-      else if (remote.includes("queue") || remote.includes("pending") || remote.includes("process")) mapped = "queued";
-      else if (remote.includes("fail") || remote.includes("error")) mapped = "failed";
+      const { data: existingLog } = await supabase
+        .from("drop_vm_logs")
+        .select("*")
+        .eq("activity_token", at)
+        .maybeSingle();
+      if (!existingLog) throw new Error("Drop log not found for ActivityToken");
+      const refreshed = await refreshDropLogStatus(supabase, DROP_API_KEY, existingLog, campaign);
+      return new Response(JSON.stringify(refreshed), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
-      if (mapped) {
-        await supabase
-          .from("drop_vm_logs")
-          .update({
-            status: mapped,
-            api_status_message: j.ApiStatusMessage || j.Status || null,
-            response: j,
-          })
-          .eq("activity_token", at);
+    // ------------- Action: refresh_pending (poll recent queued logs when webhook is off) -------------
+    if (action === "refresh_pending") {
+      const limit = Math.min(Number(body.limit) || 10, 25);
+      const { data: pending } = await supabase
+        .from("drop_vm_logs")
+        .select("*")
+        .eq("status", "queued")
+        .not("activity_token", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      const results = [];
+      for (const log of pending || []) {
+        results.push(await refreshDropLogStatus(supabase, DROP_API_KEY, log, campaign));
       }
-      return new Response(JSON.stringify({
-        success: result.ok && j.ApiStatusCode === 1000,
-        status: mapped,
-        raw: j,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      return new Response(JSON.stringify({ success: true, checked: results.length, results }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
 
     // ------------- Action: get_campaign -------------
@@ -423,7 +492,7 @@ Deno.serve(async (req) => {
       const limit = Math.min(Number(body.limit) || 25, 100);
       const { data: logs } = await supabase
         .from("drop_vm_logs")
-        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token, vm_drop_status_url")
+        .select("id, phone, status, api_status_message, created_at, customer_id, activity_token, vm_drop_status_url, response")
         .order("created_at", { ascending: false })
         .limit(limit);
       return new Response(JSON.stringify({ success: true, logs: logs || [] }), {
@@ -501,28 +570,6 @@ Deno.serve(async (req) => {
       response: result.json,
     });
 
-    // ------------- VoidFix SMS handoff on delivery -------------
-    let voidfix_result: any = null;
-    if (delivered && campaign.delivery_tracking_enabled !== false) {
-      try {
-        console.log("[drop-vm] → VoidFix SMS handoff");
-        const sms = await supabase.functions.invoke("powerdial-sms", {
-          body: {
-            action: "send",
-            to: normalized,
-            body: "Hey this is Warren — just left you a quick voicemail.",
-            customer_id: customer_id || null,
-            source: "vmdrp-auto-followup",
-          },
-        });
-        voidfix_result = sms.data || { error: sms.error?.message };
-        console.log("[drop-vm] ← VoidFix", voidfix_result?.ok, voidfix_result?.error || "ok");
-      } catch (e: any) {
-        console.error("[drop-vm] VoidFix handoff failed:", e.message);
-        voidfix_result = { ok: false, error: e.message };
-      }
-    }
-
     return new Response(JSON.stringify({
       success: delivered,
       status,
@@ -530,7 +577,7 @@ Deno.serve(async (req) => {
       activity_token: result.json?.ActivityToken || null,
       vm_drop_status_url: result.json?.VmDropStatusUrl || result.json?.VMDropStatusUrl || null,
       campaign_token: campaign.campaign_token,
-      voidfix: voidfix_result,
+      followup_mode: campaign.delivery_tracking_enabled !== false ? "after_manual_status_refresh" : "disabled",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     console.error("drop-vm error:", err);
