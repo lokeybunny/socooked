@@ -5519,6 +5519,181 @@ export type Database = {
           },
         ]
       }
+      slybroadcast_action_logs: {
+        Row: {
+          action: string | null
+          api_response: string | null
+          campaign_id: string | null
+          created_at: string
+          id: string
+          session_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          api_response?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          session_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          api_response?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slybroadcast_action_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "slybroadcast_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slybroadcast_audio_files: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          duration_seconds: number | null
+          id: string
+          raw_payload: string | null
+          system_file_name: string | null
+          time_created: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          duration_seconds?: number | null
+          id?: string
+          raw_payload?: string | null
+          system_file_name?: string | null
+          time_created?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          duration_seconds?: number | null
+          id?: string
+          raw_payload?: string | null
+          system_file_name?: string | null
+          time_created?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      slybroadcast_campaigns: {
+        Row: {
+          audio_type: string | null
+          c_audio: string | null
+          c_phone_raw: string | null
+          c_record_audio: string | null
+          c_url: string | null
+          caller_id: string | null
+          created_at: string
+          id: string
+          mobile_only: boolean | null
+          phone_count: number | null
+          raw_response: string | null
+          scheduled_at: string | null
+          session_id: string | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          audio_type?: string | null
+          c_audio?: string | null
+          c_phone_raw?: string | null
+          c_record_audio?: string | null
+          c_url?: string | null
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          mobile_only?: boolean | null
+          phone_count?: number | null
+          raw_response?: string | null
+          scheduled_at?: string | null
+          session_id?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          audio_type?: string | null
+          c_audio?: string | null
+          c_phone_raw?: string | null
+          c_record_audio?: string | null
+          c_url?: string | null
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          mobile_only?: boolean | null
+          phone_count?: number | null
+          raw_response?: string | null
+          scheduled_at?: string | null
+          session_id?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      slybroadcast_results: {
+        Row: {
+          campaign_id: string | null
+          carrier: string | null
+          created_at: string
+          delivery_time: string | null
+          destination_phone: string | null
+          failure_reason: string | null
+          id: string
+          raw_payload: string | null
+          session_id: string | null
+          status: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          carrier?: string | null
+          created_at?: string
+          delivery_time?: string | null
+          destination_phone?: string | null
+          failure_reason?: string | null
+          id?: string
+          raw_payload?: string | null
+          session_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          carrier?: string | null
+          created_at?: string
+          delivery_time?: string | null
+          destination_phone?: string | null
+          failure_reason?: string | null
+          id?: string
+          raw_payload?: string | null
+          session_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slybroadcast_results_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "slybroadcast_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smm_artist_campaigns: {
         Row: {
           artist_handle: string
