@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const DROP_API_BASE = "https://api.drop.co/api";
+const DROP_API_BASE = "https://customerapi.drop.co";
 const DEFAULT_AUDIO_URL = "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/content-uploads/audio/voicemail-warren.mp3";
 const DEFAULT_TRANSFER_NUMBER = "4244651253";
 const DEFAULT_CAMPAIGN_NAME = "Warren Default VM";
