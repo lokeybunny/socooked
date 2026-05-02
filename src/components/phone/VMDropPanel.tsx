@@ -64,6 +64,8 @@ export default function VMDropPanel() {
   const [campaignIdDraft, setCampaignIdDraft] = useState("");
   const [savingCampaign, setSavingCampaign] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ valid: boolean; message: string; details?: Record<string, any> } | null>(null);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
