@@ -487,8 +487,8 @@ export default function VMDropPanel() {
                             size="sm"
                             variant="ghost"
                             onClick={() => handleSyncCampaign(c)}
-                            disabled={syncingId === c.id || !c.campaign_token}
-                            title={c.campaign_token ? "Pull live audio + settings from Drop.co" : "Needs token first"}
+                            disabled={syncingId === c.id}
+                            title="Pull live audio + settings from Drop.co"
                             className="h-7 px-2 text-[10px] gap-1"
                           >
                             {syncingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <DownloadCloud className="h-3 w-3" />}
@@ -587,7 +587,7 @@ export default function VMDropPanel() {
                   />
                   <Button
                     onClick={handleTestSend}
-                    disabled={sending || !active || !active?.campaign_token}
+                    disabled={sending || !active}
                     className="w-full bg-amber-500 hover:bg-amber-600 text-black gap-2"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Voicemail className="h-4 w-4" />}
@@ -596,7 +596,7 @@ export default function VMDropPanel() {
                       : !active
                         ? "Activate a Campaign First"
                         : !active.campaign_token
-                          ? "Awaiting Token from Webhook…"
+                          ? `Prepare & Drop via ${active.name}`
                           : `Drop via ${active.name}`}
                   </Button>
                   {active && active.campaign_token && (
@@ -605,8 +605,8 @@ export default function VMDropPanel() {
                     </div>
                   )}
                   {active && !active.campaign_token && (
-                    <div className="text-[10px] text-amber-400/90 text-center">
-                      Token will be auto-captured on the first webhook event from Drop.co for this campaign.
+                    <div className="text-[10px] text-muted-foreground text-center">
+                      First send will prepare the Drop.co API campaign automatically.
                     </div>
                   )}
                 </div>
@@ -618,7 +618,7 @@ export default function VMDropPanel() {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Recent Drops</div>
-                  <div className="text-[10px] text-muted-foreground">Webhook live at <code className="text-primary">/drop-webhook</code> — auto-captures CampaignToken &amp; fires VoidFix on confirmed delivery.</div>
+                  <div className="text-[10px] text-muted-foreground">Webhook live at <code className="text-primary">/drop-webhook</code> — syncs delivery status &amp; fires VoidFix on confirmed delivery.</div>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => handleRefreshPending(true)} disabled={refreshingPending} className="h-8 gap-1 text-[11px] shrink-0">
                   {refreshingPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
