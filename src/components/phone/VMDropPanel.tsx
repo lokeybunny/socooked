@@ -58,6 +58,10 @@ export default function VMDropPanel() {
 
   const [audioDraft, setAudioDraft] = useState("");
   const [savingAudio, setSavingAudio] = useState(false);
+  const [campaignTokenDraft, setCampaignTokenDraft] = useState("");
+  const [campaignNameDraft, setCampaignNameDraft] = useState("Warren Default VM");
+  const [campaignIdDraft, setCampaignIdDraft] = useState("");
+  const [savingCampaign, setSavingCampaign] = useState(false);
 
   async function refresh(showSpinner = true) {
     if (showSpinner) setRefreshing(true);
@@ -70,6 +74,9 @@ export default function VMDropPanel() {
         setStats(statsRes.data.stats);
         setCampaign(statsRes.data.campaign);
         setAudioDraft(statsRes.data.campaign?.audio_url || "");
+        setCampaignTokenDraft(statsRes.data.campaign?.campaign_token || "");
+        setCampaignNameDraft(statsRes.data.campaign?.name || "Warren Default VM");
+        setCampaignIdDraft(statsRes.data.campaign?.campaign_id?.toString?.() || "");
       }
       if (logsRes.data?.success) setLogs(logsRes.data.logs || []);
     } catch (e: any) {
@@ -101,6 +108,10 @@ export default function VMDropPanel() {
   }
 
   async function handleSaveAudio() {
+    if (!campaign) {
+      toast.error("Save a Drop.co campaign token first");
+      return;
+    }
     if (!audioDraft || !audioDraft.startsWith("http")) {
       toast.error("Enter a valid public audio URL");
       return;
@@ -116,6 +127,32 @@ export default function VMDropPanel() {
     }
     toast.success("VM audio updated");
     setCampaign(data.campaign);
+  }
+
+  async function handleSaveCampaign() {
+    if (!campaignTokenDraft.trim()) {
+      toast.error("Paste the CampaignToken from Drop.co");
+      return;
+    }
+    setSavingCampaign(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "save_campaign",
+        campaign_token: campaignTokenDraft.trim(),
+        campaign_id: campaignIdDraft.trim() || null,
+        name: campaignNameDraft.trim() || "Warren Default VM",
+        audio_url: audioDraft || undefined,
+        transfer_number: campaign?.transfer_number || "4244651253",
+      },
+    });
+    setSavingCampaign(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to save Drop.co campaign");
+      return;
+    }
+    toast.success("Drop.co campaign connected");
+    setCampaign(data.campaign);
+    refresh(false);
   }
 
   const statusBadge = (s: string) => {
