@@ -599,7 +599,11 @@ Deno.serve(async (req) => {
       AllowDuplicates: "true",
       Source: "phone-app",
     };
-    if (audio_url || campaign.audio_url) params.Audio = audio_url || campaign.audio_url;
+    // IMPORTANT: do NOT pass Audio — let Drop.co use the audio file configured
+    // on the campaign itself (looked up by CampaignToken). Passing an Audio URL
+    // here can override the campaign's voicemail and make it ambiguous which
+    // file actually played. Only send override if explicitly requested.
+    if (audio_url) params.Audio = audio_url;
     if (campaign.default_caller_id) params.CallerId = campaign.default_caller_id;
     if (lead_id) params.C1 = String(lead_id);
     if (contact_name) params.C2 = String(contact_name);
