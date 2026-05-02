@@ -86,6 +86,8 @@ export default function VMDropPanel() {
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [attachingId, setAttachingId] = useState<string | null>(null);
+  const [tokenDrafts, setTokenDrafts] = useState<Record<string, string>>({});
   const [refreshingLog, setRefreshingLog] = useState<string | null>(null);
   const [refreshingPending, setRefreshingPending] = useState(false);
 
@@ -273,6 +275,37 @@ export default function VMDropPanel() {
     }
     const audio = data.synced?.audio_url;
     toast.success(audio ? `Synced — audio: ${audio.split("/").pop()}` : "Synced from Drop.co");
+    refresh(false);
+  }
+
+  async function handleAttachToken(c: Campaign) {
+    const token = (tokenDrafts[c.id] || "").trim();
+    if (!token) return toast.error("Paste the CampaignToken (UUID) from Drop.co");
+    if (!/^[0-9a-f-]{30,}$/i.test(token)) return toast.error("That doesn't look like a valid UUID token");
+
+    setAttachingId(c.id);
+    // Validate + save the token (creates/updates a row keyed on token)
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: {
+        action: "save_token",
+        campaign_token: token,
+        name: c.name,
+        transfer_number: c.transfer_number,
+        set_default: c.is_default,
+      },
+    });
+    if (error || !data?.success) {
+      setAttachingId(null);
+      toast.error(data?.error || error?.message || "Drop.co rejected this token");
+      return;
+    }
+    // Remove the old ID-only orphan row (only if a different row was created)
+    if (data.campaign?.id && data.campaign.id !== c.id) {
+      await supabase.functions.invoke("drop-vm", { body: { action: "delete_campaign", id: c.id } });
+    }
+    setAttachingId(null);
+    setTokenDrafts((d) => { const n = { ...d }; delete n[c.id]; return n; });
+    toast.success("Token attached — campaign is live");
     refresh(false);
   }
 
@@ -604,6 +637,31 @@ export default function VMDropPanel() {
                                 preload="none"
                                 className="h-7 w-full max-w-[260px]"
                               />
+                            </div>
+                          )}
+                          {!c.campaign_token && (
+                            <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 space-y-1.5">
+                              <div className="text-[10px] text-amber-300/90 leading-snug">
+                                Drop.co's API can't look up a CampaignToken from a Campaign ID. Paste the UUID from
+                                <span className="font-mono"> app.drop.co → Campaigns → {c.name} → Settings</span> to activate.
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  value={tokenDrafts[c.id] || ""}
+                                  onChange={(e) => setTokenDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
+                                  placeholder="aa3cf6b8-3a19-4ad3-86a4-1a7bf5602d83"
+                                  className="h-7 text-[11px] font-mono"
+                                  onKeyDown={(e) => { if (e.key === "Enter") handleAttachToken(c); }}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAttachToken(c)}
+                                  disabled={attachingId === c.id || !(tokenDrafts[c.id] || "").trim()}
+                                  className="h-7 px-2 text-[10px] gap-1 bg-amber-500 hover:bg-amber-600 text-black"
+                                >
+                                  {attachingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Attach"}
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </div>
