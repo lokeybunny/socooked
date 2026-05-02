@@ -1495,10 +1495,6 @@ export default function PhonePage() {
           </div>
         </div>
 
-        {/* ─── VMDrp: Drop.co Ringless Voicemail Hub ─── */}
-        <div className="mx-auto w-full max-w-[1600px]">
-          <VMDropPanel />
-        </div>
       </div>
 
       {/* Phone Settings Sheet — holds VoidFix activity, auto-reply config, voice webhook */}
