@@ -596,7 +596,17 @@ export default function VMDropPanel() {
                             : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        Paste Token (recommended)
+                        Paste Token
+                      </button>
+                      <button
+                        onClick={() => setSetupMode("id")}
+                        className={`flex-1 text-[11px] py-1.5 rounded-md transition-colors ${
+                          setupMode === "id"
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        By Campaign ID
                       </button>
                       <button
                         onClick={() => setSetupMode("api")}
