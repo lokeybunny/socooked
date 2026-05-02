@@ -691,7 +691,7 @@ export default function VMDropPanel() {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Recent Drops</div>
-                  <div className="text-[10px] text-muted-foreground">Webhook disabled: use sync to poll Drop.co and trigger VoidFix only after confirmed delivery.</div>
+                  <div className="text-[10px] text-muted-foreground">Webhook live at <code className="text-primary">/drop-webhook</code> — auto-captures CampaignToken &amp; fires VoidFix on confirmed delivery.</div>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => handleRefreshPending(true)} disabled={refreshingPending} className="h-8 gap-1 text-[11px] shrink-0">
                   {refreshingPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
