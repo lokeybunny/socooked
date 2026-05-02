@@ -205,6 +205,42 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleLookupById() {
+    const id = campaignIdInput.replace(/\D/g, "");
+    if (!id) return toast.error("Enter the numeric Campaign ID (e.g. 68797)");
+    setLookingUpId(true);
+    setIdLookupGuidance(null);
+    setTokenPreview(null);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "lookup_campaign_id", campaign_id: id },
+    });
+    setLookingUpId(false);
+    if (error) {
+      toast.error(error.message || "Lookup failed");
+      return;
+    }
+    if (data?.success && data?.campaign_token) {
+      setPasteToken(data.campaign_token);
+      setTokenPreview(data.preview);
+      if (data.preview?.campaign_name && (!newName || newName === "Warren Default VM")) {
+        setNewName(data.preview.campaign_name);
+      }
+      if (data.preview?.transfer_number) {
+        setNewTransfer(data.preview.transfer_number.replace(/\D/g, "").slice(-10) || newTransfer);
+      }
+      setSetupMode("paste");
+      toast.success(`Found token for ID ${id} — review & connect`);
+      return;
+    }
+    // Guidance fallback
+    setIdLookupGuidance({
+      error: data?.error || "Drop.co didn't return a token for that ID",
+      steps: data?.guidance?.steps || [],
+      dashboard_url: data?.guidance?.dashboard_url || "https://app.drop.co",
+    });
+    toast.error("Drop.co's API can't resolve that ID — see instructions");
+  }
+
   async function handleValidateToken() {
     const token = pasteToken.trim();
     if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
