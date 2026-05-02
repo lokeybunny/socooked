@@ -330,6 +330,33 @@ export default function VMDropPanel() {
                         </Button>
                       </div>
                     </div>
+                    {testResult && (
+                      <div className={`rounded-lg border p-2.5 text-[11px] space-y-1 ${
+                        testResult.valid
+                          ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-200"
+                          : "border-destructive/30 bg-destructive/5 text-destructive"
+                      }`}>
+                        <div className="flex items-center gap-1.5 font-medium">
+                          {testResult.valid
+                            ? <CheckCircle2 className="h-3.5 w-3.5" />
+                            : <XCircle className="h-3.5 w-3.5" />}
+                          {testResult.valid ? "Connection OK" : "Connection failed"}
+                        </div>
+                        <div className="text-foreground/80 break-words">{testResult.message}</div>
+                        {testResult.details && (
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pt-1 text-muted-foreground">
+                            {Object.entries(testResult.details)
+                              .filter(([, v]) => v !== null && v !== undefined && v !== "")
+                              .map(([k, v]) => (
+                                <div key={k} className="truncate">
+                                  <span className="text-foreground/60">{k}:</span>{" "}
+                                  <span className="text-foreground/90 font-mono">{String(v)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3">
