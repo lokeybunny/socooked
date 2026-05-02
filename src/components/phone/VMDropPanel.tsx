@@ -161,6 +161,26 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleDisconnect() {
+    if (!campaign) return;
+    if (!confirm(`Disconnect Drop.co campaign "${campaign.name}"?\n\nYou'll need to paste a CampaignToken again before sending more drops.`)) return;
+    setDisconnecting(true);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "disconnect_campaign" },
+    });
+    setDisconnecting(false);
+    if (error || !data?.success) {
+      toast.error(data?.error || "Failed to disconnect campaign");
+      return;
+    }
+    toast.success("Campaign disconnected");
+    setCampaign(null);
+    setCampaignTokenDraft("");
+    setCampaignIdDraft("");
+    setAudioDraft("");
+    refresh(false);
+  }
+
   const statusBadge = (s: string) => {
     if (s === "queued") return <Badge variant="secondary" className="gap-1 text-[10px]"><Clock className="h-3 w-3" />Queued</Badge>;
     if (s === "delivered") return <Badge variant="default" className="gap-1 text-[10px]"><CheckCircle2 className="h-3 w-3" />Delivered</Badge>;
