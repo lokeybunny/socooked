@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
       const bj = bal.json || {};
       const apiKeyValid = bal.ok && bj.ApiStatusCode === 1000;
 
-      if (!campaign) {
+      if (!campaign || !campaign.campaign_token) {
         return new Response(JSON.stringify({
           success: apiKeyValid,
           valid: apiKeyValid,
