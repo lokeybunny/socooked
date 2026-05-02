@@ -55,6 +55,31 @@ async function sendVoidFixFollowup(supabase: ReturnType<typeof createClient>, lo
   }
 }
 
+async function refreshDropLogStatus(supabase: ReturnType<typeof createClient>, apiKey: string, log: any, fallbackCampaign: any) {
+  const result = await dropApi("VMDropStatus", { ApiKey: apiKey, ActivityToken: log.activity_token });
+  const j = result.json || {};
+  const mapped = mapDropStatus(j);
+  let voidfix_result: any = null;
+  const campaignForLog = fallbackCampaign?.campaign_token === log.campaign_token ? fallbackCampaign : fallbackCampaign;
+  const mergedResponse = { ...(log.response || {}), status_check: j };
+
+  if (mapped === "delivered") {
+    voidfix_result = await sendVoidFixFollowup(supabase, log, campaignForLog);
+    mergedResponse.voidfix = voidfix_result;
+    mergedResponse.voidfix_followup_sent = voidfix_result?.ok === true || Boolean(mergedResponse.voidfix_followup_sent);
+  }
+
+  if (mapped) {
+    await supabase.from("drop_vm_logs").update({
+      status: mapped,
+      api_status_message: j.ApiStatusMessage || j.Status || j.ActivityStatus || null,
+      response: mergedResponse,
+    }).eq("id", log.id);
+  }
+
+  return { id: log.id, phone: log.phone, success: result.ok && j.ApiStatusCode === 1000, status: mapped, message: j.ApiStatusMessage || j.Status || null, voidfix: voidfix_result, raw: j };
+}
+
 async function dropApi(endpoint: string, params: Record<string, string>) {
   const url = new URL(`${DROP_API_BASE}/${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
