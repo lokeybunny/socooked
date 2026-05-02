@@ -200,9 +200,35 @@ export default function VMDropPanel() {
     refresh(false);
   }
 
+  async function handleValidateToken() {
+    const token = pasteToken.trim();
+    if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    setValidating(true);
+    setTokenPreview(null);
+    const { data, error } = await supabase.functions.invoke("drop-vm", {
+      body: { action: "validate_token", campaign_token: token },
+    });
+    setValidating(false);
+    if (error || !data?.valid) {
+      const msg = data?.error || data?.api_status_message || error?.message || "Drop.co rejected this CampaignToken";
+      toast.error(msg);
+      return;
+    }
+    setTokenPreview(data.preview);
+    // Auto-fill local name from Drop.co if user hasn't customized
+    if (data.preview?.campaign_name && (!newName || newName === "Warren Default VM")) {
+      setNewName(data.preview.campaign_name);
+    }
+    if (data.preview?.transfer_number) {
+      setNewTransfer(data.preview.transfer_number.replace(/\D/g, "").slice(-10) || newTransfer);
+    }
+    toast.success(`Validated: ${data.preview?.campaign_name || "campaign"}`);
+  }
+
   async function handleConnectToken() {
     const token = pasteToken.trim();
     if (!token) return toast.error("Paste your CampaignToken from the Drop.co dashboard");
+    if (!tokenPreview) return toast.error("Click Validate first to verify the token with Drop.co");
     if (newTransfer.replace(/\D/g, "").length < 10) return toast.error("Enter a valid transfer number");
 
     setConnecting(true);
@@ -223,6 +249,7 @@ export default function VMDropPanel() {
     toast.success(`Connected: ${data.campaign?.name || "campaign"}`);
     setCampaign(data.campaign);
     setPasteToken("");
+    setTokenPreview(null);
     refresh(false);
   }
 
