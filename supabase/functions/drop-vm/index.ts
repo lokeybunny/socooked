@@ -60,7 +60,12 @@ async function refreshDropLogStatus(supabase: ReturnType<typeof createClient>, a
   const j = result.json || {};
   const mapped = mapDropStatus(j);
   let voidfix_result: any = null;
-  const campaignForLog = fallbackCampaign?.campaign_token === log.campaign_token ? fallbackCampaign : fallbackCampaign;
+  const { data: savedCampaign } = await supabase
+    .from("drop_campaigns")
+    .select("*")
+    .eq("campaign_token", log.campaign_token)
+    .maybeSingle();
+  const campaignForLog = savedCampaign || fallbackCampaign;
   const mergedResponse = { ...(log.response || {}), status_check: j };
 
   if (mapped === "delivered") {
