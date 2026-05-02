@@ -704,10 +704,8 @@ Deno.serve(async (req) => {
         needs_setup: true,
       }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    if (!campaign.campaign_token) {
-      console.error("[drop-vm] send blocked — campaign row missing token");
-      throw new Error("Missing Drop.co Campaign Token");
-    }
+    const preparedCampaign = await ensureApiCampaign(supabase, DROP_API_KEY, campaign);
+    campaign = preparedCampaign.campaign;
     if (!phone) throw new Error("phone is required");
     const normalized = normalizePhone(phone);
     if (normalized.length !== 10) throw new Error(`Invalid phone: ${phone}`);
@@ -756,6 +754,8 @@ Deno.serve(async (req) => {
       activity_token: result.json?.ActivityToken || null,
       vm_drop_status_url: result.json?.VmDropStatusUrl || result.json?.VMDropStatusUrl || null,
       campaign_token: campaign.campaign_token,
+      campaign_id: campaign.campaign_id || null,
+      provisioned_campaign: preparedCampaign.provisioned,
       followup_mode: campaign.delivery_tracking_enabled !== false ? "after_manual_status_refresh" : "disabled",
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
