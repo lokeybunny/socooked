@@ -46,44 +46,120 @@ export default function VoiceDrops() {
   async function importFromLeadsRain() {
     setImporting(true);
     setImportResult(null);
+    const attempts: any[] = [];
     try {
-      const { data, error } = await supabase.functions.invoke("leadsrain-import-campaigns", { body: {} });
-      if (error) throw error;
-      setImportResult(data);
-      if (!data?.success) {
-        toast.error(data?.message || "Import failed");
+      // 1. Fetch credentials from secured edge function
+      const { data: creds, error: credErr } = await supabase.functions.invoke("leadsrain-get-creds", { body: {} });
+      if (credErr || !creds?.username || !creds?.api_key) {
+        throw new Error(credErr?.message || "Failed to load LeadsRain credentials");
+      }
+
+      const hosts = [
+        "http://s2.leadsrain.com",
+        "http://s1.leadsrain.com",
+        "http://s3.leadsrain.com",
+      ];
+
+      const callBrowser = async (url: string) => {
+        const start = Date.now();
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 12000);
+          const resp = await fetch(url, {
+            method: "POST",
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: creds.username, api_key: creds.api_key }),
+            signal: ctrl.signal,
+          });
+          clearTimeout(timer);
+          const text = await resp.text();
+          let json: any = null;
+          try { json = JSON.parse(text); } catch {}
+          return { ok: resp.ok, status: resp.status, json, text: text.slice(0, 2000), duration_ms: Date.now() - start };
+        } catch (e: any) {
+          // CORS, mixed-content, or network errors land here with opaque message "Failed to fetch"
+          const msg = e?.name === "AbortError" ? "Timed out (12s)" : e?.message || String(e);
+          return { ok: false, status: 0, json: null, text: "", error: msg, duration_ms: Date.now() - start };
+        }
+      };
+
+      const extract = (json: any): any[] => {
+        if (!json) return [];
+        if (Array.isArray(json)) return json;
+        for (const k of ["data", "campaigns", "lists", "result", "records"]) {
+          if (Array.isArray(json?.[k])) return json[k];
+        }
+        if (json?.data && typeof json.data === "object") return Object.values(json.data);
+        return [];
+      };
+
+      // Detect mixed-content: app on HTTPS calling HTTP will silently fail
+      const isHttps = window.location.protocol === "https:";
+      const mixedContentWarning = isHttps
+        ? "⚠️ Your app is on HTTPS but LeadsRain s1/s2/s3 are HTTP-only. Browsers block mixed content — open this page over HTTP, or add the campaign manually."
+        : null;
+
+      let campaigns: any[] = [];
+      let lists: any[] = [];
+
+      for (const host of hosts) {
+        const c = await callBrowser(`${host}/rvm/api/campaign/view_api`);
+        attempts.push({ url: `${host}/rvm/api/campaign/view_api`, ...c });
+        if (c.ok && c.json) {
+          campaigns = extract(c.json);
+          const l = await callBrowser(`${host}/rvm/api/leadlist/view_api`);
+          attempts.push({ url: `${host}/rvm/api/leadlist/view_api`, ...l });
+          if (l.ok && l.json) lists = extract(l.json);
+          break;
+        }
+      }
+
+      const reachable = campaigns.length > 0 || lists.length > 0;
+      const result = {
+        success: reachable,
+        message: reachable
+          ? `Imported ${campaigns.length} campaign(s) and ${lists.length} list(s) from LeadsRain.`
+          : mixedContentWarning ||
+            "Could not reach LeadsRain s1/s2/s3 from your browser (CORS or network blocked). Add the campaign manually.",
+        campaigns, lists, attempts,
+      };
+      setImportResult(result);
+
+      if (!reachable) {
+        toast.error(result.message);
         return;
       }
-      const cs: any[] = data.campaigns || [];
-      const ls: any[] = data.lists || [];
-      const firstList = ls[0];
+
+      const firstList = lists[0];
       let inserted = 0;
-      for (const c of cs) {
+      for (const c of campaigns) {
         const cid = c.campaign_id || c.id || c.campaignId;
         const name = c.name || c.campaign_name || c.title || `Campaign ${cid}`;
         const callerId = c.caller_id || c.callerId || c.from_number || null;
         if (!cid) continue;
-        // Skip if already exists
-        const exists = campaigns.find((x) => x.provider_campaign_id === String(cid));
-        if (exists) continue;
+        if (campaigns.find((x: any) => x.provider_campaign_id === String(cid))) continue;
         const { error: insErr } = await supabase.from("leadsrain_campaigns").insert({
           campaign_name: name,
           caller_id: callerId,
           provider_campaign_id: String(cid),
           provider_list_id: firstList ? String(firstList.list_id || firstList.id) : null,
-          is_active: campaigns.length === 0 && inserted === 0,
+          is_active: false,
           raw_response: c,
         });
         if (!insErr) inserted++;
       }
-      toast.success(`Imported ${inserted} new campaign(s). Found ${ls.length} list(s).`);
+      toast.success(`Imported ${inserted} new campaign(s). Found ${lists.length} list(s).`);
       loadAll();
     } catch (e: any) {
-      toast.error(e?.message || "Import failed");
+      const msg = e?.message || "Import failed";
+      setImportResult({ success: false, message: msg, attempts });
+      toast.error(msg);
     } finally {
       setImporting(false);
     }
   }
+
 
 
   async function loadAll() {
