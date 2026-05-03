@@ -3840,8 +3840,30 @@ IMPORTANT:
       if (!p) return fail('Proposal not found', 404)
       if (!p.client_email) return fail('Proposal has no client_email')
 
+      // Determine first-time status: prefer explicit meta flag, else check prior signed proposals
+      let isFirstTime: boolean
+      const metaFlag = (p.meta as any)?.is_first_time
+      if (typeof metaFlag === 'boolean') {
+        isFirstTime = metaFlag
+      } else {
+        const phoneDigits = String(p.client_phone || '').replace(/\D/g, '').slice(-10)
+        let q = supabase.from('proposals').select('id', { count: 'exact', head: true })
+          .eq('status', 'signed').neq('id', id)
+        if (p.client_email && phoneDigits) {
+          q = q.or(`client_email.eq.${p.client_email},client_phone.ilike.%${phoneDigits}`)
+        } else if (p.client_email) {
+          q = q.eq('client_email', p.client_email)
+        } else if (phoneDigits) {
+          q = q.ilike('client_phone', `%${phoneDigits}`)
+        }
+        const { count } = await q
+        isFirstTime = (count || 0) === 0
+      }
+      console.log('[proposal-send] first-time check:', { proposal_id: id, email: p.client_email, isFirstTime })
+
       // Build proposal body if missing
-      const body_text = p.proposal_body || buildFallbackBody(p)
+      const body_text = p.proposal_body || buildFallbackBody(p, isFirstTime)
+
 
       // Find or create a customer to attach (most flows require customer_id on documents)
       let customerId = p.customer_id
