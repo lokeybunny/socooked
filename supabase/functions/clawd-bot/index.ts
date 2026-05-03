@@ -3970,7 +3970,7 @@ IMPORTANT:
               'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
             },
             body: JSON.stringify({
-              to: p.client_phone,
+              to: smsPhone,
               body: smsBody,
               source: 'proposal-sent-notify',
               customer_id: customerId,
