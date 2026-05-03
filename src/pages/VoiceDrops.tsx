@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Phone, MessageSquare } from "lucide-react";
+import { Loader2, RefreshCw, Phone, MessageSquare, Plus, X } from "lucide-react";
 
 type LRCampaign = {
   campaign_id: string;
@@ -17,7 +18,7 @@ type LRCampaign = {
   drops_sent?: number;
   delivered?: number;
   list_id?: string;
-  raw?: any;
+  _stub?: boolean;
 };
 
 type LocalEvent = {
@@ -28,21 +29,36 @@ type LocalEvent = {
   created_at: string;
 };
 
+const LS_PINNED = "voicedrops.pinned_ids";
+const LS_PROXY = "voicedrops.proxy_url";
+
 export default function VoiceDrops() {
   const [campaigns, setCampaigns] = useState<LRCampaign[]>([]);
   const [events, setEvents] = useState<LocalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_PINNED) || "[]"); } catch { return []; }
+  });
+  const [proxyUrl, setProxyUrl] = useState<string>(() => localStorage.getItem(LS_PROXY) || "");
+  const [newId, setNewId] = useState("");
+
+  useEffect(() => { localStorage.setItem(LS_PINNED, JSON.stringify(pinnedIds)); }, [pinnedIds]);
+  useEffect(() => { localStorage.setItem(LS_PROXY, proxyUrl); }, [proxyUrl]);
 
   const load = async () => {
     setRefreshing(true);
     setError(null);
+    setInfo(null);
     try {
-      // Pull live campaigns straight from LeadsRain via edge function
-      const { data, error } = await supabase.functions.invoke("leadsrain-import-campaigns", { body: {} });
+      const { data, error } = await supabase.functions.invoke("leadsrain-import-campaigns", {
+        body: { campaign_ids: pinnedIds, proxy_url: proxyUrl || undefined },
+      });
       if (error) throw error;
-      const list: LRCampaign[] = (data?.campaigns || data?.data || []).map((c: any) => ({
+      const list: LRCampaign[] = (data?.campaigns || []).map((c: any) => ({
         campaign_id: String(c.campaign_id ?? c.id ?? ""),
         campaign_name: c.campaign_name ?? c.name ?? "Untitled",
         campaign_cid: c.campaign_cid ?? c.caller_id ?? c.cid,
@@ -52,11 +68,12 @@ export default function VoiceDrops() {
         drops_sent: Number(c.drops_sent ?? c.dialed ?? 0),
         delivered: Number(c.delivered ?? c.delivered_count ?? 0),
         list_id: c.list_id ? String(c.list_id) : undefined,
-        raw: c,
+        _stub: !!c._stub,
       }));
       setCampaigns(list);
+      setInfo(data?.message || null);
+      if (!data?.success) setError(data?.message || "LeadsRain unreachable");
 
-      // Pull recent local callback/missed/SMS events (logged by Twilio webhook + VoidFix)
       const { data: ev } = await supabase
         .from("voice_drop_events" as any)
         .select("id, phone_number, event_type, event_source, created_at")
@@ -65,13 +82,28 @@ export default function VoiceDrops() {
       setEvents((ev as any) || []);
     } catch (e: any) {
       setError(e?.message || "Failed to fetch LeadsRain data");
+      toast.error(e?.message || "Failed to fetch LeadsRain data");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Run once on mount; re-run when pinned IDs or proxy URL change.
+  // (No auto-polling — fixes the "keeps refreshing" loop.)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
+
+  const addPinnedId = () => {
+    const id = newId.trim();
+    if (!id) return;
+    if (pinnedIds.includes(id)) { toast.info("Already pinned"); return; }
+    setPinnedIds([...pinnedIds, id]);
+    setNewId("");
+    toast.success(`Pinned ${id} — refreshing…`);
+    setTimeout(load, 50);
+  };
+  const removePinnedId = (id: string) => setPinnedIds(pinnedIds.filter(x => x !== id));
 
   const totals = useMemo(() => {
     const sum = (k: keyof LRCampaign) => campaigns.reduce((a, c) => a + (Number(c[k] as any) || 0), 0);
@@ -97,20 +129,69 @@ export default function VoiceDrops() {
         <div>
           <h1 className="text-3xl font-bold">Voice Drops</h1>
           <p className="text-muted-foreground max-w-2xl mt-1">
-            Live read-only view of LeadsRain ringless voicemail campaigns. Callbacks, missed calls,
-            and VoidFix SMS replies are logged through Twilio.
+            Live read-only view of LeadsRain RVM campaigns. Callbacks, missed calls, and VoidFix
+            SMS replies are logged via Twilio.
           </p>
         </div>
         <Button onClick={load} disabled={refreshing} variant="outline">
-          {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          {refreshing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
           Refresh
         </Button>
       </div>
+
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div>
+            <div className="text-sm font-medium mb-1">LeadsRain Proxy URL (optional)</div>
+            <p className="text-xs text-muted-foreground mb-2">
+              LeadsRain s1/s2/s3 are HTTP-only and usually blocked from cloud egress. Deploy the
+              Cloudflare Worker in <code>cloudflare-worker/leadsrain-proxy</code> and paste its HTTPS URL here.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://leadsrain-proxy.you.workers.dev"
+                value={proxyUrl}
+                onChange={(e) => setProxyUrl(e.target.value)}
+              />
+              <Button onClick={load} variant="secondary" disabled={refreshing}>Save & Reload</Button>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium mb-1">Pin Campaign IDs</div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Force-load campaigns by ID (useful when the list endpoint is blocked). Example: 368407.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="368407"
+                value={newId}
+                onChange={(e) => setNewId(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addPinnedId(); }}
+              />
+              <Button onClick={addPinnedId} variant="secondary"><Plus className="w-4 h-4 mr-1" />Add</Button>
+            </div>
+            {pinnedIds.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {pinnedIds.map(id => (
+                  <Badge key={id} variant="secondary" className="gap-1">
+                    {id}
+                    <button onClick={() => removePinnedId(id)} className="ml-1 hover:text-destructive"><X className="w-3 h-3" /></button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {error && (
         <Card className="border-destructive">
           <CardContent className="p-4 text-sm text-destructive">{error}</CardContent>
         </Card>
+      )}
+      {info && !error && (
+        <Card><CardContent className="p-3 text-xs text-muted-foreground">{info}</CardContent></Card>
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -132,7 +213,7 @@ export default function VoiceDrops() {
             <div className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin inline" /></div>
           ) : campaigns.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
-              No LeadsRain campaigns reachable. Create them in your LeadsRain dashboard — they'll appear here.
+              No LeadsRain campaigns reachable. Add the proxy URL above or pin a campaign ID.
             </div>
           ) : (
             <Table>
@@ -150,7 +231,7 @@ export default function VoiceDrops() {
               </TableHeader>
               <TableBody>
                 {campaigns.map(c => (
-                  <TableRow key={c.campaign_id}>
+                  <TableRow key={c.campaign_id} className={c._stub ? "opacity-60" : ""}>
                     <TableCell className="font-medium">{c.campaign_name}</TableCell>
                     <TableCell className="text-xs">{c.campaign_id}</TableCell>
                     <TableCell>{c.campaign_cid || "—"}</TableCell>
