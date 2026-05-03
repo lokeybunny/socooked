@@ -139,6 +139,32 @@ export default function VoiceDrops() {
         </Button>
       </div>
 
+      {/* API connection status — shows live campaign names so you know the LeadsRain link is real */}
+      <Card className={campaigns.filter(c => !c._stub).length > 0 ? "border-green-500/50 bg-green-500/5" : "border-yellow-500/50 bg-yellow-500/5"}>
+        <CardContent className="p-4">
+          {campaigns.filter(c => !c._stub).length > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-green-500">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                LeadsRain API Connected — {campaigns.filter(c => !c._stub).length} live campaign{campaigns.filter(c => !c._stub).length === 1 ? "" : "s"}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {campaigns.filter(c => !c._stub).map(c => (
+                  <Badge key={c.campaign_id} variant="outline" className="border-green-500/40">
+                    {c.campaign_name} <span className="ml-1 opacity-60">#{c.campaign_id}</span>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm font-semibold text-yellow-600">
+              <span className="inline-block w-2 h-2 rounded-full bg-yellow-500" />
+              Not connected to LeadsRain — no live campaign names received yet
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-4 space-y-3">
           <div>
