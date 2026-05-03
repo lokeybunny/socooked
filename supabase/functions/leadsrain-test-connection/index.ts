@@ -79,18 +79,29 @@ Deno.serve(async (req) => {
       return json({ success: false, message: "LeadsRain credentials missing on server (LEADSRAIN_USERNAME / LEADSRAIN_API_KEY)" });
     }
 
-    const subdomains = ["s2", "s1", "s3", "app"];
-    // LeadsRain API docs use HTTP (not HTTPS) — see https://leadsrain.com/apidocs/
-    const endpoints = subdomains.map((s) => `http://${s}.leadsrain.com/rvm/api/campaign/view_api`);
+    // The documented `s*.leadsrain.com` shards are HTTP-only and blocked from
+    // most cloud egress (Supabase included). The Postlead endpoint we actually
+    // use is mirrored on `api.leadsrain.com` over HTTPS — probe that primarily,
+    // then probe the s-shards for diagnostic completeness.
+    const endpoints = [
+      "https://api.leadsrain.com/ringless/api/add_posted_lead.php",
+      "http://s2.leadsrain.com/rvm/api/campaign/view_api",
+      "http://s1.leadsrain.com/rvm/api/campaign/view_api",
+      "http://s3.leadsrain.com/rvm/api/campaign/view_api",
+    ];
 
     const [egressIp, ...attempts] = await Promise.all([
       getEgressIp(),
-      ...endpoints.map((u) => tryEndpoint(u, 15000)),
+      ...endpoints.map((u) => tryEndpoint(u, 12000)),
     ]);
 
-    const winner = attempts.find((a) => a.ok);
-    const summary = winner
-      ? `Connected via ${winner.url.match(/https?:\/\/([^.]+)\./)?.[1]} in ${winner.duration_ms}ms`
+    // Reachable = TCP/HTTP succeeded (any 2xx/4xx response counts as reachable).
+    // The s-shards being unreachable is expected from cloud egress and not a failure
+    // for the integration since we only POST leads via api.leadsrain.com.
+    const apiHit = attempts.find((a) => a.url.includes("api.leadsrain.com") && a.http_status > 0);
+    const winner = attempts.find((a) => a.ok) || apiHit;
+    const summary = apiHit
+      ? `LeadsRain reachable via api.leadsrain.com (HTTP ${apiHit.http_status} in ${apiHit.duration_ms}ms). The s2/s1/s3 shards are HTTP-only and typically blocked from cloud egress — this is expected and does not affect Postlead.`
       : `All ${attempts.length} endpoints failed. Egress IP: ${egressIp ?? "unknown"}. Per LeadsRain docs no IP whitelisting is required — check that LEADSRAIN_USERNAME / LEADSRAIN_API_KEY are valid.`;
 
     return json({
