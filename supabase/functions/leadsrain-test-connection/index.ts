@@ -47,7 +47,7 @@ async function tryEndpoint(url: string, timeoutMs: number): Promise<Attempt> {
     };
   } catch (e: any) {
     const msg = e?.name === "TimeoutError" || /timed out|aborted/i.test(e?.message || "")
-      ? `TIMEOUT after ${Date.now() - start}ms — LeadsRain server did not respond. Most likely cause: this server's IP is not whitelisted in your LeadsRain account.`
+      ? `TIMEOUT after ${Date.now() - start}ms — LeadsRain server did not respond. Verify the endpoint is reachable (HTTP, not HTTPS) and that credentials are valid.`
       : (e?.message || String(e));
     return {
       url,
