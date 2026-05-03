@@ -10,10 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Voicemail, RefreshCw, Plus, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lrTestConnection, lrRefreshStatus } from "@/lib/leadsrain";
+import { lrTestConnection, lrRefreshStatus, type LRTestResult } from "@/lib/leadsrain";
 import SendVoiceDropModal from "@/components/voicedrops/SendVoiceDropModal";
 
-type Conn = { success: boolean; message: string; raw?: any } | null;
+type Conn = LRTestResult | null;
 
 export default function VoiceDrops() {
   const [conn, setConn] = useState<Conn>(null);
