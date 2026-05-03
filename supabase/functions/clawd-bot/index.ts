@@ -3996,11 +3996,14 @@ IMPORTANT:
 })
 
 // ───── Proposal helpers ─────────────────────────────────────
-function buildFallbackBody(p: Record<string, any>): string {
+function buildFallbackBody(p: Record<string, any>, isFirstTime: boolean = true): string {
   const items = Array.isArray(p.line_items) ? p.line_items : []
   const itemsTxt = items.length
     ? items.map((li: any) => `• ${li.description || 'Item'} — ${li.quantity || 1} × $${Number(li.unit_price || 0).toFixed(2)}`).join('\n')
     : 'See attached pricing.'
+  const defaultTerms = isFirstTime
+    ? 'First-time customer special: 50% deposit due upon signature. Final invoice is waived as part of the first-time customer offer — no balance due after delivery.'
+    : 'Full payment due upon signature (returning customer rate — first-time special does not apply).'
   return `PROPOSAL — ${p.title}
 
 Prepared for: ${p.client_name}${p.company_name ? ' (' + p.company_name + ')' : ''}
@@ -4017,13 +4020,29 @@ INVESTMENT
 Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}
 
 TERMS
-${p.terms || 'First-time customer special: 50% deposit due upon signature. Final invoice is waived as part of the first-time customer offer — no balance due after delivery.'}
+${p.terms || defaultTerms}
 
 ACCEPTANCE
 By signing below, the client accepts the scope, pricing, and terms outlined above.`
 }
 
-function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: string): string {
+function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: string, isFirstTime: boolean = true): string {
+  const specialBlock = isFirstTime
+    ? `<div style="margin:18px 0;padding:14px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#065f46;font-weight:700;">🎁 First-Time Customer Special</p>
+      <p style="margin:0;font-size:13px;color:#065f46;line-height:1.5;">
+        Initial deposit is <strong>50% of the final price</strong> due upon signature.
+        The <strong>final invoice is waived</strong> as part of our first-time customer offer —
+        no balance due after delivery.
+      </p>
+    </div>`
+    : `<div style="margin:18px 0;padding:14px 16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#92400e;font-weight:700;">💳 Payment Terms</p>
+      <p style="margin:0;font-size:13px;color:#92400e;line-height:1.5;">
+        <strong>Full payment due upfront</strong> upon signature. The first-time customer special
+        applies only to your first signed deal.
+      </p>
+    </div>`
   return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
   <div style="background:#059669;padding:24px;text-align:center;border-radius:8px 8px 0 0;">
     <h1 style="color:white;margin:0;font-size:22px;">📄 Proposal Ready for Review</h1>
@@ -4035,14 +4054,7 @@ function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: s
       <a href="${signUrl}" style="display:inline-block;background:#059669;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Sign Proposal</a>
     </div>
     <p style="font-size:12px;color:#6b7280;text-align:center;">Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}${p.expiration_date ? ' · Valid through ' + p.expiration_date : ''}</p>
-    <div style="margin:18px 0;padding:14px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;">
-      <p style="margin:0 0 6px;font-size:14px;color:#065f46;font-weight:700;">🎁 First-Time Customer Special</p>
-      <p style="margin:0;font-size:13px;color:#065f46;line-height:1.5;">
-        Initial deposit is <strong>50% of the final price</strong> due upon signature.
-        The <strong>final invoice is waived</strong> as part of our first-time customer offer —
-        no balance due after delivery.
-      </p>
-    </div>
+    ${specialBlock}
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
     <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:#374151;">${body}</pre>
   </div>
