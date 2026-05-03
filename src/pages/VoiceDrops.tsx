@@ -236,16 +236,15 @@ export default function VoiceDrops() {
 
         <TabsContent value="settings" className="space-y-3">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Egress IP for LeadsRain Whitelist</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Outbound IP (informational)</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p className="text-xs text-muted-foreground">
-                LeadsRain requires IP whitelisting. Click below to detect the current outbound IP this backend uses,
-                then paste it into LeadsRain as a <strong>Temporary ID</strong> (one-time) or <strong>Permanent ID</strong>.
-                Note: serverless IPs can rotate — you may need to re-check or whitelist a range.
+                LeadsRain authenticates by <strong>username + API key</strong> only — no IP whitelisting required.
+                This button is provided for diagnostics only.
               </p>
-              <Button size="sm" onClick={fetchEgressIp} disabled={loadingIp}>
+              <Button size="sm" variant="outline" onClick={fetchEgressIp} disabled={loadingIp}>
                 {loadingIp ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                Detect Egress IP
+                Detect Outbound IP
               </Button>
               {egressIps && egressIps.length > 0 && (
                 <div className="rounded border border-border p-3 space-y-1">
