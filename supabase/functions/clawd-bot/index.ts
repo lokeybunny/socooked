@@ -3921,7 +3921,37 @@ IMPORTANT:
         provider: 'proposal', metadata: { proposal_id: id, document_id: doc.id },
       })
 
-      return ok({ proposal_id: id, document_id: doc.id, sign_url: signUrl, sent: true })
+      // Fire VoidFix SMS heads-up to client (best-effort, non-blocking failure)
+      let smsSent = false
+      if (p.client_phone) {
+        try {
+          const firstName = String(p.client_name || '').trim().split(/\s+/)[0] || 'there'
+          const smsBody = `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFirst-time customer special: 50% down to start, and the final invoice is waived (no balance after delivery). Reply with any questions!`
+          const smsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/powerdial-sms?action=send`
+          const sr = await fetch(smsUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
+            },
+            body: JSON.stringify({
+              to: p.client_phone,
+              body: smsBody,
+              source: 'proposal-sent-notify',
+              customer_id: customerId,
+              metadata: { proposal_id: id, document_id: doc.id, source: 'proposal-sent-notify' },
+            }),
+          })
+          const sj = await sr.json().catch(() => ({}))
+          smsSent = !!sj?.ok
+          if (!smsSent) console.error('[proposal-send] voidfix sms failed:', sj)
+        } catch (e) {
+          console.error('[proposal-send] voidfix sms error:', e instanceof Error ? e.message : String(e))
+        }
+      }
+
+      return ok({ proposal_id: id, document_id: doc.id, sign_url: signUrl, sent: true, sms_sent: smsSent })
     }
 
     // DELETE /proposal?id=...
@@ -3963,7 +3993,7 @@ INVESTMENT
 Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}
 
 TERMS
-${p.terms || 'Standard terms apply. 50% deposit due upon signature, balance on completion.'}
+${p.terms || 'First-time customer special: 50% deposit due upon signature. Final invoice is waived as part of the first-time customer offer — no balance due after delivery.'}
 
 ACCEPTANCE
 By signing below, the client accepts the scope, pricing, and terms outlined above.`
@@ -3981,6 +4011,14 @@ function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: s
       <a href="${signUrl}" style="display:inline-block;background:#059669;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Sign Proposal</a>
     </div>
     <p style="font-size:12px;color:#6b7280;text-align:center;">Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}${p.expiration_date ? ' · Valid through ' + p.expiration_date : ''}</p>
+    <div style="margin:18px 0;padding:14px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#065f46;font-weight:700;">🎁 First-Time Customer Special</p>
+      <p style="margin:0;font-size:13px;color:#065f46;line-height:1.5;">
+        Initial deposit is <strong>50% of the final price</strong> due upon signature.
+        The <strong>final invoice is waived</strong> as part of our first-time customer offer —
+        no balance due after delivery.
+      </p>
+    </div>
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
     <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:#374151;">${body}</pre>
   </div>

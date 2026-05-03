@@ -134,11 +134,11 @@ Bedroom add-ons:
 • Properties with more than 4 bedrooms: +$50 per additional bedroom
   (Example: a 6-bedroom listing = $399 + (2 × $50) = $499)
 
-Payment Terms:
-• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
-• All payments must be made via Zelle or Cash App OR Debit/Credit.
-• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
-• Final video delivered as MP4 (1080×1920) after payment is confirmed.
+Payment Terms (First-Time Customer Special):
+• 50% deposit of the total ($${(total / 2).toFixed(2)}) due upon signing this proposal — work begins after deposit is received.
+• The FINAL invoice is WAIVED as part of our first-time customer offer — no balance due after delivery.
+• Deposit may be paid via Zelle, Cash App, or debit/credit (after signing, use the /payme page for card payment).
+• Final video delivered as MP4 (1080×1920) after deposit is confirmed and assets are provided.
 • Additional revisions beyond the 2 included: $50 each.
 
 ${a.notes ? `Additional notes:\n${a.notes}\n\n` : ""}By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`;
@@ -151,7 +151,7 @@ ${a.notes ? `Additional notes:\n${a.notes}\n\n` : ""}By signing below, the clien
     notes:
       "Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.",
     terms:
-      "FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.",
+      `First-time customer special: 50% deposit ($${(total / 2).toFixed(2)}) due upon signature. The final invoice is WAIVED as part of the first-time customer offer — no balance due after delivery. Deposit accepted via Zelle, Cash App, or debit/credit through the /payme page after signing. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.`,
     proposal_body: proposalBody,
     expiration_date: exp.toISOString().slice(0, 10),
     signature_required: true,
