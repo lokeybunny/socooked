@@ -31,6 +31,7 @@ export default function VoiceDrops() {
   const [transferOn, setTransferOn] = useState(false);
   const [transferNum, setTransferNum] = useState("");
   const [defaultCallerId, setDefaultCallerId] = useState("");
+  const [proxyUrl, setProxyUrl] = useState("");
 
   // New campaign form
   const [newName, setNewName] = useState("");
@@ -54,11 +55,16 @@ export default function VoiceDrops() {
         throw new Error(credErr?.message || "Failed to load LeadsRain credentials");
       }
 
-      const hosts = [
-        "http://s2.leadsrain.com",
-        "http://s1.leadsrain.com",
-        "http://s3.leadsrain.com",
-      ];
+      // Prefer Cloudflare Worker proxy (HTTPS → HTTP) when configured;
+      // otherwise fall back to direct HTTP shards (only works if app is on HTTP).
+      const trimmedProxy = (proxyUrl || "").replace(/\/+$/, "");
+      const hosts = trimmedProxy
+        ? [trimmedProxy]
+        : [
+            "http://s2.leadsrain.com",
+            "http://s1.leadsrain.com",
+            "http://s3.leadsrain.com",
+          ];
 
       const callBrowser = async (url: string) => {
         const start = Date.now();
@@ -96,8 +102,8 @@ export default function VoiceDrops() {
 
       // Detect mixed-content: app on HTTPS calling HTTP will silently fail
       const isHttps = window.location.protocol === "https:";
-      const mixedContentWarning = isHttps
-        ? "⚠️ Your app is on HTTPS but LeadsRain s1/s2/s3 are HTTP-only. Browsers block mixed content — open this page over HTTP, or add the campaign manually."
+      const mixedContentWarning = isHttps && !trimmedProxy
+        ? "⚠️ Your app is on HTTPS but LeadsRain s1/s2/s3 are HTTP-only. Set a Cloudflare Worker Proxy URL in Settings, or open this page over HTTP."
         : null;
 
       let campaigns: any[] = [];
@@ -177,6 +183,7 @@ export default function VoiceDrops() {
       setTransferOn(s.data.enable_transfer);
       setTransferNum(s.data.transfer_number || "");
       setDefaultCallerId(s.data.default_caller_id || "");
+      setProxyUrl(s.data.proxy_url || "");
     }
   }
 
@@ -215,6 +222,7 @@ export default function VoiceDrops() {
       enable_transfer: transferOn,
       transfer_number: transferNum || null,
       default_caller_id: defaultCallerId || null,
+      proxy_url: proxyUrl.trim() || null,
     }).eq("singleton", true);
     if (error) return toast.error(error.message);
     toast.success("Settings saved");
@@ -481,6 +489,19 @@ export default function VoiceDrops() {
               <div>
                 <Label className="text-xs">Default Caller ID</Label>
                 <Input value={defaultCallerId} onChange={e => setDefaultCallerId(e.target.value)} placeholder="+1XXXXXXXXXX" />
+              </div>
+              <div>
+                <Label className="text-xs">LeadsRain Proxy URL (Cloudflare Worker)</Label>
+                <Input
+                  value={proxyUrl}
+                  onChange={e => setProxyUrl(e.target.value)}
+                  placeholder="https://leadsrain-proxy.<you>.workers.dev"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Optional. LeadsRain shards are HTTP-only and blocked by browsers/cloud egress.
+                  Deploy the worker in <code>cloudflare-worker/leadsrain-proxy/</code> (see README), paste the URL here,
+                  and the Import button will route through it.
+                </p>
               </div>
               <div className="flex items-center justify-between rounded border border-border p-3">
                 <div>

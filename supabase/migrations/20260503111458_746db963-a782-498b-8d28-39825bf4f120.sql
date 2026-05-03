@@ -1,0 +1,1 @@
+ALTER TABLE public.leadsrain_settings ADD COLUMN IF NOT EXISTS proxy_url text;
