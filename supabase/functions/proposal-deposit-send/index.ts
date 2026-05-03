@@ -109,8 +109,9 @@ Deno.serve(async (req) => {
     }
 
     const amount = 199.50;
-    const subject = `Deposit to start your video — $${amount}`;
-    const html = buildHtml(p, amount);
+    const amountStr = amount.toFixed(2);
+    const subject = `Deposit to start your video — $${amountStr}`;
+    const html = buildHtml(p, amountStr);
 
     const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
       method: "POST",
