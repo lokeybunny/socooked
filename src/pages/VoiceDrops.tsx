@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Voicemail, RefreshCw, Plus, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Voicemail, RefreshCw, Plus, Trash2, CheckCircle2, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lrTestConnection, lrRefreshStatus, type LRTestResult } from "@/lib/leadsrain";
@@ -38,6 +38,53 @@ export default function VoiceDrops() {
   const [newAudio, setNewAudio] = useState("");
   const [newProviderCampaign, setNewProviderCampaign] = useState("");
   const [newProviderList, setNewProviderList] = useState("");
+
+  // Import from LeadsRain
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+
+  async function importFromLeadsRain() {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("leadsrain-import-campaigns", { body: {} });
+      if (error) throw error;
+      setImportResult(data);
+      if (!data?.success) {
+        toast.error(data?.message || "Import failed");
+        return;
+      }
+      const cs: any[] = data.campaigns || [];
+      const ls: any[] = data.lists || [];
+      const firstList = ls[0];
+      let inserted = 0;
+      for (const c of cs) {
+        const cid = c.campaign_id || c.id || c.campaignId;
+        const name = c.name || c.campaign_name || c.title || `Campaign ${cid}`;
+        const callerId = c.caller_id || c.callerId || c.from_number || null;
+        if (!cid) continue;
+        // Skip if already exists
+        const exists = campaigns.find((x) => x.provider_campaign_id === String(cid));
+        if (exists) continue;
+        const { error: insErr } = await supabase.from("leadsrain_campaigns").insert({
+          campaign_name: name,
+          caller_id: callerId,
+          provider_campaign_id: String(cid),
+          provider_list_id: firstList ? String(firstList.list_id || firstList.id) : null,
+          is_active: campaigns.length === 0 && inserted === 0,
+          raw_response: c,
+        });
+        if (!insErr) inserted++;
+      }
+      toast.success(`Imported ${inserted} new campaign(s). Found ${ls.length} list(s).`);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e?.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
 
   async function loadAll() {
     const [c, d, s] = await Promise.all([
@@ -199,6 +246,36 @@ export default function VoiceDrops() {
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">Import from LeadsRain</CardTitle>
+              <Button size="sm" onClick={importFromLeadsRain} disabled={importing}>
+                {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+                Import Campaigns & Lists
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Pulls your campaigns and lead lists directly from LeadsRain. Note: the management endpoints live on
+                HTTP-only shards (s1/s2/s3) which are often blocked from cloud egress. If import fails, add the IDs manually below.
+              </p>
+              {importResult && (
+                <details open={!importResult.success} className="rounded border border-border p-2 text-xs">
+                  <summary className="cursor-pointer">
+                    {importResult.success ? "✅" : "❌"} {importResult.message}
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    {(importResult.attempts || []).map((a: any, i: number) => (
+                      <div key={i} className="font-mono break-all opacity-80">
+                        {a.status || "ERR"} · {a.duration_ms}ms · {a.url} {a.error ? `— ${a.error}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle className="text-sm">Add Campaign Reference</CardTitle></CardHeader>
             <CardContent className="space-y-2">
