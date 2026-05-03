@@ -1,5 +1,9 @@
-import { corsHeaders } from '@supabase/supabase-js/cors';
-import { ENDPOINTS, hasCreds } from "../_shared/leadsrainClient.ts";
+import { hasCreds } from "../_shared/leadsrainClient.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 const USERNAME = Deno.env.get("LEADSRAIN_USERNAME") || "";
 const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
