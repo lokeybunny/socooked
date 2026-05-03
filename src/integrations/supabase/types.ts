@@ -2280,6 +2280,214 @@ export type Database = {
           },
         ]
       }
+      lead_timeline_events: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          event_description: string | null
+          event_title: string
+          event_type: string
+          id: string
+          lead_id: string | null
+          metadata: Json
+          provider: string | null
+          provider_record_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          event_description?: string | null
+          event_title: string
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          provider?: string | null
+          provider_record_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          event_description?: string | null
+          event_title?: string
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          metadata?: Json
+          provider?: string | null
+          provider_record_id?: string | null
+        }
+        Relationships: []
+      }
+      leadsrain_campaigns: {
+        Row: {
+          audio_url: string | null
+          caller_id: string | null
+          campaign_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          meta: Json
+          provider_campaign_id: string | null
+          provider_list_id: string | null
+          raw_response: Json | null
+          transfer_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          caller_id?: string | null
+          campaign_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          provider_campaign_id?: string | null
+          provider_list_id?: string | null
+          raw_response?: Json | null
+          transfer_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          caller_id?: string | null
+          campaign_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          provider_campaign_id?: string | null
+          provider_list_id?: string | null
+          raw_response?: Json | null
+          transfer_number?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leadsrain_drops: {
+        Row: {
+          caller_id: string | null
+          campaign_id: string | null
+          created_at: string
+          customer_id: string | null
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          phone_number: string
+          provider_activity_id: string | null
+          provider_campaign_id: string | null
+          provider_lead_id: string | null
+          provider_list_id: string | null
+          raw_request: Json | null
+          raw_response: Json | null
+          status: string
+          status_url: string | null
+          updated_at: string
+          voidfix_sms_error: string | null
+          voidfix_sms_message_id: string | null
+          voidfix_sms_sent_at: string | null
+        }
+        Insert: {
+          caller_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          phone_number: string
+          provider_activity_id?: string | null
+          provider_campaign_id?: string | null
+          provider_lead_id?: string | null
+          provider_list_id?: string | null
+          raw_request?: Json | null
+          raw_response?: Json | null
+          status?: string
+          status_url?: string | null
+          updated_at?: string
+          voidfix_sms_error?: string | null
+          voidfix_sms_message_id?: string | null
+          voidfix_sms_sent_at?: string | null
+        }
+        Update: {
+          caller_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          phone_number?: string
+          provider_activity_id?: string | null
+          provider_campaign_id?: string | null
+          provider_lead_id?: string | null
+          provider_list_id?: string | null
+          raw_request?: Json | null
+          raw_response?: Json | null
+          status?: string
+          status_url?: string | null
+          updated_at?: string
+          voidfix_sms_error?: string | null
+          voidfix_sms_message_id?: string | null
+          voidfix_sms_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leadsrain_drops_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "leadsrain_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leadsrain_settings: {
+        Row: {
+          created_at: string
+          default_caller_id: string | null
+          default_campaign_id: string | null
+          enable_transfer: boolean
+          enable_voidfix_followup: boolean
+          id: string
+          singleton: boolean
+          transfer_number: string | null
+          updated_at: string
+          voidfix_template: string
+        }
+        Insert: {
+          created_at?: string
+          default_caller_id?: string | null
+          default_campaign_id?: string | null
+          enable_transfer?: boolean
+          enable_voidfix_followup?: boolean
+          id?: string
+          singleton?: boolean
+          transfer_number?: string | null
+          updated_at?: string
+          voidfix_template?: string
+        }
+        Update: {
+          created_at?: string
+          default_caller_id?: string | null
+          default_campaign_id?: string | null
+          enable_transfer?: boolean
+          enable_voidfix_followup?: boolean
+          id?: string
+          singleton?: boolean
+          transfer_number?: string | null
+          updated_at?: string
+          voidfix_template?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leadsrain_settings_default_campaign_id_fkey"
+            columns: ["default_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "leadsrain_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lh_dnc_registry: {
         Row: {
           call_count: number

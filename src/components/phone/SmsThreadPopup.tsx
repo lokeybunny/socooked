@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
 import { moveToVideographyFunnel } from "@/lib/moveToVideographyFunnel";
-import { sendRinglessVM } from "@/lib/dropVm";
+import SendVoiceDropModal from "@/components/voicedrops/SendVoiceDropModal";
 
 type SMSMessage = {
   id: string;
@@ -48,6 +48,7 @@ export function SmsThreadPopup({
   const [sending, setSending] = useState(false);
   const [body, setBody] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
+  const [vdOpen, setVdOpen] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -151,8 +152,8 @@ export function SmsThreadPopup({
                   size="sm"
                   variant="outline"
                   className="h-7 gap-1 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-                  onClick={() => sendRinglessVM({ phone })}
-                  title="Drop a ringless voicemail via Drop.co"
+                  onClick={() => setVdOpen(true)}
+                  title="Send a ringless voicemail via LeadsRain"
                 >
                   <Voicemail className="h-3.5 w-3.5" /> Drop VM
                 </Button>
@@ -231,6 +232,7 @@ export function SmsThreadPopup({
       </Dialog>
       {/* Rendered OUTSIDE the Dialog so Radix's pointer-events lock doesn't block dragging */}
       <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={phone} />
+      <SendVoiceDropModal open={vdOpen} onOpenChange={setVdOpen} defaultPhone={phone} contactName={contactName} />
     </>
   );
 }
