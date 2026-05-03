@@ -55,6 +55,28 @@ function extractCallerPhone(payload: any): string | null {
   return null;
 }
 
+// Last-resort: pull a street address out of the call transcript / messages.
+// Looks for typical US street patterns like "123 Main St", "4567 N Oak Avenue, Las Vegas".
+function extractAddressFromTranscript(payload: any): string | null {
+  const chunks: string[] = [];
+  const msg = payload?.message ?? payload ?? {};
+  if (typeof msg?.transcript === "string") chunks.push(msg.transcript);
+  if (typeof msg?.call?.transcript === "string") chunks.push(msg.call.transcript);
+  const arr = msg?.artifact?.messages || msg?.call?.artifact?.messages || msg?.messages || [];
+  if (Array.isArray(arr)) {
+    for (const m of arr) {
+      const t = m?.message ?? m?.content ?? m?.text;
+      if (typeof t === "string") chunks.push(t);
+    }
+  }
+  const blob = chunks.join("\n");
+  if (!blob) return null;
+  // street number + 1-4 words + common suffix, optional city/state
+  const re = /\b(\d{1,6}\s+(?:[A-Za-z0-9.'\-]+\s+){1,5}(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Parkway|Pkwy|Terrace|Ter|Trail|Trl|Highway|Hwy)\b(?:\s*,?\s*[A-Za-z .'\-]+){0,2}(?:\s*,?\s*[A-Z]{2})?(?:\s*\d{5})?)/i;
+  const m = blob.match(re);
+  return m ? m[1].replace(/\s+/g, " ").trim() : null;
+}
+
 function parseArgs(payload: any): { args: Args; toolCallId: string | null } {
   let toolCallId: string | null = null;
   let raw: any = payload;
@@ -216,10 +238,27 @@ Deno.serve(async (req) => {
 
     console.log("[vapi-send-listing-proposal] parsed args:", JSON.stringify(a));
 
+    // Last-resort: scrape address from the call transcript if the LLM forgot to pass it
+    if (!a.address) {
+      const scraped = extractAddressFromTranscript(payload);
+      if (scraped) {
+        a.address = scraped;
+        console.log("[vapi-send-listing-proposal] using transcript address fallback:", scraped);
+      }
+    }
+
     if (!a.client_email || !a.client_name) {
       return vapiResponse(
         toolCallId,
         "I need both the client's full name and email address before I can send the listing proposal.",
+      );
+    }
+
+    // Hard-require the listing address — refuse to send a proposal that says "Property: N/A"
+    if (!a.address || String(a.address).trim().length < 5) {
+      return vapiResponse(
+        toolCallId,
+        "Before I can send this proposal I need the full property address (street, city, state). Please confirm the listing address with the customer and call this tool again with the address field included.",
       );
     }
 
@@ -239,7 +278,11 @@ Deno.serve(async (req) => {
       priorQuery = priorQuery.ilike("client_phone", `%${phoneDigits}`);
     }
     const { count: priorSignedCount } = await priorQuery;
-    const isFirstTime = (priorSignedCount || 0) === 0;
+    // Internal test override: warren@stu25.com is always treated as first-time
+    const TEST_FIRST_TIME_EMAILS = new Set(["warren@stu25.com"]);
+    const isFirstTime = TEST_FIRST_TIME_EMAILS.has((a.client_email || "").toLowerCase())
+      ? true
+      : (priorSignedCount || 0) === 0;
     console.log("[vapi-send-listing-proposal] first-time check:", { email: a.client_email, priorSignedCount, isFirstTime });
 
     const preset = buildListingPreset(a, isFirstTime);

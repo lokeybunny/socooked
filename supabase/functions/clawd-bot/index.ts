@@ -3859,6 +3859,10 @@ IMPORTANT:
         const { count } = await q
         isFirstTime = (count || 0) === 0
       }
+      // Internal test override: warren@stu25.com is always first-time
+      if (String(p.client_email || '').toLowerCase() === 'warren@stu25.com') {
+        isFirstTime = true
+      }
       console.log('[proposal-send] first-time check:', { proposal_id: id, email: p.client_email, isFirstTime })
 
       // Build proposal body if missing
