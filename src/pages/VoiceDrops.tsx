@@ -39,6 +39,53 @@ export default function VoiceDrops() {
   const [newProviderCampaign, setNewProviderCampaign] = useState("");
   const [newProviderList, setNewProviderList] = useState("");
 
+  // Import from LeadsRain
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+
+  async function importFromLeadsRain() {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("leadsrain-import-campaigns", { body: {} });
+      if (error) throw error;
+      setImportResult(data);
+      if (!data?.success) {
+        toast.error(data?.message || "Import failed");
+        return;
+      }
+      const cs: any[] = data.campaigns || [];
+      const ls: any[] = data.lists || [];
+      const firstList = ls[0];
+      let inserted = 0;
+      for (const c of cs) {
+        const cid = c.campaign_id || c.id || c.campaignId;
+        const name = c.name || c.campaign_name || c.title || `Campaign ${cid}`;
+        const callerId = c.caller_id || c.callerId || c.from_number || null;
+        if (!cid) continue;
+        // Skip if already exists
+        const exists = campaigns.find((x) => x.provider_campaign_id === String(cid));
+        if (exists) continue;
+        const { error: insErr } = await supabase.from("leadsrain_campaigns").insert({
+          campaign_name: name,
+          caller_id: callerId,
+          provider_campaign_id: String(cid),
+          provider_list_id: firstList ? String(firstList.list_id || firstList.id) : null,
+          is_active: campaigns.length === 0 && inserted === 0,
+          raw_response: c,
+        });
+        if (!insErr) inserted++;
+      }
+      toast.success(`Imported ${inserted} new campaign(s). Found ${ls.length} list(s).`);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e?.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+
   async function loadAll() {
     const [c, d, s] = await Promise.all([
       supabase.from("leadsrain_campaigns").select("*").order("is_active", { ascending: false }),
