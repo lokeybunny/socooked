@@ -815,12 +815,19 @@ serve(async (req) => {
           const proposalSentAt = refreshedMeta?.proposal_sent_at ? new Date(refreshedMeta.proposal_sent_at).getTime() : 0;
           const callStartedAt = message.call?.startedAt ? new Date(message.call.startedAt).getTime() : (Date.now() - duration * 1000);
           const proposalSentThisCall = proposalSentAt > 0 && proposalSentAt >= callStartedAt - 60_000;
-          const customerHungUp = ["customer-ended-call", "customer-hung-up", "user-ended-call"].includes(endedReason);
+          const customerHungUp = CUSTOMER_HANGUP_REASONS.includes(endedReason as any);
           const alreadySent = refreshedMeta?.vapi_disconnected_sms_sent === true;
+          const toPhone = normalizePhone(customerLead.phone || customerPhone);
+          const shouldSend = shouldSendDisconnectedSms({
+            messageType,
+            endedReason,
+            proposalSentAtMs: proposalSentAt,
+            callStartedAtMs: callStartedAt,
+            alreadySent,
+            toPhone,
+          });
 
-          if (customerHungUp && !proposalSentThisCall && !alreadySent && (customerLead.phone || customerPhone)) {
-            const toPhone = normalizePhone(customerLead.phone || customerPhone);
-
+          if (shouldSend) {
             // Reuse same configurable body as powerdial dropped-call SMS
             const { data: settingRow } = await sb.from("app_settings")
               .select("key, value")
