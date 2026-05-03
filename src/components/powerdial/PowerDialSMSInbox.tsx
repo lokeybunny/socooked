@@ -151,8 +151,8 @@ export default function PowerDialSMSInbox() {
     const latestAnyByThread = new Map<string, SMSMessage>();
     for (const m of messages) {
       const counterpart = m.direction === 'inbound' ? m.from_address : m.to_address;
-      const key = normalizeLast10(counterpart);
-      if (!key || key.length !== 10) continue;
+      const key = threadKey(counterpart);
+      if (!key) continue;
       const curAny = latestAnyByThread.get(key);
       if (!curAny || new Date(m.created_at) > new Date(curAny.created_at)) {
         latestAnyByThread.set(key, m);
