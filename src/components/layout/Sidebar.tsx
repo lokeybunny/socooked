@@ -27,7 +27,13 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 
 const navEntries: NavEntry[] = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
+  {
+    icon: Users, label: 'Customers',
+    children: [
+      { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
+      { to: '/customers/ai-queue', icon: Sparkles, label: 'AI Queue', green: true },
+    ],
+  },
   { to: '/leads', icon: Handshake, label: 'Leads', botIcon: true },
   {
     icon: Receipt, label: 'Invoices',
