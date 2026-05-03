@@ -193,6 +193,12 @@ export default function AIQueue() {
         updates.assigned_to = who ? row.assigned_to || crypto.randomUUID() : null;
         break;
       }
+      case 'edit_address': {
+        const addr = window.prompt('Listing address (street, city, state, zip)', row.listing_address || '');
+        if (addr == null) return;
+        updates.listing_address = addr.trim() || null;
+        break;
+      }
       case 'upload':
         toast({ title: 'Upload', description: 'Hook this to your file uploader.' });
         return;
