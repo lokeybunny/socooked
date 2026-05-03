@@ -5,7 +5,9 @@ import { QueueCard, type QueueRow } from '@/components/queue/QueueCard';
 import { QueueMetrics, type Metrics } from '@/components/queue/QueueMetrics';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Sparkles } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Search, Sparkles, Send, MessageSquare, Loader2 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -28,6 +30,9 @@ export default function AIQueue() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [, setNow] = useState(0);
+  const [smsTarget, setSmsTarget] = useState<QueueRow | null>(null);
+  const [smsBody, setSmsBody] = useState('');
+  const [smsSending, setSmsSending] = useState(false);
   const navigate = useNavigate();
 
   const fetchRows = async () => {
@@ -202,15 +207,44 @@ export default function AIQueue() {
       case 'upload':
         toast({ title: 'Upload', description: 'Hook this to your file uploader.' });
         return;
-      case 'send_update':
-        toast({ title: 'Send update', description: 'SMS/email update flow ready to wire.' });
+      case 'send_update': {
+        if (!row.phone) {
+          toast({ title: 'No phone number', description: 'This customer has no phone on file.', variant: 'destructive' });
+          return;
+        }
+        const firstName = row.first_name || (row.last_name ? '' : 'there');
+        const addr = row.listing_address ? ` for ${row.listing_address}` : '';
+        setSmsBody(`Hi ${firstName} — quick update on your AI listing video${addr}. `);
+        setSmsTarget(row);
         return;
+      }
     }
 
     if (Object.keys(updates).length) {
       const { error } = await supabase.from('production_queue' as any).update(updates).eq('id', row.id);
       if (error) toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
       else toast({ title: 'Updated' });
+    }
+  };
+
+  const sendSms = async () => {
+    if (!smsTarget?.phone || !smsBody.trim()) {
+      toast({ title: 'Missing info', description: 'Phone and message are required.', variant: 'destructive' });
+      return;
+    }
+    setSmsSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('powerdial-sms', {
+        body: { action: 'send', to: smsTarget.phone, body: smsBody.trim() },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error || 'Send failed');
+      toast({ title: 'SMS sent', description: `Message delivered to ${smsTarget.phone}` });
+      setSmsTarget(null);
+      setSmsBody('');
+    } catch (e: any) {
+      toast({ title: 'SMS failed', description: e.message || 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSmsSending(false);
     }
   };
 
@@ -275,6 +309,47 @@ export default function AIQueue() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!smsTarget} onOpenChange={(open) => !open && setSmsTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-emerald-400" />
+              Send SMS Update
+            </DialogTitle>
+            <DialogDescription asChild>
+              {smsTarget ? (
+                <span className="text-foreground/80">
+                  To <span className="font-medium">{[smsTarget.first_name, smsTarget.last_name].filter(Boolean).join(' ') || 'Customer'}</span>
+                  {' · '}
+                  <span className="font-mono text-emerald-400">{smsTarget.phone}</span>
+                </span>
+              ) : <span />}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Textarea
+              value={smsBody}
+              onChange={(e) => setSmsBody(e.target.value)}
+              placeholder="Type your message…"
+              rows={6}
+              className="resize-none"
+              autoFocus
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{smsBody.length} chars · {Math.ceil(Math.max(1, smsBody.length) / 160)} segment{smsBody.length > 160 ? 's' : ''}</span>
+              {smsTarget?.listing_address && <span className="truncate max-w-[60%]">📍 {smsTarget.listing_address}</span>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSmsTarget(null)} disabled={smsSending}>Cancel</Button>
+            <Button onClick={sendSms} disabled={smsSending || !smsBody.trim()} className="bg-emerald-500 hover:bg-emerald-600 text-black">
+              {smsSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Send SMS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
