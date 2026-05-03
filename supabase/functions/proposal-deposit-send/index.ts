@@ -48,8 +48,7 @@ function buildHtml(p: any, amount: number) {
         </div>
 
         <p style="font-size: 14px; line-height: 1.6;">
-          Once the $${amount} deposit comes through, we'll reach out within 24 hours to schedule your
-          shoot date and walk you through next steps.
+          Once the $${amount} deposit comes through, we'll reach out within 24 to 72 hours with your final video.
         </p>
 
         <p style="font-size: 14px; line-height: 1.6; margin-top: 20px;">
