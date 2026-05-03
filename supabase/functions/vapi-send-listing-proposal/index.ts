@@ -278,7 +278,11 @@ Deno.serve(async (req) => {
       priorQuery = priorQuery.ilike("client_phone", `%${phoneDigits}`);
     }
     const { count: priorSignedCount } = await priorQuery;
-    const isFirstTime = (priorSignedCount || 0) === 0;
+    // Internal test override: warren@stu25.com is always treated as first-time
+    const TEST_FIRST_TIME_EMAILS = new Set(["warren@stu25.com"]);
+    const isFirstTime = TEST_FIRST_TIME_EMAILS.has((a.client_email || "").toLowerCase())
+      ? true
+      : (priorSignedCount || 0) === 0;
     console.log("[vapi-send-listing-proposal] first-time check:", { email: a.client_email, priorSignedCount, isFirstTime });
 
     const preset = buildListingPreset(a, isFirstTime);
