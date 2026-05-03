@@ -67,7 +67,16 @@ function parseArgs(payload: any): { args: Args; toolCallId: string | null } {
     try { raw = JSON.parse(raw); } catch { /* leave as string */ }
   }
 
-  const args: Args = (raw && typeof raw === "object") ? raw : {};
+  const src: any = (raw && typeof raw === "object") ? raw : {};
+  // Tolerate alternate field names Vapi/LLM may emit
+  const args: Args = {
+    client_name: src.client_name ?? src.clientName ?? src.name ?? src.full_name ?? src.customer_name,
+    client_email: src.client_email ?? src.clientEmail ?? src.email,
+    client_phone: src.client_phone ?? src.clientPhone ?? src.phone ?? src.phone_number,
+    address: src.address ?? src.property_address ?? src.listing_address ?? src.street_address ?? src.propertyAddress ?? src.listingAddress ?? src.streetAddress ?? src.property,
+    bedrooms: src.bedrooms ?? src.bedroom_count ?? src.beds ?? src.num_bedrooms,
+    notes: src.notes ?? src.note ?? src.additional_notes,
+  };
   return { args, toolCallId };
 }
 
