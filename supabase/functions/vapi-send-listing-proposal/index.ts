@@ -355,6 +355,32 @@ Deno.serve(async (req) => {
     }
 
     const signUrl = sendJson?.data?.sign_url || null;
+
+    // Mark the customer so the vapi-webhook end-of-call handler knows a proposal
+    // was sent during this call. Used to gate the "got disconnected" SMS that
+    // fires when the human hangs up on the AI mid-conversation.
+    if (customerId) {
+      try {
+        const { data: cust } = await supabase
+          .from("customers").select("meta").eq("id", customerId).maybeSingle();
+        const prevMeta = (cust?.meta && typeof cust.meta === "object" && !Array.isArray(cust.meta))
+          ? cust.meta as Record<string, unknown>
+          : {};
+        await supabase.from("customers").update({
+          meta: {
+            ...prevMeta,
+            proposal_sent_at: new Date().toISOString(),
+            proposal_sent_amount: preset.amount,
+            last_proposal_id: proposal.id,
+            // Reset any prior disconnected-sms guard so a fresh call can fire it again
+            vapi_disconnected_sms_sent: false,
+          },
+        }).eq("id", customerId);
+      } catch (markErr) {
+        console.error("[vapi-send-listing-proposal] mark customer proposal_sent_at failed:", markErr);
+      }
+    }
+
     const niceMessage =
       `Done — I just emailed the $${preset.amount} listing video proposal to ${a.client_email}. ` +
       `They'll get a branded email with a one-click signing link${signUrl ? ` (${signUrl})` : ""}.`;
