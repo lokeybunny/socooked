@@ -200,7 +200,25 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const preset = buildListingPreset(a);
+
+    // Determine if this client is first-time (no prior signed proposal under same email/phone)
+    const phoneDigits = (a.client_phone || "").replace(/\D/g, "").slice(-10);
+    let priorQuery = supabase
+      .from("proposals")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "signed");
+    if (a.client_email && phoneDigits) {
+      priorQuery = priorQuery.or(`client_email.eq.${a.client_email},client_phone.ilike.%${phoneDigits}`);
+    } else if (a.client_email) {
+      priorQuery = priorQuery.eq("client_email", a.client_email);
+    } else if (phoneDigits) {
+      priorQuery = priorQuery.ilike("client_phone", `%${phoneDigits}`);
+    }
+    const { count: priorSignedCount } = await priorQuery;
+    const isFirstTime = (priorSignedCount || 0) === 0;
+    console.log("[vapi-send-listing-proposal] first-time check:", { email: a.client_email, priorSignedCount, isFirstTime });
+
+    const preset = buildListingPreset(a, isFirstTime);
 
     // Try to attach to an existing customer (match by email)
     let customerId: string | null = null;
