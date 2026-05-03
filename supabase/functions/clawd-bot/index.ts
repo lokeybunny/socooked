@@ -3944,8 +3944,18 @@ IMPORTANT:
       })
 
       // Fire VoidFix SMS heads-up to client (best-effort, non-blocking failure)
+      // Fall back to the linked customer's phone if proposal didn't capture one
+      let smsPhone: string | null = p.client_phone || null
+      if (!smsPhone && customerId) {
+        const { data: cust } = await supabase.from('customers').select('phone').eq('id', customerId).maybeSingle()
+        if (cust?.phone) {
+          smsPhone = cust.phone
+          // Backfill the proposal so future flows have it
+          await supabase.from('proposals').update({ client_phone: smsPhone }).eq('id', id)
+        }
+      }
       let smsSent = false
-      if (p.client_phone) {
+      if (smsPhone) {
         try {
           const firstName = String(p.client_name || '').trim().split(/\s+/)[0] || 'there'
           const smsBody = isFirstTime
@@ -3960,7 +3970,7 @@ IMPORTANT:
               'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
             },
             body: JSON.stringify({
-              to: p.client_phone,
+              to: smsPhone,
               body: smsBody,
               source: 'proposal-sent-notify',
               customer_id: customerId,

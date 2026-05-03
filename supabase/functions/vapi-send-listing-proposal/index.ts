@@ -40,6 +40,21 @@ type Args = {
   notes?: string;
 };
 
+function extractCallerPhone(payload: any): string | null {
+  const candidates = [
+    payload?.message?.call?.customer?.number,
+    payload?.message?.customer?.number,
+    payload?.call?.customer?.number,
+    payload?.customer?.number,
+    payload?.message?.call?.from,
+    payload?.call?.from,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.replace(/\D/g, "").length >= 10) return c;
+  }
+  return null;
+}
+
 function parseArgs(payload: any): { args: Args; toolCallId: string | null } {
   let toolCallId: string | null = null;
   let raw: any = payload;
@@ -187,6 +202,15 @@ Deno.serve(async (req) => {
       const got = req.headers.get("x-vapi-secret") || req.headers.get("authorization") || "";
       if (!got.includes(expectedSecret)) {
         return vapiResponse(toolCallId, "Unauthorized: missing or invalid Vapi tool secret.");
+      }
+    }
+
+    // Fall back to the Vapi caller's phone number when the LLM didn't pass one in args
+    if (!a.client_phone) {
+      const callerPhone = extractCallerPhone(payload);
+      if (callerPhone) {
+        a.client_phone = callerPhone;
+        console.log("[vapi-send-listing-proposal] using caller phone fallback:", callerPhone);
       }
     }
 
