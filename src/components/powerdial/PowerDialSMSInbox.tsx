@@ -253,13 +253,13 @@ export default function PowerDialSMSInbox() {
     loadContacts();
   }, [loadContacts]);
 
-  // Group messages by counterpart phone (last 10 digits)
+  // Group messages by counterpart phone (last 10 digits, or shortcode digits)
   const threads = useMemo(() => {
     const map = new Map<string, { phone: string; messages: SMSMessage[]; last: SMSMessage; unreadInbound: number }>();
     for (const m of messages) {
       const counterpart = m.direction === 'inbound' ? m.from_address : m.to_address;
-      const key = normalizeLast10(counterpart);
-      if (!key || key.length !== 10) continue;
+      const key = threadKey(counterpart);
+      if (!key) continue;
       const entry = map.get(key);
       if (!entry) {
         map.set(key, { phone: counterpart || key, messages: [m], last: m, unreadInbound: m.direction === 'inbound' ? 1 : 0 });
