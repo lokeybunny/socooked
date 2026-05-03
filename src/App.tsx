@@ -83,6 +83,7 @@ const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposa
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
 const Poly = lazyWithRetry(() => import("./pages/Poly"), "page-poly");
 const AIFilms = lazyWithRetry(() => import("./pages/AIFilms"), "page-ai-films");
+const AIQueue = lazyWithRetry(() => import("./pages/AIQueue"), "page-ai-queue");
 const Zillow = lazyWithRetry(() => import("./pages/Zillow"), "page-zillow");
 
 const queryClient = new QueryClient({
@@ -126,6 +127,7 @@ const App = () => (
                 <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/dash" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
+                <Route path="/customers/ai-queue" element={<RestrictedGate><AIQueue /></RestrictedGate>} />
                 <Route path="/leads" element={<RestrictedGate><Leads /></RestrictedGate>} />
                 <Route path="/tasks" element={<RestrictedGate><Tasks /></RestrictedGate>} />
                 <Route path="/content" element={<RestrictedGate><Content /></RestrictedGate>} />
