@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
             Authorization: `Bearer ${ANON_KEY}`,
             apikey: ANON_KEY,
           },
-          body: JSON.stringify({ to: p.client_phone, body: smsBody, source: "proposal-signed-thankyou" }),
+          body: JSON.stringify({ action: "send", to: p.client_phone, body: smsBody, source: "proposal-signed-thankyou" }),
         });
         if (smsRes.ok) thankYouSmsSentAt = new Date().toISOString();
       } catch (e) {
