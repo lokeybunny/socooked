@@ -462,7 +462,7 @@ serve(async (req) => {
     }
 
     if (action === "send") {
-      const { to, subject, body, attachments, threadId } = await req.json();
+      const { to, subject, body, attachments, threadId, skipDuplicateCheck } = await req.json();
       if (!to || !subject) throw new Error("to and subject required");
 
       const invoiceEmail = isInvoiceEmail(subject || "", body || "");
@@ -481,12 +481,17 @@ serve(async (req) => {
       }
 
       // ─── Anti-spam: block duplicate emails to same recipient within 60 seconds ───
+      // Trusted backend automations can bypass this when they intentionally send a
+      // follow-up email immediately after a proposal is signed.
       const recipientLower = to.toLowerCase().trim();
       const spamWindowAgo = new Date(Date.now() - 60 * 1000).toISOString();
+      const authHeader = req.headers.get("Authorization") || "";
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      const trustedDuplicateBypass = !!skipDuplicateCheck && !!serviceKey && authHeader === `Bearer ${serviceKey}`;
 
       const saJson2 = Deno.env.get("SUPABASE_URL");
       const saKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (saJson2 && saKey) {
+      if (saJson2 && saKey && !trustedDuplicateBypass) {
         const checkUrl = `${saJson2}/rest/v1/communications?to_address=eq.${encodeURIComponent(recipientLower)}&type=eq.email&direction=eq.outbound&created_at=gte.${encodeURIComponent(spamWindowAgo)}&select=id,subject&limit=1`;
         const checkRes = await fetch(checkUrl, {
           headers: {

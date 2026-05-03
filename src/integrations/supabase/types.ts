@@ -6973,6 +6973,10 @@ export type Database = {
       }
       poly_is_admin: { Args: { _user_id: string }; Returns: boolean }
       poly_is_member: { Args: { _user_id: string }; Returns: boolean }
+      track_proposal_deposit_open: {
+        Args: { _proposal_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "staff"
