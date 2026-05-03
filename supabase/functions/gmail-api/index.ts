@@ -209,8 +209,9 @@ function appendSignature(html: string): string {
 const INVOICE_KEYWORDS = [/\binvoice\b/i, /\binv[-\s]?\d{2,}\b/i];
 
 function isInvoiceEmail(subject: string, body: string): boolean {
-  const combined = `${subject}\n${body}`;
-  return INVOICE_KEYWORDS.some((pattern) => pattern.test(combined));
+  // Only inspect the subject — proposals/contracts legitimately mention the
+  // word "invoice" in their terms body without actually being invoices.
+  return INVOICE_KEYWORDS.some((pattern) => pattern.test(subject || ""));
 }
 
 function hasPdfAttachment(
