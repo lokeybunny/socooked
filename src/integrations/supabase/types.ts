@@ -4565,6 +4565,111 @@ export type Database = {
           },
         ]
       }
+      production_queue: {
+        Row: {
+          agreement_document_id: string | null
+          assets_uploaded: boolean
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string
+          customer_id: string | null
+          deadline_at: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          invoice_id: string | null
+          last_name: string | null
+          listing_address: string | null
+          listing_photos_status: string | null
+          meta: Json
+          notes: string | null
+          paused_at: string | null
+          payment_approved_at: string | null
+          phone: string | null
+          production_started_at: string | null
+          proposal_id: string | null
+          proposal_viewed_at: string | null
+          signed_at: string | null
+          signed_ip: string | null
+          status: string
+          total_paused_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          agreement_document_id?: string | null
+          assets_uploaded?: boolean
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          deadline_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          invoice_id?: string | null
+          last_name?: string | null
+          listing_address?: string | null
+          listing_photos_status?: string | null
+          meta?: Json
+          notes?: string | null
+          paused_at?: string | null
+          payment_approved_at?: string | null
+          phone?: string | null
+          production_started_at?: string | null
+          proposal_id?: string | null
+          proposal_viewed_at?: string | null
+          signed_at?: string | null
+          signed_ip?: string | null
+          status?: string
+          total_paused_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          agreement_document_id?: string | null
+          assets_uploaded?: boolean
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          deadline_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          invoice_id?: string | null
+          last_name?: string | null
+          listing_address?: string | null
+          listing_photos_status?: string | null
+          meta?: Json
+          notes?: string | null
+          paused_at?: string | null
+          payment_approved_at?: string | null
+          phone?: string | null
+          production_started_at?: string | null
+          proposal_id?: string | null
+          proposal_viewed_at?: string | null
+          signed_at?: string | null
+          signed_ip?: string | null
+          status?: string
+          total_paused_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_queue_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_queue_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: true
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -6973,6 +7078,7 @@ export type Database = {
       }
       poly_is_admin: { Args: { _user_id: string }; Returns: boolean }
       poly_is_member: { Args: { _user_id: string }; Returns: boolean }
+      production_queue_mark_overdue: { Args: never; Returns: undefined }
       track_proposal_deposit_open: {
         Args: { _proposal_id: string }
         Returns: undefined
