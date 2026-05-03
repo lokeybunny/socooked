@@ -11,8 +11,11 @@ const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
 // which IS reachable from cloud egress — use that for the calls we actually
 // make from edge functions. RVM management endpoints (campaign/list view) are
 // only on s2 and aren't reachable from here; that's fine, we only need postLead.
+// If LEADSRAIN_PROXY_URL is set (Cloudflare Worker), route HTTP-only s2 endpoints
+// through it so they're reachable from Supabase edge egress over HTTPS.
+const PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
 const BASE_API = "https://api.leadsrain.com";
-const BASE_S2 = "http://s2.leadsrain.com";
+const BASE_S2 = PROXY_URL || "http://s2.leadsrain.com";
 
 export const ENDPOINTS = {
   campaignAdd: `${BASE_S2}/rvm/api/campaign/add_api`,

@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const LR_USER = Deno.env.get("LEADSRAIN_USERNAME") || "";
 const LR_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
-const LR_BASE = Deno.env.get("LEADSRAIN_BASE_URL") || "http://s2.leadsrain.com";
+const LR_BASE = (Deno.env.get("LEADSRAIN_PROXY_URL") || Deno.env.get("LEADSRAIN_BASE_URL") || "http://s2.leadsrain.com").replace(/\/+$/, "");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
