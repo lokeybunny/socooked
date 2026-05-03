@@ -2449,6 +2449,7 @@ export type Database = {
           enable_transfer: boolean
           enable_voidfix_followup: boolean
           id: string
+          proxy_url: string | null
           singleton: boolean
           transfer_number: string | null
           updated_at: string
@@ -2461,6 +2462,7 @@ export type Database = {
           enable_transfer?: boolean
           enable_voidfix_followup?: boolean
           id?: string
+          proxy_url?: string | null
           singleton?: boolean
           transfer_number?: string | null
           updated_at?: string
@@ -2473,6 +2475,7 @@ export type Database = {
           enable_transfer?: boolean
           enable_voidfix_followup?: boolean
           id?: string
+          proxy_url?: string | null
           singleton?: boolean
           transfer_number?: string | null
           updated_at?: string
