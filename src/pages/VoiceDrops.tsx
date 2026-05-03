@@ -22,6 +22,8 @@ export default function VoiceDrops() {
   const [drops, setDrops] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
   const [testOpen, setTestOpen] = useState(false);
+  const [egressIps, setEgressIps] = useState<string[] | null>(null);
+  const [loadingIp, setLoadingIp] = useState(false);
 
   // Settings form state
   const [followup, setFollowup] = useState(true);
@@ -63,6 +65,22 @@ export default function VoiceDrops() {
       r.success ? toast.success(r.message) : toast.error(r.message);
     } catch (e: any) { toast.error(e?.message); }
     finally { setTesting(false); }
+  }
+
+  async function fetchEgressIp() {
+    setLoadingIp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("leadsrain-egress-ip");
+      if (error) throw error;
+      setEgressIps(data?.ips || []);
+      if (data?.primary_ip) {
+        await navigator.clipboard.writeText(data.primary_ip).catch(() => {});
+        toast.success(`Egress IP: ${data.primary_ip} (copied)`);
+      } else {
+        toast.error("Could not detect egress IP");
+      }
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+    finally { setLoadingIp(false); }
   }
 
   useEffect(() => { loadAll(); testConn(); /* eslint-disable-next-line */ }, []);
@@ -217,6 +235,30 @@ export default function VoiceDrops() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-3">
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Egress IP for LeadsRain Whitelist</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p className="text-xs text-muted-foreground">
+                LeadsRain requires IP whitelisting. Click below to detect the current outbound IP this backend uses,
+                then paste it into LeadsRain as a <strong>Temporary ID</strong> (one-time) or <strong>Permanent ID</strong>.
+                Note: serverless IPs can rotate — you may need to re-check or whitelist a range.
+              </p>
+              <Button size="sm" onClick={fetchEgressIp} disabled={loadingIp}>
+                {loadingIp ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                Detect Egress IP
+              </Button>
+              {egressIps && egressIps.length > 0 && (
+                <div className="rounded border border-border p-3 space-y-1">
+                  {egressIps.map((ip) => (
+                    <div key={ip} className="flex items-center justify-between font-mono text-xs">
+                      <span>{ip}</span>
+                      <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(ip); toast.success("Copied"); }}>Copy</Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader><CardTitle className="text-sm">LeadsRain Integration Settings</CardTitle></CardHeader>
             <CardContent className="space-y-4">
