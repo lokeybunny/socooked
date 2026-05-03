@@ -219,11 +219,14 @@ Deno.serve(async (req) => {
 
     // Hand off to existing clawd-bot proposal-send flow (creates signing doc + emails)
     const sendUrl = `${SUPABASE_URL}/functions/v1/clawd-bot/proposal-send`;
+    const BOT_SECRET = Deno.env.get("BOT_SECRET") || "";
     const sendRes = await fetch(sendUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${ANON_KEY}`,
+        "x-bot-secret": BOT_SECRET,
+        apikey: ANON_KEY,
       },
       body: JSON.stringify({ id: proposal.id }),
     });
