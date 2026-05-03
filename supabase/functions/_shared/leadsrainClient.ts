@@ -5,7 +5,7 @@
 const USERNAME = Deno.env.get("LEADSRAIN_USERNAME") || "";
 const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
 
-const BASE = "https://s2.leadsrain.com";
+const BASE = "http://s2.leadsrain.com";
 
 export const ENDPOINTS = {
   campaignAdd: `${BASE}/rvm/api/campaign/add_api`,
@@ -40,6 +40,7 @@ async function call(url: string, body: Record<string, any>): Promise<LRResult> {
       method: "POST",
       headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(12000),
     });
     const text = await resp.text();
     let json: any = null;
