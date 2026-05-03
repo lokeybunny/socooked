@@ -129,6 +129,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Send thank-you SMS via VoidFix (idempotent)
+    let thankYouSmsSentAt: string | null = meta.thank_you_sms_sent_at || null;
+    if (p.client_phone && !meta.thank_you_sms_sent_at) {
+      try {
+        const firstName = (p.client_name || "").split(" ")[0] || "there";
+        const smsBody = `Hi ${firstName}, this is Warren — thank you for signing! We're starting work on your project right away and you'll have an update within 24–72 hours. Reply here anytime with questions.`;
+        const smsUrl = `${SUPABASE_URL}/functions/v1/powerdial-sms?action=send`;
+        const smsRes = await fetch(smsUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ANON_KEY}`,
+            apikey: ANON_KEY,
+          },
+          body: JSON.stringify({ to: p.client_phone, body: smsBody, source: "proposal-signed-thankyou" }),
+        });
+        if (smsRes.ok) thankYouSmsSentAt = new Date().toISOString();
+      } catch (e) {
+        console.error("thank-you SMS failed:", e);
+      }
+    }
+
     // Stamp meta so we don't double-send
     await supabase
       .from("proposals")
@@ -139,6 +161,7 @@ Deno.serve(async (req) => {
           deposit_email_amount: amount,
           deposit_email_message_id: sendJson.id || null,
           deposit_email_auto: !!body?.record,
+          thank_you_sms_sent_at: thankYouSmsSentAt,
         },
       })
       .eq("id", proposalId);
