@@ -203,7 +203,12 @@ ${a.notes ? `Additional notes:\n${a.notes}\n\n` : ""}By signing below, the clien
     proposal_body: proposalBody,
     expiration_date: exp.toISOString().slice(0, 10),
     signature_required: true,
-    meta: { is_first_time: isFirstTime },
+    meta: {
+      is_first_time: isFirstTime,
+      listing_address: a.address || null,
+      property_address: a.address || null,
+      bedrooms: bedroomsNum || null,
+    },
   };
 }
 
