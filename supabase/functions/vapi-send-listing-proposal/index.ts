@@ -40,6 +40,21 @@ type Args = {
   notes?: string;
 };
 
+function extractCallerPhone(payload: any): string | null {
+  const candidates = [
+    payload?.message?.call?.customer?.number,
+    payload?.message?.customer?.number,
+    payload?.call?.customer?.number,
+    payload?.customer?.number,
+    payload?.message?.call?.from,
+    payload?.call?.from,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.replace(/\D/g, "").length >= 10) return c;
+  }
+  return null;
+}
+
 function parseArgs(payload: any): { args: Args; toolCallId: string | null } {
   let toolCallId: string | null = null;
   let raw: any = payload;
