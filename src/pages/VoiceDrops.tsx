@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Voicemail, RefreshCw, Plus, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Voicemail, RefreshCw, Plus, Trash2, CheckCircle2, XCircle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lrTestConnection, lrRefreshStatus, type LRTestResult } from "@/lib/leadsrain";
