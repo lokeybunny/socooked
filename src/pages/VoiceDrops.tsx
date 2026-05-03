@@ -67,6 +67,22 @@ export default function VoiceDrops() {
     finally { setTesting(false); }
   }
 
+  async function fetchEgressIp() {
+    setLoadingIp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("leadsrain-egress-ip");
+      if (error) throw error;
+      setEgressIps(data?.ips || []);
+      if (data?.primary_ip) {
+        await navigator.clipboard.writeText(data.primary_ip).catch(() => {});
+        toast.success(`Egress IP: ${data.primary_ip} (copied)`);
+      } else {
+        toast.error("Could not detect egress IP");
+      }
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+    finally { setLoadingIp(false); }
+  }
+
   useEffect(() => { loadAll(); testConn(); /* eslint-disable-next-line */ }, []);
 
   async function saveSettings() {
