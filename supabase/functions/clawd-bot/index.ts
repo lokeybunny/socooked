@@ -3921,7 +3921,37 @@ IMPORTANT:
         provider: 'proposal', metadata: { proposal_id: id, document_id: doc.id },
       })
 
-      return ok({ proposal_id: id, document_id: doc.id, sign_url: signUrl, sent: true })
+      // Fire VoidFix SMS heads-up to client (best-effort, non-blocking failure)
+      let smsSent = false
+      if (p.client_phone) {
+        try {
+          const firstName = String(p.client_name || '').trim().split(/\s+/)[0] || 'there'
+          const smsBody = `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFirst-time customer special: 50% down to start, and the final invoice is waived (no balance after delivery). Reply with any questions!`
+          const smsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/powerdial-sms?action=send`
+          const sr = await fetch(smsUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
+            },
+            body: JSON.stringify({
+              to: p.client_phone,
+              body: smsBody,
+              source: 'proposal-sent-notify',
+              customer_id: customerId,
+              metadata: { proposal_id: id, document_id: doc.id, source: 'proposal-sent-notify' },
+            }),
+          })
+          const sj = await sr.json().catch(() => ({}))
+          smsSent = !!sj?.ok
+          if (!smsSent) console.error('[proposal-send] voidfix sms failed:', sj)
+        } catch (e) {
+          console.error('[proposal-send] voidfix sms error:', e instanceof Error ? e.message : String(e))
+        }
+      }
+
+      return ok({ proposal_id: id, document_id: doc.id, sign_url: signUrl, sent: true, sms_sent: smsSent })
     }
 
     // DELETE /proposal?id=...
