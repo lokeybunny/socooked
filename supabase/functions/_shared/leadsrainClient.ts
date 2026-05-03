@@ -15,16 +15,26 @@ const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
 // through it so they're reachable from Supabase edge egress over HTTPS.
 const PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
 const BASE_API = "https://api.leadsrain.com";
-const BASE_S2 = PROXY_URL || "http://s2.leadsrain.com";
+
+// Try direct HTTPS first, then HTTP, then proxy fallback.
+// Each S2 endpoint is expressed as an array of candidate URLs to try in order.
+function s2Candidates(path: string): string[] {
+  const urls: string[] = [
+    `https://s2.leadsrain.com${path}`,
+    `http://s2.leadsrain.com${path}`,
+  ];
+  if (PROXY_URL) urls.push(`${PROXY_URL}${path}`);
+  return urls;
+}
 
 export const ENDPOINTS = {
-  campaignAdd: `${BASE_S2}/rvm/api/campaign/add_api`,
-  campaignView: `${BASE_S2}/rvm/api/campaign/view_api`,
-  campaignDelete: `${BASE_S2}/rvm/api/campaign/delete_api`,
-  listAdd: `${BASE_S2}/rvm/api/leadlist/add_api`,
-  listView: `${BASE_S2}/rvm/api/leadlist/view_api`,
-  listDelete: `${BASE_S2}/rvm/api/leadlist/delete_api`,
-  postLead: `${BASE_API}/ringless/api/add_posted_lead.php`,
+  campaignAdd: s2Candidates("/rvm/api/campaign/add_api"),
+  campaignView: s2Candidates("/rvm/api/campaign/view_api"),
+  campaignDelete: s2Candidates("/rvm/api/campaign/delete_api"),
+  listAdd: s2Candidates("/rvm/api/leadlist/add_api"),
+  listView: s2Candidates("/rvm/api/leadlist/view_api"),
+  listDelete: s2Candidates("/rvm/api/leadlist/delete_api"),
+  postLead: [`${BASE_API}/ringless/api/add_posted_lead.php`],
 };
 
 export type LRResult<T = any> = {
