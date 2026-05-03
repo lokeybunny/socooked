@@ -116,9 +116,9 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${ANON_KEY}`,
+        Authorization: `Bearer ${SERVICE_KEY}`,
       },
-      body: JSON.stringify({ to: p.client_email, subject, body: html }),
+      body: JSON.stringify({ to: p.client_email, subject, body: html, skipDuplicateCheck: true }),
     });
     const sendJson = await sendRes.json().catch(() => ({}));
     if (!sendRes.ok || !sendJson.success) {
@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     }
 
     // Stamp meta so we don't double-send
-    await supabase
+    const { error: updateError } = await supabase
       .from("proposals")
       .update({
         meta: {
@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
         },
       })
       .eq("id", proposalId);
+    if (updateError) console.error("proposal meta stamp failed:", updateError.message);
 
     return new Response(
       JSON.stringify({ success: true, message_id: sendJson.id }),
