@@ -40,7 +40,7 @@ async function call(url: string, body: Record<string, any>): Promise<LRResult> {
       method: "POST",
       headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(45000),
     });
     const text = await resp.text();
     let json: any = null;
