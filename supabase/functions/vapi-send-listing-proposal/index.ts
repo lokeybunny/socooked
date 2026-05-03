@@ -238,10 +238,27 @@ Deno.serve(async (req) => {
 
     console.log("[vapi-send-listing-proposal] parsed args:", JSON.stringify(a));
 
+    // Last-resort: scrape address from the call transcript if the LLM forgot to pass it
+    if (!a.address) {
+      const scraped = extractAddressFromTranscript(payload);
+      if (scraped) {
+        a.address = scraped;
+        console.log("[vapi-send-listing-proposal] using transcript address fallback:", scraped);
+      }
+    }
+
     if (!a.client_email || !a.client_name) {
       return vapiResponse(
         toolCallId,
         "I need both the client's full name and email address before I can send the listing proposal.",
+      );
+    }
+
+    // Hard-require the listing address — refuse to send a proposal that says "Property: N/A"
+    if (!a.address || String(a.address).trim().length < 5) {
+      return vapiResponse(
+        toolCallId,
+        "Before I can send this proposal I need the full property address (street, city, state). Please confirm the listing address with the customer and call this tool again with the address field included.",
       );
     }
 
