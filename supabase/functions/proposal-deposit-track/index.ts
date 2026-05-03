@@ -23,33 +23,14 @@ serve(async (req) => {
       const sbUrl = Deno.env.get("SUPABASE_URL");
       const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (sbUrl && sbKey) {
-        // Fetch existing meta to merge
-        const getRes = await fetch(
-          `${sbUrl}/rest/v1/proposals?id=eq.${id}&select=meta`,
-          { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } },
-        );
-        let meta: Record<string, unknown> = {};
-        if (getRes.ok) {
-          const rows = await getRes.json();
-          if (rows?.[0]?.meta && typeof rows[0].meta === "object") meta = rows[0].meta;
-        }
-        const now = new Date().toISOString();
-        const opens = Number((meta as any).deposit_email_opens || 0) + 1;
-        const newMeta = {
-          ...meta,
-          deposit_email_opened_at: (meta as any).deposit_email_opened_at || now,
-          deposit_email_last_opened_at: now,
-          deposit_email_opens: opens,
-        };
-        await fetch(`${sbUrl}/rest/v1/proposals?id=eq.${id}`, {
-          method: "PATCH",
+        await fetch(`${sbUrl}/rest/v1/rpc/track_proposal_deposit_open`, {
+          method: "POST",
           headers: {
             apikey: sbKey,
             Authorization: `Bearer ${sbKey}`,
             "Content-Type": "application/json",
-            Prefer: "return=minimal",
           },
-          body: JSON.stringify({ meta: newMeta }),
+          body: JSON.stringify({ _proposal_id: id }),
         });
       }
     }
