@@ -220,12 +220,12 @@ Deno.serve(async (req) => {
       rawPayload,
     });
 
-    // Acknowledge XML — empty when answered, redirect to voicemail when missed
+    // Acknowledge XML — empty when answered, forward to Vapi AI agent when missed
     const ackXml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
-    const voicemailUrl = `${SUPABASE_URL}/functions/v1/twilio-voicemail`;
-    const voicemailXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Redirect method="POST">${voicemailUrl}</Redirect></Response>`;
+    const VAPI_FORWARD_NUMBER = "+17474949386"; // Vapi AI agent (29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38)
+    const vapiXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial answerOnBridge="true" timeout="30">${VAPI_FORWARD_NUMBER}</Dial></Response>`;
     const ackResp = new Response(ackXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
-    const voicemailResp = () => new Response(voicemailXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
+    const voicemailResp = () => new Response(vapiXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
 
     if (!isMissed || !from) {
       await auditDialComplete({

@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather numDigits="1" timeout="8" action="${escapeXml(gatherActionUrl)}" method="POST">
+  <Gather numDigits="1" timeout="7" action="${escapeXml(gatherActionUrl)}" method="POST">
     <Say voice="alice" loop="2">${announce} Press 1 to accept.</Say>
   </Gather>
   <Hangup/>
