@@ -98,6 +98,7 @@ export function QueueCard({ row, onAction }: Props) {
               totalPausedSeconds={row.total_paused_seconds}
             />
           )}
+        </div>
 
         {/* Listing */}
         <button
