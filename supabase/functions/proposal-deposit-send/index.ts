@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const amount = 150;
+    const amount = 199.50;
     const subject = `Deposit to start your video — $${amount}`;
     const html = buildHtml(p, amount);
 
