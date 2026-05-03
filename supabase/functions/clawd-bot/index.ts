@@ -3963,7 +3963,7 @@ INVESTMENT
 Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}
 
 TERMS
-${p.terms || 'Standard terms apply. 50% deposit due upon signature, balance on completion.'}
+${p.terms || 'First-time customer special: 50% deposit due upon signature. Final invoice is waived as part of the first-time customer offer — no balance due after delivery.'}
 
 ACCEPTANCE
 By signing below, the client accepts the scope, pricing, and terms outlined above.`
