@@ -232,6 +232,7 @@ export function SmsThreadPopup({
       </Dialog>
       {/* Rendered OUTSIDE the Dialog so Radix's pointer-events lock doesn't block dragging */}
       <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={phone} />
+      <SendVoiceDropModal open={vdOpen} onOpenChange={setVdOpen} defaultPhone={phone} contactName={contactName} />
     </>
   );
 }
