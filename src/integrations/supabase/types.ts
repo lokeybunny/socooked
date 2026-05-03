@@ -2727,6 +2727,168 @@ export type Database = {
           },
         ]
       }
+      lr_campaign_snapshots: {
+        Row: {
+          campaign_id: string
+          delivered_count: number
+          failed_count: number
+          id: string
+          processed_count: number
+          remaining_count: number
+          snapshot_at: string
+          status: string | null
+        }
+        Insert: {
+          campaign_id: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          processed_count?: number
+          remaining_count?: number
+          snapshot_at?: string
+          status?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          delivered_count?: number
+          failed_count?: number
+          id?: string
+          processed_count?: number
+          remaining_count?: number
+          snapshot_at?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      lr_campaigns: {
+        Row: {
+          caller_id: string | null
+          campaign_id: string
+          campaign_name: string | null
+          completion_percentage: number
+          created_at: string
+          delivered_leads: number
+          estimated_completion_at: string | null
+          failed_leads: number
+          id: string
+          last_synced_at: string | null
+          list_id: string | null
+          processed_leads: number
+          raw: Json
+          remaining_leads: number
+          started_at: string | null
+          status: string | null
+          total_leads: number
+          updated_at: string
+        }
+        Insert: {
+          caller_id?: string | null
+          campaign_id: string
+          campaign_name?: string | null
+          completion_percentage?: number
+          created_at?: string
+          delivered_leads?: number
+          estimated_completion_at?: string | null
+          failed_leads?: number
+          id?: string
+          last_synced_at?: string | null
+          list_id?: string | null
+          processed_leads?: number
+          raw?: Json
+          remaining_leads?: number
+          started_at?: string | null
+          status?: string | null
+          total_leads?: number
+          updated_at?: string
+        }
+        Update: {
+          caller_id?: string | null
+          campaign_id?: string
+          campaign_name?: string | null
+          completion_percentage?: number
+          created_at?: string
+          delivered_leads?: number
+          estimated_completion_at?: string | null
+          failed_leads?: number
+          id?: string
+          last_synced_at?: string | null
+          list_id?: string | null
+          processed_leads?: number
+          raw?: Json
+          remaining_leads?: number
+          started_at?: string | null
+          status?: string | null
+          total_leads?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lr_sync_config: {
+        Row: {
+          enabled: boolean
+          id: number
+          interval_minutes: number
+          last_run_at: string | null
+          next_run_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: number
+          interval_minutes?: number
+          last_run_at?: string | null
+          next_run_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: number
+          interval_minutes?: number
+          last_run_at?: string | null
+          next_run_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lr_sync_logs: {
+        Row: {
+          campaigns_changed: number
+          campaigns_seen: number
+          duration_ms: number | null
+          error: string | null
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          meta: Json
+          started_at: string
+          status: string
+        }
+        Insert: {
+          campaigns_changed?: number
+          campaigns_seen?: number
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          http_status?: number | null
+          id?: string
+          meta?: Json
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          campaigns_changed?: number
+          campaigns_seen?: number
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          http_status?: number | null
+          id?: string
+          meta?: Json
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       lw_buyer_config: {
         Row: {
           id: string
