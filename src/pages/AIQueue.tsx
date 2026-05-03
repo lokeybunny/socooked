@@ -309,6 +309,47 @@ export default function AIQueue() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!smsTarget} onOpenChange={(open) => !open && setSmsTarget(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-emerald-400" />
+              Send SMS Update
+            </DialogTitle>
+            <DialogDescription asChild>
+              {smsTarget ? (
+                <span className="text-foreground/80">
+                  To <span className="font-medium">{[smsTarget.first_name, smsTarget.last_name].filter(Boolean).join(' ') || 'Customer'}</span>
+                  {' · '}
+                  <span className="font-mono text-emerald-400">{smsTarget.phone}</span>
+                </span>
+              ) : <span />}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Textarea
+              value={smsBody}
+              onChange={(e) => setSmsBody(e.target.value)}
+              placeholder="Type your message…"
+              rows={6}
+              className="resize-none"
+              autoFocus
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{smsBody.length} chars · {Math.ceil(Math.max(1, smsBody.length) / 160)} segment{smsBody.length > 160 ? 's' : ''}</span>
+              {smsTarget?.listing_address && <span className="truncate max-w-[60%]">📍 {smsTarget.listing_address}</span>}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSmsTarget(null)} disabled={smsSending}>Cancel</Button>
+            <Button onClick={sendSms} disabled={smsSending || !smsBody.trim()} className="bg-emerald-500 hover:bg-emerald-600 text-black">
+              {smsSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Send SMS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
