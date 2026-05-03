@@ -785,7 +785,7 @@ serve(async (req) => {
           const customerHungUp = ["customer-ended-call", "customer-hung-up", "user-ended-call"].includes(endedReason);
           const alreadySent = refreshedMeta?.vapi_disconnected_sms_sent === true;
 
-          if (customerHungUp && proposalSentThisCall && !alreadySent && (customerLead.phone || customerPhone)) {
+          if (customerHungUp && !proposalSentThisCall && !alreadySent && (customerLead.phone || customerPhone)) {
             const toPhone = normalizePhone(customerLead.phone || customerPhone);
 
             // Reuse same configurable body as powerdial dropped-call SMS
