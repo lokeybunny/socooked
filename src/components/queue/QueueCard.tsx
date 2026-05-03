@@ -86,12 +86,18 @@ export function QueueCard({ row, onAction }: Props) {
               )}
             </div>
           </div>
-          <CountdownTimer
-            deadlineAt={row.deadline_at}
-            pausedAt={row.paused_at}
-            totalPausedSeconds={row.total_paused_seconds}
-          />
-        </div>
+          {row.status === 'completed' || row.status === 'delivered' ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-mono rounded-md border px-2 py-1 text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              COMPLETED
+            </span>
+          ) : (
+            <CountdownTimer
+              deadlineAt={row.deadline_at}
+              pausedAt={row.paused_at}
+              totalPausedSeconds={row.total_paused_seconds}
+            />
+          )}
 
         {/* Listing */}
         <button
