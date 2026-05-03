@@ -1,115 +1,98 @@
-## Overview
+# Voice Drops Page — Full Rebuild Plan
 
-Replace Drop.co VMDrop with **LeadsRain RVM** (campaign-based ringless voicemail), keep VoidFix as the SMS layer, and wire `LeadsRain "lead accepted" → VoidFix SMS follow-up`. All API calls server-side; secrets `LEADSRAIN_API_KEY` + `LEADSRAIN_USERNAME` already saved.
+## Goal
+Replace the current `/voice-drops` page (and old Drop.co/Slybroadcast remnants) with a CRM-style **campaign performance dashboard** that orchestrates: LeadsRain RVM → Business Line 1 → Twilio callbacks → VoidFix missed-call SMS.
 
-> **Important reality check:** LeadsRain RVM has no "send-one-drop-now" endpoint and no public per-drop status/webhook. Their model is: pre-build a campaign + audio + caller ID in their dashboard, then post leads into a list. CRM stores the campaign ID and posts leads on click. Per-drop "delivered" data is best-effort (View Campaign reporting only). Webhook function is built but only fires if your LeadsRain plan ever pushes one. Per your decision, **VoidFix SMS fires on successful lead post** (not on confirmed VM delivery), since confirmed delivery isn't reliably available.
+---
 
 ## 1. Database (single migration)
 
-**`leadsrain_campaigns`** — saved references to pre-built LeadsRain campaigns
-- `campaign_name`, `caller_id`, `audio_url` (display only), `transfer_number`, `is_active` (one default), `provider_campaign_id`, `provider_list_id`, `raw_response`, `meta jsonb`
+**New tables (will request approval before code changes):**
 
-**`leadsrain_settings`** (singleton row) — global config
-- `default_campaign_id` (FK), `default_caller_id`, `enable_voidfix_followup` (bool, default true), `voidfix_template` (text, default `"Hey, this is Warren — just left you a quick voicemail."`), `enable_transfer` (bool), `transfer_number`
+- `voice_drop_campaigns` — provider, campaign_name, leadsrain_campaign_id, leadsrain_list_id, campaign_cid, business_line_1, twilio_number, verizon_forward_number, sound_file_url, status, totals (leads/drops/delivered/callbacks/missed/answered/sms), conversion_rate, active_start_at, active_end_at, last_synced_at, notes, user_id, timestamps.
+- `voice_drop_leads` — campaign_id FK, contact_id, phone_number, name/address fields, leadsrain_upload_status, leadsrain_response jsonb, error_message.
+- `voice_drop_events` — campaign_id, lead_id, contact_id, phone_number, event_type, provider, event_source, raw_payload jsonb. Event types: lead_uploaded, campaign_created, drop_sent, callback_received, missed_call, answered_call, sms_auto_reply_sent, converted, not_interested.
+- `voice_drop_settings` — single-row-per-user settings (LR creds reference, biz line, twilio fwd, verizon fwd, default cid, default sms, voidfix enabled, attribution_window_hours).
 
-**`leadsrain_drops`** — one row per send attempt
-- `lead_id`, `customer_id`, `campaign_id` (FK), `phone_number`, `caller_id`, `status` (queued|sent|delivered|failed|pending|rejected|unknown), `provider_lead_id`, `provider_campaign_id`, `provider_list_id`, `error_message`, `voidfix_sms_sent_at`, `voidfix_sms_message_id`, `raw_request jsonb`, `raw_response jsonb`
-- Unique idempotency index on `(phone_number, campaign_id, date_trunc('hour', created_at))` to prevent dup sends
+RLS: authenticated users only; standard owner policies. Indexes on campaign_id, phone_number (last 10), event_type, created_at.
 
-**`lead_timeline_events`** — universal CRM timeline
-- `lead_id` (uuid, nullable), `customer_id` (uuid, nullable), `event_type` (`voice_drop_queued|voice_drop_sent|voice_drop_delivered|voice_drop_failed|voidfix_sms_sent|voidfix_sms_failed`), `event_title`, `event_description`, `provider` (`leadsrain|voidfix`), `provider_record_id`, `metadata jsonb`
+**Migrate** any usable data from existing `leadsrain_campaigns` / `leadsrain_settings` into the new tables, then leave the old tables untouched (do not drop in this pass — safer).
 
-**RLS:** `authenticated` SELECT on all four; INSERT/UPDATE/DELETE only via service role (edge functions).
+---
 
-## 2. Hard-remove Drop.co
+## 2. Edge Functions
 
-Delete files:
-- `src/pages/VMDrp.tsx`, `src/components/phone/VMDropPanel.tsx`, `src/lib/dropVm.ts`
-- `supabase/functions/drop-vm/`, `supabase/functions/drop-webhook/`, `supabase/functions/dropco-webhook/`
+Create:
+- `leadsrain-create-campaign` — POST to LR campaign add API; insert `voice_drop_campaigns` row; emit `campaign_created` event.
+- `leadsrain-create-lead-list` — create LR list, store `leadsrain_list_id` on campaign.
+- `leadsrain-upload-lead` — single lead post; persist response/status.
+- `leadsrain-bulk-upload-leads` — accept CSV rows, loop with throttling, persist each result.
+- `leadsrain-sync-campaign` — fetch LR stats, update counts + `last_synced_at`; mark delivered as **estimated**.
+- `voicedrop-twilio-callback` — Twilio webhook (signature verify): match active campaign by attribution window + caller match; insert `callback_received` + `missed_call`/`answered_call` event; increment counters; if missed → call VoidFix.
+- `voicedrop-voidfix-sms` — send default SMS via VoidFix; 10-min per-phone dedupe via `voice_drop_events`; increment `sms_replies_sent_count`.
 
-Edit:
-- `src/App.tsx` — remove VMDrp import + `/vmdrp` route
-- `src/components/layout/Sidebar.tsx` — remove `/vmdrp` entry, replace with `/voice-drops` (LeadsRain)
-- `src/pages/Phone.tsx` — remove `VMDropPanel` import + render
-- `src/components/phone/SmsThreadPopup.tsx` — replace "Drop VM" button to call new LeadsRain modal trigger
-- Delete deployed functions via `supabase--delete_edge_functions(["drop-vm","drop-webhook","dropco-webhook"])`
+All use existing `LEADSRAIN_USERNAME`/`LEADSRAIN_API_KEY`/`VOIDFIX_*`/`TWILIO_*` secrets. CORS on every response. Zod input validation. JWT validation in code.
 
-`DROP_API_KEY` secret stays (harmless), but unused.
+---
 
-## 3. Edge functions (4 new + 1 shared client)
+## 3. Frontend — `src/pages/VoiceDrops.tsx` (full rewrite)
 
-**`_shared/leadsrainClient.ts`** (helper, not deployed standalone)
-- `testConnection()` — POST `view/campaign_api` with username+api_key, returns parsed list
-- `postLead({ campaign_id, list_id, phone, first_name, last_name, ... })` — POST `ringless/api/add_posted_lead.php`
-- `viewCampaign(campaign_id)` — POST `rvm/api/campaign/view_api`
-- `viewList(list_id)` — POST `rvm/api/leadlist/view_api`
-- `normalizeStatus(raw)` → `queued|sent|delivered|failed|pending|rejected|unknown`
+**Header**
+- Title "Voice Drops" + subtitle describing LR → Biz Line 1 → Twilio → VoidFix flow.
+- Buttons: New Campaign · Sync LeadsRain Data · Upload Leads · Settings.
 
-**`leadsrain-test-connection`** (POST `{}`) — calls View Campaign with creds, returns success+raw.
+**Overview cards (10):** Total Campaigns, Active, Leads Uploaded, Drops, Estimated Delivered, Callbacks, Missed, Answered, SMS Replies, Conversion Rate (callbacks/drops).
 
-**`leadsrain-send-voicedrop`** (POST `{ customer_id?, lead_id?, phone_number, campaign_id?, caller_id?, audio_url? }`)
-1. JWT-validate (admin-only).
-2. Validate phone (`+1XXXXXXXXXX` E.164), look up campaign (defaults to `is_active`), check opt-out flag on customer if `customer_id` given.
-3. Idempotency: reject if a `leadsrain_drops` row for same phone+campaign exists in last 30 minutes.
-4. Insert `leadsrain_drops` row status=`queued` + timeline `voice_drop_queued`.
-5. `leadsrainClient.postLead(...)` to LeadsRain.
-6. Map response: success → status=`sent`, store `provider_lead_id`, `raw_response`. Add timeline `voice_drop_sent`.
-7. **If success AND `enable_voidfix_followup=true` AND not opted-out:** invoke `powerdial-sms` with `{action:"send", to: phone, body: settings.voidfix_template, customer_id}`. Save `voidfix_sms_sent_at` + add timeline `voidfix_sms_sent`. Wrap in try/catch — VoidFix failure does NOT fail the drop, just logs `voidfix_sms_failed`.
-8. Return `{ ok, drop_id, status, voidfix_sms_sent }`.
+**Campaign table** with all 14 columns + row actions (View · Sync · Upload Leads · Pause/Archive · Export Report). Status badges, last-synced relative time.
 
-**`leadsrain-refresh-status`** (POST `{ drop_id }`)
-- Calls `viewCampaign` and tries to match the lead by `provider_lead_id` (best-effort given API limits). Updates status + adds delivered/failed timeline event.
-- Manual button on UI; also runnable on-demand from debug panel.
+**New Campaign modal** — fields per spec; on submit calls `leadsrain-create-campaign`.
 
-**`leadsrain-webhook`** (PUBLIC, no JWT — `verify_jwt = false` in config.toml)
-- Accepts JSON or form-encoded payload. Matches drop by `provider_lead_id` OR phone+campaign within 24h. Updates status using `normalizeStatus`. Stores `raw_response`. Adds timeline event. Idempotent on `(drop_id, normalized_status)` — won't re-fire VoidFix since it already fired on send.
+**Upload Leads modal** — CSV drop + manual single-lead form; calls bulk endpoint; shows per-row status.
 
-## 4. Frontend
+**Settings tab** — fields per spec; "Test LeadsRain", "Test Twilio Callback", "Test VoidFix" buttons calling existing/new test functions.
 
-**`src/lib/leadsrain.ts`** — typed wrappers around `supabase.functions.invoke` for all 4 fns.
+**Components extracted** (kept small):
+- `components/voicedrops/CampaignTable.tsx`
+- `components/voicedrops/NewCampaignDialog.tsx`
+- `components/voicedrops/UploadLeadsDialog.tsx`
+- `components/voicedrops/CampaignDetailDrawer.tsx` (tabs: Overview / Leads / Drops / Callbacks / Missed / SMS / Settings)
+- `components/voicedrops/VoiceDropSettings.tsx`
+- `components/voicedrops/OverviewCards.tsx`
 
-**`src/pages/VoiceDrops.tsx`** (route `/voice-drops`, WarrenOnlyGate)
-- Tabs: **Overview** (connection status badge, active campaign card, send-test button) | **Recent Drops** (table with retry + view-raw for admin) | **Failed** | **Stats** (counts by status, last 30 days) | **Debug** (raw last 20 responses + last 20 webhook payloads + retry buttons) | **Settings** (campaign list CRUD, default toggle, VoidFix follow-up toggle, template field, transfer number).
-- Connection status: calls `leadsrain-test-connection` on load, shows green/red badge.
+**Detail drawer** — opens on "View Campaign". Pulls events + matched Twilio call_logs (campaign_source = LeadsRain). Callbacks tab includes Call Back / Text / Add to Power Dialer / Mark Converted / Mark Not Interested actions.
 
-**`src/components/voicedrops/SendVoiceDropModal.tsx`** — re-usable modal (campaign select, phone, caller ID, audio URL preview from saved campaign, compliance checkbox, Send).
-- Used by:
-  - SmsThreadPopup "Drop VM" button (replaces Drop.co handler)
-  - New "Send Voice Drop" button on customer profile (find existing customer detail page)
-  - Bulk-send from leads list
+**Removal:** delete old Drop.co / Slybroadcast / token UI from `VoiceDrops.tsx`. Keep `BulkVoiceDropDialog` and `SendVoiceDropModal` only if they are still referenced elsewhere; otherwise prune imports here.
 
-**`src/components/voicedrops/BulkVoiceDropDialog.tsx`** — receives selected lead IDs, campaign select, mandatory compliance checkbox, fires sequentially with 1s spacing, progress bar, per-row result.
+---
 
-**Sidebar:** swap `/vmdrp` line for `{ to: '/voice-drops', icon: Voicemail, label: 'VDrops', green: true }`.
+## 4. Twilio callback wiring
 
-## 5. Status normalization map
+Update / extend the Twilio inbound-voice handler (existing function, identified during impl) to POST into `voicedrop-twilio-callback` (or call it inline) so every inbound call is matched against active LR campaigns within the attribution window.
 
-```
-delivered | success | completed | sent_to_voicemail → "delivered"
-sent | dispatched | accepted                       → "sent"
-queued | processing | pending_dispatch             → "queued"
-pending                                             → "pending"
-failed | error | rejected | invalid                 → "failed"
-dnc | tcpa | scrub_blocked                          → "rejected"
-*                                                   → "unknown"
-```
+---
 
-## 6. Compliance & safety
+## 5. Out of scope this pass
+- Power Dialer integration beyond an "Add to Power Dialer" button that writes to existing PD queue.
+- Revenue reporting (placeholder column, only filled if data exists).
+- Dropping legacy `leadsrain_campaigns` / `leadsrain_settings` tables.
 
-- Customer opt-out: check `customers.meta->>'sms_opt_out' = 'true'` before sending VoidFix follow-up.
-- Phone validation: must be 10-digit US after stripping non-digits; otherwise 400 with human-readable error.
-- Bulk send: requires explicit "I confirm I have consent for these contacts" checkbox before submit; skips opted-out + invalid silently with per-row result.
-- All raw API responses stored server-side only; UI only shows raw on admin debug view.
+---
 
-## 7. Test plan
+## Technical notes
+- All LR/VoidFix calls server-side; no keys in browser.
+- Conversion rate computed in SQL view or client from counters.
+- VoidFix dedupe: `SELECT 1 FROM voice_drop_events WHERE event_type='sms_auto_reply_sent' AND phone_number=$1 AND created_at > now()-interval '10 minutes'`.
+- Twilio webhook signature verified using `TWILIO_AUTH_TOKEN`.
+- Attribution match order: (1) lead phone match → exact campaign, (2) most recent active campaign in window.
+- Estimated delivered = drops_sent × configurable rate (default 0.85) until LR exposes real delivery.
 
-1. After migration: open `/voice-drops`, hit Test Connection → expect green badge.
-2. Add a campaign row referencing a campaign you've set up in LeadsRain dashboard, mark active.
-3. Click "Send Test Drop" with your own phone → row appears in Recent Drops `sent`, voicemail arrives within campaign calltime, VoidFix SMS fires immediately.
-4. Open SmsThreadPopup → Drop VM button now opens new modal, not Drop.co.
-5. Bulk: select 2 leads, confirm compliance, send → 2 rows queued.
+---
 
-## 8. Out-of-scope / known limits
+## Deliverable order
+1. Migration (await approval).
+2. Edge functions (7 new).
+3. Frontend rewrite + new components.
+4. Wire Twilio handler.
+5. Smoke test: create campaign → upload 1 lead → simulate callback → verify event + counters.
 
-- Confirmed "delivered" status depends on whether your LeadsRain plan exposes per-lead reporting via `view_api`. If not, drops will stay at `sent` until/unless a webhook arrives. UI clearly labels `sent` vs `delivered`.
-- Audio file upload itself stays in LeadsRain dashboard (their API requires the file to exist on a campaign before it can dispatch). CRM only references the audio URL for display.
+Approve this plan and I'll start with the migration.
