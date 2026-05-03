@@ -22,6 +22,8 @@ export default function VoiceDrops() {
   const [drops, setDrops] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
   const [testOpen, setTestOpen] = useState(false);
+  const [egressIps, setEgressIps] = useState<string[] | null>(null);
+  const [loadingIp, setLoadingIp] = useState(false);
 
   // Settings form state
   const [followup, setFollowup] = useState(true);
