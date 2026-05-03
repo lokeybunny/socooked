@@ -227,6 +227,27 @@ export default function AIQueue() {
     }
   };
 
+  const sendSms = async () => {
+    if (!smsTarget?.phone || !smsBody.trim()) {
+      toast({ title: 'Missing info', description: 'Phone and message are required.', variant: 'destructive' });
+      return;
+    }
+    setSmsSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('powerdial-sms', {
+        body: { action: 'send', to: smsTarget.phone, body: smsBody.trim() },
+      });
+      if (error || (data as any)?.error) throw new Error(error?.message || (data as any)?.error || 'Send failed');
+      toast({ title: 'SMS sent', description: `Message delivered to ${smsTarget.phone}` });
+      setSmsTarget(null);
+      setSmsBody('');
+    } catch (e: any) {
+      toast({ title: 'SMS failed', description: e.message || 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSmsSending(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-5">
