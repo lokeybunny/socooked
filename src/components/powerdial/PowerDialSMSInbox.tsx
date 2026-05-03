@@ -38,6 +38,17 @@ function normalizeLast10(raw: string | null | undefined) {
   return String(raw).replace(/\D/g, '').slice(-10);
 }
 
+// Thread key: last10 for normal phones; for shortcodes (3-6 digits) or other
+// non-standard senders (e.g. "22395"), fall back to the cleaned digits so they
+// still appear in the inbox.
+function threadKey(raw: string | null | undefined) {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return String(raw).trim().toLowerCase(); // alphanumeric senders
+  if (digits.length >= 10) return digits.slice(-10);
+  return digits; // shortcodes / 3-6 digit senders
+}
+
 function formatPhone(raw: string | null | undefined) {
   const last10 = normalizeLast10(raw);
   if (last10.length !== 10) return raw || '';
