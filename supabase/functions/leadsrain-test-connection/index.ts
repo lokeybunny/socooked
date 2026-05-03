@@ -43,7 +43,7 @@ async function tryEndpoint(url: string, timeoutMs: number): Promise<Attempt> {
       http_status: resp.status,
       duration_ms: Date.now() - start,
       error: ok ? undefined : (parsed?.msg || parsed?.message || `HTTP ${resp.status}`),
-      body_preview: text.slice(0, 400),
+      body_preview: text.slice(0, 4000),
     };
   } catch (e: any) {
     const msg = e?.name === "TimeoutError" || /timed out|aborted/i.test(e?.message || "")

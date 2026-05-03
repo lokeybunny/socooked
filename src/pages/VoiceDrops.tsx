@@ -236,16 +236,15 @@ export default function VoiceDrops() {
 
         <TabsContent value="settings" className="space-y-3">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Egress IP for LeadsRain Whitelist</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Outbound IP (informational)</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
               <p className="text-xs text-muted-foreground">
-                LeadsRain requires IP whitelisting. Click below to detect the current outbound IP this backend uses,
-                then paste it into LeadsRain as a <strong>Temporary ID</strong> (one-time) or <strong>Permanent ID</strong>.
-                Note: serverless IPs can rotate — you may need to re-check or whitelist a range.
+                LeadsRain authenticates by <strong>username + API key</strong> only — no IP whitelisting required.
+                This button is provided for diagnostics only.
               </p>
-              <Button size="sm" onClick={fetchEgressIp} disabled={loadingIp}>
+              <Button size="sm" variant="outline" onClick={fetchEgressIp} disabled={loadingIp}>
                 {loadingIp ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                Detect Egress IP
+                Detect Outbound IP
               </Button>
               {egressIps && egressIps.length > 0 && (
                 <div className="rounded border border-border p-3 space-y-1">
@@ -284,17 +283,36 @@ export default function VoiceDrops() {
                     {conn.username && <div className="text-xs mt-1">Username: <span className="font-mono">{conn.username}</span></div>}
                   </div>
                   {conn.attempts && conn.attempts.length > 0 && (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="text-xs font-medium text-muted-foreground">Per-endpoint results:</div>
                       {conn.attempts.map((a, i) => (
-                        <details key={i} className="rounded border border-border p-2 text-xs">
+                        <details key={i} open={!a.ok} className="rounded border border-border p-2 text-xs">
                           <summary className="cursor-pointer flex items-center gap-2">
                             {a.ok ? <CheckCircle2 className="h-3 w-3 text-emerald-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
-                            <span className="font-mono truncate flex-1">{a.url}</span>
-                            <span className="text-muted-foreground">{a.duration_ms}ms · HTTP {a.http_status || "—"}</span>
+                            <span className="font-medium">{a.ok ? "OK" : "FAIL"}</span>
+                            <span className="text-muted-foreground">HTTP {a.http_status || "—"} · {a.duration_ms}ms</span>
                           </summary>
-                          {a.error && <div className="mt-2 text-red-400">{a.error}</div>}
-                          {a.body_preview && <pre className="mt-2 whitespace-pre-wrap break-all text-muted-foreground">{a.body_preview}</pre>}
+                          <div className="mt-2 space-y-2">
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Endpoint</div>
+                              <div className="flex items-center gap-2">
+                                <code className="font-mono break-all flex-1">{a.url}</code>
+                                <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => { navigator.clipboard.writeText(a.url); toast.success("Copied"); }}>Copy</Button>
+                              </div>
+                            </div>
+                            {a.error && (
+                              <div>
+                                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Error</div>
+                                <div className="text-red-400">{a.error}</div>
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Response body</div>
+                              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded bg-muted/40 p-2 text-muted-foreground">
+{a.body_preview || "(no response body)"}
+                              </pre>
+                            </div>
+                          </div>
                         </details>
                       ))}
                     </div>
