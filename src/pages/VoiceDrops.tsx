@@ -10,10 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Voicemail, RefreshCw, Plus, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lrTestConnection, lrRefreshStatus } from "@/lib/leadsrain";
+import { lrTestConnection, lrRefreshStatus, type LRTestResult } from "@/lib/leadsrain";
 import SendVoiceDropModal from "@/components/voicedrops/SendVoiceDropModal";
 
-type Conn = { success: boolean; message: string; raw?: any } | null;
+type Conn = LRTestResult | null;
 
 export default function VoiceDrops() {
   const [conn, setConn] = useState<Conn>(null);
@@ -259,6 +259,51 @@ export default function VoiceDrops() {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">Connection Diagnostics</CardTitle>
+              <Button size="sm" onClick={testConn} disabled={testing}>
+                {testing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                Test Connection
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {!conn && <p className="text-xs text-muted-foreground">Click "Test Connection" to probe LeadsRain endpoints (s1, s2, s3, app).</p>}
+              {conn && (
+                <>
+                  <div className={`rounded border p-3 ${conn.success ? "border-emerald-600/50 bg-emerald-600/5" : "border-red-600/50 bg-red-600/5"}`}>
+                    <div className="font-medium">{conn.success ? "✅ Connected" : "❌ Not Connected"}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{conn.message}</div>
+                    {conn.egress_ip && (
+                      <div className="text-xs mt-2">
+                        Outbound IP: <span className="font-mono">{conn.egress_ip}</span>
+                        <Button size="sm" variant="ghost" className="h-5 ml-2 px-2" onClick={() => { navigator.clipboard.writeText(conn.egress_ip!); toast.success("Copied"); }}>Copy</Button>
+                      </div>
+                    )}
+                    {conn.username && <div className="text-xs mt-1">Username: <span className="font-mono">{conn.username}</span></div>}
+                  </div>
+                  {conn.attempts && conn.attempts.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">Per-endpoint results:</div>
+                      {conn.attempts.map((a, i) => (
+                        <details key={i} className="rounded border border-border p-2 text-xs">
+                          <summary className="cursor-pointer flex items-center gap-2">
+                            {a.ok ? <CheckCircle2 className="h-3 w-3 text-emerald-400" /> : <XCircle className="h-3 w-3 text-red-400" />}
+                            <span className="font-mono truncate flex-1">{a.url}</span>
+                            <span className="text-muted-foreground">{a.duration_ms}ms · HTTP {a.http_status || "—"}</span>
+                          </summary>
+                          {a.error && <div className="mt-2 text-red-400">{a.error}</div>}
+                          {a.body_preview && <pre className="mt-2 whitespace-pre-wrap break-all text-muted-foreground">{a.body_preview}</pre>}
+                        </details>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle className="text-sm">LeadsRain Integration Settings</CardTitle></CardHeader>
             <CardContent className="space-y-4">

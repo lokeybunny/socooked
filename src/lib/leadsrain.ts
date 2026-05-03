@@ -1,9 +1,26 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export async function lrTestConnection() {
+export type LRTestAttempt = {
+  url: string;
+  ok: boolean;
+  http_status: number;
+  duration_ms: number;
+  error?: string;
+  body_preview?: string;
+};
+export type LRTestResult = {
+  success: boolean;
+  message: string;
+  egress_ip?: string | null;
+  username?: string;
+  attempts?: LRTestAttempt[];
+  raw?: any;
+};
+
+export async function lrTestConnection(): Promise<LRTestResult> {
   const { data, error } = await supabase.functions.invoke("leadsrain-test-connection", { body: {} });
   if (error) throw error;
-  return data as { success: boolean; message: string; raw?: any };
+  return data as LRTestResult;
 }
 
 export type SendVoiceDropInput = {
