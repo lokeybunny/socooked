@@ -207,9 +207,17 @@ export default function AIQueue() {
       case 'upload':
         toast({ title: 'Upload', description: 'Hook this to your file uploader.' });
         return;
-      case 'send_update':
-        toast({ title: 'Send update', description: 'SMS/email update flow ready to wire.' });
+      case 'send_update': {
+        if (!row.phone) {
+          toast({ title: 'No phone number', description: 'This customer has no phone on file.', variant: 'destructive' });
+          return;
+        }
+        const firstName = row.first_name || (row.last_name ? '' : 'there');
+        const addr = row.listing_address ? ` for ${row.listing_address}` : '';
+        setSmsBody(`Hi ${firstName} — quick update on your AI listing video${addr}. `);
+        setSmsTarget(row);
         return;
+      }
     }
 
     if (Object.keys(updates).length) {
