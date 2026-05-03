@@ -90,8 +90,8 @@ Deno.serve(async (req) => {
 
     const winner = attempts.find((a) => a.ok);
     const summary = winner
-      ? `Connected via ${winner.url.match(/https:\/\/([^.]+)\./)?.[1]} in ${winner.duration_ms}ms`
-      : `All ${attempts.length} endpoints failed. Egress IP: ${egressIp ?? "unknown"}. Likely cause: IP not whitelisted in LeadsRain.`;
+      ? `Connected via ${winner.url.match(/https?:\/\/([^.]+)\./)?.[1]} in ${winner.duration_ms}ms`
+      : `All ${attempts.length} endpoints failed. Egress IP: ${egressIp ?? "unknown"}. Per LeadsRain docs no IP whitelisting is required — check that LEADSRAIN_USERNAME / LEADSRAIN_API_KEY are valid.`;
 
     return json({
       success: !!winner,
