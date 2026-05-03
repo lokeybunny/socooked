@@ -846,7 +846,7 @@ serve(async (req) => {
 
             if (enabled && body && toPhone) {
               await sb.from("customers").update({
-                meta: { ...refreshedMeta, vapi_disconnected_sms_sent: true, vapi_disconnected_sms_at: new Date().toISOString() },
+                meta: { ...refreshedMeta, vapi_disconnected_sms_sent: true, vapi_disconnected_sms_at: new Date().toISOString(), vapi_disconnected_sms_call_id: callId },
               }).eq("id", customerLead.id);
 
               const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
