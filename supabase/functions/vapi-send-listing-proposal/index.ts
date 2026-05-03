@@ -207,6 +207,17 @@ Deno.serve(async (req) => {
 
     console.log("[vapi-send-listing-proposal] parsed args:", JSON.stringify(a));
 
+    // Fall back to the Vapi caller's phone number when the LLM didn't pass one in args
+    if (!a.client_phone) {
+      const callerPhone = extractCallerPhone(payload);
+      if (callerPhone) {
+        a.client_phone = callerPhone;
+        console.log("[vapi-send-listing-proposal] using caller phone fallback:", callerPhone);
+      }
+    }
+
+    console.log("[vapi-send-listing-proposal] parsed args:", JSON.stringify(a));
+
     if (!a.client_email || !a.client_name) {
       return vapiResponse(
         toolCallId,
