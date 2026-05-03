@@ -5,18 +5,23 @@
 const USERNAME = Deno.env.get("LEADSRAIN_USERNAME") || "";
 const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
 
-// Per LeadsRain API docs (https://leadsrain.com/apidocs/), endpoints are served over HTTP on s2.
-// No IP whitelisting is required — auth is via username + api_key in the JSON body.
-const BASE = "http://s2.leadsrain.com";
+// LeadsRain serves the documented `s*.leadsrain.com` shards over HTTP only and
+// blocks most cloud egress ranges (including Supabase) at the network layer.
+// The same Postlead endpoint is mirrored on `api.leadsrain.com` over HTTPS,
+// which IS reachable from cloud egress — use that for the calls we actually
+// make from edge functions. RVM management endpoints (campaign/list view) are
+// only on s2 and aren't reachable from here; that's fine, we only need postLead.
+const BASE_API = "https://api.leadsrain.com";
+const BASE_S2 = "http://s2.leadsrain.com";
 
 export const ENDPOINTS = {
-  campaignAdd: `${BASE}/rvm/api/campaign/add_api`,
-  campaignView: `${BASE}/rvm/api/campaign/view_api`,
-  campaignDelete: `${BASE}/rvm/api/campaign/delete_api`,
-  listAdd: `${BASE}/rvm/api/leadlist/add_api`,
-  listView: `${BASE}/rvm/api/leadlist/view_api`,
-  listDelete: `${BASE}/rvm/api/leadlist/delete_api`,
-  postLead: `${BASE}/ringless/api/add_posted_lead.php`,
+  campaignAdd: `${BASE_S2}/rvm/api/campaign/add_api`,
+  campaignView: `${BASE_S2}/rvm/api/campaign/view_api`,
+  campaignDelete: `${BASE_S2}/rvm/api/campaign/delete_api`,
+  listAdd: `${BASE_S2}/rvm/api/leadlist/add_api`,
+  listView: `${BASE_S2}/rvm/api/leadlist/view_api`,
+  listDelete: `${BASE_S2}/rvm/api/leadlist/delete_api`,
+  postLead: `${BASE_API}/ringless/api/add_posted_lead.php`,
 };
 
 export type LRResult<T = any> = {
