@@ -3948,7 +3948,9 @@ IMPORTANT:
       if (p.client_phone) {
         try {
           const firstName = String(p.client_name || '').trim().split(/\s+/)[0] || 'there'
-          const smsBody = `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFirst-time customer special: 50% down to start, and the final invoice is waived (no balance after delivery). Reply with any questions!`
+          const smsBody = isFirstTime
+            ? `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFirst-time customer special: 50% down to start, and the final invoice is waived (no balance after delivery). Reply with any questions!`
+            : `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFull payment is due upfront on this one (the first-time customer special only applies to your first signed deal). Reply with any questions!`
           const smsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/powerdial-sms?action=send`
           const sr = await fetch(smsUrl, {
             method: 'POST',
