@@ -94,12 +94,24 @@ export function QueueCard({ row, onAction }: Props) {
         </div>
 
         {/* Listing */}
-        {row.listing_address && (
-          <div className="flex items-start gap-2 text-sm text-foreground/90">
-            <MapPin className="h-3.5 w-3.5 mt-0.5 text-emerald-400 shrink-0" />
-            <span className="truncate">{row.listing_address}</span>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => onAction('edit_address', row)}
+          className={cn(
+            'group/addr flex items-start gap-2 text-sm w-full text-left rounded-md px-2 py-1.5 -mx-2',
+            'border border-dashed transition-colors',
+            row.listing_address
+              ? 'border-transparent hover:border-emerald-500/30 hover:bg-emerald-500/5 text-foreground/90'
+              : 'border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 text-amber-300',
+          )}
+          title="Click to edit listing address"
+        >
+          <MapPin className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', row.listing_address ? 'text-emerald-400' : 'text-amber-400')} />
+          <span className="truncate flex-1">
+            <span className="font-medium opacity-70 mr-1">Listing Address:</span>
+            {row.listing_address || 'Click to add listing address'}
+          </span>
+        </button>
 
         {/* Audit row */}
         <div className="flex flex-wrap gap-2">
