@@ -816,7 +816,9 @@ serve(async (req) => {
           const callStartedAt = message.call?.startedAt ? new Date(message.call.startedAt).getTime() : (Date.now() - duration * 1000);
           const proposalSentThisCall = proposalSentAt > 0 && proposalSentAt >= callStartedAt - 60_000;
           const customerHungUp = CUSTOMER_HANGUP_REASONS.includes(endedReason as any);
-          const alreadySent = refreshedMeta?.vapi_disconnected_sms_sent === true;
+          // Scope "already sent" to THIS call so a sticky flag from a prior call
+          // doesn't permanently suppress future disconnect texts.
+          const alreadySent = refreshedMeta?.vapi_disconnected_sms_call_id === callId;
           const toPhone = normalizePhone(customerLead.phone || customerPhone);
           const shouldSend = shouldSendDisconnectedSms({
             messageType,
@@ -844,7 +846,7 @@ serve(async (req) => {
 
             if (enabled && body && toPhone) {
               await sb.from("customers").update({
-                meta: { ...refreshedMeta, vapi_disconnected_sms_sent: true, vapi_disconnected_sms_at: new Date().toISOString() },
+                meta: { ...refreshedMeta, vapi_disconnected_sms_sent: true, vapi_disconnected_sms_at: new Date().toISOString(), vapi_disconnected_sms_call_id: callId },
               }).eq("id", customerLead.id);
 
               const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
