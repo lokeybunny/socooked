@@ -55,6 +55,28 @@ function extractCallerPhone(payload: any): string | null {
   return null;
 }
 
+// Last-resort: pull a street address out of the call transcript / messages.
+// Looks for typical US street patterns like "123 Main St", "4567 N Oak Avenue, Las Vegas".
+function extractAddressFromTranscript(payload: any): string | null {
+  const chunks: string[] = [];
+  const msg = payload?.message ?? payload ?? {};
+  if (typeof msg?.transcript === "string") chunks.push(msg.transcript);
+  if (typeof msg?.call?.transcript === "string") chunks.push(msg.call.transcript);
+  const arr = msg?.artifact?.messages || msg?.call?.artifact?.messages || msg?.messages || [];
+  if (Array.isArray(arr)) {
+    for (const m of arr) {
+      const t = m?.message ?? m?.content ?? m?.text;
+      if (typeof t === "string") chunks.push(t);
+    }
+  }
+  const blob = chunks.join("\n");
+  if (!blob) return null;
+  // street number + 1-4 words + common suffix, optional city/state
+  const re = /\b(\d{1,6}\s+(?:[A-Za-z0-9.'\-]+\s+){1,5}(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Way|Place|Pl|Circle|Cir|Parkway|Pkwy|Terrace|Ter|Trail|Trl|Highway|Hwy)\b(?:\s*,?\s*[A-Za-z .'\-]+){0,2}(?:\s*,?\s*[A-Z]{2})?(?:\s*\d{5})?)/i;
+  const m = blob.match(re);
+  return m ? m[1].replace(/\s+/g, " ").trim() : null;
+}
+
 function parseArgs(payload: any): { args: Args; toolCallId: string | null } {
   let toolCallId: string | null = null;
   let raw: any = payload;
