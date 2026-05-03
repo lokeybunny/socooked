@@ -1,6 +1,39 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ─── Disconnected SMS gate (pure, exported for tests) ───
+// Send the "got disconnected" SMS ONLY when:
+//   1. The Vapi event is end-of-call-report (call truly ended — never mid-call)
+//   2. The customer hung up (not the assistant / system)
+//   3. No proposal was sent during this call (proposal flow has its own SMS)
+//   4. We haven't already sent a disconnected SMS for this call
+//   5. We have a destination phone
+export const CUSTOMER_HANGUP_REASONS = [
+  "customer-ended-call",
+  "customer-hung-up",
+  "user-ended-call",
+] as const;
+
+export interface DisconnectGateInput {
+  messageType: string;
+  endedReason: string;
+  proposalSentAtMs: number; // 0 if none
+  callStartedAtMs: number;
+  alreadySent: boolean;
+  toPhone: string | null | undefined;
+}
+
+export function shouldSendDisconnectedSms(i: DisconnectGateInput): boolean {
+  if (i.messageType !== "end-of-call-report") return false;
+  if (!i.toPhone) return false;
+  if (i.alreadySent) return false;
+  if (!CUSTOMER_HANGUP_REASONS.includes(i.endedReason as any)) return false;
+  const proposalSentThisCall =
+    i.proposalSentAtMs > 0 && i.proposalSentAtMs >= i.callStartedAtMs - 60_000;
+  if (proposalSentThisCall) return false;
+  return true;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
