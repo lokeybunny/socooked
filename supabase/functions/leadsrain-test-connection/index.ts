@@ -80,7 +80,8 @@ Deno.serve(async (req) => {
     }
 
     const subdomains = ["s2", "s1", "s3", "app"];
-    const endpoints = subdomains.map((s) => `https://${s}.leadsrain.com/rvm/api/campaign/view_api`);
+    // LeadsRain API docs use HTTP (not HTTPS) — see https://leadsrain.com/apidocs/
+    const endpoints = subdomains.map((s) => `http://${s}.leadsrain.com/rvm/api/campaign/view_api`);
 
     const [egressIp, ...attempts] = await Promise.all([
       getEgressIp(),
