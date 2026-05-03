@@ -3974,6 +3974,7 @@ IMPORTANT:
               'apikey': Deno.env.get('SUPABASE_ANON_KEY') || '',
             },
             body: JSON.stringify({
+              action: 'send',
               to: smsPhone,
               body: smsBody,
               source: 'proposal-sent-notify',
