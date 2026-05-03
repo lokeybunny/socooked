@@ -12,7 +12,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-function buildHtml(p: any, amount: number) {
+function buildHtml(p: any, amount: string) {
   const firstName = (p.client_name || "").split(" ")[0] || "there";
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
@@ -108,9 +108,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const amount = 150;
-    const subject = `Deposit to start your video — $${amount}`;
-    const html = buildHtml(p, amount);
+    const amount = 199.50;
+    const amountStr = amount.toFixed(2);
+    const subject = `Deposit to start your video — $${amountStr}`;
+    const html = buildHtml(p, amountStr);
 
     const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
       method: "POST",
