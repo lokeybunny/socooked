@@ -247,6 +247,36 @@ export default function VoiceDrops() {
 
         <TabsContent value="campaigns" className="space-y-4">
           <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-sm">Import from LeadsRain</CardTitle>
+              <Button size="sm" onClick={importFromLeadsRain} disabled={importing}>
+                {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+                Import Campaigns & Lists
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Pulls your campaigns and lead lists directly from LeadsRain. Note: the management endpoints live on
+                HTTP-only shards (s1/s2/s3) which are often blocked from cloud egress. If import fails, add the IDs manually below.
+              </p>
+              {importResult && (
+                <details open={!importResult.success} className="rounded border border-border p-2 text-xs">
+                  <summary className="cursor-pointer">
+                    {importResult.success ? "✅" : "❌"} {importResult.message}
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    {(importResult.attempts || []).map((a: any, i: number) => (
+                      <div key={i} className="font-mono break-all opacity-80">
+                        {a.status || "ERR"} · {a.duration_ms}ms · {a.url} {a.error ? `— ${a.error}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader><CardTitle className="text-sm">Add Campaign Reference</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               <p className="text-xs text-muted-foreground">Create the campaign in your LeadsRain dashboard first (with audio + caller ID + lead list), then paste its IDs here.</p>
