@@ -812,14 +812,39 @@ serve(async (req) => {
         try {
           const refreshed = await sb.from("customers").select("meta").eq("id", customerLead.id).maybeSingle();
           const refreshedMeta = (refreshed.data?.meta as any) || {};
-          const proposalSentAt = refreshedMeta?.proposal_sent_at ? new Date(refreshedMeta.proposal_sent_at).getTime() : 0;
+          let proposalSentAt = refreshedMeta?.proposal_sent_at ? new Date(refreshedMeta.proposal_sent_at).getTime() : 0;
           const callStartedAt = message.call?.startedAt ? new Date(message.call.startedAt).getTime() : (Date.now() - duration * 1000);
+          const toPhone = normalizePhone(customerLead.phone || customerPhone);
+
+          // Cross-check the proposals table directly. The proposal sender may
+          // attach to a different customer record (matched by email) than the
+          // one the webhook resolves (matched by phone/call_id). Without this,
+          // the disconnect SMS fires even though a proposal was just sent.
+          try {
+            const phoneDigits = (toPhone || "").replace(/\D/g, "").slice(-10);
+            const sinceIso = new Date(callStartedAt - 60_000).toISOString();
+            let q = sb.from("proposals").select("sent_at,client_phone,client_email,customer_id")
+              .gte("sent_at", sinceIso).not("sent_at", "is", null)
+              .order("sent_at", { ascending: false }).limit(5);
+            const { data: recentProps } = await q;
+            for (const p of recentProps || []) {
+              const pPhone = String(p.client_phone || "").replace(/\D/g, "").slice(-10);
+              const matchPhone = phoneDigits && pPhone && pPhone === phoneDigits;
+              const matchCust = p.customer_id && p.customer_id === customerLead.id;
+              if (matchPhone || matchCust) {
+                const t = new Date(p.sent_at as string).getTime();
+                if (t > proposalSentAt) proposalSentAt = t;
+              }
+            }
+          } catch (xErr) {
+            console.error("[end-of-call] proposals cross-check error", xErr);
+          }
+
           const proposalSentThisCall = proposalSentAt > 0 && proposalSentAt >= callStartedAt - 60_000;
           const customerHungUp = CUSTOMER_HANGUP_REASONS.includes(endedReason as any);
           // Scope "already sent" to THIS call so a sticky flag from a prior call
           // doesn't permanently suppress future disconnect texts.
           const alreadySent = refreshedMeta?.vapi_disconnected_sms_call_id === callId;
-          const toPhone = normalizePhone(customerLead.phone || customerPhone);
           const shouldSend = shouldSendDisconnectedSms({
             messageType,
             endedReason,
