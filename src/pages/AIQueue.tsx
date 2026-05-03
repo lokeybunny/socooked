@@ -30,6 +30,9 @@ export default function AIQueue() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [, setNow] = useState(0);
+  const [smsTarget, setSmsTarget] = useState<QueueRow | null>(null);
+  const [smsBody, setSmsBody] = useState('');
+  const [smsSending, setSmsSending] = useState(false);
   const navigate = useNavigate();
 
   const fetchRows = async () => {
