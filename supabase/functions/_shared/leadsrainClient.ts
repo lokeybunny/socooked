@@ -53,21 +53,20 @@ export function hasCreds(): boolean {
   return Boolean(USERNAME && API_KEY);
 }
 
-async function call(url: string, body: Record<string, any>): Promise<LRResult> {
-  const payload = { ...creds(), ...body };
+async function callOne(url: string, payload: Record<string, any>, timeoutMs: number): Promise<LRResult> {
   try {
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const text = await resp.text();
     let json: any = null;
     try { json = JSON.parse(text); } catch { json = { raw_text: text }; }
     const success =
       resp.ok &&
-      (json?.status === "success" || typeof json?.lead_id !== "undefined" || typeof json?.campaign_id !== "undefined" || typeof json?.list_id !== "undefined");
+      (json?.status === "success" || typeof json?.lead_id !== "undefined" || typeof json?.campaign_id !== "undefined" || typeof json?.list_id !== "undefined" || Array.isArray(json) || Array.isArray(json?.data));
     return {
       ok: !!success,
       status: resp.status,
@@ -78,6 +77,24 @@ async function call(url: string, body: Record<string, any>): Promise<LRResult> {
   } catch (e: any) {
     return { ok: false, status: 0, data: null, raw: null, error: e?.message || String(e) };
   }
+}
+
+async function call(urls: string | string[], body: Record<string, any>): Promise<LRResult> {
+  const payload = { ...creds(), ...body };
+  const candidates = Array.isArray(urls) ? urls : [urls];
+  let last: LRResult = { ok: false, status: 0, data: null, raw: null, error: "no candidates" };
+  for (let i = 0; i < candidates.length; i++) {
+    // Direct attempts get a tight timeout so a hang fails over fast; proxy gets the full window.
+    const isLast = i === candidates.length - 1;
+    const timeout = isLast ? 45000 : 12000;
+    const res = await callOne(candidates[i], payload, timeout);
+    if (res.ok) return res;
+    last = res;
+    // Don't fall back on auth errors — credentials are wrong, not the network.
+    const msg = (res.error || "").toLowerCase();
+    if (msg.includes("invalid username") || msg.includes("api key")) return res;
+  }
+  return last;
 }
 
 export async function testConnection(): Promise<LRResult> {
