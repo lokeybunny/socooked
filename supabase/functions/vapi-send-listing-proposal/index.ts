@@ -178,6 +178,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log("[vapi-send-listing-proposal] parsed args:", JSON.stringify(a));
+
     if (!a.client_email || !a.client_name) {
       return vapiResponse(
         toolCallId,
