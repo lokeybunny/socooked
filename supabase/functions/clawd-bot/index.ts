@@ -3840,8 +3840,30 @@ IMPORTANT:
       if (!p) return fail('Proposal not found', 404)
       if (!p.client_email) return fail('Proposal has no client_email')
 
+      // Determine first-time status: prefer explicit meta flag, else check prior signed proposals
+      let isFirstTime: boolean
+      const metaFlag = (p.meta as any)?.is_first_time
+      if (typeof metaFlag === 'boolean') {
+        isFirstTime = metaFlag
+      } else {
+        const phoneDigits = String(p.client_phone || '').replace(/\D/g, '').slice(-10)
+        let q = supabase.from('proposals').select('id', { count: 'exact', head: true })
+          .eq('status', 'signed').neq('id', id)
+        if (p.client_email && phoneDigits) {
+          q = q.or(`client_email.eq.${p.client_email},client_phone.ilike.%${phoneDigits}`)
+        } else if (p.client_email) {
+          q = q.eq('client_email', p.client_email)
+        } else if (phoneDigits) {
+          q = q.ilike('client_phone', `%${phoneDigits}`)
+        }
+        const { count } = await q
+        isFirstTime = (count || 0) === 0
+      }
+      console.log('[proposal-send] first-time check:', { proposal_id: id, email: p.client_email, isFirstTime })
+
       // Build proposal body if missing
-      const body_text = p.proposal_body || buildFallbackBody(p)
+      const body_text = p.proposal_body || buildFallbackBody(p, isFirstTime)
+
 
       // Find or create a customer to attach (most flows require customer_id on documents)
       let customerId = p.customer_id
@@ -3873,7 +3895,7 @@ IMPORTANT:
       const signUrl = `${baseUrl}/sign/agreement/${doc.id}`
 
       // Email via gmail-api (with retry to bypass 60s anti-spam guard if needed)
-      const html = buildProposalEmailHtml(p, signUrl, body_text)
+      const html = buildProposalEmailHtml(p, signUrl, body_text, isFirstTime)
       const gmailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-api?action=send`
       let emailSent = false
       let emailError: string | null = null
@@ -3926,7 +3948,9 @@ IMPORTANT:
       if (p.client_phone) {
         try {
           const firstName = String(p.client_name || '').trim().split(/\s+/)[0] || 'there'
-          const smsBody = `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFirst-time customer special: 50% down to start, and the final invoice is waived (no balance after delivery). Reply with any questions!`
+          const smsBody = isFirstTime
+            ? `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFirst-time customer special: 50% down to start, and the final invoice is waived (no balance after delivery). Reply with any questions!`
+            : `Hi ${firstName}, this is Warren — I just emailed you a proposal to review & sign: ${signUrl}\n\nFull payment is due upfront on this one (the first-time customer special only applies to your first signed deal). Reply with any questions!`
           const smsUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/powerdial-sms?action=send`
           const sr = await fetch(smsUrl, {
             method: 'POST',
@@ -3972,11 +3996,14 @@ IMPORTANT:
 })
 
 // ───── Proposal helpers ─────────────────────────────────────
-function buildFallbackBody(p: Record<string, any>): string {
+function buildFallbackBody(p: Record<string, any>, isFirstTime: boolean = true): string {
   const items = Array.isArray(p.line_items) ? p.line_items : []
   const itemsTxt = items.length
     ? items.map((li: any) => `• ${li.description || 'Item'} — ${li.quantity || 1} × $${Number(li.unit_price || 0).toFixed(2)}`).join('\n')
     : 'See attached pricing.'
+  const defaultTerms = isFirstTime
+    ? 'First-time customer special: 50% deposit due upon signature. Final invoice is waived as part of the first-time customer offer — no balance due after delivery.'
+    : 'Full payment due upon signature (returning customer rate — first-time special does not apply).'
   return `PROPOSAL — ${p.title}
 
 Prepared for: ${p.client_name}${p.company_name ? ' (' + p.company_name + ')' : ''}
@@ -3993,13 +4020,29 @@ INVESTMENT
 Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}
 
 TERMS
-${p.terms || 'First-time customer special: 50% deposit due upon signature. Final invoice is waived as part of the first-time customer offer — no balance due after delivery.'}
+${p.terms || defaultTerms}
 
 ACCEPTANCE
 By signing below, the client accepts the scope, pricing, and terms outlined above.`
 }
 
-function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: string): string {
+function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: string, isFirstTime: boolean = true): string {
+  const specialBlock = isFirstTime
+    ? `<div style="margin:18px 0;padding:14px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#065f46;font-weight:700;">🎁 First-Time Customer Special</p>
+      <p style="margin:0;font-size:13px;color:#065f46;line-height:1.5;">
+        Initial deposit is <strong>50% of the final price</strong> due upon signature.
+        The <strong>final invoice is waived</strong> as part of our first-time customer offer —
+        no balance due after delivery.
+      </p>
+    </div>`
+    : `<div style="margin:18px 0;padding:14px 16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;">
+      <p style="margin:0 0 6px;font-size:14px;color:#92400e;font-weight:700;">💳 Payment Terms</p>
+      <p style="margin:0;font-size:13px;color:#92400e;line-height:1.5;">
+        <strong>Full payment due upfront</strong> upon signature. The first-time customer special
+        applies only to your first signed deal.
+      </p>
+    </div>`
   return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
   <div style="background:#059669;padding:24px;text-align:center;border-radius:8px 8px 0 0;">
     <h1 style="color:white;margin:0;font-size:22px;">📄 Proposal Ready for Review</h1>
@@ -4011,14 +4054,7 @@ function buildProposalEmailHtml(p: Record<string, any>, signUrl: string, body: s
       <a href="${signUrl}" style="display:inline-block;background:#059669;color:white;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Review &amp; Sign Proposal</a>
     </div>
     <p style="font-size:12px;color:#6b7280;text-align:center;">Total: $${Number(p.amount || 0).toFixed(2)} ${p.currency || 'USD'}${p.expiration_date ? ' · Valid through ' + p.expiration_date : ''}</p>
-    <div style="margin:18px 0;padding:14px 16px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;">
-      <p style="margin:0 0 6px;font-size:14px;color:#065f46;font-weight:700;">🎁 First-Time Customer Special</p>
-      <p style="margin:0;font-size:13px;color:#065f46;line-height:1.5;">
-        Initial deposit is <strong>50% of the final price</strong> due upon signature.
-        The <strong>final invoice is waived</strong> as part of our first-time customer offer —
-        no balance due after delivery.
-      </p>
-    </div>
+    ${specialBlock}
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
     <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:#374151;">${body}</pre>
   </div>

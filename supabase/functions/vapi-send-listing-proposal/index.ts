@@ -96,7 +96,7 @@ function vapiResponse(toolCallId: string | null, message: string, extra: Record<
   });
 }
 
-function buildListingPreset(a: Args) {
+function buildListingPreset(a: Args, isFirstTime: boolean) {
   const bedroomsNum = Math.max(0, Number(a.bedrooms || 0) || 0);
   const extraBeds = Math.max(0, bedroomsNum - 4);
   const total = 399 + extraBeds * 50;
@@ -116,6 +116,23 @@ function buildListingPreset(a: Args) {
     });
   }
 
+  const paymentTermsBlock = isFirstTime
+    ? `Payment Terms (First-Time Customer Special):
+• 50% deposit of the total ($${(total / 2).toFixed(2)}) due upon signing this proposal — work begins after deposit is received.
+• The FINAL invoice is WAIVED as part of our first-time customer offer — no balance due after delivery.
+• Deposit may be paid via Zelle, Cash App, or debit/credit (after signing, use the /payme page for card payment).
+• Final video delivered as MP4 (1080×1920) after deposit is confirmed and assets are provided.
+• Additional revisions beyond the 2 included: $50 each.`
+    : `Payment Terms:
+• Full payment of $${total.toFixed(2)} due upon signing this proposal — work begins after payment is received.
+• Payable via Zelle, Cash App, or debit/credit (after signing, use the /payme page for card payment).
+• Final video delivered as MP4 (1080×1920) after payment is confirmed and assets are provided.
+• Additional revisions beyond the 2 included: $50 each.`;
+
+  const termsLine = isFirstTime
+    ? `First-time customer special: 50% deposit ($${(total / 2).toFixed(2)}) due upon signature. The final invoice is WAIVED as part of the first-time customer offer — no balance due after delivery. Deposit accepted via Zelle, Cash App, or debit/credit through the /payme page after signing. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.`
+    : `Full payment of $${total.toFixed(2)} due upon signature (returning customer rate — first-time special does not apply). Payable via Zelle, Cash App, or debit/credit through the /payme page after signing. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.`;
+
   const proposalBody = `Real Estate Listing Video — $${total} Package
 
 Property: ${a.address || "N/A"}
@@ -134,12 +151,7 @@ Bedroom add-ons:
 • Properties with more than 4 bedrooms: +$50 per additional bedroom
   (Example: a 6-bedroom listing = $399 + (2 × $50) = $499)
 
-Payment Terms (First-Time Customer Special):
-• 50% deposit of the total ($${(total / 2).toFixed(2)}) due upon signing this proposal — work begins after deposit is received.
-• The FINAL invoice is WAIVED as part of our first-time customer offer — no balance due after delivery.
-• Deposit may be paid via Zelle, Cash App, or debit/credit (after signing, use the /payme page for card payment).
-• Final video delivered as MP4 (1080×1920) after deposit is confirmed and assets are provided.
-• Additional revisions beyond the 2 included: $50 each.
+${paymentTermsBlock}
 
 ${a.notes ? `Additional notes:\n${a.notes}\n\n` : ""}By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`;
 
@@ -150,11 +162,11 @@ ${a.notes ? `Additional notes:\n${a.notes}\n\n` : ""}By signing below, the clien
     line_items: lineItems,
     notes:
       "Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.",
-    terms:
-      `First-time customer special: 50% deposit ($${(total / 2).toFixed(2)}) due upon signature. The final invoice is WAIVED as part of the first-time customer offer — no balance due after delivery. Deposit accepted via Zelle, Cash App, or debit/credit through the /payme page after signing. Two (2) free revisions included. Additional revisions billed at $50 each. Final video delivered as MP4 in 9:16 (1080×1920) format. Additional bedrooms over 4 billed at $50/bedroom.`,
+    terms: termsLine,
     proposal_body: proposalBody,
     expiration_date: exp.toISOString().slice(0, 10),
     signature_required: true,
+    meta: { is_first_time: isFirstTime },
   };
 }
 
@@ -188,7 +200,25 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-    const preset = buildListingPreset(a);
+
+    // Determine if this client is first-time (no prior signed proposal under same email/phone)
+    const phoneDigits = (a.client_phone || "").replace(/\D/g, "").slice(-10);
+    let priorQuery = supabase
+      .from("proposals")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "signed");
+    if (a.client_email && phoneDigits) {
+      priorQuery = priorQuery.or(`client_email.eq.${a.client_email},client_phone.ilike.%${phoneDigits}`);
+    } else if (a.client_email) {
+      priorQuery = priorQuery.eq("client_email", a.client_email);
+    } else if (phoneDigits) {
+      priorQuery = priorQuery.ilike("client_phone", `%${phoneDigits}`);
+    }
+    const { count: priorSignedCount } = await priorQuery;
+    const isFirstTime = (priorSignedCount || 0) === 0;
+    console.log("[vapi-send-listing-proposal] first-time check:", { email: a.client_email, priorSignedCount, isFirstTime });
+
+    const preset = buildListingPreset(a, isFirstTime);
 
     // Try to attach to an existing customer (match by email)
     let customerId: string | null = null;
