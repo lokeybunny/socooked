@@ -205,8 +205,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("[vapi-send-listing-proposal] parsed args:", JSON.stringify(a));
-
     // Fall back to the Vapi caller's phone number when the LLM didn't pass one in args
     if (!a.client_phone) {
       const callerPhone = extractCallerPhone(payload);
