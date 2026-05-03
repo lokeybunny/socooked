@@ -3895,7 +3895,7 @@ IMPORTANT:
       const signUrl = `${baseUrl}/sign/agreement/${doc.id}`
 
       // Email via gmail-api (with retry to bypass 60s anti-spam guard if needed)
-      const html = buildProposalEmailHtml(p, signUrl, body_text)
+      const html = buildProposalEmailHtml(p, signUrl, body_text, isFirstTime)
       const gmailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-api?action=send`
       let emailSent = false
       let emailError: string | null = null
