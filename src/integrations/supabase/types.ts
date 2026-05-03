@@ -7113,6 +7113,260 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_drop_campaigns: {
+        Row: {
+          active_end_at: string | null
+          active_start_at: string | null
+          answered_calls_count: number
+          business_line_1: string | null
+          callbacks_count: number
+          campaign_cid: string | null
+          campaign_name: string
+          conversion_rate: number
+          created_at: string
+          drops_sent: number
+          estimated_delivered: number
+          id: string
+          last_synced_at: string | null
+          leadsrain_campaign_id: string | null
+          leadsrain_list_id: string | null
+          missed_calls_count: number
+          notes: string | null
+          provider: string
+          sms_replies_sent_count: number
+          sound_file_url: string | null
+          status: string
+          total_leads: number
+          twilio_number: string | null
+          updated_at: string
+          user_id: string
+          verizon_forward_number: string | null
+        }
+        Insert: {
+          active_end_at?: string | null
+          active_start_at?: string | null
+          answered_calls_count?: number
+          business_line_1?: string | null
+          callbacks_count?: number
+          campaign_cid?: string | null
+          campaign_name: string
+          conversion_rate?: number
+          created_at?: string
+          drops_sent?: number
+          estimated_delivered?: number
+          id?: string
+          last_synced_at?: string | null
+          leadsrain_campaign_id?: string | null
+          leadsrain_list_id?: string | null
+          missed_calls_count?: number
+          notes?: string | null
+          provider?: string
+          sms_replies_sent_count?: number
+          sound_file_url?: string | null
+          status?: string
+          total_leads?: number
+          twilio_number?: string | null
+          updated_at?: string
+          user_id: string
+          verizon_forward_number?: string | null
+        }
+        Update: {
+          active_end_at?: string | null
+          active_start_at?: string | null
+          answered_calls_count?: number
+          business_line_1?: string | null
+          callbacks_count?: number
+          campaign_cid?: string | null
+          campaign_name?: string
+          conversion_rate?: number
+          created_at?: string
+          drops_sent?: number
+          estimated_delivered?: number
+          id?: string
+          last_synced_at?: string | null
+          leadsrain_campaign_id?: string | null
+          leadsrain_list_id?: string | null
+          missed_calls_count?: number
+          notes?: string | null
+          provider?: string
+          sms_replies_sent_count?: number
+          sound_file_url?: string | null
+          status?: string
+          total_leads?: number
+          twilio_number?: string | null
+          updated_at?: string
+          user_id?: string
+          verizon_forward_number?: string | null
+        }
+        Relationships: []
+      }
+      voice_drop_events: {
+        Row: {
+          campaign_id: string | null
+          contact_id: string | null
+          created_at: string
+          event_source: string | null
+          event_type: string
+          id: string
+          lead_id: string | null
+          phone_number: string | null
+          provider: string
+          raw_payload: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          event_source?: string | null
+          event_type: string
+          id?: string
+          lead_id?: string | null
+          phone_number?: string | null
+          provider?: string
+          raw_payload?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          event_source?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string | null
+          phone_number?: string | null
+          provider?: string
+          raw_payload?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_drop_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_drop_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_drop_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "voice_drop_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_drop_leads: {
+        Row: {
+          address: string | null
+          campaign_id: string
+          city: string | null
+          contact_id: string | null
+          created_at: string
+          email: string | null
+          error_message: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          leadsrain_response: Json | null
+          leadsrain_upload_status: string
+          notes: string | null
+          phone_number: string
+          state: string | null
+          updated_at: string
+          user_id: string
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          campaign_id: string
+          city?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          error_message?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          leadsrain_response?: Json | null
+          leadsrain_upload_status?: string
+          notes?: string | null
+          phone_number: string
+          state?: string | null
+          updated_at?: string
+          user_id: string
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          campaign_id?: string
+          city?: string | null
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          error_message?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          leadsrain_response?: Json | null
+          leadsrain_upload_status?: string
+          notes?: string | null
+          phone_number?: string
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+          zip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_drop_leads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_drop_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_drop_settings: {
+        Row: {
+          attribution_window_hours: number
+          business_line_1: string | null
+          created_at: string
+          default_campaign_cid: string | null
+          default_missed_call_sms: string
+          twilio_forward_number: string | null
+          updated_at: string
+          user_id: string
+          verizon_forward_number: string | null
+          voidfix_enabled: boolean
+        }
+        Insert: {
+          attribution_window_hours?: number
+          business_line_1?: string | null
+          created_at?: string
+          default_campaign_cid?: string | null
+          default_missed_call_sms?: string
+          twilio_forward_number?: string | null
+          updated_at?: string
+          user_id: string
+          verizon_forward_number?: string | null
+          voidfix_enabled?: boolean
+        }
+        Update: {
+          attribution_window_hours?: number
+          business_line_1?: string | null
+          created_at?: string
+          default_campaign_cid?: string | null
+          default_missed_call_sms?: string
+          twilio_forward_number?: string | null
+          updated_at?: string
+          user_id?: string
+          verizon_forward_number?: string | null
+          voidfix_enabled?: boolean
+        }
+        Relationships: []
+      }
       voicemail_recordings: {
         Row: {
           channels: number
