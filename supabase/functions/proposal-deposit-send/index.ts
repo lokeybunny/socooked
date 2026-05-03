@@ -128,6 +128,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    const sentAt = new Date().toISOString();
+    await supabase
+      .from("proposals")
+      .update({
+        meta: {
+          ...meta,
+          deposit_email_sent_at: sentAt,
+          deposit_email_amount: amount,
+          deposit_email_message_id: sendJson.id || null,
+          deposit_email_auto: !!body?.record || !!body?.auto,
+        },
+      })
+      .eq("id", proposalId);
+
     // Send thank-you SMS via VoidFix (idempotent)
     let thankYouSmsSentAt: string | null = meta.thank_you_sms_sent_at || null;
     if (p.client_phone && !meta.thank_you_sms_sent_at) {
@@ -151,15 +165,22 @@ Deno.serve(async (req) => {
     }
 
     // Stamp meta so we don't double-send
+    const { data: latestProposal } = await supabase
+      .from("proposals")
+      .select("meta")
+      .eq("id", proposalId)
+      .maybeSingle();
+    const latestMeta: Record<string, any> = (latestProposal?.meta as Record<string, any>) || meta;
+
     const { error: updateError } = await supabase
       .from("proposals")
       .update({
         meta: {
-          ...meta,
-          deposit_email_sent_at: new Date().toISOString(),
+          ...latestMeta,
+          deposit_email_sent_at: latestMeta.deposit_email_sent_at || sentAt,
           deposit_email_amount: amount,
-          deposit_email_message_id: sendJson.id || null,
-          deposit_email_auto: !!body?.record,
+          deposit_email_message_id: latestMeta.deposit_email_message_id || sendJson.id || null,
+          deposit_email_auto: latestMeta.deposit_email_auto ?? (!!body?.record || !!body?.auto),
           thank_you_sms_sent_at: thankYouSmsSentAt,
         },
       })
