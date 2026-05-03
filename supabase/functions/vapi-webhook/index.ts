@@ -773,6 +773,61 @@ serve(async (req) => {
           }
         }
 
+        // ─── Customer hung up on AI mid-call → fire "got disconnected" SMS ───
+        // Only fires when a proposal was already sent on this call (so we have
+        // a real conversation worth recovering), and only once per call.
+        try {
+          const refreshed = await sb.from("customers").select("meta").eq("id", customerLead.id).maybeSingle();
+          const refreshedMeta = (refreshed.data?.meta as any) || {};
+          const proposalSentAt = refreshedMeta?.proposal_sent_at ? new Date(refreshedMeta.proposal_sent_at).getTime() : 0;
+          const callStartedAt = message.call?.startedAt ? new Date(message.call.startedAt).getTime() : (Date.now() - duration * 1000);
+          const proposalSentThisCall = proposalSentAt > 0 && proposalSentAt >= callStartedAt - 60_000;
+          const customerHungUp = ["customer-ended-call", "customer-hung-up", "user-ended-call"].includes(endedReason);
+          const alreadySent = refreshedMeta?.vapi_disconnected_sms_sent === true;
+
+          if (customerHungUp && proposalSentThisCall && !alreadySent && (customerLead.phone || customerPhone)) {
+            const toPhone = normalizePhone(customerLead.phone || customerPhone);
+
+            // Reuse same configurable body as powerdial dropped-call SMS
+            const { data: settingRow } = await sb.from("app_settings")
+              .select("key, value")
+              .in("key", ["powerdial_dropped_call_sms_enabled", "powerdial_dropped_call_sms_body"]);
+            let enabled = true;
+            let body = "Hi, Just got disconnected, Im Warren, AI videographer. Would you mind if I made a free marketing video on one of your listings for you to use to shop the house? Check my IG! https://instagram.com/W4RR3NGuru";
+            for (const r of settingRow || []) {
+              if (r.key === "powerdial_dropped_call_sms_enabled" && (r.value as any)?.enabled === false) enabled = false;
+              if (r.key === "powerdial_dropped_call_sms_body") {
+                const v = (r.value as any)?.body;
+                if (typeof v === "string" && v.trim()) body = v.trim();
+              }
+            }
+
+            if (enabled && body && toPhone) {
+              await sb.from("customers").update({
+                meta: { ...refreshedMeta, vapi_disconnected_sms_sent: true, vapi_disconnected_sms_at: new Date().toISOString() },
+              }).eq("id", customerLead.id);
+
+              const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+                body: JSON.stringify({
+                  action: "send",
+                  to: toPhone,
+                  body,
+                  customer_id: customerLead.id,
+                  source: "powerdial-dropped-call-sms",
+                  metadata: { source: "vapi-disconnected-sms", call_id: callId, ended_reason: endedReason },
+                }),
+              }).catch((e) => { console.error("[end-of-call] disconnected SMS error", e); return null; });
+              console.log(`[end-of-call] Vapi-disconnected SMS dispatched to ${toPhone} (status=${smsResp?.status})`);
+            }
+          } else {
+            console.log(`[end-of-call] Disconnected SMS gated: hungUp=${customerHungUp} proposalThisCall=${proposalSentThisCall} alreadySent=${alreadySent} reason=${endedReason}`);
+          }
+        } catch (discErr) {
+          console.error("[end-of-call] Disconnected SMS handler error:", discErr);
+        }
+
         // Log to communications table for audit trail
         await sb.from("communications").insert({
           customer_id: customerLead.id,
