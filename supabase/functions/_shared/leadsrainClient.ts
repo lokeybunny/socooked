@@ -5,7 +5,9 @@
 const USERNAME = Deno.env.get("LEADSRAIN_USERNAME") || "";
 const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
 
-const BASE = "https://s2.leadsrain.com";
+// Per LeadsRain API docs (https://leadsrain.com/apidocs/), endpoints are served over HTTP on s2.
+// No IP whitelisting is required — auth is via username + api_key in the JSON body.
+const BASE = "http://s2.leadsrain.com";
 
 export const ENDPOINTS = {
   campaignAdd: `${BASE}/rvm/api/campaign/add_api`,
