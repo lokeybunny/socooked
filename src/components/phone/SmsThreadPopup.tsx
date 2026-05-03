@@ -48,6 +48,7 @@ export function SmsThreadPopup({
   const [sending, setSending] = useState(false);
   const [body, setBody] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
+  const [vdOpen, setVdOpen] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
