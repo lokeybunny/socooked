@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     // Resolve defaults from settings (list_id + caller_id REQUIRED; integration must be active)
     const { data: settings } = await svc
       .from("leadsrain_settings")
-      .select("default_list_id, default_caller_id, is_active")
+      .select("default_list_id, default_caller_id, default_campaign_external_id, is_active")
       .limit(1)
       .maybeSingle();
 
@@ -140,12 +140,13 @@ Deno.serve(async (req) => {
 
     const finalListId = list_id || settings?.default_list_id || null;
     const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
+    const finalCampaignId = (settings as any)?.default_campaign_external_id || null;
 
     if (!finalListId) {
-      return json({ ok: false, error: "Missing LeadsRain List ID. Open Settings → paste your List ID (LeadsRain dashboard → RVM → Lead Lists)." }, 400);
+      return json({ ok: false, error: "Missing LeadsRain list_id. Add an active LeadsRain list connected to an RVM campaign.", missing: "list_id" }, 400);
     }
     if (!finalCallerId) {
-      return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain." }, 400);
+      return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
     }
 
     const reqPayload: Record<string, any> = {
@@ -281,6 +282,11 @@ Deno.serve(async (req) => {
       voidfix_error: voidfixErr,
       http_status: httpStatus,
       error: errMsg,
+      list_id: finalListId,
+      caller_id: finalCallerId,
+      campaign_external_id: finalCampaignId,
+      submitted_payload: { ...reqPayload, api_key: "***", username: "***" },
+      raw_response: { json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint },
     }, 200);
   } catch (e: any) {
     return json({ ok: false, error: e?.message || String(e) }, 500);

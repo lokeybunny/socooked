@@ -146,9 +146,16 @@ export default function LeadsRainAnalytics() {
 
   const statusOptions = ["all", "submitted_to_leadsrain", "accepted_by_api", "sms_followup_sent", "failed_to_submit", "draft"];
 
+  const [lastTestResult, setLastTestResult] = useState<any>(null);
+
   const sendTest = async () => {
     const phone = testPhone.trim();
     if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
+    if (!defaultListId.trim()) {
+      toast.error("Missing LeadsRain list_id. Add an active LeadsRain list connected to an RVM campaign.");
+      setSettingsOpen(true);
+      return;
+    }
     setBusy("test");
     try {
       const { data, error } = await supabase.functions.invoke("leadsrain-submit-lead", {
@@ -156,10 +163,11 @@ export default function LeadsRainAnalytics() {
       });
       if (error) throw error;
       const d = data as any;
+      setLastTestResult(d);
       const msg = d?.user_message || d?.error || "Submission failed";
       if (d?.ok) {
         if (d?.mode === "parser_needs_mapping") toast.warning(msg);
-        else toast.success(msg);
+        else toast.success(`${msg} (list_id: ${d?.list_id})`);
       } else {
         toast.error(msg);
       }
@@ -325,6 +333,37 @@ export default function LeadsRainAnalytics() {
 
         {/* Definitive Diagnostic */}
         <LeadsRainDiagnostic onReport={(r) => { setDiagReport(r); setDiagBusy(false); }} />
+
+        {/* Admin debug: last test result */}
+        {lastTestResult && (
+          <Card className="border-border/40 bg-muted/30">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold flex items-center gap-2">
+                  <Info className="w-4 h-4 text-lime-400" /> Last Test Submission (admin)
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <Badge variant="outline">mode: {lastTestResult.mode || "?"}</Badge>
+                  <Badge variant="outline">HTTP {lastTestResult.http_status ?? "?"}</Badge>
+                  <Badge variant="outline">list_id: {lastTestResult.list_id || "—"}</Badge>
+                  <Badge variant="outline">caller_id: {lastTestResult.caller_id || "—"}</Badge>
+                  {lastTestResult.campaign_external_id && <Badge variant="outline">campaign: {lastTestResult.campaign_external_id}</Badge>}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">{lastTestResult.user_message}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Submitted Payload</div>
+                  <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{JSON.stringify(lastTestResult.submitted_payload, null, 2)}</pre>
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Raw LeadsRain Response</div>
+                  <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{JSON.stringify(lastTestResult.raw_response, null, 2)}</pre>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
