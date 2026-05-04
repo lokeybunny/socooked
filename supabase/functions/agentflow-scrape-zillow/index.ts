@@ -46,7 +46,8 @@ async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ 
         signal: AbortSignal.timeout(540000), // 9 min, edge function caps at ~10
       });
       if (r.status === 401 || r.status === 402 || r.status === 403) {
-        lastError = `token rejected: ${r.status}`;
+        const body = (await r.text()).slice(0, 400);
+        lastError = `token rejected ${r.status}: ${body}`;
         continue; // try next token
       }
       if (!r.ok) {
