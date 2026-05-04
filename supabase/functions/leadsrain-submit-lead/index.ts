@@ -91,6 +91,35 @@ function buildBody(payload: Record<string, any>, contentType: string, boundary?:
   return JSON.stringify(payload);
 }
 
+async function checkLeadVisibleInList(listId: string, tenDigitPhone: string) {
+  const payload = { username: LR_USER, api_key: LR_KEY, list_id: listId };
+  const candidates = [
+    ...(LR_PROXY_URL ? [`${LR_PROXY_URL}/rvm/api/leadlist/view_api`] : []),
+    "https://s2.leadsrain.com/rvm/api/leadlist/view_api",
+    "http://s2.leadsrain.com/rvm/api/leadlist/view_api",
+  ];
+  let last = { ok: false, status: 0, error: "List visibility check did not run", matched_lead: null as any, raw_text: "" };
+  for (const endpoint of candidates) {
+    try {
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Cache-Control": "no-cache" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(12000),
+      });
+      const rawText = await resp.text();
+      let parsed: any = null;
+      try { parsed = rawText.trim() ? JSON.parse(rawText) : null; } catch { parsed = rawText; }
+      const matchedLead = findLeadInList(parsed, tenDigitPhone);
+      last = { ok: resp.ok, status: resp.status, error: matchedLead ? undefined : "Lead not visible in list response", matched_lead: matchedLead, raw_text: rawText.slice(0, 500) };
+      if (matchedLead || resp.ok) break;
+    } catch (e: any) {
+      last = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null, raw_text: "" };
+    }
+  }
+  return last;
+}
+
 // Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
 // HTTP 200 + no explicit failure markers = accepted.
 function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
