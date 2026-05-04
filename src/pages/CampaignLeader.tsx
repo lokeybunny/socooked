@@ -143,7 +143,7 @@ export default function CampaignLeader() {
       .subscribe();
     const ch4 = supabase
       .channel("campaign-sent-log")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_sent_log" }, () => loadAll())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_sent_log" }, () => { loadAll(); loadSentLog(); })
       .subscribe();
     return () => {
       supabase.removeChannel(ch1);
