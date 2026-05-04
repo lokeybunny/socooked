@@ -156,11 +156,12 @@ Deno.serve(async (req) => {
       return json({ ok: false, drop_id: drop.id, status: "failed", error: lr.error || "LeadsRain rejected request", raw: lr.raw }, 502);
     }
 
-    // VoidFix follow-up SMS — fire on successful send (per user spec)
+    // VoidFix follow-up SMS — only fire when LeadsRain returns a concrete lead/drop id.
+    // Delivery polling can send the SMS later once LeadsRain reports completed/delivered.
     let voidfixSent = false;
     let voidfixError: string | null = null;
     const followupEnabled = settings?.enable_voidfix_followup !== false;
-    if (followupEnabled && !optedOut) {
+    if (followupEnabled && !optedOut && providerLeadId) {
       try {
         const tmpl = settings?.voidfix_template || "Hey, this is Warren — just left you a quick voicemail.";
         const smsResp = await sb.functions.invoke("powerdial-sms", {
