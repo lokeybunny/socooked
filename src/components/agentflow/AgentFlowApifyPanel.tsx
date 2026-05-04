@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, PlayCircle, Phone, Building2, RefreshCw } from "lucide-react";
+import { Loader2, PlayCircle, Phone, Building2, RefreshCw, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,6 +23,7 @@ export default function AgentFlowApifyPanel() {
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [detailing, setDetailing] = useState(false);
   const [location, setLocation] = useState("Portland, OR");
 
   async function loadStats() {
@@ -75,6 +76,30 @@ export default function AgentFlowApifyPanel() {
       toast.error(`Scrape failed: ${e?.message || e}`);
     } finally {
       setScraping(false);
+    }
+  }
+
+  async function triggerDetailScrape() {
+    setDetailing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("agentflow-scrape-listing-details", {
+        body: { limit: 25 },
+      });
+      if (error) throw error;
+      if (data?.code === "APIFY_MONTHLY_LIMIT") {
+        toast.error(data.error || "Apify monthly usage hard limit exceeded.");
+        await loadStats();
+        return;
+      }
+      if (data?.ok === false) throw new Error(data.error || "detail scrape failed");
+      toast.success(
+        `Detail done: ${data?.listingsProcessed || 0} listings, +${data?.agentsCreated || 0} agents, ${data?.cellsFound || 0} mobiles`,
+      );
+      await loadStats();
+    } catch (e: any) {
+      toast.error(`Detail scrape failed: ${e?.message || e}`);
+    } finally {
+      setDetailing(false);
     }
   }
 
@@ -140,14 +165,19 @@ export default function AgentFlowApifyPanel() {
               {scraping ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PlayCircle className="w-4 h-4 mr-2" />}
               Scrape Listings
             </Button>
+            <Button onClick={triggerDetailScrape} disabled={detailing} variant="secondary">
+              {detailing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Users className="w-4 h-4 mr-2" />}
+              Scrape Listing Details
+            </Button>
             <Button onClick={triggerEnrich} disabled={enriching} variant="secondary">
               {enriching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Phone className="w-4 h-4 mr-2" />}
               Enrich Profiles
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Listing scrape uses <code>maxcopell/zillow-scraper</code> (~$0.001/listing). Enrichment uses{" "}
-            <code>maxcopell/zillow-detail-scraper</code> (~$0.005/profile).
+            <strong>1.</strong> Scrape Listings (<code>zillow-scraper</code>, ~$0.001 ea) →{" "}
+            <strong>2.</strong> Scrape Listing Details (<code>zillow-detail-scraper</code>, ~$0.005 ea) — pulls real agent name + profile URL + phone numbers from each listing →{" "}
+            <strong>3.</strong> Enrich Profiles — re-scrapes agent profile pages for any missing phones. Run step 2 to backfill the existing 2,215 listings.
           </p>
         </div>
       </CardContent>
