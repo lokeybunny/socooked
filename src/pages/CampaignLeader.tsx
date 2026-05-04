@@ -153,6 +153,8 @@ export default function CampaignLeader() {
     };
   }, []);
 
+  useEffect(() => { loadSentLog(); /* eslint-disable-next-line */ }, [sentLogPage, sentLogChannel]);
+
   // Re-render every second so countdown timers tick smoothly
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
