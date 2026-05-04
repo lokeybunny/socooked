@@ -123,10 +123,18 @@ Deno.serve(async (req) => {
     let httpStatus = 0;
     let errMsg: string | null = null;
     try {
+      const form = new URLSearchParams();
+      for (const [k, v] of Object.entries(reqPayload)) {
+        form.append(k, v == null ? "" : String(v));
+      }
       const r = await fetch(LR_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
-        body: JSON.stringify(reqPayload),
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cache-Control": "no-cache",
+          "Accept": "application/json",
+        },
+        body: form.toString(),
         signal: AbortSignal.timeout(20000),
       });
       httpStatus = r.status;
