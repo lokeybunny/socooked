@@ -7,152 +7,201 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ZENROWS_API_KEY = Deno.env.get("ZENROWS_API_KEY") || "";
+
+const APIFY_TOKENS = [
+  Deno.env.get("APIFY_TOKEN"),
+  Deno.env.get("APIFY_TOKEN_CRAIGSLIST"),
+  Deno.env.get("APIFY_TOKEN_COMMUNITY"),
+].filter((t): t is string => !!t);
+
+const ACTOR_ID = "maxcopell~zillow-scraper"; // Apify actor format uses ~
 
 function normKey(name: string, brokerage: string, city: string) {
   return `${(name || "").trim().toLowerCase()}|${(brokerage || "").trim().toLowerCase()}|${(city || "").trim().toLowerCase()}`;
 }
 
-async function fetchZenrows(url: string) {
-  const u = new URL("https://api.zenrows.com/v1/");
-  u.searchParams.set("apikey", ZENROWS_API_KEY);
-  u.searchParams.set("url", url);
-  u.searchParams.set("js_render", "true");
-  u.searchParams.set("premium_proxy", "true");
-  u.searchParams.set("proxy_country", "us");
-  for (let attempt = 0; attempt < 3; attempt++) {
+function locationToZillowUrl(location: string): string {
+  // "Portland, OR" -> https://www.zillow.com/portland-or/
+  const slug = location.toLowerCase().replace(/,\s*/g, "-").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  return `https://www.zillow.com/${slug}/`;
+}
+
+async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ items: any[]; tokenUsed: string | null; error?: string }> {
+  const input = {
+    searchUrls: searchUrls.map((url) => ({ url })),
+    extractionMethod: "MAP_MARKERS",
+    maxItems,
+    proxy: { useApifyProxy: true },
+  };
+
+  let lastError = "no tokens available";
+  for (const token of APIFY_TOKENS) {
     try {
-      const r = await fetch(u.toString(), { signal: AbortSignal.timeout(60000) });
-      if (r.ok) return await r.text();
-    } catch (_) { /* retry */ }
-    await new Promise(r => setTimeout(r, 2000 + Math.random() * 4000));
-  }
-  return null;
-}
-
-function looksLikeBrokerOnly(attribution: any): boolean {
-  if (!attribution) return false;
-  const txt = JSON.stringify(attribution).toLowerCase();
-  return /listing provided by|listed by brokerage|team lead|isteamlead/.test(txt) && !attribution.agentName;
-}
-
-function parseListings(html: string) {
-  const out: any[] = [];
-  const m = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) return out;
-  try {
-    const data = JSON.parse(m[1]);
-    const results = data?.props?.pageProps?.searchPageState?.cat1?.searchResults?.listResults
-      || data?.props?.pageProps?.searchResults?.listResults || [];
-    for (const r of results) {
-      const zpid = String(r.zpid || r.id || "");
-      if (!zpid) continue;
-      const attr = r.attributionInfo || {};
-      const profileRaw = attr.agentProfileUrl || r.agentProfileUrl;
-      const profile_url = profileRaw
-        ? (profileRaw.startsWith("http") ? profileRaw : `https://www.zillow.com${profileRaw}`)
-        : null;
-      out.push({
-        zpid,
-        address: r.address || r.addressStreet,
-        city: r.addressCity,
-        state: r.addressState,
-        zip: r.addressZipcode,
-        price: typeof r.unformattedPrice === "number" ? r.unformattedPrice : null,
-        listing_url: r.detailUrl?.startsWith("http") ? r.detailUrl : `https://www.zillow.com${r.detailUrl || ""}`,
-        agent_name: attr.agentName || r.brokerName,
-        brokerage: attr.brokerName || r.brokerName,
-        agent_zuid: attr.agentZuid || attr.encodedZuid || null,
-        agent_profile_url: profile_url,
-        broker_only: looksLikeBrokerOnly(attr),
-        attribution: attr,
+      const url = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${token}&clean=true&format=json`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+        signal: AbortSignal.timeout(540000), // 9 min, edge function caps at ~10
       });
+      if (r.status === 401 || r.status === 402 || r.status === 403) {
+        lastError = `token rejected: ${r.status}`;
+        continue; // try next token
+      }
+      if (!r.ok) {
+        lastError = `apify ${r.status}: ${(await r.text()).slice(0, 300)}`;
+        continue;
+      }
+      const items = await r.json();
+      return { items: Array.isArray(items) ? items : [], tokenUsed: token.slice(0, 8) + "..." };
+    } catch (e: any) {
+      lastError = e?.message || String(e);
+      continue;
     }
-  } catch (_) {}
-  return out;
+  }
+  return { items: [], tokenUsed: null, error: lastError };
+}
+
+function extractAgent(item: any): { name: string; brokerage: string; profile_url: string | null; zuid: string | null } {
+  const attr = item.attributionInfo || item.listing_agent || {};
+  const name = attr.agentName || attr.agent_name || item.agentName || item.contactRecipients?.[0]?.displayName || "";
+  const brokerage = attr.brokerName || attr.broker_name || item.brokerName || "";
+  const profileRaw = attr.agentProfileUrl || attr.agent_profile_url || item.agentProfileUrl;
+  const profile_url = profileRaw
+    ? (profileRaw.startsWith("http") ? profileRaw : `https://www.zillow.com${profileRaw}`)
+    : null;
+  const zuid = attr.agentZuid || attr.agent_zuid || item.agentZuid || null;
+  return { name: String(name || "").trim(), brokerage: String(brokerage || "").trim(), profile_url, zuid };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   let jobId: string | null = null;
+  let location = "";
+
   try {
-    const { location, max_pages = 5 } = await req.json().catch(() => ({} as any));
-    if (!location) return json({ ok: false, error: "missing location" }, 400);
-    if (!ZENROWS_API_KEY) return json({ ok: false, error: "ZENROWS_API_KEY not set" }, 400);
+    const body = await req.json().catch(() => ({}));
+    location = String(body.location || "").trim();
+    const maxItems = Math.min(Math.max(Number(body.max_items) || 200, 50), 500);
+
+    if (!location) {
+      return new Response(JSON.stringify({ ok: false, error: "location required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (APIFY_TOKENS.length === 0) {
+      return new Response(JSON.stringify({ ok: false, error: "no APIFY_TOKEN configured" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: job } = await supabase.from("af_scrape_jobs").insert({
-      status: "running", target_location: location,
+      status: "running", target_location: location, started_at: new Date().toISOString(),
     }).select("id").single();
-    jobId = job?.id;
+    jobId = job?.id || null;
 
-    let pages = 0, newListings = 0, newAgents = 0, skipped = 0;
-    const slug = encodeURIComponent(location.replace(/,\s*/g, "-").replace(/\s+/g, "-").toLowerCase());
+    const searchUrl = locationToZillowUrl(location);
+    const { items, tokenUsed, error } = await runApifyActor([searchUrl], maxItems);
 
-    for (let p = 1; p <= max_pages; p++) {
-      const url = p === 1
-        ? `https://www.zillow.com/homes/${slug}_rb/`
-        : `https://www.zillow.com/homes/${slug}/${p}_p/`;
-      const html = await fetchZenrows(url);
-      if (!html) continue;
-      pages++;
-      const items = parseListings(html);
-      if (items.length === 0) break;
+    if (error) {
+      await supabase.from("af_scrape_jobs").update({
+        status: "failed", error_log: error, completed_at: new Date().toISOString(),
+      }).eq("id", jobId);
+      return new Response(JSON.stringify({ ok: false, error, location }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      for (const it of items) {
-        const { data: lst } = await supabase.from("af_listings").upsert({
-          zpid: it.zpid, address: it.address, city: it.city, state: it.state,
-          zip: it.zip, price: it.price, listing_url: it.listing_url,
-          scraped_at: new Date().toISOString(),
-        }, { onConflict: "zpid" }).select("id").single();
-        if (!lst) continue;
-        newListings++;
+    let newListings = 0;
+    let newAgents = 0;
+    const seenAgentKeys = new Set<string>();
 
-        // Pre-filter: skip if no agent OR broker-only listing OR no profile URL & no zuid
-        if (!it.agent_name) { skipped++; continue; }
-        if (it.broker_only) { skipped++; continue; }
+    for (const item of items) {
+      const zpid = String(item.zpid || item.id || "");
+      if (!zpid) continue;
 
-        const key = normKey(it.agent_name, it.brokerage || "", it.city || "");
-        const agentPayload: any = {
-          name: it.agent_name,
-          brokerage: it.brokerage,
-          city: it.city,
-          normalized_key: key,
-          source: "zillow",
-        };
-        if (it.agent_zuid) agentPayload.agent_zuid = it.agent_zuid;
-        if (it.agent_profile_url) agentPayload.agent_profile_url = it.agent_profile_url;
+      // Listing upsert
+      const listingRow = {
+        zpid,
+        address: item.address || item.streetAddress || null,
+        city: item.city || item.addressCity || null,
+        state: item.state || item.addressState || null,
+        zip: item.zipcode || item.addressZipcode || null,
+        price: typeof item.price === "number" ? item.price : (item.unformattedPrice ?? null),
+        listing_url: item.detailUrl
+          ? (item.detailUrl.startsWith("http") ? item.detailUrl : `https://www.zillow.com${item.detailUrl}`)
+          : (item.url || null),
+        scraped_at: new Date().toISOString(),
+      };
 
-        const { data: ag } = await supabase.from("af_agents").upsert(agentPayload, {
-          onConflict: "normalized_key",
-        }).select("id").single();
+      const { data: listing, error: lErr } = await supabase
+        .from("af_listings")
+        .upsert(listingRow, { onConflict: "zpid" })
+        .select("id")
+        .single();
+      if (lErr || !listing) continue;
+      newListings++;
 
-        if (ag) {
-          newAgents++;
-          await supabase.from("af_agent_listings").upsert({
-            agent_id: ag.id, listing_id: lst.id,
-          }, { onConflict: "agent_id,listing_id" });
-        }
+      // Agent extraction
+      const a = extractAgent(item);
+      if (!a.name) continue; // broker-only listing, skip
+      const key = normKey(a.name, a.brokerage, listingRow.city || "");
+      if (!key || seenAgentKeys.has(key)) continue;
+      seenAgentKeys.add(key);
+
+      const agentRow: any = {
+        name: a.name,
+        brokerage: a.brokerage || null,
+        city: listingRow.city || null,
+        normalized_key: key,
+        source: "apify_zillow",
+      };
+      if (a.profile_url) agentRow.agent_profile_url = a.profile_url;
+      if (a.zuid) agentRow.agent_zuid = a.zuid;
+
+      const { data: agent } = await supabase
+        .from("af_agents")
+        .upsert(agentRow, { onConflict: "normalized_key" })
+        .select("id")
+        .single();
+
+      if (agent?.id) {
+        newAgents++;
+        await supabase.from("af_agent_listings").insert({
+          agent_id: agent.id, listing_id: listing.id,
+        });
       }
-      await new Promise(r => setTimeout(r, 2000 + Math.random() * 4000));
     }
 
     await supabase.from("af_scrape_jobs").update({
-      status: "completed", pages_scraped: pages,
-      new_listings: newListings, new_agents: newAgents,
+      status: "completed",
+      pages_scraped: 1,
+      new_listings: newListings,
+      new_agents: newAgents,
       completed_at: new Date().toISOString(),
-    }).eq("id", jobId!);
-    await supabase.from("target_locations").update({ last_scraped_at: new Date().toISOString() }).eq("location", location);
-
-    return json({ ok: true, jobId, pages, newListings, newAgents, skipped });
-  } catch (e: any) {
-    if (jobId) await supabase.from("af_scrape_jobs").update({
-      status: "failed", error_log: e?.message || String(e), completed_at: new Date().toISOString(),
     }).eq("id", jobId);
-    return json({ ok: false, error: e?.message || String(e) }, 500);
+
+    await supabase.from("target_locations")
+      .update({ last_scraped_at: new Date().toISOString() })
+      .eq("location", location);
+
+    return new Response(JSON.stringify({
+      ok: true, jobId, location,
+      itemsReturned: items.length,
+      newListings, newAgents,
+      tokenUsed,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e: any) {
+    if (jobId) {
+      await supabase.from("af_scrape_jobs").update({
+        status: "failed", error_log: e?.message || String(e), completed_at: new Date().toISOString(),
+      }).eq("id", jobId);
+    }
+    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e), location }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
-
-function json(b: any, s = 200) {
-  return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}

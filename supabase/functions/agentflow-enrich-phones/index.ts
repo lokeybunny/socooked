@@ -7,150 +7,175 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ZENROWS_API_KEY = Deno.env.get("ZENROWS_API_KEY") || "";
 
-// Profile-only enrichment: cheapest viable ZenRows config (js_render=false first)
-async function fetchProfile(url: string, jsRender: boolean): Promise<string | null> {
-  const u = new URL("https://api.zenrows.com/v1/");
-  u.searchParams.set("apikey", ZENROWS_API_KEY);
-  u.searchParams.set("url", url);
-  if (jsRender) u.searchParams.set("js_render", "true");
-  u.searchParams.set("premium_proxy", "true");
-  u.searchParams.set("proxy_country", "us");
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const r = await fetch(u.toString(), { signal: AbortSignal.timeout(40000) });
-      if (r.ok) return await r.text();
-    } catch (_) {}
-    await new Promise(r => setTimeout(r, 1500));
-  }
+const APIFY_TOKENS = [
+  Deno.env.get("APIFY_TOKEN"),
+  Deno.env.get("APIFY_TOKEN_CRAIGSLIST"),
+  Deno.env.get("APIFY_TOKEN_COMMUNITY"),
+].filter((t): t is string => !!t);
+
+const ACTOR_ID = "maxcopell~zillow-detail-scraper";
+
+function normalizePhone(raw: string): string | null {
+  const digits = (raw || "").replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   return null;
 }
 
-function normPhone(raw: string): string | null {
-  const d = String(raw || "").replace(/\D/g, "").slice(-10);
-  if (d.length === 10 && /^[2-9]/.test(d)) return `+1${d}`;
-  return null;
-}
+async function runDetailActor(startUrls: string[]): Promise<{ items: any[]; error?: string; tokenUsed: string | null }> {
+  const input = {
+    startUrls: startUrls.map((url) => ({ url })),
+    proxy: { useApifyProxy: true },
+    maxItems: startUrls.length,
+  };
 
-interface ProfileExtract {
-  cell?: string | null;
-  business?: string | null;
-  brokerage?: string | null;
-  email?: string | null;
-  is_premier?: boolean;
-}
-
-function extractProfile(html: string): ProfileExtract {
-  const out: ProfileExtract = {};
-  const m = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (m) {
+  let lastError = "no tokens available";
+  for (const token of APIFY_TOKENS) {
     try {
-      const data = JSON.parse(m[1]);
-      const blob = JSON.stringify(data);
+      const url = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${token}&clean=true&format=json`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+        signal: AbortSignal.timeout(540000),
+      });
+      if (r.status === 401 || r.status === 402 || r.status === 403) {
+        lastError = `token rejected: ${r.status}`;
+        continue;
+      }
+      if (!r.ok) {
+        lastError = `apify ${r.status}: ${(await r.text()).slice(0, 300)}`;
+        continue;
+      }
+      const items = await r.json();
+      return { items: Array.isArray(items) ? items : [], tokenUsed: token.slice(0, 8) + "..." };
+    } catch (e: any) {
+      lastError = e?.message || String(e);
+    }
+  }
+  return { items: [], tokenUsed: null, error: lastError };
+}
 
-      // Direct phoneNumbers.cell (gold)
-      const cellMatch = blob.match(/"phoneNumbers"\s*:\s*\{[^}]*"cell"\s*:\s*"([^"]+)"/);
-      if (cellMatch) out.cell = normPhone(cellMatch[1]);
+function extractPhonesFromDetail(item: any): { cell: string | null; business: string | null; brokerage: string | null; email: string | null; isPremier: boolean } {
+  // The detail scraper output contains contactRecipients[] and listed_by sections
+  const recipients = item.contactRecipients || item.contact_recipients || [];
+  let cell: string | null = null;
+  let business: string | null = null;
+  let brokerage: string | null = null;
+  let email: string | null = null;
+  let isPremier = false;
 
-      const bizMatch = blob.match(/"phoneNumbers"\s*:\s*\{[^}]*"business"\s*:\s*"([^"]+)"/);
-      if (bizMatch) out.business = normPhone(bizMatch[1]);
-
-      const brokMatch = blob.match(/"phoneNumbers"\s*:\s*\{[^}]*"brokerage"\s*:\s*"([^"]+)"/);
-      if (brokMatch) out.brokerage = normPhone(brokMatch[1]);
-
-      const emailMatch = blob.match(/"email"\s*:\s*"([^"@]+@[^"]+)"/);
-      if (emailMatch) out.email = emailMatch[1];
-
-      const premMatch = blob.match(/"isPremierAgent"\s*:\s*(true|false)/);
-      if (premMatch) out.is_premier = premMatch[1] === "true";
-    } catch (_) {}
+  for (const r of recipients) {
+    const phones = r.phoneNumbers || r.phone_numbers || {};
+    if (!cell && phones.cell) cell = normalizePhone(String(phones.cell));
+    if (!business && phones.business) business = normalizePhone(String(phones.business));
+    if (!brokerage && phones.brokerage) brokerage = normalizePhone(String(phones.brokerage));
+    if (!email && r.email) email = String(r.email);
+    if (r.badgeType === "PREMIER_AGENT" || r.isPremierAgent) isPremier = true;
   }
 
-  // JSON-LD fallback
-  if (!out.cell && !out.business) {
-    const ldMatch = html.match(/"telephone"\s*:\s*"([^"]+)"/);
-    if (ldMatch) out.business = normPhone(ldMatch[1]);
-  }
+  // Fallback: top-level fields some actor versions emit
+  const attr = item.listing_agent || item.attributionInfo || {};
+  if (!cell) cell = normalizePhone(String(attr.agentPhoneNumber || attr.agent_phone_number || item.agentPhoneNumber || ""));
+  if (!business) business = normalizePhone(String(attr.brokerPhoneNumber || attr.broker_phone_number || ""));
 
-  // tel: fallback
-  if (!out.cell && !out.business) {
-    const tel = html.match(/tel:\+?1?[-.\s(]*\d{3}[-.\s)]*\d{3}[-.\s]*\d{4}/);
-    if (tel) out.business = normPhone(tel[0]);
-  }
-
-  return out;
+  return { cell, business, brokerage, email, isPremier };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
   try {
-    if (!ZENROWS_API_KEY) return json({ ok: false, error: "ZENROWS_API_KEY not set" }, 400);
+    const body = await req.json().catch(() => ({}));
+    const limit = Math.min(Math.max(Number(body.limit) || 30, 1), 50);
 
-    // Find agents with profile URL, no contacts yet, not scraped in last 30 days
-    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: agents } = await supabase
-      .from("af_agents")
-      .select("id, name, agent_profile_url, agent_zuid, last_profile_scraped_at, af_agent_contacts(id)")
-      .not("agent_profile_url", "is", null)
-      .is("skip_reason", null)
-      .or(`last_profile_scraped_at.is.null,last_profile_scraped_at.lt.${cutoff}`)
-      .limit(50);
-
-    const need = (agents || []).filter((a: any) => !a.af_agent_contacts?.length);
-
-    let processed = 0, cellAdded = 0, bizAdded = 0, jsRenderUsed = 0;
-
-    for (const a of need) {
-      const url = (a as any).agent_profile_url as string;
-      if (!url) continue;
-
-      // Step 1: try cheapest (no JS)
-      let html = await fetchProfile(url, false);
-      let extracted = html ? extractProfile(html) : {};
-
-      // Step 2: fallback to JS render if no cell found
-      if (html && !extracted.cell) {
-        html = await fetchProfile(url, true);
-        if (html) {
-          extracted = extractProfile(html);
-          jsRenderUsed++;
-        }
-      }
-      processed++;
-
-      const updates: any = { last_profile_scraped_at: new Date().toISOString() };
-      if (extracted.email) updates.email = extracted.email;
-      if (typeof extracted.is_premier === "boolean") updates.is_premier_agent = extracted.is_premier;
-      await supabase.from("af_agents").update(updates).eq("id", a.id);
-
-      // Only insert verified mobile (cell). Business as fallback labeled.
-      if (extracted.cell) {
-        const { error } = await supabase.from("af_agent_contacts").upsert({
-          agent_id: a.id, phone: extracted.cell, source: "profile_cell",
-        }, { onConflict: "phone" });
-        if (!error) cellAdded++;
-      } else if (extracted.business) {
-        const { error } = await supabase.from("af_agent_contacts").upsert({
-          agent_id: a.id, phone: extracted.business, source: "profile_business",
-        }, { onConflict: "phone" });
-        if (!error) bizAdded++;
-      }
-
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
+    if (APIFY_TOKENS.length === 0) {
+      return new Response(JSON.stringify({ ok: false, error: "no APIFY_TOKEN configured" }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return json({
-      ok: true, candidates: need.length, processed,
-      cell_added: cellAdded, business_added: bizAdded,
-      js_render_fallbacks: jsRenderUsed,
-    });
+    // Pull agents with profile URL, never enriched (or stale 30+ days), no contact yet
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: agents, error: aErr } = await supabase
+      .from("af_agents")
+      .select("id, name, agent_profile_url, last_profile_scraped_at")
+      .not("agent_profile_url", "is", null)
+      .or(`last_profile_scraped_at.is.null,last_profile_scraped_at.lt.${thirtyDaysAgo}`)
+      .limit(limit);
+
+    if (aErr) throw aErr;
+    if (!agents || agents.length === 0) {
+      return new Response(JSON.stringify({ ok: true, message: "no agents to enrich", processed: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const urlToAgent = new Map<string, string>();
+    const startUrls: string[] = [];
+    for (const a of agents) {
+      if (a.agent_profile_url && !urlToAgent.has(a.agent_profile_url)) {
+        urlToAgent.set(a.agent_profile_url, a.id);
+        startUrls.push(a.agent_profile_url);
+      }
+    }
+
+    const { items, error, tokenUsed } = await runDetailActor(startUrls);
+    if (error) {
+      return new Response(JSON.stringify({ ok: false, error, urls_attempted: startUrls.length }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let cellsFound = 0;
+    let businessFound = 0;
+    let processed = 0;
+
+    for (const item of items) {
+      processed++;
+      const sourceUrl = item.url || item.startUrl || item.input?.url || "";
+      const agentId = urlToAgent.get(sourceUrl) || urlToAgent.get(sourceUrl.replace(/\/$/, ""));
+      if (!agentId) continue;
+
+      const { cell, business, brokerage, email, isPremier } = extractPhonesFromDetail(item);
+
+      // Update agent metadata
+      const updates: any = { last_profile_scraped_at: new Date().toISOString() };
+      if (email) updates.email = email;
+      if (isPremier) updates.is_premier_agent = true;
+      if (!cell && !business) updates.skip_reason = "no_phone_on_profile";
+      await supabase.from("af_agents").update(updates).eq("id", agentId);
+
+      // Insert contacts (cell preferred, business as fallback)
+      if (cell) {
+        await supabase.from("af_agent_contacts").upsert({
+          agent_id: agentId, phone: cell, phone_type: "mobile", is_valid: false, source: "apify_cell",
+        }, { onConflict: "phone" });
+        cellsFound++;
+      }
+      if (business) {
+        await supabase.from("af_agent_contacts").upsert({
+          agent_id: agentId, phone: business, phone_type: "unknown", is_valid: false, source: "apify_business",
+        }, { onConflict: "phone" });
+        businessFound++;
+      }
+      if (brokerage && !business) {
+        await supabase.from("af_agent_contacts").upsert({
+          agent_id: agentId, phone: brokerage, phone_type: "landline", is_valid: false, source: "apify_brokerage",
+        }, { onConflict: "phone" });
+      }
+    }
+
+    return new Response(JSON.stringify({
+      ok: true, processed, agentsRequested: agents.length,
+      cellsFound, businessFound, tokenUsed,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
-    return json({ ok: false, error: e?.message || String(e) }, 500);
+    return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
-
-function json(b: any, s = 200) {
-  return new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
