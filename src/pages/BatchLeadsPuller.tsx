@@ -42,7 +42,7 @@ export default function BatchLeadsPuller() {
 
   const [location, setLocation] = useState(settings.default_location);
   const [radius, setRadius] = useState(settings.default_radius);
-  const [maxResults, setMaxResults] = useState(settings.default_pull_size ?? settings.max_pull_size);
+  const [maxResults, setMaxResults] = useState(settings.max_pull_size);
   const [pulling, setPulling] = useState(false);
   const [queuing, setQueuing] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
