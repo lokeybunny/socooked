@@ -120,9 +120,19 @@ export default function CampaignLeader() {
       .channel("campaign-logs")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_activity_log" }, () => loadAll())
       .subscribe();
+    const ch3 = supabase
+      .channel("campaign-settings")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "campaign_settings" }, () => loadAll())
+      .subscribe();
+    const ch4 = supabase
+      .channel("campaign-sent-log")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_sent_log" }, () => loadAll())
+      .subscribe();
     return () => {
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
+      supabase.removeChannel(ch3);
+      supabase.removeChannel(ch4);
     };
   }, []);
 
