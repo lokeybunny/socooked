@@ -34,22 +34,50 @@ export default function LeadsRainAnalytics() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [defaultListId, setDefaultListId] = useState("");
   const [defaultCallerId, setDefaultCallerId] = useState("");
+  const [defaultCampaignExternalId, setDefaultCampaignExternalId] = useState("");
+  const [defaultAudioUrl, setDefaultAudioUrl] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [diagReport, setDiagReport] = useState<DiagnosticReport | null>(null);
   const [diagBusy, setDiagBusy] = useState(false);
   const diagHealth: DiagnosticHealth = reportToHealth(diagReport);
-  void diagHealth; void apiHealth; void setApiHealth;
+  void diagHealth; void diagBusy;
+
+  const normalizeDigits = (raw: string) => {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+    return digits;
+  };
 
   const loadSettings = async () => {
-    const { data } = await supabase.from("leadsrain_settings" as any).select("default_list_id, default_caller_id").limit(1).maybeSingle();
-    setDefaultListId(((data as any)?.default_list_id) || "");
-    setDefaultCallerId(((data as any)?.default_caller_id) || "");
+    const { data } = await supabase
+      .from("leadsrain_settings" as any)
+      .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active")
+      .limit(1).maybeSingle();
+    const d = data as any;
+    setDefaultListId(d?.default_list_id || "");
+    setDefaultCallerId(d?.default_caller_id || "");
+    setDefaultCampaignExternalId(d?.default_campaign_external_id || "");
+    setDefaultAudioUrl(d?.default_audio_url || "");
+    setIsActive(d?.is_active !== false);
   };
 
   const saveSettings = async () => {
     setSavingSettings(true);
+    const callerDigits = normalizeDigits(defaultCallerId);
+    if (defaultCallerId && callerDigits.length !== 10) {
+      toast.error("Caller ID must be 10 digits");
+      setSavingSettings(false);
+      return;
+    }
     const { data: existing } = await supabase.from("leadsrain_settings" as any).select("id").limit(1).maybeSingle();
-    const payload = { default_list_id: defaultListId.trim() || null, default_caller_id: defaultCallerId.trim() || null };
+    const payload = {
+      default_list_id: defaultListId.trim() || null,
+      default_caller_id: callerDigits || null,
+      default_campaign_external_id: defaultCampaignExternalId.trim() || null,
+      default_audio_url: defaultAudioUrl.trim() || null,
+      is_active: isActive,
+    };
     if ((existing as any)?.id) {
       await supabase.from("leadsrain_settings" as any).update(payload).eq("id", (existing as any).id);
     } else {
@@ -243,17 +271,36 @@ export default function LeadsRainAnalytics() {
                 <DialogHeader>
                   <DialogTitle>LeadsRain Defaults</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 py-2">
+                <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto">
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-200">
-                    <strong>Required for voice drops to actually fire.</strong> The Postlead API only adds a lead to a list — the voicemail audio is dropped by a Campaign you've configured inside the LeadsRain dashboard (RVM → Campaigns) that watches this list. Upload your audio file and attach it to the campaign there.
+                    <strong>A successful HTTP connection does not mean LeadsRain accepted the lead.</strong> An empty response means the lead was rejected. Always verify acceptance via the Raw Response viewer or the LeadsRain dashboard.
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border border-border/40 p-3">
+                    <div>
+                      <div className="text-sm font-medium">Integration Active</div>
+                      <div className="text-xs text-muted-foreground">Disable to block all PostLead submissions.</div>
+                    </div>
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="sr-only peer" />
+                      <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-lime-500 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-5" />
+                    </label>
                   </div>
                   <div>
-                    <Label className="text-xs">List ID (LeadsRain → RVM → Lead Lists)</Label>
+                    <Label className="text-xs">List ID (LeadsRain → RVM → Lead Lists) <span className="text-red-400">*</span></Label>
                     <Input value={defaultListId} onChange={(e) => setDefaultListId(e.target.value)} placeholder="e.g. 12345" />
                   </div>
                   <div>
-                    <Label className="text-xs">Caller ID (10-digit, must be verified in LeadsRain)</Label>
-                    <Input value={defaultCallerId} onChange={(e) => setDefaultCallerId(e.target.value)} placeholder="e.g. 14244651253" />
+                    <Label className="text-xs">Caller ID — 10 digits, must be verified in LeadsRain <span className="text-red-400">*</span></Label>
+                    <Input value={defaultCallerId} onChange={(e) => setDefaultCallerId(e.target.value)} placeholder="e.g. 4802200405" />
+                    <p className="text-[11px] text-muted-foreground mt-1">+1, spaces, dashes, parens are stripped automatically.</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Campaign ID (optional)</Label>
+                    <Input value={defaultCampaignExternalId} onChange={(e) => setDefaultCampaignExternalId(e.target.value)} placeholder="LeadsRain RVM campaign ID" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Audio URL (optional, for reference)</Label>
+                    <Input value={defaultAudioUrl} onChange={(e) => setDefaultAudioUrl(e.target.value)} placeholder="https://…/voicemail.wav" />
                   </div>
                 </div>
                 <DialogFooter>

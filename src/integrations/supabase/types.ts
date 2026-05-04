@@ -2444,12 +2444,15 @@ export type Database = {
       leadsrain_settings: {
         Row: {
           created_at: string
+          default_audio_url: string | null
           default_caller_id: string | null
+          default_campaign_external_id: string | null
           default_campaign_id: string | null
           default_list_id: string | null
           enable_transfer: boolean
           enable_voidfix_followup: boolean
           id: string
+          is_active: boolean
           proxy_url: string | null
           singleton: boolean
           transfer_number: string | null
@@ -2458,12 +2461,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          default_audio_url?: string | null
           default_caller_id?: string | null
+          default_campaign_external_id?: string | null
           default_campaign_id?: string | null
           default_list_id?: string | null
           enable_transfer?: boolean
           enable_voidfix_followup?: boolean
           id?: string
+          is_active?: boolean
           proxy_url?: string | null
           singleton?: boolean
           transfer_number?: string | null
@@ -2472,12 +2478,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          default_audio_url?: string | null
           default_caller_id?: string | null
+          default_campaign_external_id?: string | null
           default_campaign_id?: string | null
           default_list_id?: string | null
           enable_transfer?: boolean
           enable_voidfix_followup?: boolean
           id?: string
+          is_active?: boolean
           proxy_url?: string | null
           singleton?: boolean
           transfer_number?: string | null
