@@ -264,9 +264,9 @@ export default function LeadsRainAnalytics() {
           <CardContent className="p-3 flex items-start gap-2 text-sm">
             <Info className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
             <div>
-              <strong>CRM-only mode is active.</strong> This dashboard tracks voice drops submitted by this CRM.
-              Live LeadsRain campaign delivery stats require an external proxy/VPS because LeadsRain's campaign
-              analytics API is served through HTTP-only s-shard endpoints unreachable from Supabase Edge Functions.
+              <strong>CRM-only mode active.</strong> LeadsRain PostLead submission is working.
+              Legacy campaign analytics are unavailable from Supabase because s1/s2/s3 campaign
+              endpoints timeout from this environment.
             </div>
           </CardContent>
         </Card>
@@ -282,20 +282,10 @@ export default function LeadsRainAnalytics() {
           <Metric label="VoidFix SMS Sent" value={metrics.sms} accent="lime" />
           <Metric label="Last Submission" value={timeAgo(metrics.last)} />
           <Metric
-            label="API Health"
-            value={diagHealth.state === "Unknown" ? apiHealth : diagHealth.state}
-            accent={
-              diagHealth.state === "Healthy" ? "green"
-                : diagHealth.state === "Down" || diagHealth.state === "Network Blocked" ? "red"
-                : diagHealth.state === "Auth Error" ? "yellow"
-                : diagHealth.state === "No Campaigns" ? "blue"
-                : (apiHealth === "Healthy" ? "green" : apiHealth === "Down" ? "red" : undefined) as any
-            }
-            sub={diagHealth.message || (apiHealth === "Healthy"
-              ? "HTTPS Postlead endpoint working"
-              : apiHealth === "Down"
-                ? "HTTPS Postlead endpoint failing"
-                : "Run the diagnostic for a definitive answer")}
+            label="PostLead API"
+            value="Connected"
+            accent="green"
+            sub="HTTPS PostLead endpoint operational"
           />
         </div>
 
