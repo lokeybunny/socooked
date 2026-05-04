@@ -529,16 +529,17 @@ async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean
 }
 
 // ---------- Process a single contact (production) ----------
-// Email and SMS run in PARALLEL on independent timers. SMS will go through even
-// if the email step is delayed, retried, or rate-limited. Both channels enforce
-// their own duplicate-suppression and 5-25s randomized back-to-back gap.
-async function processContact(contact: any) {
+// Email and SMS run in PARALLEL on independent timers. channelMode controls which
+// channels actually fire ("both" | "sms_only" | "email_only").
+async function processContact(contact: any, channelMode: "both" | "sms_only" | "email_only" = "both") {
+  const wantEmail = channelMode === "both" || channelMode === "email_only";
+  const wantSms = channelMode === "both" || channelMode === "sms_only";
+
   const [emailRes, smsRes] = await Promise.all([
-    runEmailFor(contact),
-    runSmsFor(contact),
+    wantEmail ? runEmailFor(contact) : Promise.resolve({ ok: false, skipped: true }),
+    wantSms ? runSmsFor(contact) : Promise.resolve({ ok: false, skipped: true }),
   ]);
 
-  // Final contact status — completed if either channel succeeded, failed only if both failed (and neither was skipped-duplicate)
   let finalStatus = "completed";
   if (!emailRes.ok && !smsRes.ok && !emailRes.skipped && !smsRes.skipped) {
     finalStatus = "failed";
