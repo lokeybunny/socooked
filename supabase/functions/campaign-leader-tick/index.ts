@@ -491,17 +491,18 @@ async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean
   const firstName = contact.first_name || "there";
   const addr = contact.property_address || "your property";
   const { text, variant: smsVariant } = buildSms(firstName, addr);
-  const smsResult = await sendSms(contact.phone_e164, text);
+  const smsResult = await sendSmsWithRetry(contact.phone_e164, text, contact.id);
   lastChannelSendAt.sms = Date.now();
 
   if (!smsResult.ok) {
     await sb.from("campaign_contacts").update({
       sms_status: "failed",
+      sms_retry_count: smsResult.attempts,
       error_message: String(smsResult.error).slice(0, 500),
       last_step: "sms_failed",
     }).eq("id", contact.id);
     await bumpDailyStat("sms_failed");
-    await logActivity(contact.id, "error", "sms_failed", String(smsResult.error));
+    await logActivity(contact.id, "error", "sms_failed", `SMS failed after ${smsResult.attempts} attempt(s): ${String(smsResult.error)}`);
     return { ok: false };
   }
 
