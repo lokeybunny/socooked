@@ -115,8 +115,12 @@ Deno.serve(async (req) => {
       email,
       caller_id,
       campaign_name,
+      campaign_id: campaign_id_in,
       audio_url,
       list_id,
+      list_id_field,        // override which key name to use for list_id
+      content_type,         // "json" | "form"
+      extra_payload,        // arbitrary extra fields for manual tester
       lead_id,
       contact_id,
       customer_id,
