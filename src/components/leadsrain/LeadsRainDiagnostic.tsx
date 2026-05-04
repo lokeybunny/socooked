@@ -229,8 +229,10 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
               </Badge>
               {report.credentials && (
                 <span className="text-xs text-muted-foreground">
-                  creds: {report.credentials.username_source} · key {report.credentials.api_key_preview} ·{" "}
-                  proxy {report.credentials.proxy_configured ? "OK" : (report.credentials.proxy_misconfigured ? "misconfigured" : "not set")}
+                  creds: {report.credentials.username_source} · key {report.credentials.api_key_preview}
+                  {advancedOpen && (
+                    <> · proxy {report.credentials.proxy_configured ? "OK" : (report.credentials.proxy_misconfigured ? "misconfigured" : "not set (optional)")}</>
+                  )}
                 </span>
               )}
             </div>
