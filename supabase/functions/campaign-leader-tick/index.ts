@@ -398,6 +398,15 @@ async function processContact(contact: any) {
   await bumpDailyStat("emails_sent");
   await logActivity(contact.id, "success", "email_sent", `Email delivered to ${contact.email}`);
 
+  // Permanent suppression: record confirmed-successful email so it's never re-sent
+  await sb.from("campaign_sent_log").upsert({
+    email: contact.email,
+    channel: "email",
+    contact_id: contact.id,
+    lead_id: contact.lead_id || null,
+    sent_at: new Date().toISOString(),
+  }, { onConflict: "email,channel", ignoreDuplicates: true } as any);
+
   // Small jitter between email and SMS
   await new Promise(r => setTimeout(r, 1500 + Math.floor(Math.random() * 2500)));
 
