@@ -243,8 +243,22 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
           </div>
         )}
 
-        {report?.tests && report.tests.length > 0 && (
-          <div className="overflow-x-auto rounded-md border border-border/40">
+        {report?.tests && report.tests.length > 0 && (() => {
+          const isLegacy = (t: any) => /s1|s2|s3|proxy|campaign view/i.test(`${t.name} ${t.endpoint}`);
+          const visibleTests = advancedOpen ? report.tests : report.tests.filter((t) => !isLegacy(t));
+          const hiddenCount = report.tests.length - visibleTests.length;
+          return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                {advancedOpen ? "Showing all tests including legacy/optional." : "Showing production tests only."}
+                {hiddenCount > 0 && !advancedOpen && ` ${hiddenCount} legacy/optional test(s) hidden.`}
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setAdvancedOpen((v) => !v)}>
+                {advancedOpen ? "Hide" : "Show"} Advanced Diagnostics (Optional)
+              </Button>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-border/40">
             <Table>
               <TableHeader>
                 <TableRow>
