@@ -201,9 +201,8 @@ Deno.serve(async (req) => {
       .single();
     if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
 
-    // Call LeadsRain PostLead. Try JSON first, then form-encoded if requested,
-    // and try each list_id field-name variant until one returns a non-empty body.
-    const useForm = String(content_type || "").toLowerCase() === "form";
+    // Per LeadsRain docs: always send application/json. No form fallback, no variants.
+    const useForm = false;
     const attempts: Array<{ list_id_field: string; content_type: string; http_status: number; raw_text: string; mode: string }> = [];
     let lrJson: any = null;
     let lrRawText = "";
