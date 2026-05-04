@@ -201,17 +201,49 @@ export default function CampaignLeader() {
     }
   }
 
-  async function runTickNow() {
+  // Resume = send 1 contact at a time (then stops, ready for next press of Resume or scheduler)
+  async function runOneNow() {
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", { body: { mode: "tick" } });
+      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", {
+        body: { mode: "tick", runMode: "single" },
+      });
       if (error) throw error;
-      const summary = data?.skipped
+      const summary = data?.reason && data?.processed === 0
         ? `Skipped: ${data.reason}`
-        : `Processed ${data?.processed || 0} (${data?.success || 0} successful)`;
-      toast({ title: "Tick complete", description: summary });
+        : `Sent ${data?.success || 0} of ${data?.processed || 0}`;
+      toast({ title: "Single send complete", description: summary });
     } catch (e: any) {
-      toast({ title: "Tick failed", description: e?.message || "Unknown error", variant: "destructive" });
+      toast({ title: "Send failed", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Run Batch Now = drain mode, keeps going until cap, empty, or Stop pressed
+  async function runDrainNow() {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", {
+        body: { mode: "tick", runMode: "drain" },
+      });
+      if (error) throw error;
+      toast({ title: "Run Batch Now started", description: data?.started ? "Sending in background — press Stop to halt" : "Drain finished" });
+    } catch (e: any) {
+      toast({ title: "Drain failed", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stopDrain() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.functions.invoke("campaign-leader-tick", { body: { mode: "stop" } });
+      if (error) throw error;
+      toast({ title: "Stop requested", description: "Will halt after the current contact finishes" });
+    } catch (e: any) {
+      toast({ title: "Stop failed", description: e?.message || "Unknown error", variant: "destructive" });
     } finally {
       setBusy(false);
     }
