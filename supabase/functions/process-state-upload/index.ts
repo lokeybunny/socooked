@@ -69,7 +69,11 @@ Deno.serve(async (req) => {
     const addrKey = findKey(rows[0], ["property_address", "address", "street", "street_address", "mailing_address"]);
     const cityKey = findKey(rows[0], ["city", "town"]);
     const zipKey = findKey(rows[0], ["zip", "zipcode", "postal", "postal_code"]);
-    const emailKey = findKey(rows[0], ["email", "email_address", "e_mail", "owner_email", "contact_email"]);
+    const emailKey = findKey(rows[0], ["email", "email_address", "e_mail", "owner_email", "contact_email", "mail"]);
+
+    console.log("[process-state-upload] file:", file.name, "rows:", rows.length);
+    console.log("[process-state-upload] headers:", Object.keys(rows[0] ?? {}));
+    console.log("[process-state-upload] mapped keys:", { phoneKey, nameKey, firstNameKey, lastNameKey, addrKey, cityKey, zipKey, emailKey });
 
     if (!phoneKey) {
       return new Response(JSON.stringify({ error: "No phone_number column found" }), {
