@@ -40,7 +40,7 @@ function locationToZillowUrl(location: string): string {
 async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ items: any[]; tokenUsed: string | null; error?: string }> {
   const input = {
     searchUrls: searchUrls.map((url) => ({ url })),
-    extractionMethod: "MAP_MARKERS",
+    extractionMethod: "PAGINATION_WITH_ZOOM_IN",
     maxItems,
     proxy: { useApifyProxy: true },
   };
