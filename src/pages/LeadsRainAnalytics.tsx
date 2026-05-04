@@ -151,8 +151,9 @@ export default function LeadsRainAnalytics() {
   const sendTest = async () => {
     const phone = testPhone.trim();
     if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
-    if (!defaultListId.trim()) {
-      toast.error("Missing LeadsRain list_id. Add an active LeadsRain list connected to an RVM campaign.");
+    const lid = (defaultListId || "").trim();
+    if (!lid || /^(undefined|null)$/i.test(lid)) {
+      toast.error("Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.");
       setSettingsOpen(true);
       return;
     }
