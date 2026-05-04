@@ -113,21 +113,11 @@ Deno.serve(async (req) => {
 
     // Log
     await sb.from("upload_logs").insert({
-      file_name: `lgm_clean_existing_${stateFilter || "all"}_${new Date().toISOString()}`,
+      file_name: `lgm_clean_existing_${stateFilter || "all"}`,
       state: stateFilter || "ALL",
       total_rows: checked,
-      inserted_count: 0,
-      duplicate_count: 0,
-      meta: {
-        type: "clean_existing",
-        lgm_checked: checked,
-        lgm_rejected: rejected.length,
-        lgm_kept: kept,
-        lgm_enriched: enriched.length,
-        campaign_contacts_removed: removedCampaignContacts,
-        rejected_sample: rejected.slice(0, 25),
-        offset, limit,
-      },
+      inserted_count: kept,
+      duplicate_count: rejected.length,
     }).catch(() => {});
 
     return new Response(JSON.stringify({
