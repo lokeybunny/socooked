@@ -328,6 +328,28 @@ export default function LeadsRainAnalytics() {
                     <Label className="text-xs">Audio URL (optional, for reference)</Label>
                     <Input value={defaultAudioUrl} onChange={(e) => setDefaultAudioUrl(e.target.value)} placeholder="https://…/voicemail.wav" />
                   </div>
+
+                  <div className="border-t border-border/40 pt-4 space-y-3">
+                    <div className="flex items-center justify-between rounded-md border border-sky-500/30 bg-sky-500/5 p-3">
+                      <div>
+                        <div className="text-sm font-medium">Zapier Mode</div>
+                        <div className="text-xs text-muted-foreground">Route voice drops through Zapier instead of LeadsRain API. No username/API key required.</div>
+                      </div>
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={zapierMode} onChange={(e) => setZapierMode(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-sky-500 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-5" />
+                      </label>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Zapier Catch Hook URL</Label>
+                      <Input value={zapierWebhookUrl} onChange={(e) => setZapierWebhookUrl(e.target.value)} placeholder="https://hooks.zapier.com/hooks/catch/..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs">VoidFix SMS delay (minutes)</Label>
+                      <Input type="number" min={0} value={smsDelayMinutes} onChange={(e) => setSmsDelayMinutes(Number(e.target.value))} />
+                      <p className="text-[11px] text-muted-foreground mt-1">SMS follow-up will fire this many minutes after Zapier accepts the lead.</p>
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button onClick={saveSettings} disabled={savingSettings}>
