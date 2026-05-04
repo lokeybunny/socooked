@@ -271,8 +271,7 @@ export default function LeadsRainAnalytics() {
           <CardContent className="p-3 flex items-start gap-2 text-sm">
             <Info className="w-4 h-4 text-lime-400 mt-0.5 shrink-0" />
             <div>
-              <strong>LeadsRain is connected.</strong> Live PostLead workflow is active. Parser mapping pending.
-              Legacy Campaign View endpoints (s1/s2/s3) timeout from this environment and remain in diagnostics only.
+              <strong>LeadsRain Connected — Live HTTPS workflow active.</strong> Voicemail submissions go through the production PostLead endpoint. Legacy Campaign View and proxy tests are optional and only shown under Advanced Diagnostics.
             </div>
           </CardContent>
         </Card>
@@ -291,7 +290,7 @@ export default function LeadsRainAnalytics() {
             label="PostLead API"
             value="Connected"
             accent="green"
-            sub="Live PostLead workflow active — parser mapping pending"
+            sub="LeadsRain Connected — Live HTTPS workflow active"
           />
         </div>
 
