@@ -188,12 +188,12 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
             <Select value={mode} onValueChange={(v: any) => setMode(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Run All</SelectItem>
-                <SelectItem value="s2">Direct HTTP s2</SelectItem>
-                <SelectItem value="s1">Direct HTTP s1</SelectItem>
-                <SelectItem value="s3">Direct HTTP s3</SelectItem>
-                <SelectItem value="proxy">Proxy URL</SelectItem>
-                <SelectItem value="postlead">PostLead HTTPS host</SelectItem>
+                <SelectItem value="postlead">Live PostLead HTTPS (production)</SelectItem>
+                <SelectItem value="all">Run All (incl. legacy)</SelectItem>
+                <SelectItem value="s2">Legacy: Direct HTTP s2</SelectItem>
+                <SelectItem value="s1">Legacy: Direct HTTP s1</SelectItem>
+                <SelectItem value="s3">Legacy: Direct HTTP s3</SelectItem>
+                <SelectItem value="proxy">Optional: Proxy URL</SelectItem>
               </SelectContent>
             </Select>
           </div>
