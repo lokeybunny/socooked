@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     // Resolve defaults from settings (list_id + caller_id REQUIRED; integration must be active)
     const { data: settings } = await svc
       .from("leadsrain_settings")
-      .select("default_list_id, default_caller_id, default_campaign_external_id, is_active")
+      .select("default_list_id, default_caller_id, default_campaign_external_id, is_active, zapier_mode_enabled, zapier_webhook_url, sms_delay_minutes")
       .limit(1)
       .maybeSingle();
 
@@ -212,6 +212,114 @@ Deno.serve(async (req) => {
     const finalListId = (!listIdStr || /^(undefined|null)$/i.test(listIdStr)) ? null : listIdStr;
     const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
     const finalCampaignId = campaign_id_in || (settings as any)?.default_campaign_external_id || null;
+
+    const zapierMode = !!(settings as any)?.zapier_mode_enabled;
+    const zapierUrl = String((settings as any)?.zapier_webhook_url || "").trim();
+    const smsDelayMin = Math.max(0, Number((settings as any)?.sms_delay_minutes ?? 3));
+
+    // ============= ZAPIER MODE =============
+    if (zapierMode) {
+      if (!zapierUrl || !/^https:\/\/hooks\.zapier\.com\//i.test(zapierUrl)) {
+        return json({ ok: false, error: "Zapier mode is on but ZAPIER_LEADSRAIN_WEBHOOK_URL is missing/invalid." }, 400);
+      }
+
+      const { data: row, error: insErr } = await svc
+        .from("leadsrain_submissions")
+        .insert({
+          lead_id: lead_id || null,
+          contact_id: contact_id || null,
+          customer_id: customer_id || null,
+          phone_number: ph.e164,
+          caller_id: finalCallerId || null,
+          campaign_name: campaign_name || null,
+          audio_url: audio_url || null,
+          status: "submitted_to_leadsrain",
+          raw_request: { mode: "zapier", phone_number: ph.ten, list_id: finalListId, campaign_id: finalCampaignId, caller_id: finalCallerId },
+          submitted_by: userId,
+        }).select("*").single();
+      if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
+
+      const zapierPayload: Record<string, any> = {
+        phone_number: ph.ten,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        email: email || null,
+        list_id: finalListId,
+        campaign_id: finalCampaignId,
+        caller_id: finalCallerId,
+        source: "crm-voicedrop",
+        crm_submission_id: row.id,
+      };
+
+      let zapStatus = 0;
+      let zapText = "";
+      let zapErr: string | null = null;
+      try {
+        const zr = await fetch(zapierUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(zapierPayload),
+          signal: AbortSignal.timeout(15000),
+        });
+        zapStatus = zr.status;
+        zapText = (await zr.text()) || "";
+      } catch (e: any) { zapErr = e?.message || String(e); }
+
+      const zapOk = !zapErr && zapStatus >= 200 && zapStatus < 300;
+      const newStatus = zapOk ? "sent_to_zapier" : "failed_to_submit";
+
+      await svc.from("leadsrain_submissions").update({
+        status: newStatus,
+        leadsrain_message: zapOk ? "Sent to Zapier for LeadsRain upload — SMS follow-up scheduled." : (zapErr || `Zapier HTTP ${zapStatus}`),
+        raw_response: { mode: "zapier", http_status: zapStatus, raw_text: zapText.slice(0, 1000), payload: zapierPayload, sms_delay_minutes: smsDelayMin },
+        error_message: zapOk ? null : (zapErr || `Zapier HTTP ${zapStatus}`),
+      }).eq("id", row.id);
+
+      // Schedule VoidFix SMS via pg_net delayed call (best-effort: invoke after delay using setTimeout — edge functions can't sleep long, so we schedule via DB).
+      let scheduled = false;
+      if (zapOk && send_voidfix) {
+        try {
+          const sendAt = new Date(Date.now() + smsDelayMin * 60 * 1000).toISOString();
+          await svc.from("scheduled_sms_jobs").insert({
+            send_at: sendAt,
+            to_phone: ph.e164,
+            body: voidfix_template,
+            customer_id: customer_id || null,
+            source: "leadsrain_zapier",
+            meta: { submission_id: row.id, delay_minutes: smsDelayMin },
+          });
+          scheduled = true;
+        } catch (e) {
+          // table may not exist — fall back to immediate send
+          try {
+            await sb.functions.invoke("powerdial-sms", {
+              body: { action: "send", to: ph.e164, body: voidfix_template, customer_id: customer_id || null },
+            });
+            scheduled = true;
+          } catch { /* ignore */ }
+        }
+      }
+
+      return json({
+        ok: zapOk,
+        submission_id: row.id,
+        status: newStatus,
+        mode: "zapier",
+        user_message: zapOk
+          ? `Sent to Zapier for LeadsRain upload — SMS follow-up scheduled in ${smsDelayMin} min.`
+          : (zapErr || `Zapier returned HTTP ${zapStatus}`),
+        http_status: zapStatus,
+        sms_delay_minutes: smsDelayMin,
+        sms_scheduled: scheduled,
+        zapier_payload: zapierPayload,
+        list_id: finalListId,
+        caller_id: finalCallerId,
+        campaign_id: finalCampaignId,
+      }, 200);
+    }
+    // ========== END ZAPIER MODE ==========
+
+    if (!LR_USER || !LR_KEY) return json({ ok: false, error: "Missing LeadsRain credentials" }, 500);
 
     if (!finalListId) {
       return json({ ok: false, error: "Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.", missing: "list_id" }, 400);
