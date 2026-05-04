@@ -95,12 +95,13 @@ function buildEmail(firstName: string, addr: string) {
   return { subject, body, variant };
 }
 
-function buildSms(firstName: string) {
+function buildSms(firstName: string, addr: string) {
   const oIdx = pickIdx(SMS_OPENERS);
   const bIdx = pickIdx(SMS_BODIES);
-  const opener = fill(SMS_OPENERS[oIdx], { name: firstName });
-  const body = SMS_BODIES[bIdx];
-  const text = `${opener}. ${body} See: https://instagram.com/W4RR3NGuru — Reply STOP to opt out.`;
+  const vars = { name: firstName, addr };
+  const opener = fill(SMS_OPENERS[oIdx], vars);
+  const body = fill(SMS_BODIES[bIdx], vars);
+  const text = `${opener}. ${body} See: https://instagram.com/W4RR3NGuru`;
   return { text, variant: oIdx * 10 + bIdx };
 }
 
