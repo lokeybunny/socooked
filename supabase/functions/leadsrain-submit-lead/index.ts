@@ -123,28 +123,37 @@ Deno.serve(async (req) => {
     let httpStatus = 0;
     let errMsg: string | null = null;
     try {
+      const form = new URLSearchParams();
+      for (const [k, v] of Object.entries(reqPayload)) {
+        form.append(k, v == null ? "" : String(v));
+      }
       const r = await fetch(LR_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
-        body: JSON.stringify(reqPayload),
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cache-Control": "no-cache",
+          "Accept": "application/json",
+        },
+        body: form.toString(),
         signal: AbortSignal.timeout(20000),
       });
       httpStatus = r.status;
       const txt = await r.text();
       const raw = txt.trim();
-      try { lrJson = raw ? JSON.parse(raw) : { raw: "", accepted: true }; } catch { lrJson = { raw }; }
+      try { lrJson = raw ? JSON.parse(raw) : { raw: "" }; } catch { lrJson = { raw }; }
       const statusText = String(lrJson?.status || lrJson?.Status || "").toLowerCase();
       const messageText = String(lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || "").toLowerCase();
-      const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized)\b/.test(messageText);
-      httpOk = r.ok && !explicitFailure && (raw === "" || !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText));
-      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || `HTTP ${r.status}`;
+      const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
+      const explicitSuccess = !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText);
+      httpOk = r.ok && !explicitFailure && explicitSuccess;
+      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || (raw === "" ? `LeadsRain returned empty HTTP ${r.status} — lead was NOT added to list ${finalListId}. Verify list_id and credentials in LeadsRain dashboard.` : `HTTP ${r.status}`);
     } catch (e: any) {
       errMsg = e?.message || String(e);
     }
 
     const newStatus = httpOk ? "accepted_by_api" : "failed_to_submit";
     const lrLeadId = lrJson?.lead_id?.toString() || null;
-    const lrMsg = lrJson?.msg || lrJson?.message || (httpOk && lrJson?.accepted ? "LeadsRain accepted request with empty HTTP 200 response" : null);
+    const lrMsg = lrJson?.msg || lrJson?.message || lrJson?.error || null;
 
     await svc.from("leadsrain_submissions").update({
       status: newStatus,
