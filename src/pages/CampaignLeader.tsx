@@ -84,6 +84,7 @@ export default function CampaignLeader() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [lifetimeSent, setLifetimeSent] = useState<{ emails: number; sms: number }>({ emails: 0, sms: 0 });
 
   // Test mode state
   const [testEmail, setTestEmail] = useState("");
