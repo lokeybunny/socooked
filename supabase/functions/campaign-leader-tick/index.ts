@@ -238,6 +238,12 @@ async function processContact(contact: any) {
     }).eq("id", contact.id);
     await bumpDailyStat("emails_failed");
     await logActivity(contact.id, "error", "email_failed", String(emailResult.error));
+
+    // Gmail deliverability promoter: auto-pause on rate-limit / quota errors
+    if (isGmailRateLimitError(emailResult.error) || isGmailRateLimitError(emailResult.raw)) {
+      await sb.from("campaign_settings").update({ is_paused: true }).eq("id", 1);
+      await logActivity(null, "error", "auto_pause", `Auto-paused: Gmail rate/quota signal — ${String(emailResult.error).slice(0, 200)}`);
+    }
     return { ok: false };
   }
 
