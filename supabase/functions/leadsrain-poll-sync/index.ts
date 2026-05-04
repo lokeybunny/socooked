@@ -80,6 +80,9 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now();
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } },
+  });
   let force = false;
   try {
     const body = await req.json().catch(() => ({}));
@@ -178,6 +181,39 @@ Deno.serve(async (req) => {
           remaining_count: remaining,
           status,
         });
+      }
+
+      const campaignLeads = pickItems(item?.leads ?? item?.posted_leads ?? item?.lead_data ?? item?.records ?? item?.data);
+      for (const lead of campaignLeads) {
+        const providerLeadId = pickProviderLeadId(lead);
+        const phone = pickPhone(lead);
+        const leadStatus = pickLeadStatus(lead);
+        if (!DELIVERY_STATUSES.has(leadStatus)) continue;
+
+        let query = sb.from("leadsrain_submissions")
+          .select("id, phone_number, customer_id, voidfix_sms_sent, raw_response")
+          .eq("voidfix_sms_sent", false)
+          .limit(1);
+        query = providerLeadId ? query.eq("leadsrain_lead_id", providerLeadId) : query.eq("phone_number", phone || "");
+        const { data: pending } = await query.maybeSingle();
+        if (!pending?.id) continue;
+
+        const smsResp = await anon.functions.invoke("powerdial-sms", {
+          body: {
+            action: "send",
+            to: pending.phone_number,
+            body: "Hey, this is Warren — just left you a quick voicemail.",
+            customer_id: pending.customer_id || null,
+          },
+        });
+        const d: any = smsResp?.data || {};
+        await sb.from("leadsrain_submissions").update({
+          status: smsResp.error || d?.ok === false ? "accepted_by_api" : "sms_followup_sent",
+          voidfix_sms_sent: !(smsResp.error || d?.ok === false),
+          voidfix_sms_at: smsResp.error || d?.ok === false ? null : new Date().toISOString(),
+          raw_response: { ...(pending.raw_response || {}), delivery_poll: lead, voidfix_after_delivery: d },
+          error_message: smsResp.error || d?.ok === false ? (smsResp.error?.message || d?.error || "VoidFix SMS failed after delivery") : null,
+        }).eq("id", pending.id);
       }
     }
   } catch (e: any) {
