@@ -67,9 +67,11 @@ export default function DisconnectedTab() {
     if (!campName.trim()) return toast.error('Campaign name required');
     setCreating(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
       const { data: camp, error: cErr } = await supabase
         .from('powerdial_campaigns')
-        .insert({ name: campName, status: 'idle', total_leads: targets.length })
+        .insert({ name: campName, status: 'idle', total_leads: targets.length, created_by: user.id })
         .select().single();
       if (cErr || !camp) throw cErr;
       const queueRows = targets.map((t, i) => ({
