@@ -69,6 +69,10 @@ export type DiagnosticHealth =
 export function reportToHealth(r: DiagnosticReport | null): DiagnosticHealth {
   if (!r || !r.ok || !r.summary) return { state: "Unknown" };
   const s = r.summary;
+  // PostLead HTTPS reachability is the authoritative health signal.
+  const postLead = r.tests?.find((t) => /PostLead HTTPS/i.test(t.name));
+  const postLeadReachable = !!postLead && postLead.http_status >= 200 && postLead.http_status < 500;
+  if (postLeadReachable) return { state: "Healthy", message: s.final_diagnosis };
   if (s.campaigns_found) return { state: "Healthy", message: s.final_diagnosis };
   if (s.auth_valid === true && s.campaigns_found === false) return { state: "No Campaigns", message: s.final_diagnosis };
   if (s.auth_valid === false) return { state: "Auth Error", message: s.final_diagnosis };
