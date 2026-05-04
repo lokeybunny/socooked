@@ -60,6 +60,7 @@ export type Database = {
           is_valid: boolean
           phone: string
           phone_type: string
+          source: string | null
           validated_at: string | null
         }
         Insert: {
@@ -69,6 +70,7 @@ export type Database = {
           is_valid?: boolean
           phone: string
           phone_type?: string
+          source?: string | null
           validated_at?: string | null
         }
         Update: {
@@ -78,6 +80,7 @@ export type Database = {
           is_valid?: boolean
           phone?: string
           phone_type?: string
+          source?: string | null
           validated_at?: string | null
         }
         Relationships: [
@@ -128,35 +131,53 @@ export type Database = {
       }
       af_agents: {
         Row: {
+          agent_profile_url: string | null
+          agent_zuid: string | null
           brokerage: string | null
           city: string | null
           created_at: string
+          email: string | null
           id: string
+          is_premier_agent: boolean | null
+          last_profile_scraped_at: string | null
           name: string
           normalized_key: string
           profile_url: string | null
+          skip_reason: string | null
           source: string
           zuid: string | null
         }
         Insert: {
+          agent_profile_url?: string | null
+          agent_zuid?: string | null
           brokerage?: string | null
           city?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          is_premier_agent?: boolean | null
+          last_profile_scraped_at?: string | null
           name: string
           normalized_key: string
           profile_url?: string | null
+          skip_reason?: string | null
           source?: string
           zuid?: string | null
         }
         Update: {
+          agent_profile_url?: string | null
+          agent_zuid?: string | null
           brokerage?: string | null
           city?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          is_premier_agent?: boolean | null
+          last_profile_scraped_at?: string | null
           name?: string
           normalized_key?: string
           profile_url?: string | null
+          skip_reason?: string | null
           source?: string
           zuid?: string | null
         }
