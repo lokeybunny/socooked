@@ -182,6 +182,9 @@ export default function CampaignLeader() {
           <Badge variant={settings.is_paused ? "destructive" : "default"}>
             {settings.is_paused ? "PAUSED" : "ACTIVE"}
           </Badge>
+          <Button asChild variant="outline" size="sm">
+            <a href="/email-deliverability"><ShieldCheck className="w-4 h-4 mr-1" />Deliverability</a>
+          </Button>
         </div>
       </div>
 
