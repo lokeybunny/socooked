@@ -104,17 +104,19 @@ Deno.serve(async (req) => {
     let httpStatus = 0;
     let errMsg: string | null = null;
     try {
+      const form = new URLSearchParams();
+      for (const [k, v] of Object.entries(reqPayload)) form.append(k, String(v ?? ""));
       const r = await fetch(LR_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reqPayload),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form.toString(),
         signal: AbortSignal.timeout(20000),
       });
       httpStatus = r.status;
       const txt = await r.text();
       try { lrJson = JSON.parse(txt); } catch { lrJson = { raw: txt }; }
       httpOk = r.ok && (!!lrJson?.lead_id || String(lrJson?.status || "").toLowerCase() === "success");
-      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || `HTTP ${r.status}`;
+      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.raw || `HTTP ${r.status}`;
     } catch (e: any) {
       errMsg = e?.message || String(e);
     }
