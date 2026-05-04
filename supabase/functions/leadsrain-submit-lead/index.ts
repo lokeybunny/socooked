@@ -322,8 +322,12 @@ Deno.serve(async (req) => {
       error: errMsg,
       list_id: finalListId,
       caller_id: finalCallerId,
-      campaign_external_id: finalCampaignId,
-      submitted_payload: { ...reqPayload, api_key: "***", username: "***" },
+      campaign_id: finalCampaignId,
+      list_id_field: usedListField,
+      content_type: usedContentType,
+      endpoint: usedEndpoint,
+      attempts,
+      submitted_payload: { ...lastPayload, api_key: "***", username: "***" },
       raw_response: { json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint },
     }, 200);
   } catch (e: any) {
