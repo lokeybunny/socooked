@@ -138,12 +138,14 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "LeadsRain integration is disabled. Toggle it on in Settings before submitting." }, 400);
     }
 
-    const finalListId = list_id || settings?.default_list_id || null;
+    const rawListId = list_id ?? settings?.default_list_id ?? null;
+    const listIdStr = String(rawListId ?? "").trim();
+    const finalListId = (!listIdStr || /^(undefined|null)$/i.test(listIdStr)) ? null : listIdStr;
     const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
     const finalCampaignId = (settings as any)?.default_campaign_external_id || null;
 
     if (!finalListId) {
-      return json({ ok: false, error: "Missing LeadsRain list_id. Add an active LeadsRain list connected to an RVM campaign.", missing: "list_id" }, 400);
+      return json({ ok: false, error: "Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.", missing: "list_id" }, 400);
     }
     if (!finalCallerId) {
       return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
