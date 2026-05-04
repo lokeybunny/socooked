@@ -198,11 +198,14 @@ export default function SMS() {
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="voidfix-first-reply"><Sparkles className="h-3.5 w-3.5 mr-1" /> VoidFix Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
+            <TabsTrigger value="disconnected"><PhoneOff className="h-3.5 w-3.5 mr-1" /> Disconnected</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
             <TabsTrigger value="campaigns"><Send className="h-3.5 w-3.5 mr-1" /> Campaigns</TabsTrigger>
             <TabsTrigger value="sequences"><Workflow className="h-3.5 w-3.5 mr-1" /> Sequences</TabsTrigger>
             <TabsTrigger value="templates"><FileText className="h-3.5 w-3.5 mr-1" /> Templates</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="disconnected"><DisconnectedTab /></TabsContent>
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
           <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>
