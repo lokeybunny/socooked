@@ -731,3 +731,34 @@ export default function CampaignLeader() {
     </div>
   );
 }
+
+function PstClock({ startHour, endHour }: { startHour: number; endHour: number }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+  });
+  const dayFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", weekday: "short",
+  });
+  // Hour in PT
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", hour: "2-digit", hour12: false,
+  }).format(now);
+  const hour = parseInt(hourStr, 10);
+  const dayName = dayFmt.format(now);
+  const isWeekday = !["Sat", "Sun"].includes(dayName);
+  const inWindow = isWeekday && hour >= startHour && hour < endHour;
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-mono ${inWindow ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-amber-500/40 bg-amber-500/10 text-amber-500"}`}>
+      <Clock className="w-4 h-4" />
+      <span>{fmt.format(now)} PT</span>
+      <span className="text-xs opacity-70">· {dayName} · {inWindow ? "SENDING" : "PAUSED"}</span>
+    </div>
+  );
+}
+
