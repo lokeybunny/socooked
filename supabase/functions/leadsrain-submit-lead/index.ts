@@ -38,9 +38,9 @@ Deno.serve(async (req) => {
     const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: auth } },
     });
-    const { data: claims } = await sb.auth.getClaims(auth.replace("Bearer ", ""));
-    if (!claims?.claims) return json({ ok: false, error: "Unauthorized" }, 401);
-    const userId = claims.claims.sub;
+    const { data: userData, error: userErr } = await sb.auth.getUser(auth.replace("Bearer ", ""));
+    if (userErr || !userData?.user) return json({ ok: false, error: "Unauthorized" }, 401);
+    const userId = userData.user.id;
 
     if (!LR_USER || !LR_KEY) return json({ ok: false, error: "Missing LeadsRain credentials" }, 500);
 
