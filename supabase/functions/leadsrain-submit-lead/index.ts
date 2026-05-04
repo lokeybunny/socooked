@@ -11,6 +11,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LR_USER = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
 const LR_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
+const RAW_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+const LR_PROXY_URL = /^https:\/\//i.test(RAW_PROXY_URL) && !/\.leadsrain\.com/i.test(RAW_PROXY_URL) ? RAW_PROXY_URL : "";
 // CRM-only mode: PostLead HTTPS endpoint is the only confirmed-working route.
 // Legacy s1/s2/s3 shards timeout from Supabase egress; proxy is optional.
 const LR_POSTLEAD_ENDPOINT = "https://api.leadsrain.com/ringless/api/add_posted_lead.php";
@@ -42,8 +44,78 @@ function normCallerId(raw: string | null | undefined): string | null {
   return ten;
 }
 
+function maskPayload(payload: Record<string, any>) {
+  return { ...payload, username: "***", api_key: "***" };
+}
+
+function normalizeLeadPhone(raw: unknown): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits.slice(-10);
+  return ten.length === 10 ? ten : null;
+}
+
+function findLeadInList(raw: any, tenDigitPhone: string): any | null {
+  const seen = new Set<any>();
+  const visit = (node: any): any | null => {
+    if (!node || typeof node !== "object" || seen.has(node)) return null;
+    seen.add(node);
+    if (!Array.isArray(node)) {
+      const phone = normalizeLeadPhone(node.phone_number ?? node.phone ?? node.number ?? node.lead_phone ?? node.mobile ?? node.recipient);
+      if (phone === tenDigitPhone) return node;
+    }
+    const values = Array.isArray(node) ? node : Object.values(node);
+    for (const value of values) {
+      const found = visit(value);
+      if (found) return found;
+    }
+    return null;
+  };
+  return visit(raw);
+}
+
+function encodeUrlPayload(payload: Record<string, any>) {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(payload)) usp.append(k, String(v));
+  return usp.toString();
+}
+
+function encodeMultipartPayload(payload: Record<string, any>, boundary: string) {
+  return Object.entries(payload).map(([key, value]) => (
+    `--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${String(value)}\r\n`
+  )).join("") + `--${boundary}--\r\n`;
+}
+
+async function checkLeadVisibleInList(listId: string, tenDigitPhone: string) {
+  const payload = { username: LR_USER, api_key: LR_KEY, list_id: listId };
+  const candidates = [
+    ...(LR_PROXY_URL ? [`${LR_PROXY_URL}/rvm/api/leadlist/view_api`] : []),
+    "https://s2.leadsrain.com/rvm/api/leadlist/view_api",
+    "http://s2.leadsrain.com/rvm/api/leadlist/view_api",
+  ];
+  let last = { ok: false, status: 0, error: "List visibility check did not run", matched_lead: null as any, raw_text: "" };
+  for (const endpoint of candidates) {
+    try {
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "Cache-Control": "no-cache" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(12000),
+      });
+      const rawText = await resp.text();
+      let parsed: any = null;
+      try { parsed = rawText.trim() ? JSON.parse(rawText) : null; } catch { parsed = rawText; }
+      const matchedLead = findLeadInList(parsed, tenDigitPhone);
+      last = { ok: resp.ok, status: resp.status, error: matchedLead ? undefined : "Lead not visible in list response", matched_lead: matchedLead, raw_text: rawText.slice(0, 500) };
+      if (matchedLead || rawText.trim().length > 0) break;
+    } catch (e: any) {
+      last = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null, raw_text: "" };
+    }
+  }
+  return last;
+}
+
 // Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
-// HTTP 200 + no explicit failure markers = accepted.
+// HTTP 200 + empty body is rejected unless the follow-up list check sees the lead.
 function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   const text = String(rawText || "").trim();
   const lower = text.toLowerCase();
@@ -57,11 +129,7 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   if (json && typeof json === "object") {
     provider_status = String(json.status ?? json.Status ?? (json.success === true ? "success" : json.success === false ? "error" : "")).toLowerCase();
     provider_lead_id =
-      json.lead_id?.toString?.() ??
-      json.id?.toString?.() ??
-      json.posted_lead_id?.toString?.() ??
-      json.data?.lead_id?.toString?.() ??
-      json.data?.id?.toString?.() ??
+      String(json.lead_id ?? json.id ?? json.posted_lead_id ?? json.data?.lead_id ?? json.data?.id ?? "").trim() ||
       null;
     message = json.msg ?? json.message ?? json.error ?? json.data?.message ?? null;
   } else if (text) {
@@ -81,8 +149,8 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   let mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed" = "failed";
   let ok = false;
   if (httpStatus >= 200 && httpStatus < 300) {
-    if (explicitSuccess) { mode = "accepted"; ok = true; }
-    else if (explicitFail) { mode = "rejected"; ok = false; }
+    if (explicitFail) { mode = "rejected"; ok = false; }
+    else if (explicitSuccess) { mode = "accepted"; ok = true; }
     else if (!hasBody) { mode = "rejected"; ok = false; message = message || "Rejected. Payload sent, but LeadsRain returned empty response."; }
     else { mode = "parser_needs_mapping"; ok = false; }
   } else {
@@ -118,8 +186,7 @@ Deno.serve(async (req) => {
       campaign_id: campaign_id_in,
       audio_url,
       list_id,
-      list_id_field,        // override which key name to use for list_id
-      content_type,         // "json" | "form"
+      content_type,         // optional manual single content-type override
       extra_payload,        // arbitrary extra fields for manual tester
       lead_id,
       contact_id,
@@ -155,23 +222,23 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
     }
 
-    // Per LeadsRain docs: only the lowercase `list_id` field is valid.
-    // No variants, no caller_id, no campaign_id in the payload.
-    const listIdVariants: string[] = ["list_id"];
+    const phoneFieldVariants: string[] = ["phone_number", "phone", "number", "lead_phone"];
+    const requestedContentType = String(content_type || "").trim().toLowerCase();
+    const requestedPhoneField = String((body as any)?.phone_field || "").trim();
 
-    function buildPayload(_listKey: string): Record<string, any> {
+    function buildPayload(phoneKey: string): Record<string, any> {
       // Send list_id as an integer per docs. Minimal clean payload.
       const listIdNum = Number(finalListId);
       const p: Record<string, any> = {
         username: LR_USER,
         api_key: LR_KEY,
         list_id: Number.isFinite(listIdNum) ? listIdNum : finalListId,
-        phone_number: ph.ten,
-        country_code: "USA",
-        phone_code: "1",
-        scrub_lead: "no_scrub",
-        check_duplicate: "NO_DUPLICATE_CHECK",
       };
+      p[phoneKey || "phone_number"] = ph.ten;
+      p.country_code = "USA";
+      p.phone_code = "1";
+      p.scrub_lead = "no_scrub";
+      p.check_duplicate = "NO_DUPLICATE_CHECK";
       // Optional contact info — only include when provided.
       if (first_name) p.first_name = first_name;
       if (last_name) p.last_name = last_name;
@@ -180,7 +247,7 @@ Deno.serve(async (req) => {
       return p;
     }
 
-    const initialPayload = buildPayload("list_id");
+    const initialPayload = buildPayload("phone_number");
 
     // Insert pending row
     const { data: row, error: insErr } = await svc
@@ -194,49 +261,72 @@ Deno.serve(async (req) => {
         campaign_name: campaign_name || null,
         audio_url: audio_url || null,
         status: "submitted_to_leadsrain",
-        raw_request: { ...initialPayload, api_key: "***", username: "***" },
+        raw_request: maskPayload(initialPayload),
         submitted_by: userId,
       })
       .select("*")
       .single();
     if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
 
-    // Per LeadsRain docs: always send application/json. No form fallback, no variants.
-    const useForm = false;
-    const attempts: Array<{ list_id_field: string; content_type: string; http_status: number; raw_text: string; mode: string }> = [];
+    type AttemptDebug = {
+      phone_field: string;
+      content_type: string;
+      http_status: number;
+      raw_text: string;
+      mode: string;
+      submitted_payload: Record<string, any>;
+      final_post_body: string;
+      leadsrain_list_check?: { ok: boolean; status: number; error?: string; matched_lead?: any };
+    };
+    const contentTypeVariants = requestedContentType === "json" || requestedContentType === "application/json"
+      ? ["application/json"]
+      : requestedContentType === "multipart" || requestedContentType === "multipart/form-data"
+      ? ["multipart/form-data"]
+      : requestedContentType === "form" || requestedContentType === "application/x-www-form-urlencoded"
+      ? ["application/x-www-form-urlencoded"]
+      : ["application/x-www-form-urlencoded", "multipart/form-data", "application/json"];
+    const activePhoneFields = requestedPhoneField ? [requestedPhoneField] : phoneFieldVariants;
+    const attempts: AttemptDebug[] = [];
     let lrJson: any = null;
     let lrRawText = "";
     let httpOk = false;
     let httpStatus = 0;
     let errMsg: string | null = null;
     let usedEndpoint: string | null = null;
-    let usedListField = listIdVariants[0];
-    let usedContentType = useForm ? "application/x-www-form-urlencoded" : "application/json";
+    let usedPhoneField = activePhoneFields[0] || "phone_number";
+    let usedContentType = contentTypeVariants[0];
     let lastPayload: Record<string, any> = initialPayload;
+    let leadVisibleInList = false;
+    let listVisibilityCheck: any = null;
     let parsed: { ok: boolean; mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed"; provider_status: string; provider_lead_id: string | null; message: string | null; raw: any } = {
       ok: false, mode: "failed", provider_status: "", provider_lead_id: null, message: null, raw: null,
     };
 
     try {
       outer: for (const endpoint of LR_ENDPOINTS) {
-        for (const lf of listIdVariants) {
+        for (const ct of contentTypeVariants) {
+          for (const phoneField of activePhoneFields) {
           usedEndpoint = endpoint;
-          usedListField = lf;
-          const payload = buildPayload(lf);
+          usedPhoneField = phoneField;
+          const payload = buildPayload(phoneField);
           lastPayload = payload;
           const headers: Record<string, string> = { "Cache-Control": "no-cache", "Accept": "application/json" };
           let bodyStr: string;
-          if (useForm) {
+          if (ct === "application/x-www-form-urlencoded") {
             headers["Content-Type"] = "application/x-www-form-urlencoded";
-            const usp = new URLSearchParams();
-            for (const [k, v] of Object.entries(payload)) usp.append(k, String(v));
-            bodyStr = usp.toString();
+            bodyStr = encodeUrlPayload(payload);
             usedContentType = "application/x-www-form-urlencoded";
+          } else if (ct === "multipart/form-data") {
+            const boundary = `----LeadsRain${crypto.randomUUID().replace(/-/g, "")}`;
+            headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+            bodyStr = encodeMultipartPayload(payload, boundary);
+            usedContentType = "multipart/form-data";
           } else {
             headers["Content-Type"] = "application/json";
             bodyStr = JSON.stringify(payload);
             usedContentType = "application/json";
           }
+          const sanitizedBodyStr = bodyStr.split(LR_USER).join("***").split(LR_KEY).join("***");
           const r = await fetch(endpoint, { method: "POST", headers, body: bodyStr, signal: AbortSignal.timeout(20000) });
           httpStatus = r.status;
           lrRawText = (await r.text()) || "";
@@ -245,16 +335,36 @@ Deno.serve(async (req) => {
           parsed = parsePostLeadResponse(r.status, lrRawText, lrJson);
           httpOk = parsed.ok;
           errMsg = httpOk ? null : (parsed.message || `HTTP ${r.status}`);
-          attempts.push({ list_id_field: lf, content_type: usedContentType, http_status: r.status, raw_text: trimmed.slice(0, 500), mode: parsed.mode });
-          if (httpOk || parsed.mode === "parser_needs_mapping") break outer;
-          if (/invalid username|api key|invalid api/i.test(errMsg || "")) break outer;
-          // If we got SOME body back (not empty), don't keep trying variants
-          if (trimmed.length > 0) break outer;
+          attempts.push({
+            phone_field: phoneField,
+            content_type: usedContentType,
+            http_status: r.status,
+            raw_text: trimmed.slice(0, 500),
+            mode: parsed.mode,
+            submitted_payload: maskPayload(payload),
+            final_post_body: sanitizedBodyStr,
+          });
+          if (httpOk) break outer;
+          }
         }
       }
     } catch (e: any) {
       errMsg = e?.message || String(e);
       parsed.mode = "failed";
+    }
+
+    try {
+      const listCheck = await checkLeadVisibleInList(finalListId, ph.ten!);
+      const matchedLead = listCheck.matched_lead;
+      leadVisibleInList = !!matchedLead;
+      listVisibilityCheck = { ok: listCheck.ok, status: listCheck.status, error: listCheck.error, matched_lead: matchedLead ? { ...matchedLead, api_key: undefined } : null, raw_text: listCheck.raw_text };
+      if (leadVisibleInList && httpStatus >= 200 && httpStatus < 300) {
+        parsed = { ...parsed, ok: true, mode: "accepted", message: parsed.message || "Lead appeared inside LeadsRain list after test." };
+        httpOk = true;
+        errMsg = null;
+      }
+    } catch (e: any) {
+      listVisibilityCheck = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null };
     }
 
     // Map parser mode -> CRM submission status
@@ -272,7 +382,7 @@ Deno.serve(async (req) => {
       status: newStatus,
       leadsrain_lead_id: lrLeadId,
       leadsrain_message: lrMsg,
-      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, ""), mode: parsed.mode },
+      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, ""), mode: parsed.mode, attempts, lead_visible_in_list: leadVisibleInList, list_visibility_check: listVisibilityCheck },
       error_message: errMsg,
     }).eq("id", row.id);
 
@@ -320,11 +430,13 @@ Deno.serve(async (req) => {
       list_id: finalListId,
       caller_id: finalCallerId,
       campaign_id: finalCampaignId,
-      list_id_field: usedListField,
+      phone_field: usedPhoneField,
       content_type: usedContentType,
       endpoint: usedEndpoint,
       attempts,
-      submitted_payload: { ...lastPayload, api_key: "***", username: "***" },
+      lead_visible_in_list: leadVisibleInList,
+      list_visibility_check: listVisibilityCheck,
+      submitted_payload: maskPayload(lastPayload),
       raw_response: { json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint },
     }, 200);
   } catch (e: any) {
