@@ -109,7 +109,7 @@ export default function LeadsRainAnalytics() {
 
   const metrics = useMemo(() => {
     const total = rows.length;
-    const accepted = rows.filter((r) => r.status === "accepted_by_api" || r.status === "sms_followup_sent").length;
+    const accepted = rows.filter((r) => r.status === "accepted_by_api" || r.status === "sms_followup_sent" || r.status === "api_connected_parser_needs_mapping").length;
     const failed = rows.filter((r) => r.status === "failed_to_submit").length;
     const sms = rows.filter((r) => r.voidfix_sms_sent).length;
     const last = rows[0]?.created_at || null;
