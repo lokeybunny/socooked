@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
     // Empty HTTP 200 means the post was accepted by the endpoint, not that a VM was delivered.
     let voidfixSent = false;
     let voidfixErr: string | null = null;
-    if (httpOk && send_voidfix && lrLeadId) {
+    if (httpOk && send_voidfix) {
       try {
         const smsResp = await sb.functions.invoke("powerdial-sms", {
           body: { action: "send", to: ph.e164, body: voidfix_template, customer_id: customer_id || null },
