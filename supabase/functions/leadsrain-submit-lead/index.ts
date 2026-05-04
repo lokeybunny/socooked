@@ -196,8 +196,7 @@ Deno.serve(async (req) => {
       campaign_id: campaign_id_in,
       audio_url,
       list_id,
-      list_id_field,        // override which key name to use for list_id
-      content_type,         // "json" | "form"
+      content_type,         // optional manual single content-type override
       extra_payload,        // arbitrary extra fields for manual tester
       lead_id,
       contact_id,
@@ -399,7 +398,7 @@ Deno.serve(async (req) => {
       status: newStatus,
       leadsrain_lead_id: lrLeadId,
       leadsrain_message: lrMsg,
-      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, ""), mode: parsed.mode },
+      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, ""), mode: parsed.mode, attempts, lead_visible_in_list: leadVisibleInList, list_visibility_check: listVisibilityCheck },
       error_message: errMsg,
     }).eq("id", row.id);
 
@@ -447,11 +446,13 @@ Deno.serve(async (req) => {
       list_id: finalListId,
       caller_id: finalCallerId,
       campaign_id: finalCampaignId,
-      list_id_field: usedListField,
+      phone_field: usedPhoneField,
       content_type: usedContentType,
       endpoint: usedEndpoint,
       attempts,
-      submitted_payload: { ...lastPayload, api_key: "***", username: "***" },
+      lead_visible_in_list: leadVisibleInList,
+      list_visibility_check: listVisibilityCheck,
+      submitted_payload: maskPayload(lastPayload),
       raw_response: { json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint },
     }, 200);
   } catch (e: any) {
