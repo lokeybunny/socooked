@@ -70,13 +70,22 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   const explicitFail = FAIL_RX.test(haystack);
   const explicitSuccess = !!provider_lead_id || SUCCESS_RX.test(haystack) || provider_status === "success" || (json && json.success === true);
 
+  // mode: accepted = explicit success markers / lead_id
+  //       parser_needs_mapping = HTTP 200 but unknown shape (no markers either way)
+  //       rejected = explicit failure markers
+  //       failed = non-2xx / network
+  let mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed" = "failed";
   let ok = false;
   if (httpStatus >= 200 && httpStatus < 300) {
-    ok = !explicitFail || explicitSuccess;
+    if (explicitSuccess) { mode = "accepted"; ok = true; }
+    else if (explicitFail) { mode = "rejected"; ok = false; }
+    else { mode = "parser_needs_mapping"; ok = true; }
+  } else {
+    mode = "failed";
   }
 
   if (!ok && !message) message = explicitFail ? "LeadsRain rejected the lead" : `HTTP ${httpStatus}`;
-  return { ok, provider_status, provider_lead_id, message, raw: json ?? text };
+  return { ok, mode, provider_status, provider_lead_id, message, raw: json ?? text };
 }
 
 Deno.serve(async (req) => {
