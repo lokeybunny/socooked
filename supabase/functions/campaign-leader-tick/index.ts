@@ -227,7 +227,7 @@ async function processContact(contact: any) {
   // SMS step (only if we have phone)
   if (contact.phone_e164) {
     await sb.from("campaign_contacts").update({ status: "texting", last_step: "texting" }).eq("id", contact.id);
-    const { text, variant: smsVariant } = buildSms(firstName);
+    const { text, variant: smsVariant } = buildSms(firstName, addr);
     const smsResult = await sendSms(contact.phone_e164, text);
 
     if (!smsResult.ok) {
