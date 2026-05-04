@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck } from "lucide-react";
+import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud } from "lucide-react";
 
 type Settings = {
   is_production: boolean;
