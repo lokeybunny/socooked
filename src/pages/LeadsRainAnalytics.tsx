@@ -78,7 +78,7 @@ export default function LeadsRainAnalytics() {
     setApiHealth(failed / recent.length > 0.5 ? "Down" : "Healthy");
   };
 
-  useEffect(() => { loadAll(); checkHealth(); }, []);
+  useEffect(() => { loadAll(); checkHealth(); loadSettings(); }, []);
 
   useEffect(() => {
     const ch = supabase
