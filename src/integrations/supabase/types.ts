@@ -52,6 +52,185 @@ export type Database = {
           },
         ]
       }
+      af_agent_contacts: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          is_valid: boolean
+          phone: string
+          phone_type: string
+          validated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          is_valid?: boolean
+          phone: string
+          phone_type?: string
+          validated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          is_valid?: boolean
+          phone?: string
+          phone_type?: string
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "af_agent_contacts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "af_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      af_agent_listings: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          listing_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          listing_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          listing_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "af_agent_listings_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "af_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "af_agent_listings_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "af_listings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      af_agents: {
+        Row: {
+          brokerage: string | null
+          city: string | null
+          created_at: string
+          id: string
+          name: string
+          normalized_key: string
+          source: string
+        }
+        Insert: {
+          brokerage?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          normalized_key: string
+          source?: string
+        }
+        Update: {
+          brokerage?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          normalized_key?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      af_listings: {
+        Row: {
+          address: string | null
+          city: string | null
+          id: string
+          listing_url: string | null
+          price: number | null
+          scraped_at: string
+          state: string | null
+          zip: string | null
+          zpid: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          id?: string
+          listing_url?: string | null
+          price?: number | null
+          scraped_at?: string
+          state?: string | null
+          zip?: string | null
+          zpid: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          id?: string
+          listing_url?: string | null
+          price?: number | null
+          scraped_at?: string
+          state?: string | null
+          zip?: string | null
+          zpid?: string
+        }
+        Relationships: []
+      }
+      af_scrape_jobs: {
+        Row: {
+          completed_at: string | null
+          error_log: string | null
+          id: string
+          new_agents: number
+          new_listings: number
+          new_valid_mobiles: number
+          pages_scraped: number
+          started_at: string
+          status: string
+          target_location: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          error_log?: string | null
+          id?: string
+          new_agents?: number
+          new_listings?: number
+          new_valid_mobiles?: number
+          pages_scraped?: number
+          started_at?: string
+          status?: string
+          target_location?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          error_log?: string | null
+          id?: string
+          new_agents?: number
+          new_listings?: number
+          new_valid_mobiles?: number
+          pages_scraped?: number
+          started_at?: string
+          status?: string
+          target_location?: string | null
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string
@@ -7038,6 +7217,33 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      target_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_scraped_at: string | null
+          location: string
+          priority: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_scraped_at?: string | null
+          location: string
+          priority?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_scraped_at?: string | null
+          location?: string
+          priority?: number
         }
         Relationships: []
       }

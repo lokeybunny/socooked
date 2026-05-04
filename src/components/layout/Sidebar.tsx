@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature, Activity, TrendingUp, Home, Building2, Voicemail,
+  Target, HardHat, Crosshair, Shield, Warehouse, Key, ChevronRight, Megaphone, ShoppingBag, Film, FileSignature, Activity, TrendingUp, Home, Building2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -56,13 +56,13 @@ const navEntries: NavEntry[] = [
       { to: '/phone', icon: Phone, label: 'Phone', botIcon: true },
       { to: '/sms', icon: MessageSquare, label: 'SMS', botIcon: true },
       { to: '/powerdial', icon: Sparkles, label: 'PowerD', purple: true },
-      { to: '/voice-drops', icon: Voicemail, label: 'VDrops', green: true },
       { to: '/leadsrain-analytics', icon: Activity, label: 'LeadsRain', green: true },
     ],
   },
   { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
   { to: '/api-management', icon: Key, label: 'API', botIcon: true },
   { to: '/zillow', icon: Building2, label: 'Zillow', green: true },
+  { to: '/agentflow', icon: Building2, label: 'AgentFlow', green: true },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
   { to: '/', icon: Home, label: 'HOME' },
