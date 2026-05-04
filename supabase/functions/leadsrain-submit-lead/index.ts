@@ -70,16 +70,19 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   const explicitFail = FAIL_RX.test(haystack);
   const explicitSuccess = !!provider_lead_id || SUCCESS_RX.test(haystack) || provider_status === "success" || (json && json.success === true);
 
-  // mode: accepted = explicit success markers / lead_id
-  //       parser_needs_mapping = HTTP 200 but unknown shape (no markers either way)
-  //       rejected = explicit failure markers
+  // mode: accepted = explicit success markers / lead_id (REAL acceptance)
+  //       parser_needs_mapping = HTTP 200 with a parsable body but unknown shape
+  //       rejected = explicit failure markers OR empty 200 (LeadsRain returns empty body when lead is silently dropped)
   //       failed = non-2xx / network
+  const trimmedText = (text || "").trim();
+  const hasBody = !!json || trimmedText.length > 0;
   let mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed" = "failed";
   let ok = false;
   if (httpStatus >= 200 && httpStatus < 300) {
     if (explicitSuccess) { mode = "accepted"; ok = true; }
     else if (explicitFail) { mode = "rejected"; ok = false; }
-    else { mode = "parser_needs_mapping"; ok = true; }
+    else if (!hasBody) { mode = "rejected"; ok = false; message = message || "LeadsRain returned empty HTTP 200 — lead was NOT accepted. Verify list_id, caller_id, and that an active RVM campaign is attached to the list."; }
+    else { mode = "parser_needs_mapping"; ok = false; }
   } else {
     mode = "failed";
   }
@@ -226,10 +229,11 @@ Deno.serve(async (req) => {
       error_message: errMsg,
     }).eq("id", row.id);
 
-    // Trigger VoidFix SMS on any successful HTTP 200 (accepted OR parser_needs_mapping).
+    // Trigger VoidFix SMS ONLY when LeadsRain explicitly accepted the lead (real lead_id / success marker).
+    // Empty 200 or parser_needs_mapping does NOT count — the voicemail was not actually queued.
     let voidfixSent = false;
     let voidfixErr: string | null = null;
-    if (httpOk && send_voidfix) {
+    if (parsed.mode === "accepted" && send_voidfix) {
       try {
         const smsResp = await sb.functions.invoke("powerdial-sms", {
           body: { action: "send", to: ph.e164, body: voidfix_template, customer_id: customer_id || null },
@@ -250,8 +254,8 @@ Deno.serve(async (req) => {
 
     const userMessage =
       parsed.mode === "accepted" ? "LeadsRain accepted the lead." :
-      parsed.mode === "parser_needs_mapping" ? "Submitted to LeadsRain — parser mapping pending." :
-      parsed.mode === "rejected" ? (lrMsg || "LeadsRain rejected the lead.") :
+      parsed.mode === "parser_needs_mapping" ? "LeadsRain returned 200 but no lead_id — NOT counted as accepted. Inspect the raw response and confirm in LeadsRain dashboard before relying on it." :
+      parsed.mode === "rejected" ? (lrMsg || errMsg || "LeadsRain did not accept the lead.") :
       (errMsg || "LeadsRain submission failed.");
 
     return json({
