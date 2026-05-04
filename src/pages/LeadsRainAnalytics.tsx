@@ -35,6 +35,9 @@ export default function LeadsRainAnalytics() {
   const [defaultListId, setDefaultListId] = useState("");
   const [defaultCallerId, setDefaultCallerId] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
+  const [diagReport, setDiagReport] = useState<DiagnosticReport | null>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+  const diagHealth: DiagnosticHealth = reportToHealth(diagReport);
 
   const loadSettings = async () => {
     const { data } = await supabase.from("leadsrain_settings" as any).select("default_list_id, default_caller_id").limit(1).maybeSingle();
