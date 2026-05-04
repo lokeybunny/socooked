@@ -134,7 +134,9 @@ export type Database = {
           id: string
           name: string
           normalized_key: string
+          profile_url: string | null
           source: string
+          zuid: string | null
         }
         Insert: {
           brokerage?: string | null
@@ -143,7 +145,9 @@ export type Database = {
           id?: string
           name: string
           normalized_key: string
+          profile_url?: string | null
           source?: string
+          zuid?: string | null
         }
         Update: {
           brokerage?: string | null
@@ -152,7 +156,9 @@ export type Database = {
           id?: string
           name?: string
           normalized_key?: string
+          profile_url?: string | null
           source?: string
+          zuid?: string | null
         }
         Relationships: []
       }
