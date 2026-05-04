@@ -37,6 +37,9 @@ export default function LeadsRainAnalytics() {
   const [defaultCampaignExternalId, setDefaultCampaignExternalId] = useState("");
   const [defaultAudioUrl, setDefaultAudioUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [zapierMode, setZapierMode] = useState(false);
+  const [zapierWebhookUrl, setZapierWebhookUrl] = useState("");
+  const [smsDelayMinutes, setSmsDelayMinutes] = useState(3);
   const [savingSettings, setSavingSettings] = useState(false);
   const [diagReport, setDiagReport] = useState<DiagnosticReport | null>(null);
   const [diagBusy, setDiagBusy] = useState(false);
@@ -55,7 +58,7 @@ export default function LeadsRainAnalytics() {
   const loadSettings = async () => {
     const { data } = await supabase
       .from("leadsrain_settings" as any)
-      .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active")
+      .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active, zapier_mode_enabled, zapier_webhook_url, sms_delay_minutes")
       .limit(1).maybeSingle();
     const d = data as any;
     setDefaultListId(d?.default_list_id || "");
@@ -63,6 +66,9 @@ export default function LeadsRainAnalytics() {
     setDefaultCampaignExternalId(d?.default_campaign_external_id || "");
     setDefaultAudioUrl(d?.default_audio_url || "");
     setIsActive(d?.is_active !== false);
+    setZapierMode(!!d?.zapier_mode_enabled);
+    setZapierWebhookUrl(d?.zapier_webhook_url || "");
+    setSmsDelayMinutes(Number(d?.sms_delay_minutes ?? 3));
   };
 
   const saveSettings = async () => {
@@ -73,6 +79,11 @@ export default function LeadsRainAnalytics() {
       setSavingSettings(false);
       return;
     }
+    if (zapierMode && zapierWebhookUrl && !/^https:\/\/hooks\.zapier\.com\//i.test(zapierWebhookUrl.trim())) {
+      toast.error("Zapier webhook URL must start with https://hooks.zapier.com/");
+      setSavingSettings(false);
+      return;
+    }
     const { data: existing } = await supabase.from("leadsrain_settings" as any).select("id").limit(1).maybeSingle();
     const payload = {
       default_list_id: defaultListId.trim() || null,
@@ -80,6 +91,9 @@ export default function LeadsRainAnalytics() {
       default_campaign_external_id: defaultCampaignExternalId.trim() || null,
       default_audio_url: defaultAudioUrl.trim() || null,
       is_active: isActive,
+      zapier_mode_enabled: zapierMode,
+      zapier_webhook_url: zapierWebhookUrl.trim() || null,
+      sms_delay_minutes: Math.max(0, Number(smsDelayMinutes) || 0),
     };
     if ((existing as any)?.id) {
       await supabase.from("leadsrain_settings" as any).update(payload).eq("id", (existing as any).id);
@@ -154,11 +168,19 @@ export default function LeadsRainAnalytics() {
   const sendTest = async () => {
     const phone = testPhone.trim();
     if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
-    const lid = (defaultListId || "").trim();
-    if (!lid || /^(undefined|null)$/i.test(lid)) {
-      toast.error("Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.");
-      setSettingsOpen(true);
-      return;
+    if (zapierMode) {
+      if (!zapierWebhookUrl.trim()) {
+        toast.error("Zapier mode is on but no webhook URL is set.");
+        setSettingsOpen(true);
+        return;
+      }
+    } else {
+      const lid = (defaultListId || "").trim();
+      if (!lid || /^(undefined|null)$/i.test(lid)) {
+        toast.error("Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.");
+        setSettingsOpen(true);
+        return;
+      }
     }
     setBusy("test");
     try {
@@ -313,6 +335,28 @@ export default function LeadsRainAnalytics() {
                   <div>
                     <Label className="text-xs">Audio URL (optional, for reference)</Label>
                     <Input value={defaultAudioUrl} onChange={(e) => setDefaultAudioUrl(e.target.value)} placeholder="https://…/voicemail.wav" />
+                  </div>
+
+                  <div className="border-t border-border/40 pt-4 space-y-3">
+                    <div className="flex items-center justify-between rounded-md border border-sky-500/30 bg-sky-500/5 p-3">
+                      <div>
+                        <div className="text-sm font-medium">Zapier Mode</div>
+                        <div className="text-xs text-muted-foreground">Route voice drops through Zapier instead of LeadsRain API. No username/API key required.</div>
+                      </div>
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={zapierMode} onChange={(e) => setZapierMode(e.target.checked)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:bg-sky-500 transition-colors relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-transform peer-checked:after:translate-x-5" />
+                      </label>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Zapier Catch Hook URL</Label>
+                      <Input value={zapierWebhookUrl} onChange={(e) => setZapierWebhookUrl(e.target.value)} placeholder="https://hooks.zapier.com/hooks/catch/..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs">VoidFix SMS delay (minutes)</Label>
+                      <Input type="number" min={0} value={smsDelayMinutes} onChange={(e) => setSmsDelayMinutes(Number(e.target.value))} />
+                      <p className="text-[11px] text-muted-foreground mt-1">SMS follow-up will fire this many minutes after Zapier accepts the lead.</p>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>

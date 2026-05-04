@@ -2455,9 +2455,12 @@ export type Database = {
           is_active: boolean
           proxy_url: string | null
           singleton: boolean
+          sms_delay_minutes: number
           transfer_number: string | null
           updated_at: string
           voidfix_template: string
+          zapier_mode_enabled: boolean
+          zapier_webhook_url: string | null
         }
         Insert: {
           created_at?: string
@@ -2472,9 +2475,12 @@ export type Database = {
           is_active?: boolean
           proxy_url?: string | null
           singleton?: boolean
+          sms_delay_minutes?: number
           transfer_number?: string | null
           updated_at?: string
           voidfix_template?: string
+          zapier_mode_enabled?: boolean
+          zapier_webhook_url?: string | null
         }
         Update: {
           created_at?: string
@@ -2489,9 +2495,12 @@ export type Database = {
           is_active?: boolean
           proxy_url?: string | null
           singleton?: boolean
+          sms_delay_minutes?: number
           transfer_number?: string | null
           updated_at?: string
           voidfix_template?: string
+          zapier_mode_enabled?: boolean
+          zapier_webhook_url?: string | null
         }
         Relationships: [
           {
@@ -5735,6 +5744,54 @@ export type Database = {
           refresh_token?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      scheduled_sms_jobs: {
+        Row: {
+          attempts: number
+          body: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          last_error: string | null
+          meta: Json
+          send_at: string
+          sent_at: string | null
+          source: string | null
+          status: string
+          to_phone: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json
+          send_at: string
+          sent_at?: string | null
+          source?: string | null
+          status?: string
+          to_phone: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json
+          send_at?: string
+          sent_at?: string | null
+          source?: string | null
+          status?: string
+          to_phone?: string
+          updated_at?: string
         }
         Relationships: []
       }
