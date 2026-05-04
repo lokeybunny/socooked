@@ -83,7 +83,7 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   if (httpStatus >= 200 && httpStatus < 300) {
     if (explicitSuccess) { mode = "accepted"; ok = true; }
     else if (explicitFail) { mode = "rejected"; ok = false; }
-    else if (!hasBody) { mode = "rejected"; ok = false; message = message || "Rejected by LeadsRain. Confirm this list_id is attached to an active RVM campaign inside LeadsRain."; }
+    else if (!hasBody) { mode = "rejected"; ok = false; message = message || "Rejected. Payload sent, but LeadsRain returned empty response."; }
     else { mode = "parser_needs_mapping"; ok = false; }
   } else {
     mode = "failed";
@@ -115,8 +115,12 @@ Deno.serve(async (req) => {
       email,
       caller_id,
       campaign_name,
+      campaign_id: campaign_id_in,
       audio_url,
       list_id,
+      list_id_field,        // override which key name to use for list_id
+      content_type,         // "json" | "form"
+      extra_payload,        // arbitrary extra fields for manual tester
       lead_id,
       contact_id,
       customer_id,
@@ -142,7 +146,7 @@ Deno.serve(async (req) => {
     const listIdStr = String(rawListId ?? "").trim();
     const finalListId = (!listIdStr || /^(undefined|null)$/i.test(listIdStr)) ? null : listIdStr;
     const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
-    const finalCampaignId = (settings as any)?.default_campaign_external_id || null;
+    const finalCampaignId = campaign_id_in || (settings as any)?.default_campaign_external_id || null;
 
     if (!finalListId) {
       return json({ ok: false, error: "Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.", missing: "list_id" }, 400);
@@ -151,20 +155,34 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
     }
 
-    const reqPayload: Record<string, any> = {
-      username: LR_USER,
-      api_key: LR_KEY,
-      list_id: finalListId,
-      phone_number: ph.ten,
-      first_name: first_name || "",
-      last_name: last_name || "",
-      email: email || "",
-      country_code: "USA",
-      phone_code: "1",
-      scrub_lead: "tcpa_check",
-      check_duplicate: "CHECK_DUPLICATE_IN_CAMPAIGN",
-    };
-    if (finalCallerId) reqPayload.caller_id = finalCallerId;
+    // Try multiple list_id field-name variants until one is accepted.
+    // Default order: list_id, listid, list, ListId. If the caller specified
+    // list_id_field, only try that one.
+    const listIdVariants: string[] = list_id_field
+      ? [String(list_id_field)]
+      : ["list_id", "listid", "list", "ListId"];
+
+    function buildPayload(listKey: string): Record<string, any> {
+      const p: Record<string, any> = {
+        username: LR_USER,
+        api_key: LR_KEY,
+        [listKey]: finalListId,
+        phone_number: ph.ten,
+        first_name: first_name || "",
+        last_name: last_name || "",
+        email: email || "",
+        country_code: "USA",
+        phone_code: "1",
+        scrub_lead: "tcpa_check",
+        check_duplicate: "CHECK_DUPLICATE_IN_CAMPAIGN",
+      };
+      if (finalCallerId) p.caller_id = finalCallerId;
+      if (finalCampaignId) p.campaign_id = finalCampaignId;
+      if (extra_payload && typeof extra_payload === "object") Object.assign(p, extra_payload);
+      return p;
+    }
+
+    const initialPayload = buildPayload(listIdVariants[0]);
 
     // Insert pending row
     const { data: row, error: insErr } = await svc
@@ -178,46 +196,64 @@ Deno.serve(async (req) => {
         campaign_name: campaign_name || null,
         audio_url: audio_url || null,
         status: "submitted_to_leadsrain",
-        raw_request: { ...reqPayload, api_key: "***" },
+        raw_request: { ...initialPayload, api_key: "***", username: "***" },
         submitted_by: userId,
       })
       .select("*")
       .single();
     if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
 
-    // Call LeadsRain PostLead HTTPS endpoint. Use flexible parser: HTTP 200
-    // is accepted unless body contains explicit failure markers.
+    // Call LeadsRain PostLead. Try JSON first, then form-encoded if requested,
+    // and try each list_id field-name variant until one returns a non-empty body.
+    const useForm = String(content_type || "").toLowerCase() === "form";
+    const attempts: Array<{ list_id_field: string; content_type: string; http_status: number; raw_text: string; mode: string }> = [];
     let lrJson: any = null;
     let lrRawText = "";
     let httpOk = false;
     let httpStatus = 0;
     let errMsg: string | null = null;
     let usedEndpoint: string | null = null;
+    let usedListField = listIdVariants[0];
+    let usedContentType = useForm ? "application/x-www-form-urlencoded" : "application/json";
+    let lastPayload: Record<string, any> = initialPayload;
     let parsed: { ok: boolean; mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed"; provider_status: string; provider_lead_id: string | null; message: string | null; raw: any } = {
       ok: false, mode: "failed", provider_status: "", provider_lead_id: null, message: null, raw: null,
     };
+
     try {
-      for (const endpoint of LR_ENDPOINTS) {
-        usedEndpoint = endpoint;
-        const r = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Accept": "application/json",
-          },
-          body: JSON.stringify(reqPayload),
-          signal: AbortSignal.timeout(20000),
-        });
-        httpStatus = r.status;
-        lrRawText = (await r.text()) || "";
-        const trimmed = lrRawText.trim();
-        try { lrJson = trimmed ? JSON.parse(trimmed) : null; } catch { lrJson = null; }
-        parsed = parsePostLeadResponse(r.status, lrRawText, lrJson);
-        httpOk = parsed.ok;
-        errMsg = httpOk ? null : (parsed.message || `HTTP ${r.status}`);
-        if (httpOk) break;
-        if (/invalid username|api key|invalid api/i.test(errMsg || "")) break;
+      outer: for (const endpoint of LR_ENDPOINTS) {
+        for (const lf of listIdVariants) {
+          usedEndpoint = endpoint;
+          usedListField = lf;
+          const payload = buildPayload(lf);
+          lastPayload = payload;
+          const headers: Record<string, string> = { "Cache-Control": "no-cache", "Accept": "application/json" };
+          let bodyStr: string;
+          if (useForm) {
+            headers["Content-Type"] = "application/x-www-form-urlencoded";
+            const usp = new URLSearchParams();
+            for (const [k, v] of Object.entries(payload)) usp.append(k, String(v));
+            bodyStr = usp.toString();
+            usedContentType = "application/x-www-form-urlencoded";
+          } else {
+            headers["Content-Type"] = "application/json";
+            bodyStr = JSON.stringify(payload);
+            usedContentType = "application/json";
+          }
+          const r = await fetch(endpoint, { method: "POST", headers, body: bodyStr, signal: AbortSignal.timeout(20000) });
+          httpStatus = r.status;
+          lrRawText = (await r.text()) || "";
+          const trimmed = lrRawText.trim();
+          try { lrJson = trimmed ? JSON.parse(trimmed) : null; } catch { lrJson = null; }
+          parsed = parsePostLeadResponse(r.status, lrRawText, lrJson);
+          httpOk = parsed.ok;
+          errMsg = httpOk ? null : (parsed.message || `HTTP ${r.status}`);
+          attempts.push({ list_id_field: lf, content_type: usedContentType, http_status: r.status, raw_text: trimmed.slice(0, 500), mode: parsed.mode });
+          if (httpOk || parsed.mode === "parser_needs_mapping") break outer;
+          if (/invalid username|api key|invalid api/i.test(errMsg || "")) break outer;
+          // If we got SOME body back (not empty), don't keep trying variants
+          if (trimmed.length > 0) break outer;
+        }
       }
     } catch (e: any) {
       errMsg = e?.message || String(e);
@@ -286,8 +322,12 @@ Deno.serve(async (req) => {
       error: errMsg,
       list_id: finalListId,
       caller_id: finalCallerId,
-      campaign_external_id: finalCampaignId,
-      submitted_payload: { ...reqPayload, api_key: "***", username: "***" },
+      campaign_id: finalCampaignId,
+      list_id_field: usedListField,
+      content_type: usedContentType,
+      endpoint: usedEndpoint,
+      attempts,
+      submitted_payload: { ...lastPayload, api_key: "***", username: "***" },
       raw_response: { json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint },
     }, 200);
   } catch (e: any) {
