@@ -56,6 +56,7 @@ const Wholesale = lazyWithRetry(() => import("./pages/Wholesale"), "page-wholesa
 const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arbitrage");
 const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
 const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
+const CampaignLeader = lazyWithRetry(() => import("./pages/CampaignLeader"), "page-campaign-leader");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
 const SellerLanding = lazyWithRetry(() => import("./pages/SellerLanding"), "page-seller-landing");
 const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "page-videography-hub");
