@@ -18,6 +18,7 @@ import {
 import {
   type LRSubmissionRow, submissionStatusStyle, timeAgo, exportSubmissionsCsv,
 } from "@/lib/leadsrainAnalytics";
+import LeadsRainDiagnostic, { type DiagnosticReport, reportToHealth, type DiagnosticHealth } from "@/components/leadsrain/LeadsRainDiagnostic";
 
 const REFRESH_MS = 20_000;
 
