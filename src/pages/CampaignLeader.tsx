@@ -321,18 +321,24 @@ export default function CampaignLeader() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Campaign Leader</h1>
-          <p className="text-muted-foreground">Autonomous outbound to leads from US Lead Map · 9–5 PT · Mon–Fri</p>
+          <p className="text-muted-foreground">
+            Autonomous outbound to leads from US Lead Map ·{" "}
+            {settings.start_hour_pt}–{settings.end_hour_pt} PT · Mon–Fri
+          </p>
         </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          <Badge variant={settings.is_production ? "default" : "outline"}>
-            {settings.is_production ? "PRODUCTION ON" : "PRODUCTION LOCKED"}
-          </Badge>
-          <Badge variant={settings.is_paused ? "destructive" : "default"}>
-            {settings.is_paused ? "PAUSED" : "ACTIVE"}
-          </Badge>
-          <Button asChild variant="outline" size="sm">
-            <a href="/email-deliverability"><ShieldCheck className="w-4 h-4 mr-1" />Deliverability</a>
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+          <PstClock startHour={settings.start_hour_pt} endHour={settings.end_hour_pt} />
+          <div className="flex gap-2 items-center flex-wrap justify-end">
+            <Badge variant={settings.is_production ? "default" : "outline"}>
+              {settings.is_production ? "PRODUCTION ON" : "PRODUCTION LOCKED"}
+            </Badge>
+            <Badge variant={settings.is_paused ? "destructive" : "default"}>
+              {settings.is_paused ? "PAUSED" : "ACTIVE"}
+            </Badge>
+            <Button asChild variant="outline" size="sm">
+              <a href="/email-deliverability"><ShieldCheck className="w-4 h-4 mr-1" />Deliverability</a>
+            </Button>
+          </div>
         </div>
       </div>
 
