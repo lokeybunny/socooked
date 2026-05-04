@@ -243,18 +243,36 @@ Deno.serve(async (req) => {
       .single();
     if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
 
-    // Per LeadsRain docs: always send application/json. No form fallback, no variants.
-    const useForm = false;
-    const attempts: Array<{ list_id_field: string; content_type: string; http_status: number; raw_text: string; mode: string }> = [];
+    type AttemptDebug = {
+      phone_field: string;
+      content_type: string;
+      http_status: number;
+      raw_text: string;
+      mode: string;
+      submitted_payload: Record<string, any>;
+      lead_visible_in_list: boolean;
+      leadsrain_list_check?: { ok: boolean; status: number; error?: string; matched_lead?: any };
+    };
+    const contentTypeVariants = requestedContentType === "json" || requestedContentType === "application/json"
+      ? ["application/json"]
+      : requestedContentType === "multipart" || requestedContentType === "multipart/form-data"
+      ? ["multipart/form-data"]
+      : requestedContentType === "form" || requestedContentType === "application/x-www-form-urlencoded"
+      ? ["application/x-www-form-urlencoded"]
+      : ["application/x-www-form-urlencoded", "multipart/form-data", "application/json"];
+    const activePhoneFields = requestedPhoneField ? [requestedPhoneField] : phoneFieldVariants;
+    const attempts: AttemptDebug[] = [];
     let lrJson: any = null;
     let lrRawText = "";
     let httpOk = false;
     let httpStatus = 0;
     let errMsg: string | null = null;
     let usedEndpoint: string | null = null;
-    let usedListField = listIdVariants[0];
-    let usedContentType = useForm ? "application/x-www-form-urlencoded" : "application/json";
+    let usedPhoneField = activePhoneFields[0] || "phone_number";
+    let usedContentType = contentTypeVariants[0];
     let lastPayload: Record<string, any> = initialPayload;
+    let leadVisibleInList = false;
+    let listVisibilityCheck: any = null;
     let parsed: { ok: boolean; mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed"; provider_status: string; provider_lead_id: string | null; message: string | null; raw: any } = {
       ok: false, mode: "failed", provider_status: "", provider_lead_id: null, message: null, raw: null,
     };
