@@ -284,6 +284,13 @@ function StateModal({
               <div>Total rows processed: <strong>{result.total_rows}</strong></div>
               <div>Inserted: <strong className="text-emerald-500">{result.inserted_count}</strong></div>
               <div>Duplicates skipped: <strong className="text-amber-500">{result.duplicate_count}</strong></div>
+              {result.lgm_enabled && (
+                <div className="pt-1 border-t border-emerald-500/20 mt-1">
+                  <div>LGM checked: <strong>{result.lgm_checked ?? 0}</strong></div>
+                  <div>LGM rejected: <strong className="text-rose-500">{result.lgm_rejected ?? 0}</strong></div>
+                  {!!result.lgm_enriched && <div>LGM enriched: <strong>{result.lgm_enriched}</strong></div>}
+                </div>
+              )}
             </div>
           )}
         </div>
