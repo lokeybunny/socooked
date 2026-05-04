@@ -497,6 +497,51 @@ Deno.serve(async (req) => {
 
     const messages: any[] = data?.data?.messages || [];
     let imported = 0;
+    let statusUpdated = 0;
+
+    // ---- Outbound delivery-status sync ----
+    // VoidFix returns Sent/Delivered/Pending/Failed for our outbound messages.
+    // Update existing communications rows by external_id so the UI reflects
+    // the latest delivery state instead of being stuck on "sent"/"pending".
+    const mapVoidfixStatus = (s: string): string | null => {
+      const v = String(s || "").toLowerCase();
+      if (v === "delivered") return "delivered";
+      if (v === "sent") return "sent";
+      if (v === "pending" || v === "queued") return "pending";
+      if (v === "failed" || v === "error") return "failed";
+      return null;
+    };
+    for (const m of messages) {
+      const vfStatus = String(m.status || "");
+      if (vfStatus === "Received") continue;
+      const externalId = m.ID ? String(m.ID) : null;
+      if (!externalId) continue;
+      const mapped = mapVoidfixStatus(vfStatus);
+      if (!mapped) continue;
+      const { data: existing } = await sb
+        .from("communications")
+        .select("id, status, metadata")
+        .eq("external_id", externalId)
+        .eq("direction", "outbound")
+        .limit(1);
+      const row = existing?.[0];
+      if (!row) continue;
+      const prevMeta = (row.metadata as any) || {};
+      const prevStatus = prevMeta?.voidfix_status;
+      if (row.status === mapped && prevStatus === vfStatus) continue; // no change
+      await sb.from("communications").update({
+        status: mapped,
+        metadata: {
+          ...prevMeta,
+          voidfix_status: vfStatus,
+          voidfix_sent_date: m.sentDate || prevMeta?.voidfix_sent_date || null,
+          voidfix_delivered_date: m.deliveredDate || prevMeta?.voidfix_delivered_date || null,
+          voidfix_status_synced_at: new Date().toISOString(),
+        },
+      }).eq("id", row.id);
+      statusUpdated += 1;
+    }
+
     for (const m of messages) {
       if (String(m.status) !== "Received") continue;
       const externalId = String(m.ID);
@@ -557,7 +602,7 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
       imported += 1;
     }
-    return json({ ok: true, imported, scanned: messages.length });
+    return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length });
   }
 
 
