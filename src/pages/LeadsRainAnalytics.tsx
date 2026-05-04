@@ -350,19 +350,91 @@ export default function LeadsRainAnalytics() {
                   <Badge variant="outline">mode: {lastTestResult.mode || "?"}</Badge>
                   <Badge variant="outline">HTTP {lastTestResult.http_status ?? "?"}</Badge>
                   <Badge variant="outline">list_id: {lastTestResult.list_id || "—"}</Badge>
+                  <Badge variant="outline">field: {lastTestResult.list_id_field || "list_id"}</Badge>
                   <Badge variant="outline">caller_id: {lastTestResult.caller_id || "—"}</Badge>
-                  {lastTestResult.campaign_external_id && <Badge variant="outline">campaign: {lastTestResult.campaign_external_id}</Badge>}
+                  {lastTestResult.campaign_id && <Badge variant="outline">campaign: {lastTestResult.campaign_id}</Badge>}
+                  {lastTestResult.content_type && <Badge variant="outline">{lastTestResult.content_type}</Badge>}
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">{lastTestResult.user_message}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Submitted Payload</div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Final POST body sent to LeadsRain</div>
                   <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{JSON.stringify(lastTestResult.submitted_payload, null, 2)}</pre>
                 </div>
                 <div>
                   <div className="text-[11px] uppercase text-muted-foreground mb-1">Raw LeadsRain Response</div>
                   <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{JSON.stringify(lastTestResult.raw_response, null, 2)}</pre>
+                </div>
+              </div>
+              {Array.isArray(lastTestResult.attempts) && lastTestResult.attempts.length > 0 && (
+                <div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Attempts ({lastTestResult.attempts.length})</div>
+                  <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-40">{JSON.stringify(lastTestResult.attempts, null, 2)}</pre>
+                </div>
+              )}
+
+              {/* Manual payload tester */}
+              <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
+                <div className="text-xs font-semibold">Manual Payload Tester</div>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div>
+                    <Label className="text-[11px]">list_id field name</Label>
+                    <Select value={manualField} onValueChange={setManualField}>
+                      <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {["list_id", "listid", "list", "ListId"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-[11px]">Content-Type</Label>
+                    <Select value={manualContentType} onValueChange={setManualContentType}>
+                      <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="json">application/json</SelectItem>
+                        <SelectItem value="form">x-www-form-urlencoded</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <Label className="text-[11px]">Extra payload JSON (optional)</Label>
+                    <Input value={manualExtra} onChange={(e) => setManualExtra(e.target.value)} placeholder='{"campaign_id":"368407"}' className="h-8 text-xs" />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      const phone = testPhone.trim();
+                      if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
+                      let extra: any = undefined;
+                      if (manualExtra.trim()) {
+                        try { extra = JSON.parse(manualExtra); } catch { toast.error("Extra payload must be valid JSON"); return; }
+                      }
+                      setBusy("manual");
+                      try {
+                        const { data, error } = await supabase.functions.invoke("leadsrain-submit-lead", {
+                          body: {
+                            phone_number: phone,
+                            campaign_name: `Manual: field=${manualField} ct=${manualContentType}`,
+                            send_voidfix: false,
+                            list_id_field: manualField,
+                            content_type: manualContentType,
+                            extra_payload: extra,
+                          },
+                        });
+                        if (error) throw error;
+                        setLastTestResult(data);
+                        const d = data as any;
+                        const msg = d?.user_message || d?.error || "Submission complete";
+                        if (d?.ok) toast.success(msg); else toast.warning(msg);
+                        loadAll();
+                      } catch (e: any) { toast.error(e?.message || "Failed"); }
+                      finally { setBusy(null); }
+                    }}
+                    disabled={busy === "manual"}
+                  >
+                    {busy === "manual" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Run Manual Test"}
+                  </Button>
                 </div>
               </div>
             </CardContent>
