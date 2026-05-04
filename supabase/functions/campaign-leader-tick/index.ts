@@ -464,9 +464,22 @@ async function runEmailFor(contact: any): Promise<{ ok: boolean; skipped?: boole
     return { ok: false, skipped: true };
   }
 
+  // REQUIREMENT: every email must be verified by La Growth Machine before send.
+  const verify = await lgmVerifyEmail(contact.email);
+  if (!verify.ok) {
+    await sb.from("campaign_contacts").update({
+      email_status: "rejected_lgm",
+      error_message: verify.reason || "lgm_invalid",
+      last_step: "email_lgm_rejected",
+    }).eq("id", contact.id);
+    await logActivity(contact.id, "warning", "email_lgm_rejected", `LGM rejected ${contact.email} (${verify.reason || "invalid"})`);
+    return { ok: false, skipped: true };
+  }
+
   await waitChannelGap("email");
   await sb.from("campaign_contacts").update({ status: "emailing", last_step: "emailing" }).eq("id", contact.id);
-  await logActivity(contact.id, "info", "emailing", `Sending email to ${contact.email}`);
+  await logActivity(contact.id, "info", "emailing", `Sending email to ${contact.email} (LGM ✓${verify.reason ? " " + verify.reason : ""})`);
+
 
   const firstName = contact.first_name || "there";
   const addr = contact.property_address || "your property";
