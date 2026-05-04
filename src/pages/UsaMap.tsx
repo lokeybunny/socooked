@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 
@@ -29,6 +29,50 @@ export default function UsaMap() {
   const [logs, setLogs] = useState<UploadLog[]>([]);
   const [hover, setHover] = useState<{ code: string; x: number; y: number } | null>(null);
   const [openState, setOpenState] = useState<string | null>(null);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanResult, setCleanResult] = useState<null | { checked: number; kept: number; rejected: number; enriched: number; campaign_contacts_removed: number; rejected_details: any[] }>(null);
+
+  const runLgmClean = async () => {
+    if (cleaning) return;
+    setCleaning(true);
+    setCleanResult(null);
+    const agg = { checked: 0, kept: 0, rejected: 0, enriched: 0, campaign_contacts_removed: 0, rejected_details: [] as any[] };
+    try {
+      let offset = 0;
+      // Paginated sweep through all existing leads
+      // Stops when next_offset is null
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clean-existing-state-leads`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ limit: 500, offset }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "LGM clean failed");
+        agg.checked += json.checked || 0;
+        agg.kept += json.kept || 0;
+        agg.rejected += json.rejected || 0;
+        agg.enriched += json.enriched || 0;
+        agg.campaign_contacts_removed += json.campaign_contacts_removed || 0;
+        if (json.rejected_details?.length) agg.rejected_details.push(...json.rejected_details);
+        if (json.next_offset == null) break;
+        offset = json.next_offset;
+      }
+      setCleanResult(agg);
+      toast.success(`LGM clean complete: kept ${agg.kept}, removed ${agg.rejected}`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "Clean failed");
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
@@ -75,12 +119,54 @@ export default function UsaMap() {
             </h1>
             <p className="text-sm text-muted-foreground">Click any state to upload and manage its lead list.</p>
           </div>
-          <div className="flex gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
             <Stat label="Total Leads" value={totalAll.toLocaleString()} />
             <Stat label="Unique Numbers" value={totalAll.toLocaleString()} />
             <Stat label="Duplicates Prevented" value={totalDupes.toLocaleString()} />
+            <Button onClick={runLgmClean} disabled={cleaning} variant="secondary" className="gap-2">
+              {cleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {cleaning ? "Cleaning…" : "Clean Existing w/ LGM"}
+            </Button>
           </div>
         </header>
+
+        {cleanResult && (
+          <Card className="p-5 border-emerald-500/30">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> LGM Cleanup Results</h2>
+              <button onClick={() => setCleanResult(null)} className="text-xs text-muted-foreground hover:text-foreground">dismiss</button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm mb-4">
+              <Stat label="Checked" value={cleanResult.checked.toLocaleString()} />
+              <Stat label="Kept (Verified)" value={cleanResult.kept.toLocaleString()} />
+              <Stat label="Rejected" value={cleanResult.rejected.toLocaleString()} />
+              <Stat label="Enriched" value={cleanResult.enriched.toLocaleString()} />
+              <Stat label="Campaigns Cleaned" value={cleanResult.campaign_contacts_removed.toLocaleString()} />
+            </div>
+            {cleanResult.rejected_details.length > 0 && (
+              <div className="max-h-64 overflow-auto rounded border border-border/50">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/40 sticky top-0">
+                    <tr className="text-left">
+                      <th className="p-2">Phone</th>
+                      <th className="p-2">Email</th>
+                      <th className="p-2">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cleanResult.rejected_details.slice(0, 200).map((r, i) => (
+                      <tr key={i} className="border-t border-border/30">
+                        <td className="p-2 font-mono">{r.phone_e164 || "—"}</td>
+                        <td className="p-2">{r.email || "—"}</td>
+                        <td className="p-2 text-amber-500">{r.reason || "invalid"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Map */}
         <Card className="p-6 relative">
