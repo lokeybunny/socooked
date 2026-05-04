@@ -147,10 +147,11 @@ Deno.serve(async (req) => {
       error_message: errMsg,
     }).eq("id", row.id);
 
-    // Trigger VoidFix SMS
+    // Trigger VoidFix SMS only when LeadsRain returns a concrete lead/drop id.
+    // Empty HTTP 200 means the post was accepted by the endpoint, not that a VM was delivered.
     let voidfixSent = false;
     let voidfixErr: string | null = null;
-    if (httpOk && send_voidfix) {
+    if (httpOk && send_voidfix && lrLeadId) {
       try {
         const smsResp = await sb.functions.invoke("powerdial-sms", {
           body: { action: "send", to: ph.e164, body: voidfix_template, customer_id: customer_id || null },
