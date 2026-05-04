@@ -30,6 +30,13 @@ function normPhone(raw: string): { ok: boolean; ten?: string; e164?: string; err
   return { ok: true, ten, e164: `+1${ten}` };
 }
 
+function normCallerId(raw: string | null | undefined): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (digits.length === 10) return `1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return digits;
+  return digits || null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
@@ -67,7 +74,7 @@ Deno.serve(async (req) => {
     // Resolve defaults from settings (list_id is REQUIRED for LeadsRain to actually drop voicemail)
     const { data: settings } = await svc.from("leadsrain_settings").select("default_list_id, default_caller_id").limit(1).maybeSingle();
     const finalListId = list_id || settings?.default_list_id || null;
-    const finalCallerId = caller_id || settings?.default_caller_id || null;
+    const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
 
     if (!finalListId) {
       return json({
@@ -99,7 +106,7 @@ Deno.serve(async (req) => {
         contact_id: contact_id || null,
         customer_id: customer_id || null,
         phone_number: ph.e164,
-        caller_id: caller_id || null,
+        caller_id: finalCallerId || null,
         campaign_name: campaign_name || null,
         audio_url: audio_url || null,
         status: "submitted_to_leadsrain",
