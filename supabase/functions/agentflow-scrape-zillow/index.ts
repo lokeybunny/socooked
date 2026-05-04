@@ -19,9 +19,11 @@ function normKey(name: string, brokerage: string, city: string) {
 }
 
 function locationToZillowUrl(location: string): string {
-  // "Portland, OR" -> https://www.zillow.com/portland-or/
-  const slug = location.toLowerCase().replace(/,\s*/g, "-").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  return `https://www.zillow.com/${slug}/`;
+  // "Portland, OR" -> https://www.zillow.com/homes/Portland,-OR_rb/
+  // This is the canonical "for sale" search URL format the Apify actor accepts.
+  const cleaned = location.trim().replace(/\s*,\s*/g, ", ").replace(/\s+/g, " ");
+  const slug = cleaned.replace(/ /g, "-").replace(/,/g, ",");
+  return `https://www.zillow.com/homes/${encodeURIComponent(slug).replace(/%2C/g, ",")}_rb/`;
 }
 
 async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ items: any[]; tokenUsed: string | null; error?: string }> {
