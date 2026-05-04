@@ -140,12 +140,13 @@ Deno.serve(async (req) => {
       httpStatus = r.status;
       const txt = await r.text();
       const raw = txt.trim();
-      try { lrJson = raw ? JSON.parse(raw) : { raw: "", accepted: true }; } catch { lrJson = { raw }; }
+      try { lrJson = raw ? JSON.parse(raw) : { raw: "" }; } catch { lrJson = { raw }; }
       const statusText = String(lrJson?.status || lrJson?.Status || "").toLowerCase();
       const messageText = String(lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || "").toLowerCase();
-      const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized)\b/.test(messageText);
-      httpOk = r.ok && !explicitFailure && (raw === "" || !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText));
-      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || `HTTP ${r.status}`;
+      const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
+      const explicitSuccess = !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText);
+      httpOk = r.ok && !explicitFailure && explicitSuccess;
+      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || (raw === "" ? `LeadsRain returned empty HTTP ${r.status} — lead was NOT added to list ${finalListId}. Verify list_id and credentials in LeadsRain dashboard.` : `HTTP ${r.status}`);
     } catch (e: any) {
       errMsg = e?.message || String(e);
     }
