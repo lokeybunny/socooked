@@ -52,16 +52,16 @@ const EMAIL_CTAS = [
 ];
 
 const SMS_OPENERS = [
-  "Hi {{name}}, this is Warren Guru. Just emailed you about one of your listings",
-  "Hey {{name}}, Warren Guru here. Sent you a quick email about your listing",
-  "Hi {{name}}, this is Warren Guru — reached out via email about your listing",
-  "Hey {{name}}, Warren here. I just emailed you about a listing of yours",
+  "Hi {{name}}, this is Warren Guru. Just emailed you about your listing at {{addr}}",
+  "Hey {{name}}, Warren Guru here. Sent you a quick email about {{addr}}",
+  "Hi {{name}}, this is Warren Guru — reached out via email about {{addr}}",
+  "Hey {{name}}, Warren here. I just emailed you about your listing at {{addr}}",
 ];
 
 const SMS_BODIES = [
-  "I create AI-powered property videos without needing to walk the home.",
-  "I make AI-driven listing videos — no walk-through required.",
-  "I produce AI marketing videos straight from your existing photos.",
+  "I create AI-powered property videos for {{addr}} without needing to walk the home.",
+  "I make AI-driven listing videos for {{addr}} — no walk-through required.",
+  "I produce AI marketing videos for {{addr}} straight from your existing photos.",
 ];
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -95,13 +95,44 @@ function buildEmail(firstName: string, addr: string) {
   return { subject, body, variant };
 }
 
-function buildSms(firstName: string) {
+function buildSms(firstName: string, addr: string) {
   const oIdx = pickIdx(SMS_OPENERS);
   const bIdx = pickIdx(SMS_BODIES);
-  const opener = fill(SMS_OPENERS[oIdx], { name: firstName });
-  const body = SMS_BODIES[bIdx];
-  const text = `${opener}. ${body} See: https://instagram.com/W4RR3NGuru — Reply STOP to opt out.`;
+  const vars = { name: firstName, addr };
+  const opener = fill(SMS_OPENERS[oIdx], vars);
+  const body = fill(SMS_BODIES[bIdx], vars);
+  const text = `${opener}. ${body} See: https://instagram.com/W4RR3NGuru`;
   return { text, variant: oIdx * 10 + bIdx };
+}
+
+// ---------- Gmail deliverability guards ----------
+const GMAIL_HARD_DAILY_CAP = 1800;          // stay under Workspace 2k/day limit
+const GMAIL_PER_DOMAIN_DAILY_CAP = 25;      // never blast a single recipient domain
+const ROLE_PREFIX_BLOCK = [
+  "no-reply", "noreply", "postmaster", "abuse", "admin", "support",
+  "info", "sales", "billing", "contact", "help", "team", "office",
+  "hello", "hr", "jobs", "careers", "marketing", "webmaster", "mailer-daemon",
+];
+const FREE_PROVIDER_THROTTLE = new Set(["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com"]);
+
+function emailLooksValid(e?: string | null): boolean {
+  if (!e) return false;
+  const s = e.trim().toLowerCase();
+  // basic RFC-ish check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) return false;
+  const local = s.split("@")[0];
+  if (ROLE_PREFIX_BLOCK.some(p => local === p || local.startsWith(`${p}.`) || local.startsWith(`${p}-`))) return false;
+  if (s.includes("..") || s.endsWith(".") || s.startsWith(".")) return false;
+  return true;
+}
+
+function emailDomain(e: string): string {
+  return (e.split("@")[1] || "").toLowerCase();
+}
+
+function isGmailRateLimitError(err: any): boolean {
+  const s = String(err || "").toLowerCase();
+  return s.includes("rate") || s.includes("quota") || s.includes("limit") || s.includes("429") || s.includes("user-rate") || s.includes("dailyquota");
 }
 
 // ---------- Senders ----------
@@ -207,6 +238,12 @@ async function processContact(contact: any) {
     }).eq("id", contact.id);
     await bumpDailyStat("emails_failed");
     await logActivity(contact.id, "error", "email_failed", String(emailResult.error));
+
+    // Gmail deliverability promoter: auto-pause on rate-limit / quota errors
+    if (isGmailRateLimitError(emailResult.error) || isGmailRateLimitError(emailResult.raw)) {
+      await sb.from("campaign_settings").update({ is_paused: true }).eq("id", 1);
+      await logActivity(null, "error", "auto_pause", `Auto-paused: Gmail rate/quota signal — ${String(emailResult.error).slice(0, 200)}`);
+    }
     return { ok: false };
   }
 
@@ -226,7 +263,7 @@ async function processContact(contact: any) {
   // SMS step (only if we have phone)
   if (contact.phone_e164) {
     await sb.from("campaign_contacts").update({ status: "texting", last_step: "texting" }).eq("id", contact.id);
-    const { text, variant: smsVariant } = buildSms(firstName);
+    const { text, variant: smsVariant } = buildSms(firstName, addr);
     const smsResult = await sendSms(contact.phone_e164, text);
 
     if (!smsResult.ok) {
@@ -281,7 +318,7 @@ async function runTest(payload: any) {
 
   if (channel === "sms" || channel === "both") {
     if (!phone) return { ok: false, error: "missing_test_phone" };
-    const { text } = buildSms(firstName);
+    const { text } = buildSms(firstName, addr);
     result.steps.push({ step: "sms_preview", text });
     const sr = await sendSms(phone, text);
     result.steps.push({ step: "sms_send", ok: sr.ok, error: sr.error });
@@ -327,7 +364,9 @@ async function runTick() {
   }
 
   // Pull eligible leads not already queued today
-  const remainingEmails = Math.max(0, settings.daily_email_cap - emailsToday);
+  // Gmail deliverability promoter: enforce hard daily cap below Workspace's 2k limit
+  const effectiveEmailCap = Math.min(settings.daily_email_cap, GMAIL_HARD_DAILY_CAP);
+  const remainingEmails = Math.max(0, effectiveEmailCap - emailsToday);
   const batchSize = Math.min(settings.batch_size, remainingEmails);
   if (batchSize === 0) return { ok: false, skipped: true, reason: "email_cap_reached" };
 
@@ -339,18 +378,23 @@ async function runTick() {
     .not("email", "is", null)
     .not("phone_e164", "is", null)
     .or(`last_contacted_at.is.null,last_contacted_at.lt.${thirtyDaysAgo}`)
-    .limit(batchSize * 3); // overfetch to filter suppression
+    .limit(batchSize * 5); // overfetch to filter suppression + invalid + domain throttle
 
   if (leadErr) return { ok: false, error: leadErr.message };
   if (!leads || leads.length === 0) return { ok: true, skipped: true, reason: "no_eligible_leads" };
 
+  // Gmail promoter: drop role addresses + syntactically invalid emails BEFORE suppression query
+  const validatedLeads = leads.filter(l => emailLooksValid(l.email));
+
   // Filter suppression
-  const emails = leads.map(l => l.email).filter(Boolean);
-  const phones = leads.map(l => l.phone_e164).filter(Boolean);
-  const { data: suppressed } = await sb
-    .from("suppression_list")
-    .select("email, phone_e164")
-    .or(`email.in.(${emails.map(e => `"${e}"`).join(",")}),phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
+  const emails = validatedLeads.map(l => l.email).filter(Boolean);
+  const phones = validatedLeads.map(l => l.phone_e164).filter(Boolean);
+  const suppressionFilter: string[] = [];
+  if (emails.length) suppressionFilter.push(`email.in.(${emails.map(e => `"${e}"`).join(",")})`);
+  if (phones.length) suppressionFilter.push(`phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
+  const { data: suppressed } = suppressionFilter.length
+    ? await sb.from("suppression_list").select("email, phone_e164").or(suppressionFilter.join(","))
+    : { data: [] as any[] };
   const suppressedEmails = new Set((suppressed || []).map(s => s.email).filter(Boolean));
   const suppressedPhones = new Set((suppressed || []).map(s => s.phone_e164).filter(Boolean));
 
@@ -362,12 +406,30 @@ async function runTick() {
   const queuedEmails = new Set((alreadyQueued || []).map(c => c.email).filter(Boolean));
   const queuedPhones = new Set((alreadyQueued || []).map(c => c.phone_e164).filter(Boolean));
 
-  const eligible = leads.filter(l =>
-    !suppressedEmails.has(l.email) &&
-    !suppressedPhones.has(l.phone_e164) &&
-    !queuedEmails.has(l.email) &&
-    !queuedPhones.has(l.phone_e164)
-  ).slice(0, batchSize);
+  // Gmail promoter: per-domain daily throttle — count today's already-queued emails per domain
+  const domainCountToday = new Map<string, number>();
+  for (const c of (alreadyQueued || [])) {
+    if (c.email) {
+      const d = emailDomain(c.email);
+      domainCountToday.set(d, (domainCountToday.get(d) || 0) + 1);
+    }
+  }
+
+  const eligible: typeof validatedLeads = [];
+  for (const l of validatedLeads) {
+    if (suppressedEmails.has(l.email)) continue;
+    if (suppressedPhones.has(l.phone_e164)) continue;
+    if (queuedEmails.has(l.email)) continue;
+    if (queuedPhones.has(l.phone_e164)) continue;
+    const d = emailDomain(l.email);
+    const used = domainCountToday.get(d) || 0;
+    // Apply per-domain throttle, with stricter cap on free providers
+    const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
+    if (used >= cap) continue;
+    domainCountToday.set(d, used + 1);
+    eligible.push(l);
+    if (eligible.length >= batchSize) break;
+  }
 
   if (eligible.length === 0) return { ok: true, skipped: true, reason: "all_filtered" };
 
