@@ -55,7 +55,7 @@ const XShill = lazyWithRetry(() => import("./pages/XShill"), "page-x-shill");
 const Wholesale = lazyWithRetry(() => import("./pages/Wholesale"), "page-wholesale");
 const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arbitrage");
 const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
-const ApiManagement = lazyWithRetry(() => import("./pages/ApiManagement"), "page-api-management");
+const BatchLeadsPuller = lazyWithRetry(() => import("./pages/BatchLeadsPuller"), "page-batchleads-puller");
 const Ads = lazyWithRetry(() => import("./pages/Ads"), "page-ads");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
 const SellerLanding = lazyWithRetry(() => import("./pages/SellerLanding"), "page-seller-landing");
@@ -76,7 +76,7 @@ const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-cou
 const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
 const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
-const AgentFlow = lazyWithRetry(() => import("./pages/AgentFlow"), "page-agentflow");
+
 const LeadsRainAnalytics = lazyWithRetry(() => import("./pages/LeadsRainAnalytics"), "page-leadsrain-analytics");
 const SMSPage = lazyWithRetry(() => import("./pages/SMS"), "page-sms");
 const CallTest = lazyWithRetry(() => import("./pages/CallTest"), "page-call-test");
@@ -141,7 +141,7 @@ const App = () => (
                 <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
                 <Route path="/powerdial/voicemails" element={<WarrenOnlyGate><PowerDialVoicemails /></WarrenOnlyGate>} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
-                <Route path="/agentflow" element={<WarrenOnlyGate><AuthLayoutGate><AgentFlow /></AuthLayoutGate></WarrenOnlyGate>} />
+                
                 <Route path="/leadsrain-analytics" element={<WarrenOnlyGate><AuthLayoutGate><LeadsRainAnalytics /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/calltest" element={<WarrenOnlyGate><CallTest /></WarrenOnlyGate>} />
                 <Route path="/funnels" element={<WarrenOnlyGate><Funnels /></WarrenOnlyGate>} />
@@ -182,7 +182,7 @@ const App = () => (
                 <Route path="/wholesale" element={<WarrenOnlyGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/arbitrage" element={<WarrenOnlyGate><AuthLayoutGate><ArbitragePage /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/sell/:slug" element={<SellerLanding />} />
-                <Route path="/api-management" element={<WarrenOnlyGate><AuthLayoutGate><ApiManagement /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/batchleads" element={<WarrenOnlyGate><AuthLayoutGate><BatchLeadsPuller /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/video" element={<VideographyLanding />} />
