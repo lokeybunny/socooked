@@ -147,9 +147,9 @@ Deno.serve(async (req) => {
         const statusText = String(lrJson?.status || lrJson?.Status || "").toLowerCase();
         const messageText = String(lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || "").toLowerCase();
         const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
-        const explicitSuccess = !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText);
-        httpOk = r.ok && !explicitFailure && explicitSuccess;
-        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || (raw === "" ? `LeadsRain returned empty HTTP ${r.status} — lead was NOT added to list ${finalListId}. Verify the List ID belongs to an active RVM campaign and configure LEADSRAIN_PROXY_URL to the deployed HTTPS proxy, not a leadsrain.com URL.` : `HTTP ${r.status}`));
+        // CRM-only mode: PostLead HTTP 200 without explicit failure text = accepted.
+        httpOk = r.ok && !explicitFailure;
+        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || `HTTP ${r.status}`);
         if (httpOk || /invalid username|api key/i.test(errMsg || "")) break;
       }
     } catch (e: any) {
