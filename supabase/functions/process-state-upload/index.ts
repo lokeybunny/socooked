@@ -134,24 +134,70 @@ Deno.serve(async (req) => {
     let inserted = 0;
     let duplicates = totalRows - candidates.length; // duplicates within file
 
-    // Insert in chunks; rely on UNIQUE(phone_e164) -> ignore duplicates
+    // Insert in chunks. For duplicates by phone_e164, backfill email/name/address fields
+    // when the existing row is missing them (COALESCE-style merge via upsert without ignoreDuplicates).
     const chunkSize = 500;
+    let emailBackfilled = 0;
     for (let i = 0; i < candidates.length; i += chunkSize) {
       const chunk = candidates.slice(i, i + chunkSize);
-      const { data, error } = await supabase
+
+      // Step 1: insert new rows only (ignore duplicates) to count true new inserts
+      const { data: insertedData, error: insErr } = await supabase
         .from("state_leads")
         .upsert(chunk, { onConflict: "phone_e164", ignoreDuplicates: true })
         .select("id");
-      if (error) {
-        console.error("insert error", error);
-        return new Response(JSON.stringify({ error: error.message }), {
+      if (insErr) {
+        console.error("insert error", insErr);
+        return new Response(JSON.stringify({ error: insErr.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const insertedThis = data?.length ?? 0;
+      const insertedThis = insertedData?.length ?? 0;
       inserted += insertedThis;
       duplicates += chunk.length - insertedThis;
+
+      // Step 2: for rows in this chunk that have an email, backfill email on existing leads
+      // where the stored email is null/empty. Same for first_name and address if missing.
+      const enrichRows = chunk.filter((c) => c.email || c.first_name || c.name || c.address);
+      for (const c of enrichRows) {
+        const patch: Record<string, unknown> = {};
+        if (c.email) patch.email = c.email;
+        if (c.first_name) patch.first_name = c.first_name;
+        if (c.name) patch.name = c.name;
+        if (c.address) {
+          patch.address = c.address;
+          patch.property_address = c.address;
+        }
+        if (c.city) patch.city = c.city;
+        if (c.zip) patch.zip = c.zip;
+        if (Object.keys(patch).length === 0) continue;
+
+        // Only update fields that are currently null on the existing row.
+        // We can't do COALESCE in PostgREST easily, so fetch first.
+        const { data: existing } = await supabase
+          .from("state_leads")
+          .select("id,email,first_name,name,address,city,zip")
+          .eq("phone_e164", c.phone_e164)
+          .maybeSingle();
+        if (!existing) continue;
+
+        const finalPatch: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(patch)) {
+          if (!v) continue;
+          if ((existing as any)[k] == null || (existing as any)[k] === "") {
+            finalPatch[k] = v;
+          }
+        }
+        if (Object.keys(finalPatch).length === 0) continue;
+
+        const { error: upErr } = await supabase
+          .from("state_leads")
+          .update(finalPatch)
+          .eq("id", (existing as any).id);
+        if (!upErr && finalPatch.email) emailBackfilled += 1;
+      }
     }
+    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled);
 
     await supabase.from("upload_logs").insert({
       state: selectedState,
