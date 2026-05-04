@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         if (!upErr && finalPatch.email) emailBackfilled += 1;
       }
     }
-    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled);
+    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled, "lgm_checked:", lgmChecked, "lgm_rejected:", lgmRejected, "lgm_enriched:", lgmEnriched);
 
     await supabase.from("upload_logs").insert({
       state: selectedState,
@@ -283,9 +283,18 @@ Deno.serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ total_rows: totalRows, inserted_count: inserted, duplicate_count: duplicates }),
+      JSON.stringify({
+        total_rows: totalRows,
+        inserted_count: inserted,
+        duplicate_count: duplicates,
+        lgm_checked: lgmChecked,
+        lgm_rejected: lgmRejected,
+        lgm_enriched: lgmEnriched,
+        lgm_enabled: !!Deno.env.get("LAGROWTHMACHINE_API_KEY"),
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
