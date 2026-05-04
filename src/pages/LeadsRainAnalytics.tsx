@@ -267,13 +267,12 @@ export default function LeadsRainAnalytics() {
         </div>
 
         {/* CRM-only banner */}
-        <Card className="border-amber-500/40 bg-amber-500/5">
+        <Card className="border-lime-500/40 bg-lime-500/5">
           <CardContent className="p-3 flex items-start gap-2 text-sm">
-            <Info className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+            <Info className="w-4 h-4 text-lime-400 mt-0.5 shrink-0" />
             <div>
-              <strong>CRM-only mode active.</strong> LeadsRain PostLead submission is working.
-              Legacy campaign analytics are unavailable from Supabase because s1/s2/s3 campaign
-              endpoints timeout from this environment.
+              <strong>LeadsRain is connected.</strong> Live PostLead workflow is active. Parser mapping pending.
+              Legacy Campaign View endpoints (s1/s2/s3) timeout from this environment and remain in diagnostics only.
             </div>
           </CardContent>
         </Card>
@@ -292,7 +291,7 @@ export default function LeadsRainAnalytics() {
             label="PostLead API"
             value="Connected"
             accent="green"
-            sub="Connected — response parser updated"
+            sub="Live PostLead workflow active — parser mapping pending"
           />
         </div>
 
