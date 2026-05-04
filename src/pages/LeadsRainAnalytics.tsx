@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Loader2, RefreshCw, Search, AlertTriangle, RadioTower, Send,
-  RotateCw, MessageSquare, Download, Info,
+  RotateCw, MessageSquare, Download, Info, Settings as SettingsIcon,
 } from "lucide-react";
 import {
   type LRSubmissionRow, submissionStatusStyle, timeAgo, exportSubmissionsCsv,
@@ -28,6 +30,30 @@ export default function LeadsRainAnalytics() {
   const [apiHealth, setApiHealth] = useState<"Healthy" | "Down" | "Checking">("Checking");
   const [busy, setBusy] = useState<string | null>(null);
   const [testPhone, setTestPhone] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [defaultListId, setDefaultListId] = useState("");
+  const [defaultCallerId, setDefaultCallerId] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const loadSettings = async () => {
+    const { data } = await supabase.from("leadsrain_settings" as any).select("default_list_id, default_caller_id").limit(1).maybeSingle();
+    setDefaultListId(((data as any)?.default_list_id) || "");
+    setDefaultCallerId(((data as any)?.default_caller_id) || "");
+  };
+
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    const { data: existing } = await supabase.from("leadsrain_settings" as any).select("id").limit(1).maybeSingle();
+    const payload = { default_list_id: defaultListId.trim() || null, default_caller_id: defaultCallerId.trim() || null };
+    if ((existing as any)?.id) {
+      await supabase.from("leadsrain_settings" as any).update(payload).eq("id", (existing as any).id);
+    } else {
+      await supabase.from("leadsrain_settings" as any).insert(payload);
+    }
+    setSavingSettings(false);
+    setSettingsOpen(false);
+    toast.success("Settings saved");
+  };
 
   const loadAll = async () => {
     const { data } = await supabase
@@ -52,7 +78,7 @@ export default function LeadsRainAnalytics() {
     setApiHealth(failed / recent.length > 0.5 ? "Down" : "Healthy");
   };
 
-  useEffect(() => { loadAll(); checkHealth(); }, []);
+  useEffect(() => { loadAll(); checkHealth(); loadSettings(); }, []);
 
   useEffect(() => {
     const ch = supabase
@@ -198,6 +224,34 @@ export default function LeadsRainAnalytics() {
             <Button variant="ghost" onClick={() => { loadAll(); checkHealth(); }}>
               <RefreshCw className="w-4 h-4" />
             </Button>
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline"><SettingsIcon className="w-4 h-4 mr-2" /> Settings</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>LeadsRain Defaults</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-200">
+                    <strong>Required for voice drops to actually fire.</strong> The Postlead API only adds a lead to a list — the voicemail audio is dropped by a Campaign you've configured inside the LeadsRain dashboard (RVM → Campaigns) that watches this list. Upload your audio file and attach it to the campaign there.
+                  </div>
+                  <div>
+                    <Label className="text-xs">List ID (LeadsRain → RVM → Lead Lists)</Label>
+                    <Input value={defaultListId} onChange={(e) => setDefaultListId(e.target.value)} placeholder="e.g. 12345" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Caller ID (10-digit, must be verified in LeadsRain)</Label>
+                    <Input value={defaultCallerId} onChange={(e) => setDefaultCallerId(e.target.value)} placeholder="e.g. 14244651253" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={saveSettings} disabled={savingSettings}>
+                    {savingSettings && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
