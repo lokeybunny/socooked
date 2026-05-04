@@ -115,6 +115,18 @@ export default function CampaignLeader() {
     setLifetimeSent({ emails: sentEmails.count || 0, sms: sentSms.count || 0 });
   }
 
+  async function loadSentLog() {
+    let q = supabase
+      .from("campaign_sent_log")
+      .select("id, channel, email, phone_e164, sent_at", { count: "exact" })
+      .order("sent_at", { ascending: false })
+      .range(sentLogPage * PAGE_SIZE, sentLogPage * PAGE_SIZE + PAGE_SIZE - 1);
+    if (sentLogChannel !== "all") q = q.eq("channel", sentLogChannel);
+    const { data, count } = await q;
+    setSentLog((data as any) || []);
+    setSentLogTotal(count || 0);
+  }
+
   useEffect(() => {
     loadAll();
     const ch1 = supabase
