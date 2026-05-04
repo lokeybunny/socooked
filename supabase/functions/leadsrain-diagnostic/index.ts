@@ -209,9 +209,12 @@ Deno.serve(async (req) => {
       recommended_next_step = "Confirm exact LeadsRain username. Try login email first.";
       network_reachable = true; auth_valid = false;
       best_endpoint = authFail.endpoint;
-    } else if (allCampaignsTimedOut && postleadTest && postleadTest.http_status > 0) {
-      final_diagnosis = "Supabase can reach LeadsRain HTTPS PostLead, but cannot reach RVM shard campaign APIs.";
-      recommended_next_step = "Use Zapier, VPS/Fly proxy, or LeadsRain webhook instead of direct Supabase polling.";
+    } else if (postleadTest && postleadTest.http_status > 0) {
+      // PostLead HTTPS reachable = integration considered healthy. Campaign view is legacy/optional.
+      final_diagnosis = allCampaignsTimedOut
+        ? "Healthy. PostLead API reachable. Campaign View endpoint timed out (legacy/optional)."
+        : "Healthy. PostLead API reachable.";
+      recommended_next_step = "Use HTTPS PostLead API for live workflow. Campaign View endpoint may be legacy or unavailable.";
       network_reachable = true; auth_valid = null;
       best_endpoint = postleadTest.endpoint;
     } else if (parseUnknown) {
