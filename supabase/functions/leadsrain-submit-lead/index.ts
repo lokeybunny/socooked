@@ -40,6 +40,45 @@ function normCallerId(raw: string | null | undefined): string | null {
   return digits || null;
 }
 
+// Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
+// HTTP 200 + no explicit failure markers = accepted.
+function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
+  const text = String(rawText || "").trim();
+  const lower = text.toLowerCase();
+  const FAIL_RX = /\b(invalid api key|invalid username|missing phone|duplicate|campaign not found|failed|failure|denied|unauthorized|missing|required|error)\b/;
+  const SUCCESS_RX = /\b(success|accepted|added|submitted|queued|lead_id|posted)\b/;
+
+  let provider_status = "";
+  let provider_lead_id: string | null = null;
+  let message: string | null = null;
+
+  if (json && typeof json === "object") {
+    provider_status = String(json.status ?? json.Status ?? (json.success === true ? "success" : json.success === false ? "error" : "")).toLowerCase();
+    provider_lead_id =
+      json.lead_id?.toString?.() ??
+      json.id?.toString?.() ??
+      json.posted_lead_id?.toString?.() ??
+      json.data?.lead_id?.toString?.() ??
+      json.data?.id?.toString?.() ??
+      null;
+    message = json.msg ?? json.message ?? json.error ?? json.data?.message ?? null;
+  } else if (text) {
+    message = text.length > 500 ? text.slice(0, 500) : text;
+  }
+
+  const haystack = `${provider_status} ${message ?? ""} ${lower}`;
+  const explicitFail = FAIL_RX.test(haystack);
+  const explicitSuccess = !!provider_lead_id || SUCCESS_RX.test(haystack) || provider_status === "success" || (json && json.success === true);
+
+  let ok = false;
+  if (httpStatus >= 200 && httpStatus < 300) {
+    ok = !explicitFail || explicitSuccess;
+  }
+
+  if (!ok && !message) message = explicitFail ? "LeadsRain rejected the lead" : `HTTP ${httpStatus}`;
+  return { ok, provider_status, provider_lead_id, message, raw: json ?? text };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
@@ -120,13 +159,17 @@ Deno.serve(async (req) => {
       .single();
     if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
 
-    // Call LeadsRain Postlead. Prefer the configured proxy to the real HTTP-only
-    // s2 endpoint; api.leadsrain.com can return empty 200s without adding leads.
+    // Call LeadsRain PostLead HTTPS endpoint. Use flexible parser: HTTP 200
+    // is accepted unless body contains explicit failure markers.
     let lrJson: any = null;
+    let lrRawText = "";
     let httpOk = false;
     let httpStatus = 0;
     let errMsg: string | null = null;
     let usedEndpoint: string | null = null;
+    let parsed: { ok: boolean; provider_status: string; provider_lead_id: string | null; message: string | null; raw: any } = {
+      ok: false, provider_status: "", provider_lead_id: null, message: null, raw: null,
+    };
     try {
       for (const endpoint of LR_ENDPOINTS) {
         usedEndpoint = endpoint;
@@ -141,30 +184,28 @@ Deno.serve(async (req) => {
           signal: AbortSignal.timeout(20000),
         });
         httpStatus = r.status;
-        const txt = await r.text();
-        const raw = txt.trim();
-        try { lrJson = raw ? JSON.parse(raw) : { raw: "" }; } catch { lrJson = { raw }; }
-        const statusText = String(lrJson?.status || lrJson?.Status || "").toLowerCase();
-        const messageText = String(lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || "").toLowerCase();
-        const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
-        // CRM-only mode: PostLead HTTP 200 without explicit failure text = accepted.
-        httpOk = r.ok && !explicitFailure;
-        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || `HTTP ${r.status}`);
-        if (httpOk || /invalid username|api key/i.test(errMsg || "")) break;
+        lrRawText = (await r.text()) || "";
+        const trimmed = lrRawText.trim();
+        try { lrJson = trimmed ? JSON.parse(trimmed) : null; } catch { lrJson = null; }
+        parsed = parsePostLeadResponse(r.status, lrRawText, lrJson);
+        httpOk = parsed.ok;
+        errMsg = httpOk ? null : (parsed.message || `HTTP ${r.status}`);
+        if (httpOk) break;
+        if (/invalid username|api key|invalid api/i.test(errMsg || "")) break;
       }
     } catch (e: any) {
       errMsg = e?.message || String(e);
     }
 
     const newStatus = httpOk ? "accepted_by_api" : "failed_to_submit";
-    const lrLeadId = lrJson?.lead_id?.toString() || null;
-    const lrMsg = lrJson?.msg || lrJson?.message || lrJson?.error || null;
+    const lrLeadId = parsed.provider_lead_id;
+    const lrMsg = parsed.message;
 
     await svc.from("leadsrain_submissions").update({
       status: newStatus,
       leadsrain_lead_id: lrLeadId,
       leadsrain_message: lrMsg,
-      raw_response: { ...lrJson, endpoint: usedEndpoint?.replace(/^https?:\/\//, "") },
+      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, "") },
       error_message: errMsg,
     }).eq("id", row.id);
 
