@@ -192,6 +192,7 @@ export default function EmailDeliverability() {
       <SEOHead
         title="Email Deliverability Check"
         description="Verify SPF, DKIM, DMARC, and MX records for your sending domain."
+        canonical="/email-deliverability"
       />
       <div className="flex items-center gap-3 mb-6">
         <ShieldCheck className="h-8 w-8 text-primary" />
