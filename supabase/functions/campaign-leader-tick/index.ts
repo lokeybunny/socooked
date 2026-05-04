@@ -497,14 +497,16 @@ async function runTest(payload: any) {
 //   "batch"  → process up to settings.batch_size contacts in one invocation
 //   "drain"  → keep looping batches until daily cap hit, no eligible leads, stop_requested,
 //              paused, outside hours, or wall-clock budget exceeded (~5 min per invocation)
-async function runTick(runMode: "single" | "batch" | "drain" = "batch") {
+async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = false) {
   const { data: settings } = await sb.from("campaign_settings").select("*").eq("id", 1).maybeSingle();
   if (!settings) return { ok: false, error: "no_settings" };
   if (!settings.is_production) return { ok: false, skipped: true, reason: "production_disabled" };
   if (settings.is_paused) return { ok: false, skipped: true, reason: "paused" };
 
-  const sched = isBusinessHours(settings.start_hour_pt, settings.end_hour_pt);
-  if (!sched.ok) return { ok: false, skipped: true, reason: sched.reason };
+  if (!force) {
+    const sched = isBusinessHours(settings.start_hour_pt, settings.end_hour_pt);
+    if (!sched.ok) return { ok: false, skipped: true, reason: sched.reason };
+  }
 
   const driveStart = Date.now();
   const DRIVE_BUDGET_MS = 5 * 60 * 1000; // edge function wall-clock cap per invocation
@@ -528,8 +530,10 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch") {
     if (!live) return { done: true, reason: "no_settings", processed: 0, success: 0 };
     if (live.stop_requested) return { done: true, reason: "stop_requested", processed: 0, success: 0 };
     if (live.is_paused) return { done: true, reason: "paused", processed: 0, success: 0 };
-    const sch = isBusinessHours(live.start_hour_pt, live.end_hour_pt);
-    if (!sch.ok) return { done: true, reason: sch.reason, processed: 0, success: 0 };
+    if (!force) {
+      const sch = isBusinessHours(live.start_hour_pt, live.end_hour_pt);
+      if (!sch.ok) return { done: true, reason: sch.reason, processed: 0, success: 0 };
+    }
 
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }))
       .toISOString().slice(0, 10);
