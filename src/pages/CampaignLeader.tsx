@@ -6,7 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud, Square, Rocket, ListChecks } from "lucide-react";
+import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud, Square, Rocket, ListChecks, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Settings = {
   is_production: boolean;
@@ -97,6 +99,32 @@ export default function CampaignLeader() {
   const [testFirst, setTestFirst] = useState("");
   const [testAddr, setTestAddr] = useState("");
   const [testResult, setTestResult] = useState<any>(null);
+
+  // Preview dialog state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<{ email?: { subject: string; body: string; variant?: any }; sms?: { text: string }; contact?: Contact } | null>(null);
+
+  async function openPreview(c: Contact) {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewData({ contact: c });
+    try {
+      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", {
+        body: {
+          mode: "preview",
+          first_name: c.first_name || "there",
+          property_address: c.property_address || "your property",
+        },
+      });
+      if (error) throw error;
+      setPreviewData({ contact: c, email: data?.email, sms: data?.sms });
+    } catch (e: any) {
+      toast({ title: "Preview failed", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
 
   async function loadAll() {
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).toISOString().slice(0, 10);
@@ -549,7 +577,12 @@ export default function CampaignLeader() {
                     <span className="text-muted-foreground"> · {c.email}</span>
                     {c.phone_e164 && <span className="text-muted-foreground"> · {c.phone_e164}</span>}
                   </div>
-                  <Badge variant={failed ? "destructive" : c.status === "completed" ? "default" : "secondary"}>{STAGE_LABELS[c.status] || c.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={failed ? "destructive" : c.status === "completed" ? "default" : "secondary"}>{STAGE_LABELS[c.status] || c.status}</Badge>
+                    <Button size="sm" variant="outline" onClick={() => openPreview(c)}>
+                      <Eye className="w-3 h-3 mr-1" /> Preview
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 text-xs">
                   {STAGES.map((stage, i) => (
@@ -584,6 +617,57 @@ export default function CampaignLeader() {
           {logs.length === 0 && <p className="text-muted-foreground">No activity yet.</p>}
         </CardContent>
       </Card>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Message Preview</DialogTitle>
+            <DialogDescription>
+              {previewData?.contact ? (
+                <span>
+                  Personalized for <strong>{previewData.contact.first_name || "—"}</strong>
+                  {previewData.contact.property_address ? ` · ${previewData.contact.property_address}` : ""}
+                </span>
+              ) : "Loading…"}
+            </DialogDescription>
+          </DialogHeader>
+          {previewLoading && <p className="text-sm text-muted-foreground">Generating preview…</p>}
+          {!previewLoading && previewData && (
+            <Tabs defaultValue="email" className="w-full">
+              <TabsList>
+                <TabsTrigger value="email"><Mail className="w-3 h-3 mr-1" />Email</TabsTrigger>
+                <TabsTrigger value="sms"><MessageSquare className="w-3 h-3 mr-1" />SMS</TabsTrigger>
+              </TabsList>
+              <TabsContent value="email" className="space-y-3">
+                {previewData.email ? (
+                  <>
+                    <div className="text-xs text-muted-foreground">To: {previewData.contact?.email || "—"}</div>
+                    <div className="border rounded-md p-3 bg-muted/40">
+                      <div className="text-xs text-muted-foreground mb-1">Subject</div>
+                      <div className="font-medium">{previewData.email.subject}</div>
+                    </div>
+                    <div className="border rounded-md p-3 bg-background">
+                      <div className="text-xs text-muted-foreground mb-2">Body</div>
+                      <pre className="whitespace-pre-wrap text-sm font-sans">{previewData.email.body}</pre>
+                    </div>
+                  </>
+                ) : <p className="text-sm text-muted-foreground">No email preview available.</p>}
+              </TabsContent>
+              <TabsContent value="sms" className="space-y-3">
+                {previewData.sms ? (
+                  <>
+                    <div className="text-xs text-muted-foreground">To: {previewData.contact?.phone_e164 || "—"}</div>
+                    <div className="border rounded-md p-3 bg-background">
+                      <pre className="whitespace-pre-wrap text-sm font-sans">{previewData.sms.text}</pre>
+                      <div className="text-xs text-muted-foreground mt-2">{previewData.sms.text.length} chars</div>
+                    </div>
+                  </>
+                ) : <p className="text-sm text-muted-foreground">No SMS preview available.</p>}
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

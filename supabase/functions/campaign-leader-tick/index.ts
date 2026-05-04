@@ -704,6 +704,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    if (mode === "preview") {
+      const firstName = payload.first_name || "there";
+      const addr = payload.property_address || "your property";
+      const { subject, body, variant } = buildEmail(firstName, addr);
+      const { text } = buildSms(firstName, addr);
+      return new Response(JSON.stringify({
+        ok: true,
+        email: { subject, body, variant },
+        sms: { text },
+        sample: { first_name: firstName, property_address: addr },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (mode === "stop") {
       await sb.from("campaign_settings").update({ stop_requested: true, is_paused: true }).eq("id", 1);
       await logActivity(null, "info", "stop_requested", "Stop requested by user — drain will halt after current contact");
