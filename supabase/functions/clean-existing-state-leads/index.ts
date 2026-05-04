@@ -112,13 +112,15 @@ Deno.serve(async (req) => {
     }
 
     // Log
-    await sb.from("upload_logs").insert({
-      file_name: `lgm_clean_existing_${stateFilter || "all"}`,
-      state: stateFilter || "ALL",
-      total_rows: checked,
-      inserted_count: kept,
-      duplicate_count: rejected.length,
-    }).catch(() => {});
+    try {
+      await sb.from("upload_logs").insert({
+        file_name: `lgm_clean_existing_${stateFilter || "all"}`,
+        state: stateFilter || "ALL",
+        total_rows: checked,
+        inserted_count: kept,
+        duplicate_count: rejected.length,
+      });
+    } catch (_e) { /* ignore */ }
 
     return new Response(JSON.stringify({
       success: true,
