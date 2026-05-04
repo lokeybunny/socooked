@@ -204,7 +204,7 @@ function StateModal({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number } | null>(null);
+  const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number; lgm_checked?: number; lgm_rejected?: number; lgm_enriched?: number; lgm_enabled?: boolean } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async () => {
@@ -228,7 +228,8 @@ function StateModal({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
       setResult(json);
-      toast.success(`Inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates`);
+      const lgmMsg = json.lgm_enabled ? ` · LGM rejected ${json.lgm_rejected ?? 0}` : "";
+      toast.success(`Inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates${lgmMsg}`);
       await onUploaded();
     } catch (e: any) {
       toast.error(e.message);
@@ -269,7 +270,8 @@ function StateModal({
 
           <div className="text-xs text-muted-foreground space-y-1 rounded-md bg-muted/40 p-3">
             <div className="flex items-center gap-1.5"><AlertCircle className="h-3 w-3" /> <strong>Required column:</strong> phone_number</div>
-            <div><strong>Optional:</strong> name, address, city, zip</div>
+            <div><strong>Optional:</strong> name, address, city, zip, email</div>
+            <div className="text-emerald-500">Auto-cleaned via La Growth Machine before insert.</div>
           </div>
 
           <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
@@ -282,6 +284,13 @@ function StateModal({
               <div>Total rows processed: <strong>{result.total_rows}</strong></div>
               <div>Inserted: <strong className="text-emerald-500">{result.inserted_count}</strong></div>
               <div>Duplicates skipped: <strong className="text-amber-500">{result.duplicate_count}</strong></div>
+              {result.lgm_enabled && (
+                <div className="pt-1 border-t border-emerald-500/20 mt-1">
+                  <div>LGM checked: <strong>{result.lgm_checked ?? 0}</strong></div>
+                  <div>LGM rejected: <strong className="text-rose-500">{result.lgm_rejected ?? 0}</strong></div>
+                  {!!result.lgm_enriched && <div>LGM enriched: <strong>{result.lgm_enriched}</strong></div>}
+                </div>
+              )}
             </div>
           )}
         </div>
