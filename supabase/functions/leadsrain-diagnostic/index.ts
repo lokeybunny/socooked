@@ -229,8 +229,9 @@ Deno.serve(async (req) => {
     const serverErr = has("SERVER_ERROR");
 
     const campaignTests = results.filter((r) => /Campaign View/i.test(r.name));
-    const postleadTest = results.find((r) => r.name === "PostLead HTTPS Reachability");
+    const postleadTest = results.find((r) => /PostLead HTTPS/i.test(r.name));
     const allCampaignsTimedOut = campaignTests.length > 0 && campaignTests.every((r) => r.result_type === "NETWORK_TIMEOUT");
+    const reachableNeedsMap = has("REACHABLE_PARSE_NEEDS_MAPPING");
 
     let final_diagnosis = "No LeadsRain endpoint reachable from this environment.";
     let recommended_next_step = "Deploy an external proxy or use Zapier as bridge.";
@@ -254,24 +255,22 @@ Deno.serve(async (req) => {
       recommended_next_step = "Confirm exact LeadsRain username. Try login email first.";
       network_reachable = true; auth_valid = false;
       best_endpoint = authFail.endpoint;
-    } else if (postleadTest && postleadTest.http_status > 0) {
+    } else if (postleadTest && postleadTest.http_status >= 200 && postleadTest.http_status < 500) {
       // PostLead HTTPS reachable = integration considered healthy. Campaign view is legacy/optional.
-      final_diagnosis = allCampaignsTimedOut
-        ? "Healthy. PostLead API reachable. Campaign View endpoint timed out (legacy/optional)."
-        : "Healthy. PostLead API reachable.";
-      recommended_next_step = "Use HTTPS PostLead API for live workflow. Campaign View endpoint may be legacy or unavailable.";
+      final_diagnosis = postleadTest.result_type === "REACHABLE_PARSE_NEEDS_MAPPING"
+        ? "LeadsRain API is reachable. Parser mapping required."
+        : (allCampaignsTimedOut
+          ? "Healthy. PostLead API reachable. Campaign View endpoint timed out (legacy/optional)."
+          : "Healthy. PostLead API reachable.");
+      recommended_next_step = "Use HTTPS PostLead API for live workflow. Campaign View endpoint is legacy/optional.";
       network_reachable = true; auth_valid = null;
       best_endpoint = postleadTest.endpoint;
-    } else if (parseUnknown) {
-      final_diagnosis = "LeadsRain responded but the response shape needs mapping.";
+    } else if (parseUnknown || reachableNeedsMap) {
+      const t = parseUnknown || reachableNeedsMap!;
+      final_diagnosis = "LeadsRain API is reachable. Parser mapping required.";
       recommended_next_step = "Inspect the raw JSON below and update the parser.";
       network_reachable = true; auth_valid = null;
-      best_endpoint = parseUnknown.endpoint;
-    } else if (serverErr) {
-      final_diagnosis = "LeadsRain server returned an error.";
-      recommended_next_step = "Retry shortly; if it persists, contact LeadsRain support.";
-      network_reachable = true;
-      best_endpoint = serverErr.endpoint;
+      best_endpoint = t.endpoint;
     }
 
     return json({
