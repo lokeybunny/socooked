@@ -286,8 +286,8 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action || "start"; // "start" | "poll"
 
-    const apifyToken = Deno.env.get("APIFY_TOKEN_CRAIGSLIST");
-    if (!apifyToken) throw new Error("APIFY_TOKEN_CRAIGSLIST not configured");
+    const apifyToken = Deno.env.get("APIFY_TOKEN");
+    if (!apifyToken) throw new Error("APIFY_TOKEN not configured");
 
     // ── ACTION: START ──
     if (action === "start") {
