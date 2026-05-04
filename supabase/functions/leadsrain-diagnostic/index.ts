@@ -271,6 +271,11 @@ Deno.serve(async (req) => {
       recommended_next_step = "Inspect the raw JSON below and update the parser.";
       network_reachable = true; auth_valid = null;
       best_endpoint = t.endpoint;
+    } else if (serverErr) {
+      final_diagnosis = "LeadsRain server returned an error.";
+      recommended_next_step = "Retry shortly; if it persists, contact LeadsRain support.";
+      network_reachable = true;
+      best_endpoint = serverErr.endpoint;
     }
 
     return json({
