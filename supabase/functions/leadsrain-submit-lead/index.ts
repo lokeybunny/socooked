@@ -11,12 +11,10 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LR_USER = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
 const LR_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
-const RAW_LR_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
-const LR_PROXY_URL = /^https:\/\//i.test(RAW_LR_PROXY_URL) && !/\.leadsrain\.com/i.test(RAW_LR_PROXY_URL) ? RAW_LR_PROXY_URL : "";
-const LR_ENDPOINTS = [
-  ...(LR_PROXY_URL ? [`${LR_PROXY_URL}/ringless/api/add_posted_lead.php`] : []),
-  "https://api.leadsrain.com/ringless/api/add_posted_lead.php",
-];
+// CRM-only mode: PostLead HTTPS endpoint is the only confirmed-working route.
+// Legacy s1/s2/s3 shards timeout from Supabase egress; proxy is optional.
+const LR_POSTLEAD_ENDPOINT = "https://api.leadsrain.com/ringless/api/add_posted_lead.php";
+const LR_ENDPOINTS = [LR_POSTLEAD_ENDPOINT];
 
 const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
