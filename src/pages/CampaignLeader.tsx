@@ -85,6 +85,11 @@ export default function CampaignLeader() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [lifetimeSent, setLifetimeSent] = useState<{ emails: number; sms: number }>({ emails: 0, sms: 0 });
+  const [sentLog, setSentLog] = useState<Array<{ id: string; channel: string; email: string | null; phone_e164: string | null; sent_at: string }>>([]);
+  const [sentLogTotal, setSentLogTotal] = useState(0);
+  const [sentLogPage, setSentLogPage] = useState(0);
+  const [sentLogChannel, setSentLogChannel] = useState<"all" | "email" | "sms">("all");
+  const PAGE_SIZE = 10;
 
   // Test mode state
   const [testEmail, setTestEmail] = useState("");
