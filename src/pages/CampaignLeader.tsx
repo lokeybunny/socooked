@@ -200,30 +200,39 @@ export default function CampaignLeader() {
     [contacts],
   );
 
-  // Most recently completed send (used to estimate the next one)
-  const lastSent = useMemo(() => {
-    const times = contacts
-      .map(c => {
-        const t = c.sms_sent_at || c.email_sent_at;
-        return t ? new Date(t).getTime() : 0;
-      })
-      .filter(Boolean);
+  // Most recently completed sends per channel (independent timers)
+  const lastEmailSent = useMemo(() => {
+    const times = contacts.map(c => c.email_sent_at ? new Date(c.email_sent_at).getTime() : 0).filter(Boolean);
+    return times.length ? Math.max(...times) : 0;
+  }, [contacts]);
+  const lastSmsSent = useMemo(() => {
+    const times = contacts.map(c => c.sms_sent_at ? new Date(c.sms_sent_at).getTime() : 0).filter(Boolean);
     return times.length ? Math.max(...times) : 0;
   }, [contacts]);
 
-  // Average inter-send delay from settings (server picks a random value in this range)
-  const avgDelaySec = settings
+  // Average inter-send delay per channel (server picks a random value in each range)
+  const avgEmailDelaySec = settings
     ? Math.round((settings.min_delay_seconds + settings.max_delay_seconds) / 2)
     : 0;
+  const avgSmsDelaySec = settings
+    ? Math.round(((settings.sms_min_gap_seconds ?? 10) + (settings.sms_max_gap_seconds ?? 30)) / 2)
+    : 0;
 
-  // Estimated seconds until next contact starts processing
-  const nextSendInSec = (() => {
+  function calcNext(last: number, avg: number): number | null {
     if (!settings || !settings.is_production || settings.is_paused) return null;
-    if (inFlight) return 0; // sending right now
-    if (!lastSent) return null;
-    const elapsed = Math.floor((now - lastSent) / 1000);
-    return Math.max(0, avgDelaySec - elapsed);
+    if (!last) return null;
+    const elapsed = Math.floor((now - last) / 1000);
+    return Math.max(0, avg - elapsed);
+  }
+  const nextEmailInSec = calcNext(lastEmailSent, avgEmailDelaySec);
+  const nextSmsInSec = calcNext(lastSmsSent, avgSmsDelaySec);
+  // Whichever fires first
+  const nextSendInSec = (() => {
+    if (inFlight) return 0;
+    const candidates = [nextEmailInSec, nextSmsInSec].filter((v): v is number => v !== null);
+    return candidates.length ? Math.min(...candidates) : null;
   })();
+  const avgDelaySec = avgEmailDelaySec;
 
   async function updateSettings(patch: Partial<Settings>) {
     if (!settings) return;
