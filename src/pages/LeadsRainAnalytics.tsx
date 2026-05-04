@@ -146,9 +146,16 @@ export default function LeadsRainAnalytics() {
 
   const statusOptions = ["all", "submitted_to_leadsrain", "accepted_by_api", "sms_followup_sent", "failed_to_submit", "draft"];
 
+  const [lastTestResult, setLastTestResult] = useState<any>(null);
+
   const sendTest = async () => {
     const phone = testPhone.trim();
     if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
+    if (!defaultListId.trim()) {
+      toast.error("Missing LeadsRain list_id. Add an active LeadsRain list connected to an RVM campaign.");
+      setSettingsOpen(true);
+      return;
+    }
     setBusy("test");
     try {
       const { data, error } = await supabase.functions.invoke("leadsrain-submit-lead", {
@@ -156,10 +163,11 @@ export default function LeadsRainAnalytics() {
       });
       if (error) throw error;
       const d = data as any;
+      setLastTestResult(d);
       const msg = d?.user_message || d?.error || "Submission failed";
       if (d?.ok) {
         if (d?.mode === "parser_needs_mapping") toast.warning(msg);
-        else toast.success(msg);
+        else toast.success(`${msg} (list_id: ${d?.list_id})`);
       } else {
         toast.error(msg);
       }
