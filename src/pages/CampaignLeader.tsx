@@ -577,7 +577,12 @@ export default function CampaignLeader() {
                     <span className="text-muted-foreground"> · {c.email}</span>
                     {c.phone_e164 && <span className="text-muted-foreground"> · {c.phone_e164}</span>}
                   </div>
-                  <Badge variant={failed ? "destructive" : c.status === "completed" ? "default" : "secondary"}>{STAGE_LABELS[c.status] || c.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={failed ? "destructive" : c.status === "completed" ? "default" : "secondary"}>{STAGE_LABELS[c.status] || c.status}</Badge>
+                    <Button size="sm" variant="outline" onClick={() => openPreview(c)}>
+                      <Eye className="w-3 h-3 mr-1" /> Preview
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 text-xs">
                   {STAGES.map((stage, i) => (
