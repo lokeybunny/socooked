@@ -100,6 +100,32 @@ export default function CampaignLeader() {
   const [testAddr, setTestAddr] = useState("");
   const [testResult, setTestResult] = useState<any>(null);
 
+  // Preview dialog state
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<{ email?: { subject: string; body: string; variant?: any }; sms?: { text: string }; contact?: Contact } | null>(null);
+
+  async function openPreview(c: Contact) {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewData({ contact: c });
+    try {
+      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", {
+        body: {
+          mode: "preview",
+          first_name: c.first_name || "there",
+          property_address: c.property_address || "your property",
+        },
+      });
+      if (error) throw error;
+      setPreviewData({ contact: c, email: data?.email, sms: data?.sms });
+    } catch (e: any) {
+      toast({ title: "Preview failed", description: String(e?.message || e), variant: "destructive" });
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   async function loadAll() {
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).toISOString().slice(0, 10);
     const [s, st, c, l, sentEmails, sentSms] = await Promise.all([
