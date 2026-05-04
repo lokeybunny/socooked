@@ -60,6 +60,7 @@ export type Database = {
           is_valid: boolean
           phone: string
           phone_type: string
+          source: string | null
           validated_at: string | null
         }
         Insert: {
@@ -69,6 +70,7 @@ export type Database = {
           is_valid?: boolean
           phone: string
           phone_type?: string
+          source?: string | null
           validated_at?: string | null
         }
         Update: {
@@ -78,6 +80,7 @@ export type Database = {
           is_valid?: boolean
           phone?: string
           phone_type?: string
+          source?: string | null
           validated_at?: string | null
         }
         Relationships: [

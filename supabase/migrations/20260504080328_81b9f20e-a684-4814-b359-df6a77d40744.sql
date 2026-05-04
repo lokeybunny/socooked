@@ -1,0 +1,1 @@
+ALTER TABLE public.af_agent_contacts ADD COLUMN IF NOT EXISTS source text;
