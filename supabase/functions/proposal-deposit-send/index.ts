@@ -57,7 +57,7 @@ function buildHtml(p: any, amount: string) {
 
         <p style="font-size: 14px; margin-top: 24px;">
           — Warren<br/>
-          <span style="color: #6b7280; font-size: 13px;">(424) 465-1253 (cell)</span>
+          <span style="color: #6b7280; font-size: 13px;">(480) 220-0404 (cell)</span>
         </p>
       </div>
       <img src="${SUPABASE_URL}/functions/v1/proposal-deposit-track?id=${p.id}&t=${Date.now()}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;" />
