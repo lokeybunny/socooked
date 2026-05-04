@@ -197,23 +197,23 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
     }
 
-    // Per LeadsRain docs: only the lowercase `list_id` field is valid.
-    // No variants, no caller_id, no campaign_id in the payload.
-    const listIdVariants: string[] = ["list_id"];
+    const phoneFieldVariants: string[] = ["phone_number", "phone", "number", "lead_phone"];
+    const requestedContentType = String(content_type || "").trim().toLowerCase();
+    const requestedPhoneField = String((body as any)?.phone_field || "").trim();
 
-    function buildPayload(_listKey: string): Record<string, any> {
+    function buildPayload(phoneKey: string): Record<string, any> {
       // Send list_id as an integer per docs. Minimal clean payload.
       const listIdNum = Number(finalListId);
       const p: Record<string, any> = {
         username: LR_USER,
         api_key: LR_KEY,
         list_id: Number.isFinite(listIdNum) ? listIdNum : finalListId,
-        phone_number: ph.ten,
         country_code: "USA",
         phone_code: "1",
         scrub_lead: "no_scrub",
         check_duplicate: "NO_DUPLICATE_CHECK",
       };
+      p[phoneKey || "phone_number"] = ph.ten;
       // Optional contact info — only include when provided.
       if (first_name) p.first_name = first_name;
       if (last_name) p.last_name = last_name;
@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
       return p;
     }
 
-    const initialPayload = buildPayload("list_id");
+    const initialPayload = buildPayload("phone_number");
 
     // Insert pending row
     const { data: row, error: insErr } = await svc
@@ -236,7 +236,7 @@ Deno.serve(async (req) => {
         campaign_name: campaign_name || null,
         audio_url: audio_url || null,
         status: "submitted_to_leadsrain",
-        raw_request: { ...initialPayload, api_key: "***", username: "***" },
+        raw_request: maskPayload(initialPayload),
         submitted_by: userId,
       })
       .select("*")
