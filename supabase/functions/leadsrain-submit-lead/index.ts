@@ -229,10 +229,11 @@ Deno.serve(async (req) => {
       error_message: errMsg,
     }).eq("id", row.id);
 
-    // Trigger VoidFix SMS on any successful HTTP 200 (accepted OR parser_needs_mapping).
+    // Trigger VoidFix SMS ONLY when LeadsRain explicitly accepted the lead (real lead_id / success marker).
+    // Empty 200 or parser_needs_mapping does NOT count — the voicemail was not actually queued.
     let voidfixSent = false;
     let voidfixErr: string | null = null;
-    if (httpOk && send_voidfix) {
+    if (parsed.mode === "accepted" && send_voidfix) {
       try {
         const smsResp = await sb.functions.invoke("powerdial-sms", {
           body: { action: "send", to: ph.e164, body: voidfix_template, customer_id: customer_id || null },
