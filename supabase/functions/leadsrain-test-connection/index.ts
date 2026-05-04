@@ -10,6 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const USERNAME = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
 const API_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
+const PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
 
 function json(d: unknown, status = 200) {
   return new Response(JSON.stringify(d), { status, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -87,6 +88,7 @@ Deno.serve(async (req) => {
     // use is mirrored on `api.leadsrain.com` over HTTPS — probe that primarily,
     // then probe the s-shards for diagnostic completeness.
     const endpoints = [
+      ...(PROXY_URL ? [`${PROXY_URL}/rvm/api/campaign/view_api`, `${PROXY_URL}/ringless/api/add_posted_lead.php`] : []),
       "https://api.leadsrain.com/ringless/api/add_posted_lead.php",
       "http://s2.leadsrain.com/rvm/api/campaign/view_api",
       "http://s1.leadsrain.com/rvm/api/campaign/view_api",
@@ -101,11 +103,14 @@ Deno.serve(async (req) => {
     // Reachable = TCP/HTTP succeeded (any 2xx/4xx response counts as reachable).
     // The s-shards being unreachable is expected from cloud egress and not a failure
     // for the integration since we only POST leads via api.leadsrain.com.
+    const proxyHit = attempts.find((a) => PROXY_URL && a.url.startsWith(PROXY_URL) && a.ok);
     const apiHit = attempts.find((a) => a.url.includes("api.leadsrain.com") && a.http_status > 0);
-    const winner = attempts.find((a) => a.ok) || apiHit;
-    const summary = apiHit
-      ? `LeadsRain reachable via api.leadsrain.com (HTTP ${apiHit.http_status} in ${apiHit.duration_ms}ms). The s2/s1/s3 shards are HTTP-only and typically blocked from cloud egress — this is expected and does not affect Postlead.`
-      : `All ${attempts.length} endpoints failed. Egress IP: ${egressIp ?? "unknown"}. Per LeadsRain docs no IP whitelisting is required — check that LEADSRAIN_USERNAME / LEADSRAIN_API_KEY are valid.`;
+    const winner = attempts.find((a) => a.ok);
+    const summary = proxyHit
+      ? `LeadsRain proxy is healthy (${proxyHit.http_status} in ${proxyHit.duration_ms}ms).`
+      : apiHit
+        ? `LeadsRain mirror is reachable but returned an empty/non-success response (HTTP ${apiHit.http_status}). Voice drops require the configured proxy or a direct s2 response that returns a lead_id.`
+        : `All ${attempts.length} endpoints failed. Egress IP: ${egressIp ?? "unknown"}. Check LeadsRain credentials and proxy configuration.`;
 
     return json({
       success: !!winner,
