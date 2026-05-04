@@ -10,6 +10,15 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+
+const DELIVERY_STATUSES = new Set(["completed", "delivered", "sent", "success", "vm_delivered", "sent_to_voicemail"]);
+
+function normPhone(raw: string | null | undefined): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits.slice(-10);
+  return ten.length === 10 ? `+1${ten}` : null;
+}
 
 function pickItems(json: any): any[] {
   if (!json) return [];
@@ -38,6 +47,19 @@ function mapStatus(raw?: string | null): string {
   return s;
 }
 
+function pickProviderLeadId(raw: any): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  return raw.lead_id?.toString() ?? raw.id?.toString() ?? raw.posted_lead_id?.toString() ?? raw.provider_lead_id?.toString() ?? null;
+}
+
+function pickPhone(raw: any): string | null {
+  return normPhone(raw?.phone_number ?? raw?.phone ?? raw?.mobile ?? raw?.number ?? raw?.recipient);
+}
+
+function pickLeadStatus(raw: any): string {
+  return String(raw?.status ?? raw?.lead_status ?? raw?.delivery_status ?? raw?.call_status ?? "").toLowerCase().trim();
+}
+
 function estimateETA(snapshots: { snapshot_at: string; processed_count: number }[], totalLeads: number): string | null {
   if (snapshots.length < 2) return null;
   const sorted = [...snapshots].sort((a, b) => new Date(a.snapshot_at).getTime() - new Date(b.snapshot_at).getTime());
@@ -58,6 +80,9 @@ Deno.serve(async (req) => {
 
   const startedAt = Date.now();
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } },
+  });
   let force = false;
   try {
     const body = await req.json().catch(() => ({}));
@@ -156,6 +181,39 @@ Deno.serve(async (req) => {
           remaining_count: remaining,
           status,
         });
+      }
+
+      const campaignLeads = pickItems(item?.leads ?? item?.posted_leads ?? item?.lead_data ?? item?.records ?? item?.data);
+      for (const lead of campaignLeads) {
+        const providerLeadId = pickProviderLeadId(lead);
+        const phone = pickPhone(lead);
+        const leadStatus = pickLeadStatus(lead);
+        if (!DELIVERY_STATUSES.has(leadStatus)) continue;
+
+        let query = sb.from("leadsrain_submissions")
+          .select("id, phone_number, customer_id, voidfix_sms_sent, raw_response")
+          .eq("voidfix_sms_sent", false)
+          .limit(1);
+        query = providerLeadId ? query.eq("leadsrain_lead_id", providerLeadId) : query.eq("phone_number", phone || "");
+        const { data: pending } = await query.maybeSingle();
+        if (!pending?.id) continue;
+
+        const smsResp = await anon.functions.invoke("powerdial-sms", {
+          body: {
+            action: "send",
+            to: pending.phone_number,
+            body: "Hey, this is Warren — just left you a quick voicemail.",
+            customer_id: pending.customer_id || null,
+          },
+        });
+        const d: any = smsResp?.data || {};
+        await sb.from("leadsrain_submissions").update({
+          status: smsResp.error || d?.ok === false ? "accepted_by_api" : "sms_followup_sent",
+          voidfix_sms_sent: !(smsResp.error || d?.ok === false),
+          voidfix_sms_at: smsResp.error || d?.ok === false ? null : new Date().toISOString(),
+          raw_response: { ...(pending.raw_response || {}), delivery_poll: lead, voidfix_after_delivery: d },
+          error_message: smsResp.error || d?.ok === false ? (smsResp.error?.message || d?.error || "VoidFix SMS failed after delivery") : null,
+        }).eq("id", pending.id);
       }
     }
   } catch (e: any) {
