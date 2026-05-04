@@ -8,8 +8,8 @@ const CORS = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const USERNAME = Deno.env.get("LEADSRAIN_USERNAME") || "";
-const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
+const USERNAME = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
+const API_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
 
 function json(d: unknown, status = 200) {
   return new Response(JSON.stringify(d), { status, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -29,14 +29,17 @@ async function tryEndpoint(url: string, timeoutMs: number): Promise<Attempt> {
   try {
     const resp = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "Cache-Control": "no-cache" },
       body: JSON.stringify({ username: USERNAME, api_key: API_KEY }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     const text = await resp.text();
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch { /* keep text */ }
-    const ok = resp.ok && (parsed?.status === "success" || typeof parsed?.campaign_id !== "undefined" || Array.isArray(parsed));
+    const statusText = String(parsed?.status || parsed?.Status || "").toLowerCase();
+    const messageText = String(parsed?.msg || parsed?.message || parsed?.error || text || "").toLowerCase();
+    const explicitFailure = /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
+    const ok = resp.ok && !explicitFailure && (statusText === "success" || typeof parsed?.lead_id !== "undefined" || typeof parsed?.campaign_id !== "undefined" || Array.isArray(parsed));
     return {
       url,
       ok: !!ok,
