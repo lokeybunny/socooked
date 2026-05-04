@@ -358,29 +358,63 @@ async function bumpDailyStat(field: "emails_sent" | "emails_failed" | "sms_sent"
   }
 }
 
-// ---------- Process a single contact (production) ----------
-async function processContact(contact: any) {
-  const firstName = contact.first_name || "there";
-  const addr = contact.property_address || "your property";
+// ---------- Per-channel back-to-back gap (5-25s randomized) ----------
+// Email and SMS run on INDEPENDENT timers — SMS never blocks on email being delayed,
+// and email never blocks on SMS being delayed. Each channel enforces its own min-gap
+// between consecutive sends across the entire invocation.
+const CHANNEL_MIN_GAP_MS = 5_000;
+const CHANNEL_MAX_GAP_MS = 25_000;
+const lastChannelSendAt: Record<"email" | "sms", number> = { email: 0, sms: 0 };
 
-  // EMAIL step
+async function waitChannelGap(channel: "email" | "sms") {
+  const last = lastChannelSendAt[channel];
+  if (last === 0) return; // first send of this invocation
+  const gap = CHANNEL_MIN_GAP_MS + Math.floor(Math.random() * (CHANNEL_MAX_GAP_MS - CHANNEL_MIN_GAP_MS));
+  const remaining = last + gap - Date.now();
+  if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+}
+
+async function alreadySent(channel: "email" | "sms", emailOrPhone: string): Promise<boolean> {
+  if (!emailOrPhone) return false;
+  const col = channel === "email" ? "email" : "phone_e164";
+  const val = channel === "email" ? emailOrPhone.toLowerCase() : emailOrPhone;
+  const { data } = await sb
+    .from("campaign_sent_log")
+    .select("id")
+    .eq("channel", channel)
+    .eq(col, val)
+    .limit(1)
+    .maybeSingle();
+  return !!data;
+}
+
+// ---------- Independent email pipeline ----------
+async function runEmailFor(contact: any): Promise<{ ok: boolean; skipped?: boolean }> {
+  if (!contact.email) return { ok: false, skipped: true };
+  if (await alreadySent("email", contact.email)) {
+    await logActivity(contact.id, "info", "email_skipped_dup", `Email skipped (already sent): ${contact.email}`);
+    await sb.from("campaign_contacts").update({ email_status: "skipped_duplicate" }).eq("id", contact.id);
+    return { ok: false, skipped: true };
+  }
+
+  await waitChannelGap("email");
   await sb.from("campaign_contacts").update({ status: "emailing", last_step: "emailing" }).eq("id", contact.id);
   await logActivity(contact.id, "info", "emailing", `Sending email to ${contact.email}`);
 
+  const firstName = contact.first_name || "there";
+  const addr = contact.property_address || "your property";
   const { subject, body, variant: emailVariant } = buildEmail(firstName, addr);
   const emailResult = await sendEmail(contact.email, subject, body);
+  lastChannelSendAt.email = Date.now();
 
   if (!emailResult.ok) {
     await sb.from("campaign_contacts").update({
-      status: "failed",
       email_status: "failed",
       error_message: String(emailResult.error).slice(0, 500),
       last_step: "email_failed",
     }).eq("id", contact.id);
     await bumpDailyStat("emails_failed");
     await logActivity(contact.id, "error", "email_failed", String(emailResult.error));
-
-    // Gmail deliverability promoter: auto-pause on rate-limit / quota errors
     if (isGmailRateLimitError(emailResult.error) || isGmailRateLimitError(emailResult.raw)) {
       await sb.from("campaign_settings").update({ is_paused: true }).eq("id", 1);
       await logActivity(null, "error", "auto_pause", `Auto-paused: Gmail rate/quota signal — ${String(emailResult.error).slice(0, 200)}`);
@@ -398,7 +432,6 @@ async function processContact(contact: any) {
   await bumpDailyStat("emails_sent");
   await logActivity(contact.id, "success", "email_sent", `Email delivered to ${contact.email}`);
 
-  // Permanent suppression: record confirmed-successful email so it's never re-sent
   try {
     await sb.from("campaign_sent_log").insert({
       email: contact.email,
@@ -406,58 +439,82 @@ async function processContact(contact: any) {
       contact_id: contact.id,
       lead_id: contact.lead_id || null,
     });
-  } catch (_) { /* unique violation on duplicate is fine */ }
+  } catch (_) { /* dup ok */ }
 
-  // Small jitter between email and SMS
-  await new Promise(r => setTimeout(r, 1500 + Math.floor(Math.random() * 2500)));
+  return { ok: true };
+}
 
-  // SMS step (only if we have phone)
-  if (contact.phone_e164) {
-    await sb.from("campaign_contacts").update({ status: "texting", last_step: "texting" }).eq("id", contact.id);
-    const { text, variant: smsVariant } = buildSms(firstName, addr);
-    const smsResult = await sendSms(contact.phone_e164, text);
-
-    if (!smsResult.ok) {
-      await sb.from("campaign_contacts").update({
-        status: "failed",
-        sms_status: "failed",
-        error_message: String(smsResult.error).slice(0, 500),
-        last_step: "sms_failed",
-      }).eq("id", contact.id);
-      await bumpDailyStat("sms_failed");
-      await logActivity(contact.id, "error", "sms_failed", String(smsResult.error));
-      return { ok: false };
-    }
-
-    await sb.from("campaign_contacts").update({
-      status: "completed",
-      sms_status: "sent",
-      sms_sent_at: new Date().toISOString(),
-      sms_variant: smsVariant,
-      last_step: "completed",
-    }).eq("id", contact.id);
-    await bumpDailyStat("sms_sent");
-    await logActivity(contact.id, "success", "completed", `SMS delivered to ${contact.phone_e164}`);
-
-    // Permanent suppression: record confirmed-successful SMS so it's never re-sent
-    try {
-      await sb.from("campaign_sent_log").insert({
-        phone_e164: contact.phone_e164,
-        channel: "sms",
-        contact_id: contact.id,
-        lead_id: contact.lead_id || null,
-      });
-    } catch (_) { /* unique violation on duplicate is fine */ }
-  } else {
-    await sb.from("campaign_contacts").update({ status: "completed", last_step: "completed" }).eq("id", contact.id);
-    await logActivity(contact.id, "info", "completed", "Completed (no phone available)");
+// ---------- Independent SMS pipeline ----------
+async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean }> {
+  if (!contact.phone_e164) return { ok: false, skipped: true };
+  if (await alreadySent("sms", contact.phone_e164)) {
+    await logActivity(contact.id, "info", "sms_skipped_dup", `SMS skipped (already sent): ${contact.phone_e164}`);
+    await sb.from("campaign_contacts").update({ sms_status: "skipped_duplicate" }).eq("id", contact.id);
+    return { ok: false, skipped: true };
   }
 
-  // Stamp the source lead so we don't re-pull it
+  await waitChannelGap("sms");
+  await sb.from("campaign_contacts").update({ last_step: "texting" }).eq("id", contact.id);
+
+  const firstName = contact.first_name || "there";
+  const addr = contact.property_address || "your property";
+  const { text, variant: smsVariant } = buildSms(firstName, addr);
+  const smsResult = await sendSms(contact.phone_e164, text);
+  lastChannelSendAt.sms = Date.now();
+
+  if (!smsResult.ok) {
+    await sb.from("campaign_contacts").update({
+      sms_status: "failed",
+      error_message: String(smsResult.error).slice(0, 500),
+      last_step: "sms_failed",
+    }).eq("id", contact.id);
+    await bumpDailyStat("sms_failed");
+    await logActivity(contact.id, "error", "sms_failed", String(smsResult.error));
+    return { ok: false };
+  }
+
+  await sb.from("campaign_contacts").update({
+    sms_status: "sent",
+    sms_sent_at: new Date().toISOString(),
+    sms_variant: smsVariant,
+    last_step: "sms_sent",
+  }).eq("id", contact.id);
+  await bumpDailyStat("sms_sent");
+  await logActivity(contact.id, "success", "sms_sent", `SMS delivered to ${contact.phone_e164}`);
+
+  try {
+    await sb.from("campaign_sent_log").insert({
+      phone_e164: contact.phone_e164,
+      channel: "sms",
+      contact_id: contact.id,
+      lead_id: contact.lead_id || null,
+    });
+  } catch (_) { /* dup ok */ }
+
+  return { ok: true };
+}
+
+// ---------- Process a single contact (production) ----------
+// Email and SMS run in PARALLEL on independent timers. SMS will go through even
+// if the email step is delayed, retried, or rate-limited. Both channels enforce
+// their own duplicate-suppression and 5-25s randomized back-to-back gap.
+async function processContact(contact: any) {
+  const [emailRes, smsRes] = await Promise.all([
+    runEmailFor(contact),
+    runSmsFor(contact),
+  ]);
+
+  // Final contact status — completed if either channel succeeded, failed only if both failed (and neither was skipped-duplicate)
+  let finalStatus = "completed";
+  if (!emailRes.ok && !smsRes.ok && !emailRes.skipped && !smsRes.skipped) {
+    finalStatus = "failed";
+  }
+  await sb.from("campaign_contacts").update({ status: finalStatus, last_step: "completed" }).eq("id", contact.id);
+
   if (contact.lead_id) {
     await sb.from("state_leads").update({ last_contacted_at: new Date().toISOString() }).eq("id", contact.lead_id);
   }
-  return { ok: true };
+  return { ok: emailRes.ok || smsRes.ok };
 }
 
 // ---------- Test runner ----------
