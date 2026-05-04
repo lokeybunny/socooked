@@ -85,12 +85,6 @@ function encodeMultipartPayload(payload: Record<string, any>, boundary: string) 
   )).join("") + `--${boundary}--\r\n`;
 }
 
-function buildBody(payload: Record<string, any>, contentType: string, boundary?: string) {
-  if (contentType === "application/x-www-form-urlencoded") return encodeUrlPayload(payload);
-  if (contentType === "multipart/form-data") return encodeMultipartPayload(payload, boundary || "----LeadsRainBoundary");
-  return JSON.stringify(payload);
-}
-
 async function checkLeadVisibleInList(listId: string, tenDigitPhone: string) {
   const payload = { username: LR_USER, api_key: LR_KEY, list_id: listId };
   const candidates = [
@@ -112,7 +106,7 @@ async function checkLeadVisibleInList(listId: string, tenDigitPhone: string) {
       try { parsed = rawText.trim() ? JSON.parse(rawText) : null; } catch { parsed = rawText; }
       const matchedLead = findLeadInList(parsed, tenDigitPhone);
       last = { ok: resp.ok, status: resp.status, error: matchedLead ? undefined : "Lead not visible in list response", matched_lead: matchedLead, raw_text: rawText.slice(0, 500) };
-      if (matchedLead || resp.ok) break;
+      if (matchedLead || rawText.trim().length > 0) break;
     } catch (e: any) {
       last = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null, raw_text: "" };
     }
