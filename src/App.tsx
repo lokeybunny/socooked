@@ -27,7 +27,7 @@ const AgreementSign = lazyWithRetry(() => import("./pages/portal/AgreementSign")
 const Notifications = lazyWithRetry(() => import("./pages/Notifications"), "page-notifications");
 const Meetings = lazyWithRetry(() => import("./pages/Meetings"), "page-meetings");
 const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"), "page-meeting-room");
-const AIStaff = lazyWithRetry(() => import("./pages/AIStaff"), "page-ai-staff");
+
 const CustomU = lazyWithRetry(() => import("./pages/CustomU"), "page-custom-u");
 const SMM = lazyWithRetry(() => import("./pages/SMM"), "page-smm");
 const ClientUpload = lazyWithRetry(() => import("./pages/portal/ClientUpload"), "page-client-upload");
@@ -55,8 +55,7 @@ const XShill = lazyWithRetry(() => import("./pages/XShill"), "page-x-shill");
 const Wholesale = lazyWithRetry(() => import("./pages/Wholesale"), "page-wholesale");
 const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arbitrage");
 const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
-const BatchLeadsPuller = lazyWithRetry(() => import("./pages/BatchLeadsPuller"), "page-batchleads-puller");
-const Ads = lazyWithRetry(() => import("./pages/Ads"), "page-ads");
+const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
 const SellerLanding = lazyWithRetry(() => import("./pages/SellerLanding"), "page-seller-landing");
 const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "page-videography-hub");
