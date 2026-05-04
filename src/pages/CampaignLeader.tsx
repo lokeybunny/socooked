@@ -379,20 +379,34 @@ export default function CampaignLeader() {
               <div className="flex-1 text-sm">
                 {!settings.is_production && <span className="text-muted-foreground">Production locked — no sends running.</span>}
                 {settings.is_production && settings.is_paused && <span className="text-muted-foreground">Campaign paused.</span>}
-                {settings.is_production && !settings.is_paused && nextSendInSec !== null && (
-                  <span>
-                    Next contact in{" "}
-                    <span className="font-mono text-base font-bold text-primary tabular-nums">
-                      {Math.floor(nextSendInSec / 60)}:{String(nextSendInSec % 60).padStart(2, "0")}
-                    </span>
+                {settings.is_production && !settings.is_paused && (nextEmailInSec !== null || nextSmsInSec !== null) && (
+                  <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {nextEmailInSec !== null && (
+                      <span>
+                        Next email in{" "}
+                        <span className="font-mono text-base font-bold text-primary tabular-nums">
+                          {Math.floor(nextEmailInSec / 60)}:{String(nextEmailInSec % 60).padStart(2, "0")}
+                        </span>
+                      </span>
+                    )}
+                    {nextSmsInSec !== null && (
+                      <span>
+                        Next SMS in{" "}
+                        <span className="font-mono text-base font-bold text-primary tabular-nums">
+                          {Math.floor(nextSmsInSec / 60)}:{String(nextSmsInSec % 60).padStart(2, "0")}
+                        </span>
+                      </span>
+                    )}
                   </span>
                 )}
-                {settings.is_production && !settings.is_paused && nextSendInSec === null && (
+                {settings.is_production && !settings.is_paused && nextEmailInSec === null && nextSmsInSec === null && (
                   <span className="text-muted-foreground">Waiting for next batch from scheduler…</span>
                 )}
               </div>
               {settings.is_production && !settings.is_paused && (
-                <Badge variant="outline" className="text-xs">avg delay {avgDelaySec}s</Badge>
+                <Badge variant="outline" className="text-xs">
+                  email ~{avgEmailDelaySec}s · sms ~{avgSmsDelaySec}s
+                </Badge>
               )}
             </div>
           )}
