@@ -143,34 +143,35 @@ Deno.serve(async (req) => {
     const tests: Array<Promise<any>> = [];
     const want = (m: string) => mode === "all" || mode === m;
 
-    if (want("s2")) {
-      tests.push(runTest("Direct S2 Campaign View", "http://s2.leadsrain.com/rvm/api/campaign/view_api", credPayload, 12000));
-      if (cidPayload) tests.push(runTest("Direct S2 Campaign View (with campaign_id)", "http://s2.leadsrain.com/rvm/api/campaign/view_api", cidPayload, 12000));
+    // PostLead is the authoritative health signal — always include in "all".
+    if (want("postlead") || mode === "all") {
+      tests.push(runTest("PostLead HTTPS Reachability (PRIMARY)", "https://api.leadsrain.com/ringless/api/add_posted_lead.php", credPayload, 12000));
     }
-    if (want("s1")) tests.push(runTest("Direct S1 Campaign View", "http://s1.leadsrain.com/rvm/api/campaign/view_api", credPayload, 12000));
-    if (want("s3")) tests.push(runTest("Direct S3 Campaign View", "http://s3.leadsrain.com/rvm/api/campaign/view_api", credPayload, 12000));
+    if (want("s2")) {
+      tests.push(runTest("Direct S2 Campaign View (legacy/optional)", "http://s2.leadsrain.com/rvm/api/campaign/view_api", credPayload, 12000));
+      if (cidPayload) tests.push(runTest("Direct S2 Campaign View w/ ID (legacy/optional)", "http://s2.leadsrain.com/rvm/api/campaign/view_api", cidPayload, 12000));
+    }
+    if (want("s1")) tests.push(runTest("Direct S1 Campaign View (legacy/optional)", "http://s1.leadsrain.com/rvm/api/campaign/view_api", credPayload, 12000));
+    if (want("s3")) tests.push(runTest("Direct S3 Campaign View (legacy/optional)", "http://s3.leadsrain.com/rvm/api/campaign/view_api", credPayload, 12000));
     if (want("proxy")) {
       if (PROXY) {
-        tests.push(runTest("Proxy Campaign View", `${PROXY}/rvm/api/campaign/view_api`, credPayload, 45000));
-        if (cidPayload) tests.push(runTest("Proxy Campaign View (with campaign_id)", `${PROXY}/rvm/api/campaign/view_api`, cidPayload, 45000));
+        tests.push(runTest("Proxy Campaign View (legacy/optional)", `${PROXY}/rvm/api/campaign/view_api`, credPayload, 45000));
+        if (cidPayload) tests.push(runTest("Proxy Campaign View w/ ID (legacy/optional)", `${PROXY}/rvm/api/campaign/view_api`, cidPayload, 45000));
       } else {
         tests.push(Promise.resolve({
-          name: "Proxy Campaign View",
-          endpoint: RAW_PROXY || "(not configured)",
+          name: "Proxy Campaign View (legacy/optional)",
+          endpoint: RAW_PROXY || "(not configured — optional)",
           http_status: 0,
           duration_ms: 0,
           result_type: "UNKNOWN" as ResultType,
           diagnosis: RAW_PROXY
-            ? "LEADSRAIN_PROXY_URL is set but is not a valid HTTPS proxy URL (or points back at leadsrain.com). Configure a deployed Cloudflare/Fly proxy."
-            : "LEADSRAIN_PROXY_URL is not configured.",
-          error: "proxy_not_configured",
+            ? "LEADSRAIN_PROXY_URL is set but invalid. Optional — only needed for legacy campaign-view endpoints. PostLead HTTPS works without it."
+            : "Optional Cloudflare/Fly proxy not configured. PostLead HTTPS still works without it; only legacy campaign-view endpoints need this proxy.",
+          error: "proxy_not_configured (optional)",
           raw_text_preview: "",
           raw_json: null,
         }));
       }
-    }
-    if (want("postlead")) {
-      tests.push(runTest("PostLead HTTPS Reachability", "https://api.leadsrain.com/ringless/api/add_posted_lead.php", credPayload, 12000));
     }
 
     const results = await Promise.all(tests);
@@ -209,9 +210,12 @@ Deno.serve(async (req) => {
       recommended_next_step = "Confirm exact LeadsRain username. Try login email first.";
       network_reachable = true; auth_valid = false;
       best_endpoint = authFail.endpoint;
-    } else if (allCampaignsTimedOut && postleadTest && postleadTest.http_status > 0) {
-      final_diagnosis = "Supabase can reach LeadsRain HTTPS PostLead, but cannot reach RVM shard campaign APIs.";
-      recommended_next_step = "Use Zapier, VPS/Fly proxy, or LeadsRain webhook instead of direct Supabase polling.";
+    } else if (postleadTest && postleadTest.http_status > 0) {
+      // PostLead HTTPS reachable = integration considered healthy. Campaign view is legacy/optional.
+      final_diagnosis = allCampaignsTimedOut
+        ? "Healthy. PostLead API reachable. Campaign View endpoint timed out (legacy/optional)."
+        : "Healthy. PostLead API reachable.";
+      recommended_next_step = "Use HTTPS PostLead API for live workflow. Campaign View endpoint may be legacy or unavailable.";
       network_reachable = true; auth_valid = null;
       best_endpoint = postleadTest.endpoint;
     } else if (parseUnknown) {
