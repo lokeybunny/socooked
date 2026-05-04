@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud } from "lucide-react";
+import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud, Square, Rocket, ListChecks } from "lucide-react";
 
 type Settings = {
   is_production: boolean;
@@ -18,6 +18,10 @@ type Settings = {
   max_delay_seconds: number;
   start_hour_pt: number;
   end_hour_pt: number;
+  stop_requested?: boolean;
+  drain_active?: boolean;
+  drain_started_at?: string | null;
+  drain_last_tick_at?: string | null;
 };
 
 type Contact = {
@@ -80,6 +84,7 @@ export default function CampaignLeader() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [lifetimeSent, setLifetimeSent] = useState<{ emails: number; sms: number }>({ emails: 0, sms: 0 });
 
   // Test mode state
   const [testEmail, setTestEmail] = useState("");
@@ -90,16 +95,19 @@ export default function CampaignLeader() {
 
   async function loadAll() {
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).toISOString().slice(0, 10);
-    const [s, st, c, l] = await Promise.all([
+    const [s, st, c, l, sentEmails, sentSms] = await Promise.all([
       supabase.from("campaign_settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle(),
       supabase.from("campaign_contacts").select("*").eq("campaign_date", today).order("created_at", { ascending: false }).limit(50),
       supabase.from("campaign_activity_log").select("*").order("created_at", { ascending: false }).limit(40),
+      supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "email"),
+      supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "sms"),
     ]);
     if (s.data) setSettings(s.data as Settings);
     if (st.data) setStats(st.data as Stats);
     if (c.data) setContacts(c.data as Contact[]);
     if (l.data) setLogs(l.data as LogRow[]);
+    setLifetimeSent({ emails: sentEmails.count || 0, sms: sentSms.count || 0 });
   }
 
   useEffect(() => {
@@ -112,9 +120,19 @@ export default function CampaignLeader() {
       .channel("campaign-logs")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_activity_log" }, () => loadAll())
       .subscribe();
+    const ch3 = supabase
+      .channel("campaign-settings")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "campaign_settings" }, () => loadAll())
+      .subscribe();
+    const ch4 = supabase
+      .channel("campaign-sent-log")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_sent_log" }, () => loadAll())
+      .subscribe();
     return () => {
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
+      supabase.removeChannel(ch3);
+      supabase.removeChannel(ch4);
     };
   }, []);
 
@@ -183,17 +201,49 @@ export default function CampaignLeader() {
     }
   }
 
-  async function runTickNow() {
+  // Resume = send 1 contact at a time (then stops, ready for next press of Resume or scheduler)
+  async function runOneNow() {
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", { body: { mode: "tick" } });
+      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", {
+        body: { mode: "tick", runMode: "single" },
+      });
       if (error) throw error;
-      const summary = data?.skipped
+      const summary = data?.reason && data?.processed === 0
         ? `Skipped: ${data.reason}`
-        : `Processed ${data?.processed || 0} (${data?.success || 0} successful)`;
-      toast({ title: "Tick complete", description: summary });
+        : `Sent ${data?.success || 0} of ${data?.processed || 0}`;
+      toast({ title: "Single send complete", description: summary });
     } catch (e: any) {
-      toast({ title: "Tick failed", description: e?.message || "Unknown error", variant: "destructive" });
+      toast({ title: "Send failed", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Run Batch Now = drain mode, keeps going until cap, empty, or Stop pressed
+  async function runDrainNow() {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("campaign-leader-tick", {
+        body: { mode: "tick", runMode: "drain" },
+      });
+      if (error) throw error;
+      toast({ title: "Run Batch Now started", description: data?.started ? "Sending in background — press Stop to halt" : "Drain finished" });
+    } catch (e: any) {
+      toast({ title: "Drain failed", description: e?.message || "Unknown error", variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stopDrain() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.functions.invoke("campaign-leader-tick", { body: { mode: "stop" } });
+      if (error) throw error;
+      toast({ title: "Stop requested", description: "Will halt after the current contact finishes" });
+    } catch (e: any) {
+      toast({ title: "Stop failed", description: e?.message || "Unknown error", variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -300,8 +350,15 @@ export default function CampaignLeader() {
 
       {/* Controls */}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> Campaign Controls</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> Campaign Controls</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Resume</span> sends one contact at a time, then waits.{" "}
+            <span className="font-medium">Run Batch Now</span> keeps sending continuously (up to today's cap) until you press{" "}
+            <span className="font-medium">Stop</span>.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3 items-center">
           <Button
             variant={settings.is_production ? "destructive" : "default"}
             onClick={() => updateSettings({ is_production: !settings.is_production })}
@@ -310,14 +367,63 @@ export default function CampaignLeader() {
           </Button>
           <Button
             variant="outline"
-            disabled={!settings.is_production}
-            onClick={() => updateSettings({ is_paused: !settings.is_paused })}
+            disabled={!settings.is_production || busy}
+            onClick={async () => {
+              // Resume: clears pause + sends exactly 1
+              if (settings.is_paused) await updateSettings({ is_paused: false, stop_requested: false });
+              await runOneNow();
+            }}
           >
-            {settings.is_paused ? <><Play className="w-4 h-4 mr-2" /> Resume</> : <><Pause className="w-4 h-4 mr-2" /> Pause</>}
+            {settings.is_paused
+              ? <><Play className="w-4 h-4 mr-2" /> Resume (send 1)</>
+              : <><Send className="w-4 h-4 mr-2" /> Send 1 Now</>}
           </Button>
-          <Button variant="outline" onClick={runTickNow} disabled={busy || !settings.is_production || settings.is_paused}>
-            <Activity className="w-4 h-4 mr-2" /> Run Batch Now
+          <Button
+            variant="outline"
+            disabled={!settings.is_production || settings.is_paused || busy || settings.drain_active}
+            onClick={runDrainNow}
+          >
+            <Rocket className="w-4 h-4 mr-2" /> Run Batch Now
           </Button>
+          <Button
+            variant="destructive"
+            disabled={busy || (!settings.drain_active && settings.is_paused)}
+            onClick={async () => {
+              await stopDrain();
+              await updateSettings({ is_paused: true });
+            }}
+          >
+            <Square className="w-4 h-4 mr-2 fill-current" /> Stop
+          </Button>
+          {settings.drain_active && (
+            <Badge variant="default" className="ml-2 animate-pulse">
+              <Rocket className="w-3 h-3 mr-1" /> DRAINING
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Permanently sent (lifetime suppression) */}
+      <Card className="border-emerald-500/30 bg-emerald-500/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="w-5 h-5 text-emerald-500" /> Permanently Sent — Never Re-Send List
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Confirmed-successful sends are recorded forever. These recipients are filtered out of every future batch automatically.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground">Lifetime emails delivered</div>
+              <div className="text-2xl font-bold text-emerald-600">{lifetimeSent.emails.toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Lifetime SMS delivered</div>
+              <div className="text-2xl font-bold text-emerald-600">{lifetimeSent.sms.toLocaleString()}</div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

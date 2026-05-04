@@ -398,6 +398,16 @@ async function processContact(contact: any) {
   await bumpDailyStat("emails_sent");
   await logActivity(contact.id, "success", "email_sent", `Email delivered to ${contact.email}`);
 
+  // Permanent suppression: record confirmed-successful email so it's never re-sent
+  try {
+    await sb.from("campaign_sent_log").insert({
+      email: contact.email,
+      channel: "email",
+      contact_id: contact.id,
+      lead_id: contact.lead_id || null,
+    });
+  } catch (_) { /* unique violation on duplicate is fine */ }
+
   // Small jitter between email and SMS
   await new Promise(r => setTimeout(r, 1500 + Math.floor(Math.random() * 2500)));
 
@@ -428,6 +438,16 @@ async function processContact(contact: any) {
     }).eq("id", contact.id);
     await bumpDailyStat("sms_sent");
     await logActivity(contact.id, "success", "completed", `SMS delivered to ${contact.phone_e164}`);
+
+    // Permanent suppression: record confirmed-successful SMS so it's never re-sent
+    try {
+      await sb.from("campaign_sent_log").insert({
+        phone_e164: contact.phone_e164,
+        channel: "sms",
+        contact_id: contact.id,
+        lead_id: contact.lead_id || null,
+      });
+    } catch (_) { /* unique violation on duplicate is fine */ }
   } else {
     await sb.from("campaign_contacts").update({ status: "completed", last_step: "completed" }).eq("id", contact.id);
     await logActivity(contact.id, "info", "completed", "Completed (no phone available)");
@@ -472,7 +492,12 @@ async function runTest(payload: any) {
 }
 
 // ---------- Tick: pull batch + process ----------
-async function runTick() {
+// runMode:
+//   "single" → process at most 1 contact (used by Resume button — sends 1 at a time)
+//   "batch"  → process up to settings.batch_size contacts in one invocation
+//   "drain"  → keep looping batches until daily cap hit, no eligible leads, stop_requested,
+//              paused, outside hours, or wall-clock budget exceeded (~5 min per invocation)
+async function runTick(runMode: "single" | "batch" | "drain" = "batch") {
   const { data: settings } = await sb.from("campaign_settings").select("*").eq("id", 1).maybeSingle();
   if (!settings) return { ok: false, error: "no_settings" };
   if (!settings.is_production) return { ok: false, skipped: true, reason: "production_disabled" };
@@ -481,123 +506,183 @@ async function runTick() {
   const sched = isBusinessHours(settings.start_hour_pt, settings.end_hour_pt);
   if (!sched.ok) return { ok: false, skipped: true, reason: sched.reason };
 
-  // Daily caps
-  const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }))
-    .toISOString().slice(0, 10);
-  const { data: stats } = await sb.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle();
-  const emailsToday = stats?.emails_sent || 0;
-  const smsToday = stats?.sms_sent || 0;
-  if (emailsToday >= settings.daily_email_cap && smsToday >= settings.daily_sms_cap) {
-    return { ok: false, skipped: true, reason: "daily_cap_reached" };
+  const driveStart = Date.now();
+  const DRIVE_BUDGET_MS = 5 * 60 * 1000; // edge function wall-clock cap per invocation
+  let totalProcessed = 0;
+  let totalSuccess = 0;
+  const reasons: string[] = [];
+
+  if (runMode === "drain") {
+    await sb.from("campaign_settings").update({
+      drain_active: true,
+      drain_started_at: new Date().toISOString(),
+      stop_requested: false,
+    }).eq("id", 1);
+    await logActivity(null, "info", "drain_start", "Run Batch Now started — draining until cap, empty, or stop");
   }
 
-  // Failure-rate failsafe (today)
-  const totalAttempts = emailsToday + (stats?.emails_failed || 0);
-  if (totalAttempts > 50) {
-    const failurePct = ((stats?.emails_failed || 0) + (stats?.sms_failed || 0)) * 100 /
-      Math.max(1, totalAttempts + smsToday + (stats?.sms_failed || 0));
-    if (failurePct > settings.failure_threshold_pct) {
-      // auto-pause
-      await sb.from("campaign_settings").update({ is_paused: true }).eq("id", 1);
-      await logActivity(null, "error", "auto_pause", `Auto-paused: failure rate ${failurePct.toFixed(1)}% > threshold ${settings.failure_threshold_pct}%`);
-      return { ok: false, skipped: true, reason: "auto_paused_failure_rate" };
+  // ---- Inner: one batch pass ----
+  async function onePass(passSize: number): Promise<{ done: boolean; reason: string; processed: number; success: number }> {
+    // Re-read live settings each pass so Stop / Pause take effect mid-drain
+    const { data: live } = await sb.from("campaign_settings").select("*").eq("id", 1).maybeSingle();
+    if (!live) return { done: true, reason: "no_settings", processed: 0, success: 0 };
+    if (live.stop_requested) return { done: true, reason: "stop_requested", processed: 0, success: 0 };
+    if (live.is_paused) return { done: true, reason: "paused", processed: 0, success: 0 };
+    const sch = isBusinessHours(live.start_hour_pt, live.end_hour_pt);
+    if (!sch.ok) return { done: true, reason: sch.reason, processed: 0, success: 0 };
+
+    const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }))
+      .toISOString().slice(0, 10);
+    const { data: stats } = await sb.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle();
+    const emailsToday = stats?.emails_sent || 0;
+    const smsToday = stats?.sms_sent || 0;
+    if (emailsToday >= live.daily_email_cap && smsToday >= live.daily_sms_cap) {
+      return { done: true, reason: "daily_cap_reached", processed: 0, success: 0 };
     }
-  }
 
-  // Pull eligible leads not already queued today
-  // Gmail deliverability promoter: enforce hard daily cap below Workspace's 2k limit
-  const effectiveEmailCap = Math.min(settings.daily_email_cap, GMAIL_HARD_DAILY_CAP);
-  const remainingEmails = Math.max(0, effectiveEmailCap - emailsToday);
-  const batchSize = Math.min(settings.batch_size, remainingEmails);
-  if (batchSize === 0) return { ok: false, skipped: true, reason: "email_cap_reached" };
-
-  // Get leads with email + phone, not contacted in 30 days, not in suppression
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: leads, error: leadErr } = await sb
-    .from("state_leads")
-    .select("id, email, phone_e164, first_name, property_address, city, state, zip")
-    .not("email", "is", null)
-    .not("phone_e164", "is", null)
-    .or(`last_contacted_at.is.null,last_contacted_at.lt.${thirtyDaysAgo}`)
-    .limit(batchSize * 5); // overfetch to filter suppression + invalid + domain throttle
-
-  if (leadErr) return { ok: false, error: leadErr.message };
-  if (!leads || leads.length === 0) return { ok: true, skipped: true, reason: "no_eligible_leads" };
-
-  // Gmail promoter: drop role addresses + syntactically invalid emails BEFORE suppression query
-  const validatedLeads = leads.filter(l => emailLooksValid(l.email));
-
-  // Filter suppression
-  const emails = validatedLeads.map(l => l.email).filter(Boolean);
-  const phones = validatedLeads.map(l => l.phone_e164).filter(Boolean);
-  const suppressionFilter: string[] = [];
-  if (emails.length) suppressionFilter.push(`email.in.(${emails.map(e => `"${e}"`).join(",")})`);
-  if (phones.length) suppressionFilter.push(`phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
-  const { data: suppressed } = suppressionFilter.length
-    ? await sb.from("suppression_list").select("email, phone_e164").or(suppressionFilter.join(","))
-    : { data: [] as any[] };
-  const suppressedEmails = new Set((suppressed || []).map(s => s.email).filter(Boolean));
-  const suppressedPhones = new Set((suppressed || []).map(s => s.phone_e164).filter(Boolean));
-
-  // Filter contacts already queued/sent today
-  const { data: alreadyQueued } = await sb
-    .from("campaign_contacts")
-    .select("email, phone_e164")
-    .eq("campaign_date", today);
-  const queuedEmails = new Set((alreadyQueued || []).map(c => c.email).filter(Boolean));
-  const queuedPhones = new Set((alreadyQueued || []).map(c => c.phone_e164).filter(Boolean));
-
-  // Gmail promoter: per-domain daily throttle — count today's already-queued emails per domain
-  const domainCountToday = new Map<string, number>();
-  for (const c of (alreadyQueued || [])) {
-    if (c.email) {
-      const d = emailDomain(c.email);
-      domainCountToday.set(d, (domainCountToday.get(d) || 0) + 1);
+    // Failure-rate failsafe
+    const totalAttempts = emailsToday + (stats?.emails_failed || 0);
+    if (totalAttempts > 50) {
+      const failurePct = ((stats?.emails_failed || 0) + (stats?.sms_failed || 0)) * 100 /
+        Math.max(1, totalAttempts + smsToday + (stats?.sms_failed || 0));
+      if (failurePct > live.failure_threshold_pct) {
+        await sb.from("campaign_settings").update({ is_paused: true }).eq("id", 1);
+        await logActivity(null, "error", "auto_pause", `Auto-paused: failure rate ${failurePct.toFixed(1)}% > threshold ${live.failure_threshold_pct}%`);
+        return { done: true, reason: "auto_paused_failure_rate", processed: 0, success: 0 };
+      }
     }
+
+    const effectiveEmailCap = Math.min(live.daily_email_cap, GMAIL_HARD_DAILY_CAP);
+    const remainingEmails = Math.max(0, effectiveEmailCap - emailsToday);
+    const batchSize = Math.min(passSize, remainingEmails);
+    if (batchSize === 0) return { done: true, reason: "email_cap_reached", processed: 0, success: 0 };
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: leads, error: leadErr } = await sb
+      .from("state_leads")
+      .select("id, email, phone_e164, first_name, property_address, city, state, zip")
+      .not("email", "is", null)
+      .not("phone_e164", "is", null)
+      .or(`last_contacted_at.is.null,last_contacted_at.lt.${thirtyDaysAgo}`)
+      .limit(batchSize * 5);
+
+    if (leadErr) return { done: true, reason: `lead_err:${leadErr.message}`, processed: 0, success: 0 };
+    if (!leads || leads.length === 0) return { done: true, reason: "no_eligible_leads", processed: 0, success: 0 };
+
+    const validatedLeads = leads.filter(l => emailLooksValid(l.email));
+
+    // Filter classic suppression list
+    const emails = validatedLeads.map(l => l.email).filter(Boolean);
+    const phones = validatedLeads.map(l => l.phone_e164).filter(Boolean);
+    const suppressionFilter: string[] = [];
+    if (emails.length) suppressionFilter.push(`email.in.(${emails.map(e => `"${e}"`).join(",")})`);
+    if (phones.length) suppressionFilter.push(`phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
+    const { data: suppressed } = suppressionFilter.length
+      ? await sb.from("suppression_list").select("email, phone_e164").or(suppressionFilter.join(","))
+      : { data: [] as any[] };
+    const suppressedEmails = new Set((suppressed || []).map(s => s.email).filter(Boolean));
+    const suppressedPhones = new Set((suppressed || []).map(s => s.phone_e164).filter(Boolean));
+
+    // PERMANENT sent log — anyone here is never re-sent again, ever
+    const sentLogFilter: string[] = [];
+    if (emails.length) sentLogFilter.push(`email.in.(${emails.map(e => `"${e}"`).join(",")})`);
+    if (phones.length) sentLogFilter.push(`phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
+    const { data: sentLog } = sentLogFilter.length
+      ? await sb.from("campaign_sent_log").select("email, phone_e164").or(sentLogFilter.join(","))
+      : { data: [] as any[] };
+    const sentEmails = new Set((sentLog || []).map((s: any) => (s.email || "").toLowerCase()).filter(Boolean));
+    const sentPhones = new Set((sentLog || []).map((s: any) => s.phone_e164).filter(Boolean));
+
+    // Filter contacts already queued today
+    const { data: alreadyQueued } = await sb
+      .from("campaign_contacts")
+      .select("email, phone_e164")
+      .eq("campaign_date", today);
+    const queuedEmails = new Set((alreadyQueued || []).map(c => c.email).filter(Boolean));
+    const queuedPhones = new Set((alreadyQueued || []).map(c => c.phone_e164).filter(Boolean));
+
+    const domainCountToday = new Map<string, number>();
+    for (const c of (alreadyQueued || [])) {
+      if (c.email) {
+        const d = emailDomain(c.email);
+        domainCountToday.set(d, (domainCountToday.get(d) || 0) + 1);
+      }
+    }
+
+    const eligible: typeof validatedLeads = [];
+    for (const l of validatedLeads) {
+      if (suppressedEmails.has(l.email)) continue;
+      if (suppressedPhones.has(l.phone_e164)) continue;
+      if (sentEmails.has((l.email || "").toLowerCase())) continue;
+      if (sentPhones.has(l.phone_e164)) continue;
+      if (queuedEmails.has(l.email)) continue;
+      if (queuedPhones.has(l.phone_e164)) continue;
+      const d = emailDomain(l.email);
+      const used = domainCountToday.get(d) || 0;
+      const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
+      if (used >= cap) continue;
+      domainCountToday.set(d, used + 1);
+      eligible.push(l);
+      if (eligible.length >= batchSize) break;
+    }
+
+    if (eligible.length === 0) return { done: true, reason: "all_filtered", processed: 0, success: 0 };
+
+    const toInsert = eligible.map(l => ({
+      lead_id: l.id,
+      email: l.email,
+      phone_e164: l.phone_e164,
+      first_name: l.first_name,
+      property_address: l.property_address,
+      city: l.city,
+      state: l.state,
+      status: "queued",
+    }));
+    const { data: inserted, error: insErr } = await sb.from("campaign_contacts").insert(toInsert).select();
+    if (insErr) return { done: true, reason: `ins_err:${insErr.message}`, processed: 0, success: 0 };
+
+    let successCount = 0;
+    for (const contact of inserted || []) {
+      // Re-check stop signal between every contact
+      const { data: stopCheck } = await sb.from("campaign_settings").select("stop_requested, is_paused").eq("id", 1).maybeSingle();
+      if (stopCheck?.stop_requested || stopCheck?.is_paused) {
+        return { done: true, reason: "stop_requested_mid_batch", processed: successCount, success: successCount };
+      }
+      const r = await processContact(contact);
+      if (r.ok) successCount++;
+      const delay = (live.min_delay_seconds + Math.floor(Math.random() * Math.max(1, live.max_delay_seconds - live.min_delay_seconds))) * 1000;
+      await new Promise(res => setTimeout(res, delay));
+      await sb.from("campaign_settings").update({ drain_last_tick_at: new Date().toISOString() }).eq("id", 1);
+    }
+
+    return { done: false, reason: "ok", processed: inserted?.length || 0, success: successCount };
   }
 
-  const eligible: typeof validatedLeads = [];
-  for (const l of validatedLeads) {
-    if (suppressedEmails.has(l.email)) continue;
-    if (suppressedPhones.has(l.phone_e164)) continue;
-    if (queuedEmails.has(l.email)) continue;
-    if (queuedPhones.has(l.phone_e164)) continue;
-    const d = emailDomain(l.email);
-    const used = domainCountToday.get(d) || 0;
-    // Apply per-domain throttle, with stricter cap on free providers
-    const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
-    if (used >= cap) continue;
-    domainCountToday.set(d, used + 1);
-    eligible.push(l);
-    if (eligible.length >= batchSize) break;
+  // ---- Mode dispatch ----
+  if (runMode === "single") {
+    const r = await onePass(1);
+    return { ok: true, mode: "single", processed: r.processed, success: r.success, reason: r.reason };
   }
 
-  if (eligible.length === 0) return { ok: true, skipped: true, reason: "all_filtered" };
-
-  // Insert as queued
-  const toInsert = eligible.map(l => ({
-    lead_id: l.id,
-    email: l.email,
-    phone_e164: l.phone_e164,
-    first_name: l.first_name,
-    property_address: l.property_address,
-    city: l.city,
-    state: l.state,
-    status: "queued",
-  }));
-  const { data: inserted, error: insErr } = await sb.from("campaign_contacts").insert(toInsert).select();
-  if (insErr) return { ok: false, error: insErr.message };
-
-  // Process serially with delay
-  let successCount = 0;
-  for (const contact of inserted || []) {
-    const r = await processContact(contact);
-    if (r.ok) successCount++;
-    const delay = (settings.min_delay_seconds + Math.floor(Math.random() * (settings.max_delay_seconds - settings.min_delay_seconds))) * 1000;
-    await new Promise(res => setTimeout(res, delay));
+  if (runMode === "batch") {
+    const r = await onePass(settings.batch_size);
+    return { ok: true, mode: "batch", processed: r.processed, success: r.success, reason: r.reason };
   }
 
-  return { ok: true, processed: inserted?.length || 0, success: successCount };
+  // drain
+  while (Date.now() - driveStart < DRIVE_BUDGET_MS) {
+    const r = await onePass(settings.batch_size);
+    totalProcessed += r.processed;
+    totalSuccess += r.success;
+    reasons.push(r.reason);
+    if (r.done) break;
+  }
+  await sb.from("campaign_settings").update({
+    drain_active: false,
+    stop_requested: false,
+  }).eq("id", 1);
+  await logActivity(null, "info", "drain_end", `Drain ended — processed ${totalProcessed}, success ${totalSuccess}, last reason: ${reasons[reasons.length - 1] || "n/a"}`);
+  return { ok: true, mode: "drain", processed: totalProcessed, success: totalSuccess, last_reason: reasons[reasons.length - 1] };
 }
 
 Deno.serve(async (req) => {
@@ -615,7 +700,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const result = await runTick();
+    if (mode === "stop") {
+      await sb.from("campaign_settings").update({ stop_requested: true, is_paused: true }).eq("id", 1);
+      await logActivity(null, "info", "stop_requested", "Stop requested by user — drain will halt after current contact");
+      return new Response(JSON.stringify({ ok: true, stopped: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // tick mode → runMode controls behavior:
+    //   "single" (Resume = 1 at a time) | "batch" (default cron) | "drain" (Run Batch Now)
+    const runMode = (payload.runMode === "single" || payload.runMode === "drain")
+      ? payload.runMode : "batch";
+
+    // For long-running drain, fire and forget so the HTTP request returns immediately
+    if (runMode === "drain") {
+      // @ts-ignore — Deno EdgeRuntime
+      if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
+        (EdgeRuntime as any).waitUntil(runTick("drain"));
+      } else {
+        runTick("drain");
+      }
+      return new Response(JSON.stringify({ ok: true, mode: "drain", started: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const result = await runTick(runMode as any);
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {

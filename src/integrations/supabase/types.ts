@@ -1223,11 +1223,47 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_sent_log: {
+        Row: {
+          channel: string
+          contact_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          lead_id: string | null
+          phone_e164: string | null
+          sent_at: string
+        }
+        Insert: {
+          channel: string
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          phone_e164?: string | null
+          sent_at?: string
+        }
+        Update: {
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          phone_e164?: string | null
+          sent_at?: string
+        }
+        Relationships: []
+      }
       campaign_settings: {
         Row: {
           batch_size: number
           daily_email_cap: number
           daily_sms_cap: number
+          drain_active: boolean
+          drain_last_tick_at: string | null
+          drain_started_at: string | null
           end_hour_pt: number
           failure_threshold_pct: number
           id: number
@@ -1236,12 +1272,16 @@ export type Database = {
           max_delay_seconds: number
           min_delay_seconds: number
           start_hour_pt: number
+          stop_requested: boolean
           updated_at: string
         }
         Insert: {
           batch_size?: number
           daily_email_cap?: number
           daily_sms_cap?: number
+          drain_active?: boolean
+          drain_last_tick_at?: string | null
+          drain_started_at?: string | null
           end_hour_pt?: number
           failure_threshold_pct?: number
           id?: number
@@ -1250,12 +1290,16 @@ export type Database = {
           max_delay_seconds?: number
           min_delay_seconds?: number
           start_hour_pt?: number
+          stop_requested?: boolean
           updated_at?: string
         }
         Update: {
           batch_size?: number
           daily_email_cap?: number
           daily_sms_cap?: number
+          drain_active?: boolean
+          drain_last_tick_at?: string | null
+          drain_started_at?: string | null
           end_hour_pt?: number
           failure_threshold_pct?: number
           id?: number
@@ -1264,6 +1308,7 @@ export type Database = {
           max_delay_seconds?: number
           min_delay_seconds?: number
           start_hour_pt?: number
+          stop_requested?: boolean
           updated_at?: string
         }
         Relationships: []
