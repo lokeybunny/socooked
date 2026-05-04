@@ -602,7 +602,7 @@ Deno.serve(async (req) => {
       } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
       imported += 1;
     }
-    return json({ ok: true, imported, scanned: messages.length });
+    return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length });
   }
 
 
