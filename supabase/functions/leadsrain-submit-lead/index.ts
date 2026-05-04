@@ -237,12 +237,12 @@ Deno.serve(async (req) => {
         username: LR_USER,
         api_key: LR_KEY,
         list_id: Number.isFinite(listIdNum) ? listIdNum : finalListId,
-        country_code: "USA",
-        phone_code: "1",
-        scrub_lead: "no_scrub",
-        check_duplicate: "NO_DUPLICATE_CHECK",
       };
       p[phoneKey || "phone_number"] = ph.ten;
+      p.country_code = "USA";
+      p.phone_code = "1";
+      p.scrub_lead = "no_scrub";
+      p.check_duplicate = "NO_DUPLICATE_CHECK";
       // Optional contact info — only include when provided.
       if (first_name) p.first_name = first_name;
       if (last_name) p.last_name = last_name;
