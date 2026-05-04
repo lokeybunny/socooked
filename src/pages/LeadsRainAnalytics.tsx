@@ -414,11 +414,13 @@ export default function LeadsRainAnalytics() {
   );
 }
 
-function Metric({ label, value, accent, sub }: { label: string; value: any; accent?: "green" | "red" | "lime"; sub?: string }) {
+function Metric({ label, value, accent, sub }: { label: string; value: any; accent?: "green" | "red" | "lime" | "yellow" | "blue"; sub?: string }) {
   const colorMap: Record<string, string> = {
     green: "text-green-400",
     red: "text-red-400",
     lime: "text-lime-400",
+    yellow: "text-yellow-400",
+    blue: "text-blue-400",
   };
   return (
     <Card className="border-border/50 bg-card/60">
