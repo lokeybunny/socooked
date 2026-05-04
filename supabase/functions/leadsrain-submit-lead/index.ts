@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { viewList } from "../_shared/leadsrainClient.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,47 @@ function normCallerId(raw: string | null | undefined): string | null {
   if (digits.length === 11 && digits.startsWith("1")) ten = digits.slice(1);
   if (ten.length !== 10) return null;
   return ten;
+}
+
+function maskPayload(payload: Record<string, any>) {
+  return { ...payload, username: "***", api_key: "***" };
+}
+
+function normalizeLeadPhone(raw: unknown): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits.slice(-10);
+  return ten.length === 10 ? ten : null;
+}
+
+function findLeadInList(raw: any, tenDigitPhone: string): any | null {
+  const seen = new Set<any>();
+  const visit = (node: any): any | null => {
+    if (!node || typeof node !== "object" || seen.has(node)) return null;
+    seen.add(node);
+    if (!Array.isArray(node)) {
+      const phone = normalizeLeadPhone(node.phone_number ?? node.phone ?? node.number ?? node.lead_phone ?? node.mobile ?? node.recipient);
+      if (phone === tenDigitPhone) return node;
+    }
+    const values = Array.isArray(node) ? node : Object.values(node);
+    for (const value of values) {
+      const found = visit(value);
+      if (found) return found;
+    }
+    return null;
+  };
+  return visit(raw);
+}
+
+function encodeUrlPayload(payload: Record<string, any>) {
+  const usp = new URLSearchParams();
+  for (const [k, v] of Object.entries(payload)) usp.append(k, String(v));
+  return usp.toString();
+}
+
+function encodeMultipartPayload(payload: Record<string, any>, boundary: string) {
+  return Object.entries(payload).map(([key, value]) => (
+    `--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${String(value)}\r\n`
+  )).join("") + `--${boundary}--\r\n`;
 }
 
 // Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
