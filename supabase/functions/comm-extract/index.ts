@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const APIFY_TOKEN = Deno.env.get('APIFY_TOKEN_COMMUNITY')!;
+const APIFY_TOKEN = Deno.env.get('APIFY_TOKEN')!;
 const ACTOR_ID = 'curious_coder~twitter-community-members-scraper';
 const TWITTER_COOKIE_JSON = Deno.env.get('TWITTER_COOKIE_JSON') || '[]';
 
