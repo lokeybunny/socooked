@@ -160,7 +160,7 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
               <Stethoscope className="w-5 h-5 text-lime-400" /> LeadsRain Connection Diagnostic
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              This test proves whether the issue is network, authentication, proxy, or campaign parsing.
+              Live HTTPS PostLead is the production endpoint. Legacy Campaign View and Proxy tests are optional.
             </p>
           </div>
           <div className="flex items-center gap-2">
