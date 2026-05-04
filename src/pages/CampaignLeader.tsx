@@ -617,6 +617,57 @@ export default function CampaignLeader() {
           {logs.length === 0 && <p className="text-muted-foreground">No activity yet.</p>}
         </CardContent>
       </Card>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Message Preview</DialogTitle>
+            <DialogDescription>
+              {previewData?.contact ? (
+                <span>
+                  Personalized for <strong>{previewData.contact.first_name || "—"}</strong>
+                  {previewData.contact.property_address ? ` · ${previewData.contact.property_address}` : ""}
+                </span>
+              ) : "Loading…"}
+            </DialogDescription>
+          </DialogHeader>
+          {previewLoading && <p className="text-sm text-muted-foreground">Generating preview…</p>}
+          {!previewLoading && previewData && (
+            <Tabs defaultValue="email" className="w-full">
+              <TabsList>
+                <TabsTrigger value="email"><Mail className="w-3 h-3 mr-1" />Email</TabsTrigger>
+                <TabsTrigger value="sms"><MessageSquare className="w-3 h-3 mr-1" />SMS</TabsTrigger>
+              </TabsList>
+              <TabsContent value="email" className="space-y-3">
+                {previewData.email ? (
+                  <>
+                    <div className="text-xs text-muted-foreground">To: {previewData.contact?.email || "—"}</div>
+                    <div className="border rounded-md p-3 bg-muted/40">
+                      <div className="text-xs text-muted-foreground mb-1">Subject</div>
+                      <div className="font-medium">{previewData.email.subject}</div>
+                    </div>
+                    <div className="border rounded-md p-3 bg-background">
+                      <div className="text-xs text-muted-foreground mb-2">Body</div>
+                      <pre className="whitespace-pre-wrap text-sm font-sans">{previewData.email.body}</pre>
+                    </div>
+                  </>
+                ) : <p className="text-sm text-muted-foreground">No email preview available.</p>}
+              </TabsContent>
+              <TabsContent value="sms" className="space-y-3">
+                {previewData.sms ? (
+                  <>
+                    <div className="text-xs text-muted-foreground">To: {previewData.contact?.phone_e164 || "—"}</div>
+                    <div className="border rounded-md p-3 bg-background">
+                      <pre className="whitespace-pre-wrap text-sm font-sans">{previewData.sms.text}</pre>
+                      <div className="text-xs text-muted-foreground mt-2">{previewData.sms.text.length} chars</div>
+                    </div>
+                  </>
+                ) : <p className="text-sm text-muted-foreground">No SMS preview available.</p>}
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
