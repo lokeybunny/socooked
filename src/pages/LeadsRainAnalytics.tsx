@@ -58,9 +58,6 @@ export default function LeadsRainAnalytics() {
   const loadSettings = async () => {
     const { data } = await supabase
       .from("leadsrain_settings" as any)
-  const loadSettings = async () => {
-    const { data } = await supabase
-      .from("leadsrain_settings" as any)
       .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active, zapier_mode_enabled, zapier_webhook_url, sms_delay_minutes")
       .limit(1).maybeSingle();
     const d = data as any;
