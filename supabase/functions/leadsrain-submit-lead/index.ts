@@ -374,9 +374,8 @@ Deno.serve(async (req) => {
             lead_visible_in_list: visible,
             leadsrain_list_check: listVisibilityCheck,
           });
-          if (httpOk || parsed.mode === "parser_needs_mapping") break outer;
+          if (httpOk) break outer;
           if (/invalid username|api key|invalid api/i.test(errMsg || "")) break outer;
-          if (trimmed.length > 0) break outer;
           }
         }
       }
