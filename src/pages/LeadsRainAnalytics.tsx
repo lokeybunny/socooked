@@ -350,10 +350,11 @@ export default function LeadsRainAnalytics() {
                   <Badge variant="outline">mode: {lastTestResult.mode || "?"}</Badge>
                   <Badge variant="outline">HTTP {lastTestResult.http_status ?? "?"}</Badge>
                   <Badge variant="outline">list_id: {lastTestResult.list_id || "—"}</Badge>
-                  <Badge variant="outline">field: {lastTestResult.list_id_field || "list_id"}</Badge>
+                  <Badge variant="outline">phone field: {lastTestResult.phone_field || "phone_number"}</Badge>
                   <Badge variant="outline">caller_id: {lastTestResult.caller_id || "—"}</Badge>
                   {lastTestResult.campaign_id && <Badge variant="outline">campaign: {lastTestResult.campaign_id}</Badge>}
                   {lastTestResult.content_type && <Badge variant="outline">{lastTestResult.content_type}</Badge>}
+                  <Badge variant="outline">visible in list: {lastTestResult.lead_visible_in_list ? "yes" : "no"}</Badge>
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">{lastTestResult.user_message}</div>
@@ -379,11 +380,11 @@ export default function LeadsRainAnalytics() {
                 <div className="text-xs font-semibold">Manual Payload Tester</div>
                 <div className="flex flex-wrap gap-2 items-end">
                   <div>
-                    <Label className="text-[11px]">list_id field name</Label>
-                    <Select value={manualField} onValueChange={setManualField}>
+                    <Label className="text-[11px]">Phone field name</Label>
+                    <Select value={manualPhoneField} onValueChange={setManualPhoneField}>
                       <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {["list_id", "listid", "list", "ListId"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                        {["phone_number", "phone", "number", "lead_phone"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -392,8 +393,10 @@ export default function LeadsRainAnalytics() {
                     <Select value={manualContentType} onValueChange={setManualContentType}>
                       <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="json">application/json</SelectItem>
+                        <SelectItem value="auto">Auto variants</SelectItem>
                         <SelectItem value="form">x-www-form-urlencoded</SelectItem>
+                        <SelectItem value="multipart">multipart/form-data</SelectItem>
+                        <SelectItem value="json">application/json</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -415,10 +418,10 @@ export default function LeadsRainAnalytics() {
                         const { data, error } = await supabase.functions.invoke("leadsrain-submit-lead", {
                           body: {
                             phone_number: phone,
-                            campaign_name: `Manual: field=${manualField} ct=${manualContentType}`,
+                            campaign_name: `Manual: phone_field=${manualPhoneField} ct=${manualContentType}`,
                             send_voidfix: false,
-                            list_id_field: manualField,
-                            content_type: manualContentType,
+                            phone_field: manualPhoneField,
+                            content_type: manualContentType === "auto" ? undefined : manualContentType,
                             extra_payload: extra,
                           },
                         });
