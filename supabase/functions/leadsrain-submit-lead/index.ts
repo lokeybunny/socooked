@@ -83,7 +83,7 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   if (httpStatus >= 200 && httpStatus < 300) {
     if (explicitSuccess) { mode = "accepted"; ok = true; }
     else if (explicitFail) { mode = "rejected"; ok = false; }
-    else if (!hasBody) { mode = "rejected"; ok = false; message = message || "LeadsRain returned empty HTTP 200 — lead was NOT accepted. Verify list_id, caller_id, and that an active RVM campaign is attached to the list."; }
+    else if (!hasBody) { mode = "rejected"; ok = false; message = message || "Rejected by LeadsRain. Confirm this list_id is attached to an active RVM campaign inside LeadsRain."; }
     else { mode = "parser_needs_mapping"; ok = false; }
   } else {
     mode = "failed";
