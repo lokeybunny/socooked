@@ -595,6 +595,11 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
   if (!settings.is_production) return { ok: false, skipped: true, reason: "production_disabled" };
   if (settings.is_paused) return { ok: false, skipped: true, reason: "paused" };
 
+  // Apply tunable SMS retry/gap from settings
+  if (typeof settings.sms_max_retries === "number") SMS_MAX_RETRIES = Math.max(0, Math.min(10, settings.sms_max_retries));
+  if (typeof settings.sms_min_gap_seconds === "number") SMS_MIN_GAP_MS = Math.max(1000, settings.sms_min_gap_seconds * 1000);
+  if (typeof settings.sms_max_gap_seconds === "number") SMS_MAX_GAP_MS = Math.max(SMS_MIN_GAP_MS + 1000, settings.sms_max_gap_seconds * 1000);
+
   if (!force) {
     const sched = isBusinessHours(settings.start_hour_pt, settings.end_hour_pt);
     if (!sched.ok) return { ok: false, skipped: true, reason: sched.reason };
