@@ -76,21 +76,21 @@ function buildEmail(firstName: string, addr: string) {
   const cIdx = pickIdx(EMAIL_CTAS);
   const vars = { addr, name: firstName };
   const subject = fill(SUBJECT_VARIANTS[sIdx], vars);
+
+  const intro = fill(EMAIL_INTROS[iIdx], vars);
+  const pitch = EMAIL_PITCHES[pIdx];
+  const cta = fill(EMAIL_CTAS[cIdx], vars);
+
   const body = [
-    `Hello ${firstName},`,
-    "",
-    `My name is Warren Guru. ${fill(EMAIL_INTROS[iIdx], vars)}`,
-    "",
-    EMAIL_PITCHES[pIdx],
-    "",
-    "Here's my work: https://instagram.com/W4RR3NGuru",
-    "",
-    fill(EMAIL_CTAS[cIdx], vars),
-    "",
-    "Best,",
-    "Warren Guru",
+    `<p style="margin:0 0 14px 0;">Hello ${firstName},</p>`,
+    `<p style="margin:0 0 14px 0;">My name is Warren Guru. ${intro}</p>`,
+    `<p style="margin:0 0 14px 0;">${pitch}</p>`,
+    `<p style="margin:0 0 14px 0;">You can see a sample of my work here: <a href="https://instagram.com/W4RR3NGuru">instagram.com/W4RR3NGuru</a></p>`,
+    `<p style="margin:0 0 14px 0;">${cta}</p>`,
+    `<p style="margin:0 0 4px 0;">Best regards,</p>`,
+    `<p style="margin:0;">Warren Guru</p>`,
   ].join("\n");
-  // variant id = combined index for tracking
+
   const variant = sIdx * 1000 + iIdx * 100 + pIdx * 10 + cIdx;
   return { subject, body, variant };
 }
