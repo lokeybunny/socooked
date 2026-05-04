@@ -632,12 +632,19 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
       if (!sch.ok) return { done: true, reason: sch.reason, processed: 0, success: 0 };
     }
 
+    const channelMode: "both" | "sms_only" | "email_only" =
+      (live.channel_mode === "sms_only" || live.channel_mode === "email_only") ? live.channel_mode : "both";
+    const wantEmail = channelMode !== "sms_only";
+    const wantSms = channelMode !== "email_only";
+
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }))
       .toISOString().slice(0, 10);
     const { data: stats } = await sb.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle();
     const emailsToday = stats?.emails_sent || 0;
     const smsToday = stats?.sms_sent || 0;
-    if (emailsToday >= live.daily_email_cap && smsToday >= live.daily_sms_cap) {
+    const emailCapHit = !wantEmail || emailsToday >= live.daily_email_cap;
+    const smsCapHit = !wantSms || smsToday >= live.daily_sms_cap;
+    if (emailCapHit && smsCapHit) {
       return { done: true, reason: "daily_cap_reached", processed: 0, success: 0 };
     }
 
@@ -653,24 +660,32 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
       }
     }
 
-    const effectiveEmailCap = Math.min(live.daily_email_cap, GMAIL_HARD_DAILY_CAP);
-    const remainingEmails = Math.max(0, effectiveEmailCap - emailsToday);
-    const batchSize = Math.min(passSize, remainingEmails);
-    if (batchSize === 0) return { done: true, reason: "email_cap_reached", processed: 0, success: 0 };
+    // Compute batch size — bounded by whichever channels are active
+    let remaining = passSize;
+    if (wantEmail) {
+      const effectiveEmailCap = Math.min(live.daily_email_cap, GMAIL_HARD_DAILY_CAP);
+      remaining = Math.min(remaining, Math.max(0, effectiveEmailCap - emailsToday));
+    }
+    if (wantSms && !wantEmail) {
+      remaining = Math.min(remaining, Math.max(0, live.daily_sms_cap - smsToday));
+    }
+    const batchSize = remaining;
+    if (batchSize === 0) return { done: true, reason: "channel_cap_reached", processed: 0, success: 0 };
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: leads, error: leadErr } = await sb
+    let leadQuery = sb
       .from("state_leads")
       .select("id, email, phone_e164, first_name, property_address, city, state, zip")
-      .not("email", "is", null)
-      .not("phone_e164", "is", null)
       .or(`last_contacted_at.is.null,last_contacted_at.lt.${thirtyDaysAgo}`)
       .limit(batchSize * 5);
+    if (wantEmail) leadQuery = leadQuery.not("email", "is", null);
+    if (wantSms) leadQuery = leadQuery.not("phone_e164", "is", null);
+    const { data: leads, error: leadErr } = await leadQuery;
 
     if (leadErr) return { done: true, reason: `lead_err:${leadErr.message}`, processed: 0, success: 0 };
     if (!leads || leads.length === 0) return { done: true, reason: "no_eligible_leads", processed: 0, success: 0 };
 
-    const validatedLeads = leads.filter(l => emailLooksValid(l.email));
+    const validatedLeads = wantEmail ? leads.filter(l => emailLooksValid(l.email)) : leads;
 
     // Filter classic suppression list
     const emails = validatedLeads.map(l => l.email).filter(Boolean);
