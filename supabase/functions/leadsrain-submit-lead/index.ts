@@ -70,16 +70,19 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   const explicitFail = FAIL_RX.test(haystack);
   const explicitSuccess = !!provider_lead_id || SUCCESS_RX.test(haystack) || provider_status === "success" || (json && json.success === true);
 
-  // mode: accepted = explicit success markers / lead_id
-  //       parser_needs_mapping = HTTP 200 but unknown shape (no markers either way)
-  //       rejected = explicit failure markers
+  // mode: accepted = explicit success markers / lead_id (REAL acceptance)
+  //       parser_needs_mapping = HTTP 200 with a parsable body but unknown shape
+  //       rejected = explicit failure markers OR empty 200 (LeadsRain returns empty body when lead is silently dropped)
   //       failed = non-2xx / network
+  const trimmedText = (text || "").trim();
+  const hasBody = !!json || trimmedText.length > 0;
   let mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed" = "failed";
   let ok = false;
   if (httpStatus >= 200 && httpStatus < 300) {
     if (explicitSuccess) { mode = "accepted"; ok = true; }
     else if (explicitFail) { mode = "rejected"; ok = false; }
-    else { mode = "parser_needs_mapping"; ok = true; }
+    else if (!hasBody) { mode = "rejected"; ok = false; message = message || "LeadsRain returned empty HTTP 200 — lead was NOT accepted. Verify list_id, caller_id, and that an active RVM campaign is attached to the list."; }
+    else { mode = "parser_needs_mapping"; ok = false; }
   } else {
     mode = "failed";
   }
