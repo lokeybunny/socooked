@@ -1072,6 +1072,202 @@ export type Database = {
           },
         ]
       }
+      campaign_activity_log: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          id: string
+          is_test: boolean
+          level: string
+          message: string | null
+          meta: Json | null
+          step: string | null
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          level?: string
+          message?: string | null
+          meta?: Json | null
+          step?: string | null
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          is_test?: boolean
+          level?: string
+          message?: string | null
+          meta?: Json | null
+          step?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_activity_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_contacts: {
+        Row: {
+          campaign_date: string
+          city: string | null
+          created_at: string
+          email: string | null
+          email_sent_at: string | null
+          email_status: string | null
+          email_variant: number | null
+          error_message: string | null
+          first_name: string | null
+          id: string
+          is_test: boolean
+          last_step: string | null
+          lead_id: string | null
+          phone_e164: string | null
+          property_address: string | null
+          retry_count: number
+          sms_sent_at: string | null
+          sms_status: string | null
+          sms_variant: number | null
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_date?: string
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          email_sent_at?: string | null
+          email_status?: string | null
+          email_variant?: number | null
+          error_message?: string | null
+          first_name?: string | null
+          id?: string
+          is_test?: boolean
+          last_step?: string | null
+          lead_id?: string | null
+          phone_e164?: string | null
+          property_address?: string | null
+          retry_count?: number
+          sms_sent_at?: string | null
+          sms_status?: string | null
+          sms_variant?: number | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_date?: string
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          email_sent_at?: string | null
+          email_status?: string | null
+          email_variant?: number | null
+          error_message?: string | null
+          first_name?: string | null
+          id?: string
+          is_test?: boolean
+          last_step?: string | null
+          lead_id?: string | null
+          phone_e164?: string | null
+          property_address?: string | null
+          retry_count?: number
+          sms_sent_at?: string | null
+          sms_status?: string | null
+          sms_variant?: number | null
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_contacts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "state_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_daily_stats: {
+        Row: {
+          campaign_date: string
+          emails_failed: number
+          emails_sent: number
+          sms_failed: number
+          sms_sent: number
+          updated_at: string
+        }
+        Insert: {
+          campaign_date?: string
+          emails_failed?: number
+          emails_sent?: number
+          sms_failed?: number
+          sms_sent?: number
+          updated_at?: string
+        }
+        Update: {
+          campaign_date?: string
+          emails_failed?: number
+          emails_sent?: number
+          sms_failed?: number
+          sms_sent?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      campaign_settings: {
+        Row: {
+          batch_size: number
+          daily_email_cap: number
+          daily_sms_cap: number
+          end_hour_pt: number
+          failure_threshold_pct: number
+          id: number
+          is_paused: boolean
+          is_production: boolean
+          max_delay_seconds: number
+          min_delay_seconds: number
+          start_hour_pt: number
+          updated_at: string
+        }
+        Insert: {
+          batch_size?: number
+          daily_email_cap?: number
+          daily_sms_cap?: number
+          end_hour_pt?: number
+          failure_threshold_pct?: number
+          id?: number
+          is_paused?: boolean
+          is_production?: boolean
+          max_delay_seconds?: number
+          min_delay_seconds?: number
+          start_hour_pt?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_size?: number
+          daily_email_cap?: number
+          daily_sms_cap?: number
+          end_hour_pt?: number
+          failure_threshold_pct?: number
+          id?: number
+          is_paused?: boolean
+          is_production?: boolean
+          max_delay_seconds?: number
+          min_delay_seconds?: number
+          start_hour_pt?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       card_attachments: {
         Row: {
           card_id: string
@@ -7252,10 +7448,14 @@ export type Database = {
           address: string | null
           city: string | null
           created_at: string
+          email: string | null
+          first_name: string | null
           id: string
+          last_contacted_at: string | null
           name: string | null
           phone_e164: string
           phone_number: string
+          property_address: string | null
           source: string
           state: string
           uploaded_file_name: string | null
@@ -7265,10 +7465,14 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          email?: string | null
+          first_name?: string | null
           id?: string
+          last_contacted_at?: string | null
           name?: string | null
           phone_e164: string
           phone_number: string
+          property_address?: string | null
           source?: string
           state: string
           uploaded_file_name?: string | null
@@ -7278,10 +7482,14 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          email?: string | null
+          first_name?: string | null
           id?: string
+          last_contacted_at?: string | null
           name?: string | null
           phone_e164?: string
           phone_number?: string
+          property_address?: string | null
           source?: string
           state?: string
           uploaded_file_name?: string | null
@@ -7337,6 +7545,33 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      suppression_list: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          phone_e164: string | null
+          reason: string | null
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone_e164?: string | null
+          reason?: string | null
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone_e164?: string | null
+          reason?: string | null
+          source?: string | null
         }
         Relationships: []
       }
