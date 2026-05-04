@@ -63,16 +63,36 @@ Deno.serve(async (req) => {
     }
 
     const phoneKey = findKey(rows[0], ["phone_number", "phone", "mobile", "cell", "telephone"]);
-    const nameKey = findKey(rows[0], ["name", "owner", "full_name", "first_name"]);
-    const addrKey = findKey(rows[0], ["address", "street", "property_address"]);
+    const nameKey = findKey(rows[0], ["full_name", "owner_name", "owner", "name"]);
+    const firstNameKey = findKey(rows[0], ["first_name", "firstname", "given_name", "fname"]);
+    const lastNameKey = findKey(rows[0], ["last_name", "lastname", "surname", "lname"]);
+    const addrKey = findKey(rows[0], ["property_address", "address", "street", "street_address", "mailing_address"]);
     const cityKey = findKey(rows[0], ["city", "town"]);
     const zipKey = findKey(rows[0], ["zip", "zipcode", "postal", "postal_code"]);
+    const emailKey = findKey(rows[0], ["email", "email_address", "e_mail", "owner_email", "contact_email"]);
 
     if (!phoneKey) {
       return new Response(JSON.stringify({ error: "No phone_number column found" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const cleanStr = (v: unknown) => {
+      if (v == null) return null;
+      const s = String(v).trim();
+      return s.length ? s : null;
+    };
+    const cleanEmail = (v: unknown) => {
+      const s = cleanStr(v);
+      if (!s) return null;
+      const lower = s.toLowerCase();
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lower) ? lower : null;
+    };
+    const deriveFirstName = (full: string | null, first: string | null) => {
+      if (first) return first.split(/\s+/)[0];
+      if (full) return full.split(/\s+/)[0];
+      return null;
+    };
 
     // Build candidate records, dedupe within file
     const seen = new Set<string>();
@@ -81,14 +101,26 @@ Deno.serve(async (req) => {
       const e164 = toE164(r[phoneKey]);
       if (!e164 || seen.has(e164)) continue;
       seen.add(e164);
+
+      const fullName = nameKey ? cleanStr(r[nameKey]) : null;
+      const firstRaw = firstNameKey ? cleanStr(r[firstNameKey]) : null;
+      const lastRaw = lastNameKey ? cleanStr(r[lastNameKey]) : null;
+      const composedFull = fullName || [firstRaw, lastRaw].filter(Boolean).join(" ") || null;
+      const firstName = deriveFirstName(composedFull, firstRaw);
+      const address = addrKey ? cleanStr(r[addrKey]) : null;
+      const email = emailKey ? cleanEmail(r[emailKey]) : null;
+
       candidates.push({
         phone_number: String(r[phoneKey]).trim(),
         phone_e164: e164,
         state: selectedState,
-        name: nameKey ? String(r[nameKey] || "").trim() || null : null,
-        address: addrKey ? String(r[addrKey] || "").trim() || null : null,
-        city: cityKey ? String(r[cityKey] || "").trim() || null : null,
-        zip: zipKey ? String(r[zipKey] || "").trim() || null : null,
+        name: composedFull,
+        first_name: firstName,
+        address,
+        property_address: address,
+        city: cityKey ? cleanStr(r[cityKey]) : null,
+        zip: zipKey ? cleanStr(r[zipKey]) : null,
+        email,
         source: "batch_upload",
         uploaded_file_name: file.name,
       });
