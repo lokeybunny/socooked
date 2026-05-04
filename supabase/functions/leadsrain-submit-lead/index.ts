@@ -115,7 +115,7 @@ async function checkLeadVisibleInList(listId: string, tenDigitPhone: string) {
 }
 
 // Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
-// HTTP 200 + no explicit failure markers = accepted.
+// HTTP 200 + empty body is rejected unless the follow-up list check sees the lead.
 function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   const text = String(rawText || "").trim();
   const lower = text.toLowerCase();
@@ -345,7 +345,6 @@ Deno.serve(async (req) => {
             final_post_body: sanitizedBodyStr,
           });
           if (httpOk) break outer;
-          if (/invalid username|api key|invalid api/i.test(errMsg || "")) break outer;
           }
         }
       }
