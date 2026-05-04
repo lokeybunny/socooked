@@ -127,16 +127,25 @@ Deno.serve(async (req) => {
     const ph = normPhone(phone_number);
     if (!ph.ok) return json({ ok: false, error: ph.error }, 400);
 
-    // Resolve defaults from settings (list_id is REQUIRED for LeadsRain to actually drop voicemail)
-    const { data: settings } = await svc.from("leadsrain_settings").select("default_list_id, default_caller_id").limit(1).maybeSingle();
+    // Resolve defaults from settings (list_id + caller_id REQUIRED; integration must be active)
+    const { data: settings } = await svc
+      .from("leadsrain_settings")
+      .select("default_list_id, default_caller_id, is_active")
+      .limit(1)
+      .maybeSingle();
+
+    if (settings && (settings as any).is_active === false) {
+      return json({ ok: false, error: "LeadsRain integration is disabled. Toggle it on in Settings before submitting." }, 400);
+    }
+
     const finalListId = list_id || settings?.default_list_id || null;
     const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
 
     if (!finalListId) {
-      return json({
-        ok: false,
-        error: "Missing LeadsRain List ID. Open Settings on the LeadsRain page and paste your List ID (from LeadsRain dashboard → RVM → Lead Lists). Without it, no voicemail is dropped — Postlead just returns HTTP 200.",
-      }, 400);
+      return json({ ok: false, error: "Missing LeadsRain List ID. Open Settings → paste your List ID (LeadsRain dashboard → RVM → Lead Lists)." }, 400);
+    }
+    if (!finalCallerId) {
+      return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain." }, 400);
     }
 
     const reqPayload: Record<string, any> = {
