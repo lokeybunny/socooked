@@ -834,45 +834,6 @@ export type Database = {
           },
         ]
       }
-      batchleads_phone_pulls: {
-        Row: {
-          id: string
-          location: string | null
-          phone_e164: string | null
-          phone_number: string | null
-          phone_type: string | null
-          pulled_at: string | null
-          radius_miles: number | null
-          raw_response: Json | null
-          source: string | null
-          status: string | null
-        }
-        Insert: {
-          id?: string
-          location?: string | null
-          phone_e164?: string | null
-          phone_number?: string | null
-          phone_type?: string | null
-          pulled_at?: string | null
-          radius_miles?: number | null
-          raw_response?: Json | null
-          source?: string | null
-          status?: string | null
-        }
-        Update: {
-          id?: string
-          location?: string | null
-          phone_e164?: string | null
-          phone_number?: string | null
-          phone_type?: string | null
-          pulled_at?: string | null
-          radius_miles?: number | null
-          raw_response?: Json | null
-          source?: string | null
-          status?: string | null
-        }
-        Relationships: []
-      }
       boards: {
         Row: {
           category: string | null
@@ -7286,6 +7247,69 @@ export type Database = {
         }
         Relationships: []
       }
+      state_leads: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          id: string
+          name: string | null
+          phone_e164: string
+          phone_number: string
+          source: string
+          state: string
+          uploaded_file_name: string | null
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          phone_e164: string
+          phone_number: string
+          source?: string
+          state: string
+          uploaded_file_name?: string | null
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          phone_e164?: string
+          phone_number?: string
+          source?: string
+          state?: string
+          uploaded_file_name?: string | null
+          zip?: string | null
+        }
+        Relationships: []
+      }
+      state_summary: {
+        Row: {
+          last_upload_at: string | null
+          state: string
+          total_leads: number
+          total_unique_numbers: number
+        }
+        Insert: {
+          last_upload_at?: string | null
+          state: string
+          total_leads?: number
+          total_unique_numbers?: number
+        }
+        Update: {
+          last_upload_at?: string | null
+          state?: string
+          total_leads?: number
+          total_unique_numbers?: number
+        }
+        Relationships: []
+      }
       studio_settings: {
         Row: {
           backend_config_json: Json
@@ -7548,6 +7572,36 @@ export type Database = {
           message_sid?: string | null
           metadata?: Json | null
           to_number?: string | null
+        }
+        Relationships: []
+      }
+      upload_logs: {
+        Row: {
+          created_at: string
+          duplicate_count: number
+          file_name: string | null
+          id: string
+          inserted_count: number
+          state: string
+          total_rows: number
+        }
+        Insert: {
+          created_at?: string
+          duplicate_count?: number
+          file_name?: string | null
+          id?: string
+          inserted_count?: number
+          state: string
+          total_rows?: number
+        }
+        Update: {
+          created_at?: string
+          duplicate_count?: number
+          file_name?: string | null
+          id?: string
+          inserted_count?: number
+          state?: string
+          total_rows?: number
         }
         Relationships: []
       }

@@ -27,7 +27,7 @@ const AgreementSign = lazyWithRetry(() => import("./pages/portal/AgreementSign")
 const Notifications = lazyWithRetry(() => import("./pages/Notifications"), "page-notifications");
 const Meetings = lazyWithRetry(() => import("./pages/Meetings"), "page-meetings");
 const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"), "page-meeting-room");
-const AIStaff = lazyWithRetry(() => import("./pages/AIStaff"), "page-ai-staff");
+
 const CustomU = lazyWithRetry(() => import("./pages/CustomU"), "page-custom-u");
 const SMM = lazyWithRetry(() => import("./pages/SMM"), "page-smm");
 const ClientUpload = lazyWithRetry(() => import("./pages/portal/ClientUpload"), "page-client-upload");
@@ -55,8 +55,7 @@ const XShill = lazyWithRetry(() => import("./pages/XShill"), "page-x-shill");
 const Wholesale = lazyWithRetry(() => import("./pages/Wholesale"), "page-wholesale");
 const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arbitrage");
 const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
-const BatchLeadsPuller = lazyWithRetry(() => import("./pages/BatchLeadsPuller"), "page-batchleads-puller");
-const Ads = lazyWithRetry(() => import("./pages/Ads"), "page-ads");
+const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
 const SellerLanding = lazyWithRetry(() => import("./pages/SellerLanding"), "page-seller-landing");
 const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "page-videography-hub");
@@ -151,7 +150,7 @@ const App = () => (
                 <Route path="/meetings" element={<RestrictedGate><Meetings /></RestrictedGate>} />
                 <Route path="/meet/:roomCode" element={<MeetingRoom />} />
                 <Route path="/calendar" element={<RestrictedGate><CalendarPage /></RestrictedGate>} />
-                <Route path="/ai-staff" element={<RestrictedGate><AIStaff /></RestrictedGate>} />
+                
                 <Route path="/custom-u" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/landing" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
@@ -182,8 +181,7 @@ const App = () => (
                 <Route path="/wholesale" element={<WarrenOnlyGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/arbitrage" element={<WarrenOnlyGate><AuthLayoutGate><ArbitragePage /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/sell/:slug" element={<SellerLanding />} />
-                <Route path="/batchleads" element={<WarrenOnlyGate><AuthLayoutGate><BatchLeadsPuller /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/usa-map" element={<WarrenOnlyGate><AuthLayoutGate><UsaMap /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/video" element={<VideographyLanding />} />
                 <Route path="/videography" element={<Navigate to="/video" replace />} />

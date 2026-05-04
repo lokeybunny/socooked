@@ -21,7 +21,7 @@ import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
 import BuyerGeoMap from '@/components/wholesale/BuyerGeoMap';
 import TwilioSpendDashboard from '@/components/wholesale/TwilioSpendDashboard';
 import SubscriberAI from '@/components/wholesale/SubscriberAI';
-import MetaAdsDashboard from '@/components/meta-ads/MetaAdsDashboard';
+
 
 import { toast } from 'sonner';
 
@@ -186,10 +186,6 @@ export default function Wholesale() {
             <Phone className="h-3.5 w-3.5" />
             Twilio Spend
           </TabsTrigger>
-          <TabsTrigger value="ads" className="gap-1.5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-600 data-[state=active]:from-blue-500/20 data-[state=active]:to-purple-500/20 data-[state=active]:text-blue-500">
-            <Megaphone className="h-3.5 w-3.5" />
-            ADS
-          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -243,10 +239,6 @@ export default function Wholesale() {
         {/* Twilio Spend */}
         <TabsContent value="twilio-spend" className="mt-4">
           <TwilioSpendDashboard />
-        </TabsContent>
-        {/* Ads */}
-        <TabsContent value="ads" className="mt-4">
-          <MetaAdsDashboard />
         </TabsContent>
         {/* Settings */}
         <TabsContent value="settings" className="mt-4">

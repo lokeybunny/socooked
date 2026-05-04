@@ -48,8 +48,6 @@ const navEntries: NavEntry[] = [
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/content', icon: FileText, label: 'Content', botIcon: true },
-  { to: '/ai-staff', icon: Bot, label: 'AI Staff', botIcon: true },
-  { to: '/research', icon: Target, label: 'Finder', botIcon: true },
   {
     icon: Phone, label: 'Phone',
     children: [
@@ -59,8 +57,7 @@ const navEntries: NavEntry[] = [
       { to: '/leadsrain-analytics', icon: Activity, label: 'LeadsRain', green: true },
     ],
   },
-  { to: '/ads', icon: Megaphone, label: 'ADS', botIcon: true },
-  { to: '/batchleads', icon: PhoneCall, label: 'BatchLeads', green: true },
+  { to: '/usa-map', icon: Crosshair, label: 'USA Map', green: true },
   { to: '/zillow', icon: Building2, label: 'Zillow', green: true },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
