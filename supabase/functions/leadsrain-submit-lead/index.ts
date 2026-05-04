@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
       raw_text: string;
       mode: string;
       submitted_payload: Record<string, any>;
+      final_post_body: string;
       lead_visible_in_list: boolean;
       leadsrain_list_check?: { ok: boolean; status: number; error?: string; matched_lead?: any };
     };
@@ -338,6 +339,7 @@ Deno.serve(async (req) => {
             raw_text: trimmed.slice(0, 500),
             mode: parsed.mode,
             submitted_payload: maskPayload(payload),
+            final_post_body: buildBody(maskPayload(payload), usedContentType),
             lead_visible_in_list: visible,
             leadsrain_list_check: listVisibilityCheck,
           });
