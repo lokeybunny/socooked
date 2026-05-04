@@ -183,6 +183,7 @@ const App = () => (
                 <Route path="/arbitrage" element={<WarrenOnlyGate><AuthLayoutGate><ArbitragePage /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/sell/:slug" element={<SellerLanding />} />
                 <Route path="/usa-map" element={<WarrenOnlyGate><AuthLayoutGate><UsaMap /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/campaign-leader" element={<WarrenOnlyGate><AuthLayoutGate><CampaignLeader /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/video" element={<VideographyLanding />} />
                 <Route path="/videography" element={<Navigate to="/video" replace />} />
