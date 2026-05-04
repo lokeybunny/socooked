@@ -63,6 +63,11 @@ export default function AgentFlowApifyPanel() {
         body: { location: location.trim(), max_items: 250 },
       });
       if (error) throw error;
+      if (data?.code === "APIFY_MONTHLY_LIMIT") {
+        toast.error(data.error || "Apify monthly usage hard limit exceeded. Raise the limit in Apify, then retry.");
+        await loadStats();
+        return;
+      }
       if (data?.ok === false) throw new Error(data.error || "scrape failed");
       toast.success(`Scrape done: ${data?.itemsReturned || 0} items, ${data?.newAgents || 0} new agents`);
       await loadStats();
