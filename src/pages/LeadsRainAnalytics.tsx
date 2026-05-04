@@ -38,6 +38,10 @@ export default function LeadsRainAnalytics() {
   const [defaultAudioUrl, setDefaultAudioUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [diagReport, setDiagReport] = useState<DiagnosticReport | null>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+  const diagHealth: DiagnosticHealth = reportToHealth(diagReport);
+  void diagHealth; void diagBusy;
 
   const normalizeDigits = (raw: string) => {
     const digits = raw.replace(/\D/g, "");
