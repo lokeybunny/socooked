@@ -118,6 +118,44 @@ export default function CampaignLeader() {
     };
   }, []);
 
+  // Re-render every second so countdown timers tick smoothly
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Currently in-flight contact (the one the server is actively sending)
+  const inFlight = useMemo(
+    () => contacts.find(c => c.status === "emailing" || c.status === "texting") || null,
+    [contacts],
+  );
+
+  // Most recently completed send (used to estimate the next one)
+  const lastSent = useMemo(() => {
+    const times = contacts
+      .map(c => {
+        const t = c.sms_sent_at || c.email_sent_at;
+        return t ? new Date(t).getTime() : 0;
+      })
+      .filter(Boolean);
+    return times.length ? Math.max(...times) : 0;
+  }, [contacts]);
+
+  // Average inter-send delay from settings (server picks a random value in this range)
+  const avgDelaySec = settings
+    ? Math.round((settings.min_delay_seconds + settings.max_delay_seconds) / 2)
+    : 0;
+
+  // Estimated seconds until next contact starts processing
+  const nextSendInSec = (() => {
+    if (!settings || !settings.is_production || settings.is_paused) return null;
+    if (inFlight) return 0; // sending right now
+    if (!lastSent) return null;
+    const elapsed = Math.floor((now - lastSent) / 1000);
+    return Math.max(0, avgDelaySec - elapsed);
+  })();
+
   async function updateSettings(patch: Partial<Settings>) {
     if (!settings) return;
     const { error } = await supabase.from("campaign_settings").update(patch).eq("id", 1);
