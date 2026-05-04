@@ -84,6 +84,12 @@ function encodeMultipartPayload(payload: Record<string, any>, boundary: string) 
   )).join("") + `--${boundary}--\r\n`;
 }
 
+function buildBody(payload: Record<string, any>, contentType: string, boundary?: string) {
+  if (contentType === "application/x-www-form-urlencoded") return encodeUrlPayload(payload);
+  if (contentType === "multipart/form-data") return encodeMultipartPayload(payload, boundary || "----LeadsRainBoundary");
+  return JSON.stringify(payload);
+}
+
 // Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
 // HTTP 200 + no explicit failure markers = accepted.
 function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
