@@ -278,14 +278,10 @@ Deno.serve(async (req) => {
       final_post_body: string;
       leadsrain_list_check?: { ok: boolean; status: number; error?: string; matched_lead?: any };
     };
-    const contentTypeVariants = requestedContentType === "json" || requestedContentType === "application/json"
-      ? ["application/json"]
-      : requestedContentType === "multipart" || requestedContentType === "multipart/form-data"
-      ? ["multipart/form-data"]
-      : requestedContentType === "form" || requestedContentType === "application/x-www-form-urlencoded"
-      ? ["application/x-www-form-urlencoded"]
-      : ["application/x-www-form-urlencoded", "multipart/form-data", "application/json"];
-    const activePhoneFields = requestedPhoneField ? [requestedPhoneField] : phoneFieldVariants;
+    // LeadsRain PostLead REQUIRES application/x-www-form-urlencoded with field name `phone_number`.
+    // JSON and multipart return empty HTTP 200 (silent drop). Lock to form-urlencoded only.
+    const contentTypeVariants = ["application/x-www-form-urlencoded"];
+    const activePhoneFields = ["phone_number"];
     const attempts: AttemptDebug[] = [];
     let lrJson: any = null;
     let lrRawText = "";
