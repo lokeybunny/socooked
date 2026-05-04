@@ -360,11 +360,11 @@ export default function LeadsRainAnalytics() {
               <div className="text-xs text-muted-foreground">{lastTestResult.user_message}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Final POST body sent to LeadsRain</div>
-                  <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{JSON.stringify(lastTestResult.submitted_payload, null, 2)}</pre>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Exact sanitized POST body sent to LeadsRain</div>
+                  <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{lastTestResult.attempts?.[lastTestResult.attempts.length - 1]?.final_post_body || JSON.stringify(lastTestResult.submitted_payload, null, 2)}</pre>
                 </div>
                 <div>
-                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Raw LeadsRain Response</div>
+                  <div className="text-[11px] uppercase text-muted-foreground mb-1">Raw LeadsRain Response / List Visibility</div>
                   <pre className="text-[11px] bg-background/60 border border-border/40 rounded p-2 overflow-x-auto max-h-56">{JSON.stringify(lastTestResult.raw_response, null, 2)}</pre>
                 </div>
               </div>
