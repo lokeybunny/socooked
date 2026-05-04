@@ -715,18 +715,23 @@ Deno.serve(async (req) => {
     const runMode = (payload.runMode === "single" || payload.runMode === "drain")
       ? payload.runMode : "batch";
 
+    // Manual triggers (single / drain) bypass the 9-5 PT window unless explicitly disabled.
+    // The autonomous cron (batch) still respects business hours.
+    const force = payload.force === true
+      || (runMode !== "batch" && payload.force !== false);
+
     // For long-running drain, fire and forget so the HTTP request returns immediately
     if (runMode === "drain") {
       // @ts-ignore — Deno EdgeRuntime
       if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
-        (EdgeRuntime as any).waitUntil(runTick("drain"));
+        (EdgeRuntime as any).waitUntil(runTick("drain", force));
       } else {
-        runTick("drain");
+        runTick("drain", force);
       }
-      return new Response(JSON.stringify({ ok: true, mode: "drain", started: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, mode: "drain", started: true, force }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const result = await runTick(runMode as any);
+    const result = await runTick(runMode as any, force);
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
