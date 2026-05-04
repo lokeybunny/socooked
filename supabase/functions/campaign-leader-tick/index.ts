@@ -766,7 +766,7 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
       if (stopCheck?.stop_requested || stopCheck?.is_paused) {
         return { done: true, reason: "stop_requested_mid_batch", processed: successCount, success: successCount };
       }
-      const r = await processContact(contact);
+      const r = await processContact(contact, channelMode);
       if (r.ok) successCount++;
       const delay = (live.min_delay_seconds + Math.floor(Math.random() * Math.max(1, live.max_delay_seconds - live.min_delay_seconds))) * 1000;
       await new Promise(res => setTimeout(res, delay));
