@@ -89,7 +89,7 @@ function buildEmail(firstName: string, addr: string) {
     `<p style="margin:0 0 14px 0;">${cta}</p>`,
     `<p style="margin:0 0 4px 0;">Best regards,</p>`,
     `<p style="margin:0 0 2px 0;">Warren Guru</p>`,
-    `<p style="margin:0;"><a href="tel:+14802200404" style="color:#555;text-decoration:none;">(480) 220-0404</a></p>`,
+    `<p style="margin:0;"><a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a></p>`,
   ].join("\n");
 
   const variant = sIdx * 1000 + iIdx * 100 + pIdx * 10 + cIdx;
