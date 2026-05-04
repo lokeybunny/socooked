@@ -282,7 +282,7 @@ async function runTest(payload: any) {
 
   if (channel === "sms" || channel === "both") {
     if (!phone) return { ok: false, error: "missing_test_phone" };
-    const { text } = buildSms(firstName);
+    const { text } = buildSms(firstName, addr);
     result.steps.push({ step: "sms_preview", text });
     const sr = await sendSms(phone, text);
     result.steps.push({ step: "sms_send", ok: sr.ok, error: sr.error });
