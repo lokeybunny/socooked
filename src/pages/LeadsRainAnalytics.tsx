@@ -271,6 +271,9 @@ export default function LeadsRainAnalytics() {
           </CardContent>
         </Card>
 
+        {/* Definitive Diagnostic */}
+        <LeadsRainDiagnostic onReport={(r) => { setDiagReport(r); setDiagBusy(false); }} />
+
         {/* Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Metric label="Total Submitted" value={metrics.total} />
@@ -279,16 +282,23 @@ export default function LeadsRainAnalytics() {
           <Metric label="VoidFix SMS Sent" value={metrics.sms} accent="lime" />
           <Metric label="Last Submission" value={timeAgo(metrics.last)} />
           <Metric
-            label="Submit API Health"
-            value={apiHealth}
-            accent={healthColor as any}
-            sub={apiHealth === "Healthy"
+            label="API Health"
+            value={diagHealth.state === "Unknown" ? apiHealth : diagHealth.state}
+            accent={
+              diagHealth.state === "Healthy" ? "green"
+                : diagHealth.state === "Down" || diagHealth.state === "Network Blocked" ? "red"
+                : diagHealth.state === "Auth Error" ? "yellow"
+                : diagHealth.state === "No Campaigns" ? "blue"
+                : (apiHealth === "Healthy" ? "green" : apiHealth === "Down" ? "red" : undefined) as any
+            }
+            sub={diagHealth.message || (apiHealth === "Healthy"
               ? "HTTPS Postlead endpoint working"
               : apiHealth === "Down"
                 ? "HTTPS Postlead endpoint failing"
-                : "Limited Mode — campaign analytics unavailable"}
+                : "Run the diagnostic for a definitive answer")}
           />
         </div>
+
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
