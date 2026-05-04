@@ -473,6 +473,66 @@ export default function CampaignLeader() {
         </CardContent>
       </Card>
 
+      {/* Send & Delivery Log */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5" /> Send & Delivery Log
+            </CardTitle>
+            <div className="flex gap-1">
+              {(["all", "email", "sms"] as const).map(ch => (
+                <Button
+                  key={ch}
+                  size="sm"
+                  variant={sentLogChannel === ch ? "default" : "outline"}
+                  onClick={() => { setSentLogChannel(ch); setSentLogPage(0); }}
+                >
+                  {ch === "all" ? "All" : ch.toUpperCase()}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Confirmed-delivered sends only. Each row was successfully accepted by the email/SMS provider.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {sentLog.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No sends recorded yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {sentLog.map(row => (
+                <div key={row.id} className="flex items-center justify-between gap-2 border rounded-md px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {row.channel === "email"
+                      ? <Mail className="w-4 h-4 text-blue-500 shrink-0" />
+                      : <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0" />}
+                    <Badge variant="outline" className="uppercase text-[10px]">{row.channel}</Badge>
+                    <span className="truncate">{row.channel === "email" ? row.email : row.phone_e164}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600">Delivered</Badge>
+                    <span className="text-xs text-muted-foreground">{new Date(row.sent_at).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {sentLogTotal > PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-3 text-xs">
+              <span className="text-muted-foreground">
+                Showing {sentLogPage * PAGE_SIZE + 1}–{Math.min((sentLogPage + 1) * PAGE_SIZE, sentLogTotal)} of {sentLogTotal.toLocaleString()}
+              </span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={sentLogPage === 0} onClick={() => setSentLogPage(p => Math.max(0, p - 1))}>Prev</Button>
+                <Button size="sm" variant="outline" disabled={(sentLogPage + 1) * PAGE_SIZE >= sentLogTotal} onClick={() => setSentLogPage(p => p + 1)}>Next</Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Live pipeline */}
       <Card>
         <CardHeader><CardTitle>Today's Pipeline ({contacts.length})</CardTitle></CardHeader>
