@@ -170,15 +170,29 @@ Deno.serve(async (req) => {
       const firstRaw = firstNameKey ? cleanStr(r[firstNameKey]) : null;
       const lastRaw = lastNameKey ? cleanStr(r[lastNameKey]) : null;
       const composedFull = fullName || [firstRaw, lastRaw].filter(Boolean).join(" ") || null;
-      const firstName = deriveFirstName(composedFull, firstRaw);
+      let firstName = deriveFirstName(composedFull, firstRaw);
+      let lastName = lastRaw;
       const address = addrKey ? cleanStr(r[addrKey]) : null;
       const email = emailKey ? cleanEmail(r[emailKey]) : null;
+
+      // LGM verify (fail-open). Drops row on explicit invalid signal.
+      lgmChecked += 1;
+      const verdict = await lgmVerify({ email, phone: e164, firstName, lastName });
+      if (!verdict.ok) {
+        lgmRejected += 1;
+        continue;
+      }
+      if (verdict.enrich) {
+        if (verdict.enrich.first_name && !firstName) firstName = verdict.enrich.first_name;
+        if (verdict.enrich.last_name && !lastName) lastName = verdict.enrich.last_name;
+        lgmEnriched += 1;
+      }
 
       candidates.push({
         phone_number: String(r[phoneKey]).trim(),
         phone_e164: e164,
         state: selectedState,
-        name: composedFull,
+        name: composedFull || [firstName, lastName].filter(Boolean).join(" ") || null,
         first_name: firstName,
         address,
         property_address: address,
@@ -189,6 +203,7 @@ Deno.serve(async (req) => {
         uploaded_file_name: file.name,
       });
     }
+
 
     const totalRows = rows.length;
     let inserted = 0;
