@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Loader2, RefreshCw, Search, AlertTriangle, RadioTower, Send,
-  RotateCw, MessageSquare, Download, Info,
+  RotateCw, MessageSquare, Download, Info, Settings as SettingsIcon,
 } from "lucide-react";
 import {
   type LRSubmissionRow, submissionStatusStyle, timeAgo, exportSubmissionsCsv,
