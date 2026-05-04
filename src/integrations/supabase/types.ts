@@ -2491,6 +2491,72 @@ export type Database = {
           },
         ]
       }
+      leadsrain_submissions: {
+        Row: {
+          audio_url: string | null
+          caller_id: string | null
+          campaign_name: string | null
+          contact_id: string | null
+          created_at: string
+          customer_id: string | null
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          leadsrain_lead_id: string | null
+          leadsrain_message: string | null
+          phone_number: string
+          raw_request: Json | null
+          raw_response: Json | null
+          status: string
+          submitted_by: string | null
+          updated_at: string
+          voidfix_sms_at: string | null
+          voidfix_sms_sent: boolean
+        }
+        Insert: {
+          audio_url?: string | null
+          caller_id?: string | null
+          campaign_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          leadsrain_lead_id?: string | null
+          leadsrain_message?: string | null
+          phone_number: string
+          raw_request?: Json | null
+          raw_response?: Json | null
+          status?: string
+          submitted_by?: string | null
+          updated_at?: string
+          voidfix_sms_at?: string | null
+          voidfix_sms_sent?: boolean
+        }
+        Update: {
+          audio_url?: string | null
+          caller_id?: string | null
+          campaign_name?: string | null
+          contact_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          leadsrain_lead_id?: string | null
+          leadsrain_message?: string | null
+          phone_number?: string
+          raw_request?: Json | null
+          raw_response?: Json | null
+          status?: string
+          submitted_by?: string | null
+          updated_at?: string
+          voidfix_sms_at?: string | null
+          voidfix_sms_sent?: boolean
+        }
+        Relationships: []
+      }
       lh_dnc_registry: {
         Row: {
           call_count: number

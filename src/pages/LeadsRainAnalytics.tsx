@@ -5,321 +5,305 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Search, Activity, AlertTriangle, CheckCircle2, RadioTower } from "lucide-react";
-import { type LRCampaignRow, type LRSnapshot, type LRSyncLog, statusStyle, timeAgo, formatPct } from "@/lib/leadsrainAnalytics";
+import {
+  Loader2, RefreshCw, Search, AlertTriangle, RadioTower, Send,
+  RotateCw, MessageSquare, Download, Info,
+} from "lucide-react";
+import {
+  type LRSubmissionRow, submissionStatusStyle, timeAgo, exportSubmissionsCsv,
+} from "@/lib/leadsrainAnalytics";
 
-const REFRESH_FALLBACK_MS = 45_000;
+const REFRESH_MS = 20_000;
 
 export default function LeadsRainAnalytics() {
-  const [campaigns, setCampaigns] = useState<LRCampaignRow[]>([]);
-  const [logs, setLogs] = useState<LRSyncLog[]>([]);
-  const [config, setConfig] = useState<{ enabled: boolean; interval_minutes: number; last_run_at: string | null; next_run_at: string | null } | null>(null);
+  const [rows, setRows] = useState<LRSubmissionRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selected, setSelected] = useState<LRCampaignRow | null>(null);
-  const [snapshots, setSnapshots] = useState<LRSnapshot[]>([]);
-  const [, setTick] = useState(0);
+  const [selected, setSelected] = useState<LRSubmissionRow | null>(null);
+  const [apiHealth, setApiHealth] = useState<"Healthy" | "Down" | "Checking">("Checking");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [testPhone, setTestPhone] = useState("");
 
   const loadAll = async () => {
-    const [c, l, cfg] = await Promise.all([
-      supabase.from("lr_campaigns" as any).select("*").order("last_synced_at", { ascending: false }),
-      supabase.from("lr_sync_logs" as any).select("*").order("started_at", { ascending: false }).limit(50),
-      supabase.from("lr_sync_config" as any).select("*").eq("id", 1).maybeSingle(),
-    ]);
-    setCampaigns((c.data as any) || []);
-    setLogs((l.data as any) || []);
-    setConfig((cfg.data as any) || { enabled: true, interval_minutes: 5, last_run_at: null, next_run_at: null });
+    const { data } = await supabase
+      .from("leadsrain_submissions" as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    setRows(((data as any) || []) as LRSubmissionRow[]);
     setLoading(false);
   };
 
-  useEffect(() => { loadAll(); }, []);
+  const checkHealth = async () => {
+    // Health = success rate of recent submissions in last hour
+    const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from("leadsrain_submissions" as any)
+      .select("status, created_at")
+      .gte("created_at", cutoff);
+    const recent = (data as any[]) || [];
+    if (recent.length === 0) { setApiHealth("Checking"); return; }
+    const failed = recent.filter((r) => r.status === "failed_to_submit").length;
+    setApiHealth(failed / recent.length > 0.5 ? "Down" : "Healthy");
+  };
 
-  // Realtime + fallback poll + 1s tick for "Xs ago" labels
+  useEffect(() => { loadAll(); checkHealth(); }, []);
+
   useEffect(() => {
     const ch = supabase
-      .channel("lr-analytics")
-      .on("postgres_changes", { event: "*", schema: "public", table: "lr_campaigns" }, loadAll)
-      .on("postgres_changes", { event: "*", schema: "public", table: "lr_sync_logs" }, loadAll)
+      .channel("lr-submissions")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leadsrain_submissions" }, () => {
+        loadAll(); checkHealth();
+      })
       .subscribe();
-    const i = setInterval(loadAll, REFRESH_FALLBACK_MS);
-    const t = setInterval(() => setTick((x) => x + 1), 1000);
-    return () => { supabase.removeChannel(ch); clearInterval(i); clearInterval(t); };
+    const i = setInterval(() => { loadAll(); checkHealth(); }, REFRESH_MS);
+    return () => { supabase.removeChannel(ch); clearInterval(i); };
   }, []);
 
-  // Load snapshots when a campaign is selected
-  useEffect(() => {
-    if (!selected) { setSnapshots([]); return; }
-    supabase
-      .from("lr_campaign_snapshots" as any)
-      .select("snapshot_at, processed_count, delivered_count, failed_count, remaining_count")
-      .eq("campaign_id", selected.campaign_id)
-      .order("snapshot_at", { ascending: true })
-      .limit(200)
-      .then(({ data }) => setSnapshots((data as any) || []));
-  }, [selected?.campaign_id]);
-
-  const syncNow = async () => {
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("leadsrain-poll-now", { body: {} });
-      if (error) throw error;
-      toast.success(`Sync complete — ${data?.seen ?? 0} campaigns seen, ${data?.changed ?? 0} updated`);
-      loadAll();
-    } catch (e: any) {
-      toast.error(e?.message || "Sync failed");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const updateConfig = async (patch: { enabled?: boolean; interval_minutes?: number }) => {
-    const { data, error } = await supabase.functions.invoke("leadsrain-sync-config", { body: patch });
-    if (error) { toast.error("Could not save settings"); return; }
-    setConfig(data as any);
-    toast.success("Settings saved");
-  };
-
-  const filtered = useMemo(() => {
-    return campaigns.filter((c) => {
-      if (statusFilter !== "all" && (c.status || "unknown") !== statusFilter) return false;
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return (c.campaign_name || "").toLowerCase().includes(q) || c.campaign_id.toLowerCase().includes(q);
-    });
-  }, [campaigns, search, statusFilter]);
+  const filtered = useMemo(() => rows.filter((r) => {
+    if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (r.campaign_name || "").toLowerCase().includes(q) ||
+      r.phone_number.toLowerCase().includes(q) ||
+      (r.caller_id || "").toLowerCase().includes(q)
+    );
+  }), [rows, search, statusFilter]);
 
   const metrics = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const sum = (k: keyof LRCampaignRow) => campaigns.reduce((a, c) => a + (Number(c[k] as any) || 0), 0);
-    const completedToday = campaigns.filter((c) => c.status === "completed" && c.last_synced_at && new Date(c.last_synced_at) >= today).length;
-    const lastSync = logs[0];
-    return {
-      total: campaigns.length,
-      active: campaigns.filter((c) => c.status === "active").length,
-      completedToday,
-      failed: campaigns.filter((c) => c.status === "failed" || c.status === "cancelled").length,
-      processed: sum("processed_leads"),
-      delivered: sum("delivered_leads"),
-      avgPct: campaigns.length ? campaigns.reduce((a, c) => a + (c.completion_percentage || 0), 0) / campaigns.length : 0,
-      apiHealth: lastSync?.status === "success" ? "Healthy" : lastSync?.status === "failed" ? "Down" : "Unknown",
-      lastSyncIso: lastSync?.started_at || config?.last_run_at || null,
-    };
-  }, [campaigns, logs, config]);
+    const total = rows.length;
+    const accepted = rows.filter((r) => r.status === "accepted_by_api" || r.status === "sms_followup_sent").length;
+    const failed = rows.filter((r) => r.status === "failed_to_submit").length;
+    const sms = rows.filter((r) => r.voidfix_sms_sent).length;
+    const last = rows[0]?.created_at || null;
+    return { total, accepted, failed, sms, last };
+  }, [rows]);
 
-  const alerts = useMemo(() => {
-    const out: { kind: "danger" | "warn"; msg: string }[] = [];
-    const failed = campaigns.filter((c) => c.status === "failed");
-    if (failed.length) out.push({ kind: "danger", msg: `${failed.length} failed campaign${failed.length === 1 ? "" : "s"}` });
-    const stuck = campaigns.filter((c) => c.status === "active" && c.last_synced_at && Date.now() - new Date(c.last_synced_at).getTime() > 30 * 60 * 1000 && c.completion_percentage < 100);
-    if (stuck.length) out.push({ kind: "warn", msg: `${stuck.length} stuck campaign${stuck.length === 1 ? "" : "s"} (no progress 30m+)` });
-    const recentFails = logs.filter((l) => l.status === "failed" && Date.now() - new Date(l.started_at).getTime() < 60 * 60 * 1000).length;
-    if (recentFails) out.push({ kind: "danger", msg: `${recentFails} sync failure${recentFails === 1 ? "" : "s"} in last hour` });
-    return out;
-  }, [campaigns, logs]);
+  const statusOptions = ["all", "submitted_to_leadsrain", "accepted_by_api", "sms_followup_sent", "failed_to_submit", "draft"];
 
-  const statusOptions = ["all", "active", "completed", "paused", "queued", "failed", "cancelled", "unknown"];
+  const sendTest = async () => {
+    const phone = testPhone.trim();
+    if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
+    setBusy("test");
+    try {
+      const { data, error } = await supabase.functions.invoke("leadsrain-submit-lead", {
+        body: { phone_number: phone, campaign_name: "Test Voice Drop", send_voidfix: true },
+      });
+      if (error) throw error;
+      const ok = (data as any)?.ok;
+      ok ? toast.success("Test submission sent") : toast.error((data as any)?.error || "Submission failed");
+      loadAll();
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+    finally { setBusy(null); }
+  };
+
+  const retryFailed = async () => {
+    const failed = rows.filter((r) => r.status === "failed_to_submit").slice(0, 25);
+    if (!failed.length) { toast.info("No failed submissions to retry"); return; }
+    setBusy("retry");
+    let okCount = 0;
+    for (const r of failed) {
+      try {
+        const { data } = await supabase.functions.invoke("leadsrain-submit-lead", {
+          body: {
+            phone_number: r.phone_number,
+            caller_id: r.caller_id,
+            campaign_name: r.campaign_name,
+            audio_url: r.audio_url,
+            lead_id: r.lead_id, contact_id: r.contact_id, customer_id: r.customer_id,
+            send_voidfix: true,
+          },
+        });
+        if ((data as any)?.ok) okCount++;
+      } catch {}
+    }
+    toast.success(`Retried ${failed.length} • ${okCount} accepted`);
+    setBusy(null);
+    loadAll();
+  };
+
+  const triggerVoidfix = async () => {
+    if (!selected) { toast.error("Open a submission first"); return; }
+    setBusy("vf");
+    try {
+      const { data, error } = await supabase.functions.invoke("powerdial-sms", {
+        body: {
+          action: "send",
+          to: selected.phone_number,
+          body: "Hey, this is Warren — just left you a quick voicemail.",
+          customer_id: selected.customer_id,
+        },
+      });
+      if (error) throw error;
+      await supabase.from("leadsrain_submissions" as any).update({
+        voidfix_sms_sent: true,
+        voidfix_sms_at: new Date().toISOString(),
+        status: "sms_followup_sent",
+      }).eq("id", selected.id);
+      toast.success("VoidFix SMS sent");
+      loadAll();
+    } catch (e: any) { toast.error(e?.message || "Failed"); }
+    finally { setBusy(null); }
+  };
+
+  const exportCsv = () => {
+    const csv = exportSubmissionsCsv(filtered);
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `leadsrain-submissions-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const healthColor = apiHealth === "Healthy" ? "green" : apiHealth === "Down" ? "red" : undefined;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container max-w-[1600px] mx-auto p-6 space-y-6">
-        {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <RadioTower className="w-7 h-7 text-lime-400" />
               LeadsRain Analytics
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">Live campaign operations monitor — polling every {config?.interval_minutes ?? 5} min.</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              CRM-only mode — tracks voice drops submitted via the HTTPS Postlead endpoint.
+            </p>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className={`inline-block w-2 h-2 rounded-full ${config?.enabled ? "bg-lime-400 animate-pulse" : "bg-slate-500"}`} />
-              Last sync: <span className="text-foreground font-medium">{timeAgo(metrics.lastSyncIso)}</span>
-            </div>
-            <Select value={String(config?.interval_minutes ?? 5)} onValueChange={(v) => updateConfig({ interval_minutes: Number(v) })}>
-              <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Every 1 min</SelectItem>
-                <SelectItem value="5">Every 5 min</SelectItem>
-                <SelectItem value="15">Every 15 min</SelectItem>
-                <SelectItem value="30">Every 30 min</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <Switch checked={config?.enabled ?? true} onCheckedChange={(v) => updateConfig({ enabled: v })} />
-              <span className="text-xs text-muted-foreground">Polling</span>
-            </div>
-            <Button onClick={syncNow} disabled={syncing} className="bg-lime-500 hover:bg-lime-400 text-black font-semibold">
-              {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              Sync Now
+          <div className="flex items-center gap-2 flex-wrap">
+            <Input
+              placeholder="10-digit phone"
+              value={testPhone}
+              onChange={(e) => setTestPhone(e.target.value)}
+              className="w-[160px]"
+            />
+            <Button onClick={sendTest} disabled={busy === "test"} className="bg-lime-500 hover:bg-lime-400 text-black font-semibold">
+              {busy === "test" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+              Send Test Voice Drop
+            </Button>
+            <Button variant="outline" onClick={retryFailed} disabled={busy === "retry"}>
+              {busy === "retry" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCw className="w-4 h-4 mr-2" />}
+              Retry Failed
+            </Button>
+            <Button variant="outline" onClick={exportCsv}>
+              <Download className="w-4 h-4 mr-2" /> Export CSV
+            </Button>
+            <Button variant="ghost" onClick={() => { loadAll(); checkHealth(); }}>
+              <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
-        {/* Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-          <Metric label="Total" value={metrics.total} />
-          <Metric label="Active" value={metrics.active} accent="lime" />
-          <Metric label="Completed Today" value={metrics.completedToday} accent="green" />
-          <Metric label="Failed" value={metrics.failed} accent="red" />
-          <Metric label="Leads Processed" value={metrics.processed.toLocaleString()} />
-          <Metric label="Voicemails Sent" value={metrics.delivered.toLocaleString()} />
-          <Metric label="Avg Completion" value={formatPct(metrics.avgPct)} />
-          <Metric label="API Health" value={metrics.apiHealth} accent={metrics.apiHealth === "Healthy" ? "green" : metrics.apiHealth === "Down" ? "red" : undefined} />
-        </div>
+        {/* CRM-only banner */}
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="p-3 flex items-start gap-2 text-sm">
+            <Info className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <strong>CRM-only mode is active.</strong> This dashboard tracks voice drops submitted by this CRM.
+              Live LeadsRain campaign delivery stats require an external proxy/VPS because LeadsRain's campaign
+              analytics API is served through HTTP-only s-shard endpoints unreachable from Supabase Edge Functions.
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Alerts */}
-        <AnimatePresence>
-          {alerts.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2">
-              {alerts.map((a, i) => (
-                <Card key={i} className={a.kind === "danger" ? "border-red-500/40 bg-red-500/5" : "border-amber-500/40 bg-amber-500/5"}>
-                  <CardContent className="p-3 flex items-center gap-2 text-sm">
-                    <AlertTriangle className={`w-4 h-4 ${a.kind === "danger" ? "text-red-400" : "text-amber-400"}`} />
-                    {a.msg}
-                  </CardContent>
-                </Card>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Metric label="Total Submitted" value={metrics.total} />
+          <Metric label="Accepted by API" value={metrics.accepted} accent="green" />
+          <Metric label="Failed" value={metrics.failed} accent="red" />
+          <Metric label="VoidFix SMS Sent" value={metrics.sms} accent="lime" />
+          <Metric label="Last Submission" value={timeAgo(metrics.last)} />
+          <Metric
+            label="Submit API Health"
+            value={apiHealth}
+            accent={healthColor as any}
+            sub={apiHealth === "Healthy"
+              ? "HTTPS Postlead endpoint working"
+              : apiHealth === "Down"
+                ? "HTTPS Postlead endpoint failing"
+                : "Limited Mode — campaign analytics unavailable"}
+          />
+        </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[240px] max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Search campaign name or ID…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-9" placeholder="Search phone, caller ID, campaign…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <div className="flex flex-wrap gap-1">
-            {statusOptions.map((s) => (
-              <Button key={s} size="sm" variant={statusFilter === s ? "default" : "outline"} onClick={() => setStatusFilter(s)} className="capitalize text-xs h-7">
-                {s} {s !== "all" && (
-                  <span className="ml-1 opacity-60">{campaigns.filter((c) => (c.status || "unknown") === s).length}</span>
-                )}
-              </Button>
-            ))}
-          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, " ")}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Campaigns table */}
+        {/* Submissions table */}
         <Card className="border-border/50 bg-card/60 backdrop-blur">
           <CardContent className="p-0 overflow-x-auto">
             {loading ? (
               <div className="p-12 text-center"><Loader2 className="w-6 h-6 animate-spin inline" /></div>
             ) : filtered.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground">
-                {campaigns.length === 0 ? "No campaigns synced yet — click Sync Now." : "No matches."}
+                {rows.length === 0 ? "No voice drops submitted yet — try Send Test Voice Drop." : "No matches."}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Caller ID</TableHead>
                     <TableHead>Campaign</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Leads</TableHead>
-                    <TableHead className="text-right">Processed</TableHead>
-                    <TableHead className="text-right">Success%</TableHead>
-                    <TableHead className="text-right">Failed%</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
-                    <TableHead>Started</TableHead>
-                    <TableHead>Last Update</TableHead>
-                    <TableHead>ETA</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((c) => {
-                    const st = statusStyle(c.status);
-                    const successPct = c.processed_leads > 0 ? (c.delivered_leads / c.processed_leads) * 100 : 0;
-                    const failPct = c.processed_leads > 0 ? (c.failed_leads / c.processed_leads) * 100 : 0;
-                    return (
-                      <motion.tr
-                        key={c.campaign_id}
-                        layout
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="cursor-pointer hover:bg-accent/40 border-b transition-colors"
-                        onClick={() => setSelected(c)}
-                      >
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <span className={`inline-block w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                            {c.campaign_name || "Untitled"}
-                          </div>
-                          <div className="mt-1 h-1 w-32 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full bg-lime-400" style={{ width: `${c.completion_percentage}%` }} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs font-mono opacity-70">#{c.campaign_id}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={st.cls}>{st.label}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{c.total_leads.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{c.processed_leads.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-green-400">{formatPct(successPct)}</TableCell>
-                        <TableCell className="text-right text-red-400">{formatPct(failPct)}</TableCell>
-                        <TableCell className="text-right">{c.remaining_leads.toLocaleString()}</TableCell>
-                        <TableCell className="text-xs">{c.started_at ? new Date(c.started_at).toLocaleDateString() : "—"}</TableCell>
-                        <TableCell className="text-xs">{timeAgo(c.last_synced_at)}</TableCell>
-                        <TableCell className="text-xs">
-                          {c.estimated_completion_at ? new Date(c.estimated_completion_at).toLocaleString() : "—"}
-                        </TableCell>
-                      </motion.tr>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Sync history */}
-        <Card>
-          <CardContent className="p-0">
-            <div className="p-4 border-b flex items-center gap-2">
-              <Activity className="w-4 h-4 text-lime-400" />
-              <h2 className="font-semibold">Polling Activity</h2>
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Started</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Duration</TableHead>
-                    <TableHead className="text-right">Seen</TableHead>
-                    <TableHead className="text-right">Changed</TableHead>
+                    <TableHead>LR Lead ID</TableHead>
+                    <TableHead>VoidFix SMS</TableHead>
                     <TableHead>Error</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.map((l) => (
-                    <TableRow key={l.id}>
-                      <TableCell className="text-xs">{new Date(l.started_at).toLocaleString()}</TableCell>
-                      <TableCell>
-                        {l.status === "success" ? (
-                          <span className="text-green-400 text-xs flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />success</span>
-                        ) : (
-                          <span className="text-red-400 text-xs">{l.status}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right text-xs">{l.duration_ms ? `${l.duration_ms}ms` : "—"}</TableCell>
-                      <TableCell className="text-right text-xs">{l.campaigns_seen}</TableCell>
-                      <TableCell className="text-right text-xs">{l.campaigns_changed}</TableCell>
-                      <TableCell className="text-xs text-red-400 max-w-[400px] truncate">{l.error || ""}</TableCell>
-                    </TableRow>
-                  ))}
+                  <AnimatePresence>
+                    {filtered.map((r) => {
+                      const st = submissionStatusStyle(r.status);
+                      return (
+                        <motion.tr
+                          key={r.id}
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="cursor-pointer hover:bg-accent/40 border-b transition-colors"
+                          onClick={() => setSelected(r)}
+                        >
+                          <TableCell className="text-xs">{timeAgo(r.created_at)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={st.cls}>
+                              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${st.dot}`} />
+                              {st.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{r.phone_number}</TableCell>
+                          <TableCell className="font-mono text-xs">{r.caller_id || "—"}</TableCell>
+                          <TableCell className="text-xs">{r.campaign_name || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs">{r.leadsrain_lead_id || "—"}</TableCell>
+                          <TableCell className="text-xs">{r.voidfix_sms_sent ? "✓" : "—"}</TableCell>
+                          <TableCell className="text-xs text-red-400 max-w-[300px] truncate">{r.error_message || ""}</TableCell>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
                 </TableBody>
               </Table>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -331,50 +315,28 @@ export default function LeadsRainAnalytics() {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <span className={`inline-block w-2 h-2 rounded-full ${statusStyle(selected.status).dot}`} />
-                  {selected.campaign_name}
+                  <span className={`inline-block w-2 h-2 rounded-full ${submissionStatusStyle(selected.status).dot}`} />
+                  {selected.phone_number}
                 </SheetTitle>
-                <p className="text-xs text-muted-foreground font-mono">#{selected.campaign_id}</p>
+                <p className="text-xs text-muted-foreground">{selected.campaign_name || "No campaign name"}</p>
               </SheetHeader>
-
-              <div className="mt-6 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <Metric label="Total" value={selected.total_leads.toLocaleString()} />
-                  <Metric label="Processed" value={selected.processed_leads.toLocaleString()} />
-                  <Metric label="Delivered" value={selected.delivered_leads.toLocaleString()} accent="green" />
-                  <Metric label="Failed" value={selected.failed_leads.toLocaleString()} accent="red" />
-                  <Metric label="Remaining" value={selected.remaining_leads.toLocaleString()} />
-                  <Metric label="Completion" value={formatPct(selected.completion_percentage)} accent="lime" />
-                </div>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-xs font-medium mb-3 text-muted-foreground">Processing Trend</div>
-                    <div className="h-48">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={snapshots.map((s) => ({ t: new Date(s.snapshot_at).toLocaleTimeString(), processed: s.processed_count, delivered: s.delivered_count, failed: s.failed_count }))}>
-                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis dataKey="t" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} />
-                          <Tooltip />
-                          <Line type="monotone" dataKey="processed" stroke="hsl(85 85% 50%)" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="delivered" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={false} />
-                          <Line type="monotone" dataKey="failed" stroke="hsl(0 80% 60%)" strokeWidth={2} dot={false} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4 text-xs space-y-1">
-                    <div><span className="text-muted-foreground">Caller ID:</span> {selected.caller_id || "—"}</div>
-                    <div><span className="text-muted-foreground">List ID:</span> {selected.list_id || "—"}</div>
-                    <div><span className="text-muted-foreground">Started:</span> {selected.started_at ? new Date(selected.started_at).toLocaleString() : "—"}</div>
-                    <div><span className="text-muted-foreground">Last Sync:</span> {timeAgo(selected.last_synced_at)}</div>
-                    <div><span className="text-muted-foreground">ETA:</span> {selected.estimated_completion_at ? new Date(selected.estimated_completion_at).toLocaleString() : "—"}</div>
-                  </CardContent>
-                </Card>
+              <div className="mt-4 space-y-3 text-sm">
+                <DetailRow label="Status" value={submissionStatusStyle(selected.status).label} />
+                <DetailRow label="Caller ID" value={selected.caller_id || "—"} />
+                <DetailRow label="Audio URL" value={selected.audio_url || "—"} />
+                <DetailRow label="LR Lead ID" value={selected.leadsrain_lead_id || "—"} />
+                <DetailRow label="LR Message" value={selected.leadsrain_message || "—"} />
+                <DetailRow label="VoidFix SMS" value={selected.voidfix_sms_sent ? `Sent ${timeAgo(selected.voidfix_sms_at)}` : "Not sent"} />
+                <DetailRow label="Error" value={selected.error_message || "—"} />
+                <DetailRow label="Created" value={new Date(selected.created_at).toLocaleString()} />
+                <Button onClick={triggerVoidfix} disabled={busy === "vf"} className="w-full">
+                  {busy === "vf" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MessageSquare className="w-4 h-4 mr-2" />}
+                  Trigger VoidFix SMS
+                </Button>
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground">Raw response</summary>
+                  <pre className="mt-2 p-2 bg-muted rounded overflow-x-auto">{JSON.stringify(selected.raw_response, null, 2)}</pre>
+                </details>
               </div>
             </>
           )}
@@ -384,17 +346,28 @@ export default function LeadsRainAnalytics() {
   );
 }
 
-function Metric({ label, value, accent }: { label: string; value: any; accent?: "lime" | "green" | "red" }) {
-  const accentCls =
-    accent === "lime" ? "text-lime-400" :
-    accent === "green" ? "text-green-400" :
-    accent === "red" ? "text-red-400" : "";
+function Metric({ label, value, accent, sub }: { label: string; value: any; accent?: "green" | "red" | "lime"; sub?: string }) {
+  const colorMap: Record<string, string> = {
+    green: "text-green-400",
+    red: "text-red-400",
+    lime: "text-lime-400",
+  };
   return (
-    <Card className="border-border/50 bg-card/60 backdrop-blur">
+    <Card className="border-border/50 bg-card/60">
       <CardContent className="p-4">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-        <div className={`text-2xl font-bold mt-1 ${accentCls}`}>{value}</div>
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className={`text-2xl font-bold mt-1 ${accent ? colorMap[accent] : ""}`}>{value}</div>
+        {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
       </CardContent>
     </Card>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-border/40">
+      <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-sm text-right break-all">{value}</span>
+    </div>
   );
 }
