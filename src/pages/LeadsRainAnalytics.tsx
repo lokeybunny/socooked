@@ -168,11 +168,19 @@ export default function LeadsRainAnalytics() {
   const sendTest = async () => {
     const phone = testPhone.trim();
     if (!phone) { toast.error("Enter a 10-digit US phone"); return; }
-    const lid = (defaultListId || "").trim();
-    if (!lid || /^(undefined|null)$/i.test(lid)) {
-      toast.error("Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.");
-      setSettingsOpen(true);
-      return;
+    if (zapierMode) {
+      if (!zapierWebhookUrl.trim()) {
+        toast.error("Zapier mode is on but no webhook URL is set.");
+        setSettingsOpen(true);
+        return;
+      }
+    } else {
+      const lid = (defaultListId || "").trim();
+      if (!lid || /^(undefined|null)$/i.test(lid)) {
+        toast.error("Missing LeadsRain list_id. Choose an active LeadsRain list connected to an RVM campaign.");
+        setSettingsOpen(true);
+        return;
+      }
     }
     setBusy("test");
     try {
