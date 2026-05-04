@@ -235,6 +235,69 @@ export default function CampaignLeader() {
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Success Rate</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{successRate}%</div></CardContent></Card>
       </div>
 
+      {/* Live send monitor */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="w-5 h-5 text-primary" /> Live Send Monitor
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Now sending */}
+          {inFlight ? (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-background border border-primary/40">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">
+                  Sending {inFlight.status === "emailing" ? "email" : "SMS"} to{" "}
+                  <span className="text-primary">{inFlight.first_name || inFlight.email}</span>
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {inFlight.email}
+                  {inFlight.phone_e164 && <> · {inFlight.phone_e164}</>}
+                  {inFlight.property_address && <> · {inFlight.property_address}</>}
+                </div>
+              </div>
+              <Badge>{STAGE_LABELS[inFlight.status]}</Badge>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-background border">
+              <Timer className="w-4 h-4 text-muted-foreground" />
+              <div className="flex-1 text-sm">
+                {!settings.is_production && <span className="text-muted-foreground">Production locked — no sends running.</span>}
+                {settings.is_production && settings.is_paused && <span className="text-muted-foreground">Campaign paused.</span>}
+                {settings.is_production && !settings.is_paused && nextSendInSec !== null && (
+                  <span>
+                    Next contact in{" "}
+                    <span className="font-mono text-base font-bold text-primary tabular-nums">
+                      {Math.floor(nextSendInSec / 60)}:{String(nextSendInSec % 60).padStart(2, "0")}
+                    </span>
+                  </span>
+                )}
+                {settings.is_production && !settings.is_paused && nextSendInSec === null && (
+                  <span className="text-muted-foreground">Waiting for next batch from scheduler…</span>
+                )}
+              </div>
+              {settings.is_production && !settings.is_paused && (
+                <Badge variant="outline" className="text-xs">avg delay {avgDelaySec}s</Badge>
+              )}
+            </div>
+          )}
+
+          {/* Reassurance: keeps running in background */}
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Cloud className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>
+              Sends run on the server — closing this tab won't stop the campaign. When you come back,
+              this page reconnects to the live feed automatically.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Controls */}
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> Campaign Controls</CardTitle></CardHeader>
