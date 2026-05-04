@@ -2,8 +2,8 @@
 // Auth: every call requires { username, api_key } in JSON body.
 // Docs: https://leadsrain.com/apidocs/
 
-const USERNAME = Deno.env.get("LEADSRAIN_USERNAME") || "";
-const API_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
+const USERNAME = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
+const API_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
 
 // LeadsRain serves the documented `s*.leadsrain.com` shards over HTTP only and
 // blocks most cloud egress ranges (including Supabase) at the network layer.
@@ -57,16 +57,20 @@ async function callOne(url: string, payload: Record<string, any>, timeoutMs: num
   try {
     const resp = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "Cache-Control": "no-cache" },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(timeoutMs),
     });
     const text = await resp.text();
     let json: any = null;
     try { json = JSON.parse(text); } catch { json = { raw_text: text }; }
+    const statusText = String(json?.status || json?.Status || "").toLowerCase();
+    const messageText = String(json?.msg || json?.message || json?.error || json?.raw_text || "").toLowerCase();
+    const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
     const success =
       resp.ok &&
-      (json?.status === "success" || typeof json?.lead_id !== "undefined" || typeof json?.campaign_id !== "undefined" || typeof json?.list_id !== "undefined" || Array.isArray(json) || Array.isArray(json?.data));
+      !explicitFailure &&
+      (!!json?.lead_id || statusText === "success" || typeof json?.campaign_id !== "undefined" || typeof json?.list_id !== "undefined" || Array.isArray(json) || Array.isArray(json?.data));
     return {
       ok: !!success,
       status: resp.status,
