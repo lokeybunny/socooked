@@ -64,9 +64,22 @@ Deno.serve(async (req) => {
     const ph = normPhone(phone_number);
     if (!ph.ok) return json({ ok: false, error: ph.error }, 400);
 
+    // Resolve defaults from settings (list_id is REQUIRED for LeadsRain to actually drop voicemail)
+    const { data: settings } = await svc.from("leadsrain_settings").select("default_list_id, default_caller_id").limit(1).maybeSingle();
+    const finalListId = list_id || settings?.default_list_id || null;
+    const finalCallerId = caller_id || settings?.default_caller_id || null;
+
+    if (!finalListId) {
+      return json({
+        ok: false,
+        error: "Missing LeadsRain List ID. Open Settings on the LeadsRain page and paste your List ID (from LeadsRain dashboard → RVM → Lead Lists). Without it, no voicemail is dropped — Postlead just returns HTTP 200.",
+      }, 400);
+    }
+
     const reqPayload: Record<string, any> = {
       username: LR_USER,
       api_key: LR_KEY,
+      list_id: finalListId,
       phone_number: ph.ten,
       first_name: first_name || "",
       last_name: last_name || "",
@@ -76,8 +89,7 @@ Deno.serve(async (req) => {
       scrub_lead: "tcpa_check",
       check_duplicate: "CHECK_DUPLICATE_IN_CAMPAIGN",
     };
-    if (list_id) reqPayload.list_id = list_id;
-    if (caller_id) reqPayload.caller_id = caller_id;
+    if (finalCallerId) reqPayload.caller_id = finalCallerId;
 
     // Insert pending row
     const { data: row, error: insErr } = await svc
