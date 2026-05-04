@@ -85,6 +85,11 @@ export default function CampaignLeader() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [lifetimeSent, setLifetimeSent] = useState<{ emails: number; sms: number }>({ emails: 0, sms: 0 });
+  const [sentLog, setSentLog] = useState<Array<{ id: string; channel: string; email: string | null; phone_e164: string | null; sent_at: string }>>([]);
+  const [sentLogTotal, setSentLogTotal] = useState(0);
+  const [sentLogPage, setSentLogPage] = useState(0);
+  const [sentLogChannel, setSentLogChannel] = useState<"all" | "email" | "sms">("all");
+  const PAGE_SIZE = 10;
 
   // Test mode state
   const [testEmail, setTestEmail] = useState("");
@@ -110,6 +115,18 @@ export default function CampaignLeader() {
     setLifetimeSent({ emails: sentEmails.count || 0, sms: sentSms.count || 0 });
   }
 
+  async function loadSentLog() {
+    let q = supabase
+      .from("campaign_sent_log")
+      .select("id, channel, email, phone_e164, sent_at", { count: "exact" })
+      .order("sent_at", { ascending: false })
+      .range(sentLogPage * PAGE_SIZE, sentLogPage * PAGE_SIZE + PAGE_SIZE - 1);
+    if (sentLogChannel !== "all") q = q.eq("channel", sentLogChannel);
+    const { data, count } = await q;
+    setSentLog((data as any) || []);
+    setSentLogTotal(count || 0);
+  }
+
   useEffect(() => {
     loadAll();
     const ch1 = supabase
@@ -126,7 +143,7 @@ export default function CampaignLeader() {
       .subscribe();
     const ch4 = supabase
       .channel("campaign-sent-log")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_sent_log" }, () => loadAll())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_sent_log" }, () => { loadAll(); loadSentLog(); })
       .subscribe();
     return () => {
       supabase.removeChannel(ch1);
@@ -135,6 +152,8 @@ export default function CampaignLeader() {
       supabase.removeChannel(ch4);
     };
   }, []);
+
+  useEffect(() => { loadSentLog(); /* eslint-disable-next-line */ }, [sentLogPage, sentLogChannel]);
 
   // Re-render every second so countdown timers tick smoothly
   const [now, setNow] = useState(() => Date.now());
@@ -450,6 +469,66 @@ export default function CampaignLeader() {
           </div>
           {testResult && (
             <pre className="text-xs bg-background p-3 rounded border overflow-auto max-h-80">{JSON.stringify(testResult, null, 2)}</pre>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Send & Delivery Log */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Send className="w-5 h-5" /> Send & Delivery Log
+            </CardTitle>
+            <div className="flex gap-1">
+              {(["all", "email", "sms"] as const).map(ch => (
+                <Button
+                  key={ch}
+                  size="sm"
+                  variant={sentLogChannel === ch ? "default" : "outline"}
+                  onClick={() => { setSentLogChannel(ch); setSentLogPage(0); }}
+                >
+                  {ch === "all" ? "All" : ch.toUpperCase()}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Confirmed-delivered sends only. Each row was successfully accepted by the email/SMS provider.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {sentLog.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No sends recorded yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {sentLog.map(row => (
+                <div key={row.id} className="flex items-center justify-between gap-2 border rounded-md px-3 py-2 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {row.channel === "email"
+                      ? <Mail className="w-4 h-4 text-blue-500 shrink-0" />
+                      : <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0" />}
+                    <Badge variant="outline" className="uppercase text-[10px]">{row.channel}</Badge>
+                    <span className="truncate">{row.channel === "email" ? row.email : row.phone_e164}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-600">Delivered</Badge>
+                    <span className="text-xs text-muted-foreground">{new Date(row.sent_at).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {sentLogTotal > PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-3 text-xs">
+              <span className="text-muted-foreground">
+                Showing {sentLogPage * PAGE_SIZE + 1}–{Math.min((sentLogPage + 1) * PAGE_SIZE, sentLogTotal)} of {sentLogTotal.toLocaleString()}
+              </span>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" disabled={sentLogPage === 0} onClick={() => setSentLogPage(p => Math.max(0, p - 1))}>Prev</Button>
+                <Button size="sm" variant="outline" disabled={(sentLogPage + 1) * PAGE_SIZE >= sentLogTotal} onClick={() => setSentLogPage(p => p + 1)}>Next</Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
