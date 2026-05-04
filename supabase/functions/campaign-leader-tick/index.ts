@@ -438,6 +438,16 @@ async function processContact(contact: any) {
     }).eq("id", contact.id);
     await bumpDailyStat("sms_sent");
     await logActivity(contact.id, "success", "completed", `SMS delivered to ${contact.phone_e164}`);
+
+    // Permanent suppression: record confirmed-successful SMS so it's never re-sent
+    try {
+      await sb.from("campaign_sent_log").insert({
+        phone_e164: contact.phone_e164,
+        channel: "sms",
+        contact_id: contact.id,
+        lead_id: contact.lead_id || null,
+      });
+    } catch (_) { /* unique violation on duplicate is fine */ }
   } else {
     await sb.from("campaign_contacts").update({ status: "completed", last_step: "completed" }).eq("id", contact.id);
     await logActivity(contact.id, "info", "completed", "Completed (no phone available)");
