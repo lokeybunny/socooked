@@ -30,6 +30,30 @@ export default function LeadsRainAnalytics() {
   const [apiHealth, setApiHealth] = useState<"Healthy" | "Down" | "Checking">("Checking");
   const [busy, setBusy] = useState<string | null>(null);
   const [testPhone, setTestPhone] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [defaultListId, setDefaultListId] = useState("");
+  const [defaultCallerId, setDefaultCallerId] = useState("");
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const loadSettings = async () => {
+    const { data } = await supabase.from("leadsrain_settings" as any).select("default_list_id, default_caller_id").limit(1).maybeSingle();
+    setDefaultListId(((data as any)?.default_list_id) || "");
+    setDefaultCallerId(((data as any)?.default_caller_id) || "");
+  };
+
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    const { data: existing } = await supabase.from("leadsrain_settings" as any).select("id").limit(1).maybeSingle();
+    const payload = { default_list_id: defaultListId.trim() || null, default_caller_id: defaultCallerId.trim() || null };
+    if ((existing as any)?.id) {
+      await supabase.from("leadsrain_settings" as any).update(payload).eq("id", (existing as any).id);
+    } else {
+      await supabase.from("leadsrain_settings" as any).insert(payload);
+    }
+    setSavingSettings(false);
+    setSettingsOpen(false);
+    toast.success("Settings saved");
+  };
 
   const loadAll = async () => {
     const { data } = await supabase
