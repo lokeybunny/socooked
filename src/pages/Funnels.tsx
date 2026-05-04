@@ -684,12 +684,12 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Mail className="h-3 w-3 mr-1" /> Reply
           </Button>
         )}
-        {lead.funnel === 'webdesign' && !editingPhone && (
+        {lead.funnel === 'airealty' && !editingPhone && (
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPhoneInput(lead.phone || ''); setEditingPhone(true); }}>
             <Phone className="h-3 w-3 mr-1" /> {lead.phone && lead.phone !== 'N/A' ? lead.phone : 'Add Phone'}
           </Button>
         )}
-        {lead.funnel === 'webdesign' && editingPhone && (
+        {lead.funnel === 'airealty' && editingPhone && (
           <div className="flex items-center gap-1">
             <Input
               value={phoneInput}
@@ -702,12 +702,12 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => { onPhoneEdit(phoneInput); setEditingPhone(false); }}>Save</Button>
           </div>
         )}
-        {lead.funnel !== 'webdesign' && lead.phone && lead.phone !== 'N/A' && (
+        {lead.funnel !== 'airealty' && lead.phone && lead.phone !== 'N/A' && (
           <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
             <Phone className="h-3 w-3" /> Call
           </a>
         )}
-        {lead.funnel === 'webdesign' && (
+        {lead.funnel === 'airealty' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
             <Checkbox
               checked={isHappy}
@@ -717,7 +717,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
           </label>
         )}
-        {lead.funnel === 'webdesign' && (
+        {lead.funnel === 'airealty' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
             <Checkbox
               checked={isDead}
@@ -727,7 +727,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isDead && "text-red-600 font-medium")}>Dead</span>
           </label>
         )}
-        {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
+        {lead.funnel === 'airealty' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
           <Button
             variant={isReminding ? "outline" : "ghost"}
             size="sm"
@@ -804,7 +804,7 @@ export default function Funnels() {
         );
         const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
-          id: c.id, funnel: 'webdesign' as const, _table: 'customers',
+          id: c.id, funnel: 'airealty' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'new', notes: c.notes,
           company: c.company,
@@ -844,7 +844,7 @@ export default function Funnels() {
         );
         const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
-          id: c.id, funnel: 'videography' as const, _table: 'customers',
+          id: c.id, funnel: 'airealty' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
