@@ -25,6 +25,9 @@ type ResultType =
   | "AUTH_SUCCESS_CAMPAIGNS_FOUND"
   | "AUTH_SUCCESS_NO_CAMPAIGNS"
   | "AUTH_SUCCESS_PARSE_UNKNOWN"
+  | "REACHABLE_PARSE_NEEDS_MAPPING"
+  | "API_ERROR"
+  | "OPTIONAL_PROXY_NOT_CONFIGURED"
   | "SERVER_ERROR"
   | "UNKNOWN";
 
@@ -34,9 +37,49 @@ const DIAGNOSIS: Record<ResultType, string> = {
   AUTH_SUCCESS_CAMPAIGNS_FOUND: "Credentials are valid and campaign data was returned.",
   AUTH_SUCCESS_NO_CAMPAIGNS: "Credentials are valid, but no campaigns were returned.",
   AUTH_SUCCESS_PARSE_UNKNOWN: "LeadsRain responded, but the response shape needs mapping.",
-  SERVER_ERROR: "LeadsRain server responded with an error.",
+  REACHABLE_PARSE_NEEDS_MAPPING: "LeadsRain returned HTTP 200 but no known success field. Endpoint is reachable; map the response shape to mark Success.",
+  API_ERROR: "LeadsRain returned a 4xx error. Check request payload or credentials.",
+  OPTIONAL_PROXY_NOT_CONFIGURED: "Optional proxy not configured. Only required for legacy campaign-view endpoints. PostLead HTTPS works without it.",
+  SERVER_ERROR: "LeadsRain server responded with a 5xx error.",
   UNKNOWN: "Unable to classify the response.",
 };
+
+// Flexible LeadsRain response parser. Looks for ANY of the known success/error shapes.
+function parseLeadsRain(json: any, bodyText: string) {
+  const known = {
+    success: undefined as any,
+    status: undefined as any,
+    message: undefined as any,
+    error: undefined as any,
+    campaign_id: undefined as any,
+    lead_id: undefined as any,
+    data: undefined as any,
+    result: undefined as any,
+  };
+  if (json && typeof json === "object") {
+    known.success = json.success;
+    known.status = json.status ?? json.Status;
+    known.message = json.msg ?? json.message;
+    known.error = json.error;
+    known.campaign_id = json.campaign_id ?? json.list_id;
+    known.lead_id = json.lead_id ?? json.id ?? json.posted_lead_id ?? json.data?.lead_id;
+    known.data = json.data;
+    known.result = json.result;
+  }
+  const statusStr = String(known.status ?? "").toLowerCase();
+  const msgStr = String(known.message ?? known.error ?? "").toLowerCase();
+  const haystack = `${statusStr} ${msgStr} ${(bodyText || "").toLowerCase()}`;
+  const successHit =
+    known.success === true ||
+    !!known.lead_id ||
+    !!known.campaign_id ||
+    statusStr === "success" || statusStr === "ok" ||
+    /\b(success|accepted|added|submitted|posted)\b/.test(haystack);
+  const errorHit =
+    known.success === false ||
+    /\b(invalid api key|invalid username|unauthorized|denied|failed|failure|error)\b/.test(haystack);
+  return { known, successHit, errorHit };
+}
 
 function classify({ httpStatus, bodyText, json, error, timedOut }: {
   httpStatus: number; bodyText: string; json: any; error: string | null; timedOut: boolean;
@@ -54,7 +97,7 @@ function classify({ httpStatus, bodyText, json, error, timedOut }: {
   }
 
   if (httpStatus >= 200 && httpStatus < 300) {
-    // Look for a campaign array
+    // Try campaign arrays first
     const arrays = [
       Array.isArray(json) ? json : null,
       Array.isArray(json?.data) ? json.data : null,
@@ -65,12 +108,13 @@ function classify({ httpStatus, bodyText, json, error, timedOut }: {
     if (arrays.length) {
       return arrays[0].length > 0 ? "AUTH_SUCCESS_CAMPAIGNS_FOUND" : "AUTH_SUCCESS_NO_CAMPAIGNS";
     }
-    if (json && typeof json === "object" && (json.campaign_id || json.list_id || String(json.status || "").toLowerCase() === "success")) {
-      return "AUTH_SUCCESS_PARSE_UNKNOWN";
-    }
-    if (!bodyText.trim()) return "AUTH_SUCCESS_PARSE_UNKNOWN";
-    return "AUTH_SUCCESS_PARSE_UNKNOWN";
+    // Flexible parser — any known success marker
+    const { successHit, errorHit } = parseLeadsRain(json, bodyText);
+    if (successHit && !errorHit) return "AUTH_SUCCESS_PARSE_UNKNOWN";
+    // HTTP 200 with no known shape: reachable, parser mapping needed (NOT a failure)
+    return "REACHABLE_PARSE_NEEDS_MAPPING";
   }
+  if (httpStatus >= 400 && httpStatus < 500) return "API_ERROR";
   return "UNKNOWN";
 }
 
@@ -163,7 +207,7 @@ Deno.serve(async (req) => {
           endpoint: RAW_PROXY || "(not configured — optional)",
           http_status: 0,
           duration_ms: 0,
-          result_type: "UNKNOWN" as ResultType,
+          result_type: "OPTIONAL_PROXY_NOT_CONFIGURED" as ResultType,
           diagnosis: RAW_PROXY
             ? "LEADSRAIN_PROXY_URL is set but invalid. Optional — only needed for legacy campaign-view endpoints. PostLead HTTPS works without it."
             : "Optional Cloudflare/Fly proxy not configured. PostLead HTTPS still works without it; only legacy campaign-view endpoints need this proxy.",
@@ -185,8 +229,9 @@ Deno.serve(async (req) => {
     const serverErr = has("SERVER_ERROR");
 
     const campaignTests = results.filter((r) => /Campaign View/i.test(r.name));
-    const postleadTest = results.find((r) => r.name === "PostLead HTTPS Reachability");
+    const postleadTest = results.find((r) => /PostLead HTTPS/i.test(r.name));
     const allCampaignsTimedOut = campaignTests.length > 0 && campaignTests.every((r) => r.result_type === "NETWORK_TIMEOUT");
+    const reachableNeedsMap = has("REACHABLE_PARSE_NEEDS_MAPPING");
 
     let final_diagnosis = "No LeadsRain endpoint reachable from this environment.";
     let recommended_next_step = "Deploy an external proxy or use Zapier as bridge.";
@@ -210,19 +255,22 @@ Deno.serve(async (req) => {
       recommended_next_step = "Confirm exact LeadsRain username. Try login email first.";
       network_reachable = true; auth_valid = false;
       best_endpoint = authFail.endpoint;
-    } else if (postleadTest && postleadTest.http_status > 0) {
+    } else if (postleadTest && postleadTest.http_status >= 200 && postleadTest.http_status < 500) {
       // PostLead HTTPS reachable = integration considered healthy. Campaign view is legacy/optional.
-      final_diagnosis = allCampaignsTimedOut
-        ? "Healthy. PostLead API reachable. Campaign View endpoint timed out (legacy/optional)."
-        : "Healthy. PostLead API reachable.";
-      recommended_next_step = "Use HTTPS PostLead API for live workflow. Campaign View endpoint may be legacy or unavailable.";
+      final_diagnosis = postleadTest.result_type === "REACHABLE_PARSE_NEEDS_MAPPING"
+        ? "LeadsRain API is reachable. Parser mapping required."
+        : (allCampaignsTimedOut
+          ? "Healthy. PostLead API reachable. Campaign View endpoint timed out (legacy/optional)."
+          : "Healthy. PostLead API reachable.");
+      recommended_next_step = "Use HTTPS PostLead API for live workflow. Campaign View endpoint is legacy/optional.";
       network_reachable = true; auth_valid = null;
       best_endpoint = postleadTest.endpoint;
-    } else if (parseUnknown) {
-      final_diagnosis = "LeadsRain responded but the response shape needs mapping.";
+    } else if (parseUnknown || reachableNeedsMap) {
+      const t = parseUnknown || reachableNeedsMap!;
+      final_diagnosis = "LeadsRain API is reachable. Parser mapping required.";
       recommended_next_step = "Inspect the raw JSON below and update the parser.";
       network_reachable = true; auth_valid = null;
-      best_endpoint = parseUnknown.endpoint;
+      best_endpoint = t.endpoint;
     } else if (serverErr) {
       final_diagnosis = "LeadsRain server returned an error.";
       recommended_next_step = "Retry shortly; if it persists, contact LeadsRain support.";

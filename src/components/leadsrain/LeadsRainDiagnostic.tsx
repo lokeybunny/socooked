@@ -17,6 +17,9 @@ type ResultType =
   | "AUTH_SUCCESS_CAMPAIGNS_FOUND"
   | "AUTH_SUCCESS_NO_CAMPAIGNS"
   | "AUTH_SUCCESS_PARSE_UNKNOWN"
+  | "REACHABLE_PARSE_NEEDS_MAPPING"
+  | "API_ERROR"
+  | "OPTIONAL_PROXY_NOT_CONFIGURED"
   | "SERVER_ERROR"
   | "UNKNOWN";
 
@@ -54,11 +57,14 @@ export type DiagnosticReport = {
 };
 
 const TYPE_BADGE: Record<ResultType, { label: string; cls: string }> = {
-  AUTH_SUCCESS_CAMPAIGNS_FOUND: { label: "Connected", cls: "bg-green-500/15 text-green-400 border-green-500/40" },
+  AUTH_SUCCESS_CAMPAIGNS_FOUND: { label: "Success", cls: "bg-green-500/15 text-green-400 border-green-500/40" },
   AUTH_SUCCESS_NO_CAMPAIGNS: { label: "Connected · No campaigns", cls: "bg-blue-500/15 text-blue-400 border-blue-500/40" },
-  AUTH_SUCCESS_PARSE_UNKNOWN: { label: "Parse / mapping", cls: "bg-blue-500/15 text-blue-400 border-blue-500/40" },
+  AUTH_SUCCESS_PARSE_UNKNOWN: { label: "Connected / Parser Needs Mapping", cls: "bg-blue-500/15 text-blue-400 border-blue-500/40" },
+  REACHABLE_PARSE_NEEDS_MAPPING: { label: "Connected / Parser Needs Mapping", cls: "bg-blue-500/15 text-blue-400 border-blue-500/40" },
   NETWORK_REACHABLE_AUTH_FAILED: { label: "Auth failed", cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/40" },
-  NETWORK_TIMEOUT: { label: "Network timeout", cls: "bg-red-500/15 text-red-400 border-red-500/40" },
+  NETWORK_TIMEOUT: { label: "Network Timeout", cls: "bg-red-500/15 text-red-400 border-red-500/40" },
+  API_ERROR: { label: "API Error", cls: "bg-red-500/15 text-red-400 border-red-500/40" },
+  OPTIONAL_PROXY_NOT_CONFIGURED: { label: "Optional Proxy Not Configured", cls: "bg-muted text-muted-foreground border-border" },
   SERVER_ERROR: { label: "Server error", cls: "bg-red-500/15 text-red-400 border-red-500/40" },
   UNKNOWN: { label: "Unknown", cls: "bg-muted text-muted-foreground border-border" },
 };
