@@ -129,11 +129,7 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   if (json && typeof json === "object") {
     provider_status = String(json.status ?? json.Status ?? (json.success === true ? "success" : json.success === false ? "error" : "")).toLowerCase();
     provider_lead_id =
-      json.lead_id?.toString?.() ??
-      json.id?.toString?.() ??
-      json.posted_lead_id?.toString?.() ??
-      json.data?.lead_id?.toString?.() ??
-      json.data?.id?.toString?.() ??
+      String(json.lead_id ?? json.id ?? json.posted_lead_id ?? json.data?.lead_id ?? json.data?.id ?? "").trim() ||
       null;
     message = json.msg ?? json.message ?? json.error ?? json.data?.message ?? null;
   } else if (text) {
@@ -153,8 +149,8 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   let mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed" = "failed";
   let ok = false;
   if (httpStatus >= 200 && httpStatus < 300) {
-    if (explicitSuccess) { mode = "accepted"; ok = true; }
-    else if (explicitFail) { mode = "rejected"; ok = false; }
+    if (explicitFail) { mode = "rejected"; ok = false; }
+    else if (explicitSuccess) { mode = "accepted"; ok = true; }
     else if (!hasBody) { mode = "rejected"; ok = false; message = message || "Rejected. Payload sent, but LeadsRain returned empty response."; }
     else { mode = "parser_needs_mapping"; ok = false; }
   } else {
