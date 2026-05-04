@@ -358,20 +358,52 @@ async function bumpDailyStat(field: "emails_sent" | "emails_failed" | "sms_sent"
   }
 }
 
-// ---------- Per-channel back-to-back gap (5-25s randomized) ----------
-// Email and SMS run on INDEPENDENT timers — SMS never blocks on email being delayed,
-// and email never blocks on SMS being delayed. Each channel enforces its own min-gap
-// between consecutive sends across the entire invocation.
-const CHANNEL_MIN_GAP_MS = 5_000;
-const CHANNEL_MAX_GAP_MS = 25_000;
+// ---------- Per-channel back-to-back gap (independent timers) ----------
+// Email and SMS run on INDEPENDENT timers — neither channel blocks the other.
+// Email default: 5-25s (deliverability sensitive).
+// SMS default: 4-12s, tunable via campaign_settings.sms_(min|max)_gap_seconds —
+// chosen to support 2,000–3,000 sends/day across an 8-hour window
+// (avg ~8s gap → ~450/hr → ~3,600/day theoretical max, well above 3k goal).
+const EMAIL_MIN_GAP_MS = 5_000;
+const EMAIL_MAX_GAP_MS = 25_000;
+let SMS_MIN_GAP_MS = 4_000;
+let SMS_MAX_GAP_MS = 12_000;
 const lastChannelSendAt: Record<"email" | "sms", number> = { email: 0, sms: 0 };
 
 async function waitChannelGap(channel: "email" | "sms") {
   const last = lastChannelSendAt[channel];
-  if (last === 0) return; // first send of this invocation
-  const gap = CHANNEL_MIN_GAP_MS + Math.floor(Math.random() * (CHANNEL_MAX_GAP_MS - CHANNEL_MIN_GAP_MS));
+  if (last === 0) return;
+  const min = channel === "email" ? EMAIL_MIN_GAP_MS : SMS_MIN_GAP_MS;
+  const max = channel === "email" ? EMAIL_MAX_GAP_MS : SMS_MAX_GAP_MS;
+  const gap = min + Math.floor(Math.random() * Math.max(1, max - min));
   const remaining = last + gap - Date.now();
   if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+}
+
+// ---------- SMS retry with exponential backoff ----------
+// Transient SMS failures (network/provider hiccups) get retried with capped
+// exponential backoff + jitter. The retry loop is internal to runSmsFor and
+// never blocks the email pipeline.
+let SMS_MAX_RETRIES = 3;
+async function sendSmsWithRetry(toE164: string, message: string, contactId: string | null) {
+  let attempt = 0;
+  let lastErr: any = null;
+  while (attempt <= SMS_MAX_RETRIES) {
+    const r = await sendSms(toE164, message);
+    if (r.ok) return { ok: true as const, raw: r.raw, attempts: attempt + 1 };
+    lastErr = r;
+    // Don't retry on permanent credential errors
+    if (r.error === "missing_voidfix_credentials") return { ok: false as const, error: r.error, raw: r.raw, attempts: attempt + 1 };
+    attempt++;
+    if (attempt > SMS_MAX_RETRIES) break;
+    // Exponential backoff: 2s, 4s, 8s, 16s … capped at 30s, plus 0-1s jitter
+    const base = Math.min(30_000, 2_000 * Math.pow(2, attempt - 1));
+    const jitter = Math.floor(Math.random() * 1_000);
+    const wait = base + jitter;
+    await logActivity(contactId, "warn", "sms_retry", `SMS attempt ${attempt} failed (${String(r.error).slice(0,120)}), retrying in ${wait}ms`);
+    await new Promise(res => setTimeout(res, wait));
+  }
+  return { ok: false as const, error: lastErr?.error || "sms_failed", raw: lastErr?.raw, attempts: attempt };
 }
 
 async function alreadySent(channel: "email" | "sms", emailOrPhone: string): Promise<boolean> {
