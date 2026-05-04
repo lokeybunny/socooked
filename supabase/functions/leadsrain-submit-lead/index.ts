@@ -308,6 +308,7 @@ Deno.serve(async (req) => {
             bodyStr = JSON.stringify(payload);
             usedContentType = "application/json";
           }
+          const sanitizedBodyStr = bodyStr.split(LR_USER).join("***").split(LR_KEY).join("***");
           const r = await fetch(endpoint, { method: "POST", headers, body: bodyStr, signal: AbortSignal.timeout(20000) });
           httpStatus = r.status;
           lrRawText = (await r.text()) || "";
@@ -339,7 +340,7 @@ Deno.serve(async (req) => {
             raw_text: trimmed.slice(0, 500),
             mode: parsed.mode,
             submitted_payload: maskPayload(payload),
-            final_post_body: buildBody(maskPayload(payload), usedContentType),
+            final_post_body: sanitizedBodyStr,
             lead_visible_in_list: visible,
             leadsrain_list_check: listVisibilityCheck,
           });
