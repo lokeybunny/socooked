@@ -21,12 +21,14 @@ export type LRSubmissionRow = {
 };
 
 export const SUBMISSION_STATUS_STYLES: Record<string, { label: string; cls: string; dot: string }> = {
-  draft:                  { label: "Draft",          cls: "border-slate-500/40 text-slate-300 bg-slate-500/10", dot: "bg-slate-400" },
-  submitted_to_leadsrain: { label: "Submitting",     cls: "border-blue-500/40 text-blue-400 bg-blue-500/10",   dot: "bg-blue-400 animate-pulse" },
-  accepted_by_api:        { label: "Accepted",       cls: "border-lime-500/40 text-lime-400 bg-lime-500/10",   dot: "bg-lime-400" },
-  sms_followup_sent:      { label: "SMS Sent",       cls: "border-green-500/40 text-green-400 bg-green-500/10",dot: "bg-green-500" },
-  failed_to_submit:       { label: "Failed",         cls: "border-red-500/40 text-red-400 bg-red-500/10",      dot: "bg-red-500" },
-  unknown:                { label: "Unknown",        cls: "border-slate-500/40 text-slate-400 bg-slate-500/10",dot: "bg-slate-500" },
+  draft:                              { label: "Draft",          cls: "border-slate-500/40 text-slate-300 bg-slate-500/10", dot: "bg-slate-400" },
+  submitted_to_leadsrain:             { label: "Submitting",     cls: "border-blue-500/40 text-blue-400 bg-blue-500/10",   dot: "bg-blue-400 animate-pulse" },
+  accepted_by_api:                    { label: "Accepted",       cls: "border-lime-500/40 text-lime-400 bg-lime-500/10",   dot: "bg-lime-400" },
+  api_connected_parser_needs_mapping: { label: "Connected · Parser Mapping", cls: "border-amber-500/40 text-amber-400 bg-amber-500/10", dot: "bg-amber-400" },
+  sms_followup_sent:                  { label: "SMS Sent",       cls: "border-green-500/40 text-green-400 bg-green-500/10",dot: "bg-green-500" },
+  rejected:                           { label: "Rejected",       cls: "border-orange-500/40 text-orange-400 bg-orange-500/10", dot: "bg-orange-500" },
+  failed_to_submit:                   { label: "Failed",         cls: "border-red-500/40 text-red-400 bg-red-500/10",      dot: "bg-red-500" },
+  unknown:                            { label: "Unknown",        cls: "border-slate-500/40 text-slate-400 bg-slate-500/10",dot: "bg-slate-500" },
 };
 
 export function submissionStatusStyle(s: string | null) {

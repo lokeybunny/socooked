@@ -127,8 +127,14 @@ export default function LeadsRainAnalytics() {
         body: { phone_number: phone, campaign_name: "Test Voice Drop", send_voidfix: true },
       });
       if (error) throw error;
-      const ok = (data as any)?.ok;
-      ok ? toast.success("Test submission sent") : toast.error((data as any)?.error || "Submission failed");
+      const d = data as any;
+      const msg = d?.user_message || d?.error || "Submission failed";
+      if (d?.ok) {
+        if (d?.mode === "parser_needs_mapping") toast.warning(msg);
+        else toast.success(msg);
+      } else {
+        toast.error(msg);
+      }
       loadAll();
     } catch (e: any) { toast.error(e?.message || "Failed"); }
     finally { setBusy(null); }

@@ -70,13 +70,22 @@ function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
   const explicitFail = FAIL_RX.test(haystack);
   const explicitSuccess = !!provider_lead_id || SUCCESS_RX.test(haystack) || provider_status === "success" || (json && json.success === true);
 
+  // mode: accepted = explicit success markers / lead_id
+  //       parser_needs_mapping = HTTP 200 but unknown shape (no markers either way)
+  //       rejected = explicit failure markers
+  //       failed = non-2xx / network
+  let mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed" = "failed";
   let ok = false;
   if (httpStatus >= 200 && httpStatus < 300) {
-    ok = !explicitFail || explicitSuccess;
+    if (explicitSuccess) { mode = "accepted"; ok = true; }
+    else if (explicitFail) { mode = "rejected"; ok = false; }
+    else { mode = "parser_needs_mapping"; ok = true; }
+  } else {
+    mode = "failed";
   }
 
   if (!ok && !message) message = explicitFail ? "LeadsRain rejected the lead" : `HTTP ${httpStatus}`;
-  return { ok, provider_status, provider_lead_id, message, raw: json ?? text };
+  return { ok, mode, provider_status, provider_lead_id, message, raw: json ?? text };
 }
 
 Deno.serve(async (req) => {
@@ -167,8 +176,8 @@ Deno.serve(async (req) => {
     let httpStatus = 0;
     let errMsg: string | null = null;
     let usedEndpoint: string | null = null;
-    let parsed: { ok: boolean; provider_status: string; provider_lead_id: string | null; message: string | null; raw: any } = {
-      ok: false, provider_status: "", provider_lead_id: null, message: null, raw: null,
+    let parsed: { ok: boolean; mode: "accepted" | "parser_needs_mapping" | "rejected" | "failed"; provider_status: string; provider_lead_id: string | null; message: string | null; raw: any } = {
+      ok: false, mode: "failed", provider_status: "", provider_lead_id: null, message: null, raw: null,
     };
     try {
       for (const endpoint of LR_ENDPOINTS) {
@@ -195,9 +204,17 @@ Deno.serve(async (req) => {
       }
     } catch (e: any) {
       errMsg = e?.message || String(e);
+      parsed.mode = "failed";
     }
 
-    const newStatus = httpOk ? "accepted_by_api" : "failed_to_submit";
+    // Map parser mode -> CRM submission status
+    const STATUS_BY_MODE: Record<string, string> = {
+      accepted: "accepted_by_api",
+      parser_needs_mapping: "api_connected_parser_needs_mapping",
+      rejected: "rejected",
+      failed: "failed_to_submit",
+    };
+    const newStatus = STATUS_BY_MODE[parsed.mode] || "failed_to_submit";
     const lrLeadId = parsed.provider_lead_id;
     const lrMsg = parsed.message;
 
@@ -205,12 +222,11 @@ Deno.serve(async (req) => {
       status: newStatus,
       leadsrain_lead_id: lrLeadId,
       leadsrain_message: lrMsg,
-      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, "") },
+      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, ""), mode: parsed.mode },
       error_message: errMsg,
     }).eq("id", row.id);
 
-    // Trigger VoidFix SMS only when LeadsRain returns a concrete lead/drop id.
-    // Empty HTTP 200 means the post was accepted by the endpoint, not that a VM was delivered.
+    // Trigger VoidFix SMS on any successful HTTP 200 (accepted OR parser_needs_mapping).
     let voidfixSent = false;
     let voidfixErr: string | null = null;
     if (httpOk && send_voidfix) {
@@ -232,10 +248,18 @@ Deno.serve(async (req) => {
       } catch (e: any) { voidfixErr = e?.message || String(e); }
     }
 
+    const userMessage =
+      parsed.mode === "accepted" ? "LeadsRain accepted the lead." :
+      parsed.mode === "parser_needs_mapping" ? "LeadsRain accepted the request, but response mapping is still being finalized." :
+      parsed.mode === "rejected" ? (lrMsg || "LeadsRain rejected the lead.") :
+      (errMsg || "LeadsRain submission failed.");
+
     return json({
       ok: httpOk,
       submission_id: row.id,
       status: voidfixSent ? "sms_followup_sent" : newStatus,
+      mode: parsed.mode,
+      user_message: userMessage,
       leadsrain_lead_id: lrLeadId,
       leadsrain_message: lrMsg,
       voidfix_sms_sent: voidfixSent,
