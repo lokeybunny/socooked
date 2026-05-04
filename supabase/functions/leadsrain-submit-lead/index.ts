@@ -114,16 +114,20 @@ Deno.serve(async (req) => {
       });
       httpStatus = r.status;
       const txt = await r.text();
-      try { lrJson = JSON.parse(txt); } catch { lrJson = { raw: txt }; }
-      httpOk = r.ok && (!!lrJson?.lead_id || String(lrJson?.status || "").toLowerCase() === "success");
-      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.raw || `HTTP ${r.status}`;
+      const raw = txt.trim();
+      try { lrJson = raw ? JSON.parse(raw) : { raw: "", accepted: true }; } catch { lrJson = { raw }; }
+      const statusText = String(lrJson?.status || lrJson?.Status || "").toLowerCase();
+      const messageText = String(lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || "").toLowerCase();
+      const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized)\b/.test(messageText);
+      httpOk = r.ok && !explicitFailure && (raw === "" || !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText));
+      if (!httpOk) errMsg = lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || `HTTP ${r.status}`;
     } catch (e: any) {
       errMsg = e?.message || String(e);
     }
 
     const newStatus = httpOk ? "accepted_by_api" : "failed_to_submit";
     const lrLeadId = lrJson?.lead_id?.toString() || null;
-    const lrMsg = lrJson?.msg || lrJson?.message || null;
+    const lrMsg = lrJson?.msg || lrJson?.message || (httpOk && lrJson?.accepted ? "LeadsRain accepted request with empty HTTP 200 response" : null);
 
     await svc.from("leadsrain_submissions").update({
       status: newStatus,
