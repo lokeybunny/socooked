@@ -7,6 +7,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const tokens = {
+    APIFY_TOKEN_PAID: Deno.env.get("APIFY_TOKEN_PAID"),
     APIFY_TOKEN: Deno.env.get("APIFY_TOKEN"),
     APIFY_TOKEN_CRAIGSLIST: Deno.env.get("APIFY_TOKEN_CRAIGSLIST"),
     APIFY_TOKEN_COMMUNITY: Deno.env.get("APIFY_TOKEN_COMMUNITY"),

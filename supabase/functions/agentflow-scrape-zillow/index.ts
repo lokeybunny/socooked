@@ -9,9 +9,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const APIFY_TOKENS = [
-  Deno.env.get("APIFY_TOKEN"),
-  Deno.env.get("APIFY_TOKEN_CRAIGSLIST"),
-  Deno.env.get("APIFY_TOKEN_COMMUNITY"),
+  Deno.env.get("APIFY_TOKEN_PAID"),       // STARTER plan – priority
+  Deno.env.get("APIFY_TOKEN"),            // FREE fallback
+  Deno.env.get("APIFY_TOKEN_CRAIGSLIST"), // FREE fallback
+  Deno.env.get("APIFY_TOKEN_COMMUNITY"),  // FREE fallback
 ].filter((t): t is string => !!t);
 
 const ACTOR_ID = "maxcopell~zillow-scraper"; // Apify actor format uses ~
@@ -45,7 +46,8 @@ async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ 
         signal: AbortSignal.timeout(540000), // 9 min, edge function caps at ~10
       });
       if (r.status === 401 || r.status === 402 || r.status === 403) {
-        lastError = `token rejected: ${r.status}`;
+        const body = (await r.text()).slice(0, 400);
+        lastError = `token rejected ${r.status}: ${body}`;
         continue; // try next token
       }
       if (!r.ok) {
