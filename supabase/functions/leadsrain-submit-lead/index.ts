@@ -140,12 +140,13 @@ Deno.serve(async (req) => {
 
     const finalListId = list_id || settings?.default_list_id || null;
     const finalCallerId = normCallerId(caller_id || settings?.default_caller_id || null);
+    const finalCampaignId = (settings as any)?.default_campaign_external_id || null;
 
     if (!finalListId) {
-      return json({ ok: false, error: "Missing LeadsRain List ID. Open Settings → paste your List ID (LeadsRain dashboard → RVM → Lead Lists)." }, 400);
+      return json({ ok: false, error: "Missing LeadsRain list_id. Add an active LeadsRain list connected to an RVM campaign.", missing: "list_id" }, 400);
     }
     if (!finalCallerId) {
-      return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain." }, 400);
+      return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
     }
 
     const reqPayload: Record<string, any> = {
