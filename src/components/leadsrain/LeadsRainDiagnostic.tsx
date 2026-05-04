@@ -272,7 +272,7 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.tests.map((t, i) => {
+                {visibleTests.map((t, i) => {
                   const badge = TYPE_BADGE[t.result_type] || TYPE_BADGE.UNKNOWN;
                   const open = !!expanded[i];
                   return (
@@ -295,7 +295,7 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
                               <div><strong>Diagnosis:</strong> {t.diagnosis}</div>
                               {t.raw_text_preview && (
                                 <details>
-                                  <summary className="cursor-pointer text-muted-foreground">Raw response preview</summary>
+                                  <summary className="cursor-pointer text-muted-foreground">Raw LeadsRain Response</summary>
                                   <pre className="mt-2 p-2 bg-background rounded border border-border/40 overflow-x-auto max-h-64 text-[10px]">{t.raw_text_preview}</pre>
                                 </details>
                               )}
@@ -314,8 +314,10 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
                 })}
               </TableBody>
             </Table>
+            </div>
           </div>
-        )}
+          );
+        })()}
       </CardContent>
     </Card>
   );
