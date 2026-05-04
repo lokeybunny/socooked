@@ -9,13 +9,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming, MessageCircle, Ban, Sparkles } from 'lucide-react';
+import { MessageSquare, Send, Plus, Trash2, Loader2, Megaphone, FileText, Inbox, Workflow, Zap, Voicemail, PhoneIncoming, MessageCircle, Ban, Sparkles, PhoneOff } from 'lucide-react';
 import PowerDialSMSInbox from '@/components/powerdial/PowerDialSMSInbox';
 import SequenceBuilder from '@/components/sms/SequenceBuilder';
 import AutoReplyWorkflow from '@/components/sms/AutoReplyWorkflow';
 import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import VoicemailFollowupSettings from '@/components/sms/VoicemailFollowupSettings';
 import TwilioInboundFeed from '@/components/sms/TwilioInboundFeed';
+import DisconnectedTab from '@/components/sms/DisconnectedTab';
 import HookReplyTab from '@/components/powerdial/HookReplyTab';
 import DNDListTab from '@/components/powerdial/DNDListTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -197,11 +198,14 @@ export default function SMS() {
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="voidfix-first-reply"><Sparkles className="h-3.5 w-3.5 mr-1" /> VoidFix Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
+            <TabsTrigger value="disconnected"><PhoneOff className="h-3.5 w-3.5 mr-1" /> Disconnected</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
             <TabsTrigger value="campaigns"><Send className="h-3.5 w-3.5 mr-1" /> Campaigns</TabsTrigger>
             <TabsTrigger value="sequences"><Workflow className="h-3.5 w-3.5 mr-1" /> Sequences</TabsTrigger>
             <TabsTrigger value="templates"><FileText className="h-3.5 w-3.5 mr-1" /> Templates</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="disconnected"><DisconnectedTab /></TabsContent>
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
           <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>

@@ -19,11 +19,11 @@ import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses' | 'powerdial';
+type FunnelType = 'all' | 'airealty' | 'powerdial';
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'aicourses' | 'videography' | 'powerdial';
+  funnel: 'airealty' | 'powerdial';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -76,14 +76,12 @@ const PAGE_SIZE = 30;
 const LIVE_CALL_STALE_MS = 15 * 60 * 1000;
 
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
-  webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  aicourses: { label: 'AI Courses', icon: GraduationCap, color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
-  videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+  airealty: { label: 'AI Realty', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   powerdial: { label: 'Power D', icon: PhoneCall, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
-  webdesign: [
+  airealty: [
     { value: 'lead', label: 'Prospect' },
     { value: 'contacted', label: 'Contacted' },
     { value: 'callback', label: 'Call Back' },
@@ -92,21 +90,6 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'agreement_sent', label: 'Agreement Sent' },
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
-  ],
-  videography: [
-    { value: 'lead', label: 'Prospect' },
-    { value: 'contacted', label: 'Contacted' },
-    { value: 'callback', label: 'Call Back' },
-    { value: 'scheduled', label: 'Scheduled' },
-    { value: 'agreement_sent', label: 'Agreement Sent' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'dead', label: 'Dead' },
-  ],
-  aicourses: [
-    { value: 'pending', label: 'Pending Payment' },
-    { value: 'active', label: 'Active' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'cancelled', label: 'Cancelled' },
   ],
   powerdial: [
     { value: 'positive', label: 'Positive' },
@@ -701,12 +684,12 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Mail className="h-3 w-3 mr-1" /> Reply
           </Button>
         )}
-        {lead.funnel === 'webdesign' && !editingPhone && (
+        {lead.funnel === 'airealty' && !editingPhone && (
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPhoneInput(lead.phone || ''); setEditingPhone(true); }}>
             <Phone className="h-3 w-3 mr-1" /> {lead.phone && lead.phone !== 'N/A' ? lead.phone : 'Add Phone'}
           </Button>
         )}
-        {lead.funnel === 'webdesign' && editingPhone && (
+        {lead.funnel === 'airealty' && editingPhone && (
           <div className="flex items-center gap-1">
             <Input
               value={phoneInput}
@@ -719,12 +702,12 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => { onPhoneEdit(phoneInput); setEditingPhone(false); }}>Save</Button>
           </div>
         )}
-        {lead.funnel !== 'webdesign' && lead.phone && lead.phone !== 'N/A' && (
+        {lead.funnel !== 'airealty' && lead.phone && lead.phone !== 'N/A' && (
           <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
             <Phone className="h-3 w-3" /> Call
           </a>
         )}
-        {lead.funnel === 'webdesign' && (
+        {lead.funnel === 'airealty' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
             <Checkbox
               checked={isHappy}
@@ -734,7 +717,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isHappy && "text-green-600 font-medium")}>Happy</span>
           </label>
         )}
-        {lead.funnel === 'webdesign' && (
+        {lead.funnel === 'airealty' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
             <Checkbox
               checked={isDead}
@@ -744,7 +727,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <span className={cn(isDead && "text-red-600 font-medium")}>Dead</span>
           </label>
         )}
-        {lead.funnel === 'webdesign' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
+        {lead.funnel === 'airealty' && lead.phone && lead.phone !== 'N/A' && !isConnected && (
           <Button
             variant={isReminding ? "outline" : "ghost"}
             size="sm"
@@ -790,10 +773,9 @@ export default function Funnels() {
     fetchInFlightRef.current = true;
     if (!silent) setLoading(true);
     try {
-      const [{ data: custLeads }, { data: vidLeads }, { data: courseRows }, { data: remindRows }, { data: pdLogs }, { data: pdQueue }] = await Promise.all([
+      const [{ data: custLeads }, { data: vidLeads }, { data: remindRows }, { data: pdLogs }, { data: pdQueue }] = await Promise.all([
         supabase.from('customers').select('*').eq('source', 'webdesign-landing').not('meta->>vapi_call_id', 'is', null).order('created_at', { ascending: false }).limit(500),
         supabase.from('customers').select('*').eq('source', 'videography-landing').order('created_at', { ascending: false }).limit(500),
-        supabase.from('guru_subscriptions').select('*').eq('plan', 'ai_course').order('created_at', { ascending: false }).limit(500),
         supabase.from('vapi_remind_queue').select('customer_id, status, attempts, connected_at, created_at').in('status', ['active', 'connected', 'expired']),
         supabase.from('powerdial_call_logs').select('*').eq('amd_result', 'human').is('dismissed_at', null).order('created_at', { ascending: false }).limit(500),
         supabase.from('powerdial_queue').select('id, contact_name, phone').limit(1000),
@@ -821,7 +803,7 @@ export default function Funnels() {
         );
         const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
-          id: c.id, funnel: 'webdesign' as const, _table: 'customers',
+          id: c.id, funnel: 'airealty' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'new', notes: c.notes,
           company: c.company,
@@ -861,7 +843,7 @@ export default function Funnels() {
         );
         const isDirectInbound = !!meta.vapi_direct_dial;
         combined.push({
-          id: c.id, funnel: 'videography' as const, _table: 'customers',
+          id: c.id, funnel: 'airealty' as const, _table: 'customers',
           full_name: c.full_name, email: c.email, phone: c.phone,
           created_at: c.created_at, status: c.status || 'lead', notes: c.notes,
           company: c.company,
@@ -881,19 +863,6 @@ export default function Funnels() {
         });
       });
 
-      (courseRows || []).forEach((r) => {
-        const meta = (r.meta as Record<string, unknown>) || {};
-        combined.push({
-          id: r.id, funnel: 'aicourses', _table: 'guru_subscriptions' as any,
-          full_name: r.full_name || r.email, email: r.email, phone: null,
-          created_at: r.created_at, status: r.status || 'pending', notes: `Plan: ${r.plan} · Amount: $${(r.amount_cents / 100).toFixed(2)}`,
-          company: null,
-          last_activity_at: r.created_at,
-          vapi_call_status: null, vapi_call_id: null, ai_notes: null,
-          vapi_recording_url: null, vapi_transcript: null, vapi_summary: null,
-          drafted_at: (meta.funnel_drafted_at as string) || null,
-        });
-      });
       // Build queue name lookup
       const queueNameMap = new Map<string, string>();
       (pdQueue || []).forEach((q: any) => queueNameMap.set(q.id, q.contact_name || ''));
@@ -1109,9 +1078,7 @@ export default function Funnels() {
 
   const counts = useMemo(() => ({
     all: leads.filter(l => !l.drafted_at).length,
-    webdesign: leads.filter(l => l.funnel === 'webdesign' && !l.drafted_at).length,
-    aicourses: leads.filter(l => l.funnel === 'aicourses' && !l.drafted_at).length,
-    videography: leads.filter(l => l.funnel === 'videography' && !l.drafted_at).length,
+    airealty: leads.filter(l => l.funnel === 'airealty' && !l.drafted_at).length,
     powerdial: leads.filter(l => l.funnel === 'powerdial').length,
   }), [leads]);
 
@@ -1151,8 +1118,8 @@ export default function Funnels() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {(['all', 'webdesign', 'videography', 'aicourses', 'powerdial'] as const).map((key) => {
+        <div className="grid grid-cols-3 gap-3">
+          {(['all', 'airealty', 'powerdial'] as const).map((key) => {
             const cfg = key === 'all'
               ? { label: 'All Leads', icon: Filter, color: 'text-foreground', bgColor: 'bg-muted' }
               : FUNNEL_CONFIG[key];
