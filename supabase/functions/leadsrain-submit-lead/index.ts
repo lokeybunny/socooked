@@ -280,7 +280,6 @@ Deno.serve(async (req) => {
       mode: string;
       submitted_payload: Record<string, any>;
       final_post_body: string;
-      lead_visible_in_list: boolean;
       leadsrain_list_check?: { ok: boolean; status: number; error?: string; matched_lead?: any };
     };
     const contentTypeVariants = requestedContentType === "json" || requestedContentType === "application/json"
@@ -340,22 +339,6 @@ Deno.serve(async (req) => {
           parsed = parsePostLeadResponse(r.status, lrRawText, lrJson);
           httpOk = parsed.ok;
           errMsg = httpOk ? null : (parsed.message || `HTTP ${r.status}`);
-          let matchedLead: any = null;
-          let visible = false;
-          try {
-            const listCheck = await checkLeadVisibleInList(finalListId, ph.ten!);
-            matchedLead = listCheck.matched_lead;
-            visible = !!matchedLead;
-            listVisibilityCheck = { ok: listCheck.ok, status: listCheck.status, error: listCheck.error, matched_lead: matchedLead ? { ...matchedLead, api_key: undefined } : null, raw_text: listCheck.raw_text };
-          } catch (e: any) {
-            listVisibilityCheck = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null };
-          }
-          leadVisibleInList = visible;
-          if (visible && r.status >= 200 && r.status < 300) {
-            parsed = { ...parsed, ok: true, mode: "accepted", message: parsed.message || "Lead appeared inside LeadsRain list after test." };
-            httpOk = true;
-            errMsg = null;
-          }
           attempts.push({
             phone_field: phoneField,
             content_type: usedContentType,
@@ -364,8 +347,6 @@ Deno.serve(async (req) => {
             mode: parsed.mode,
             submitted_payload: maskPayload(payload),
             final_post_body: sanitizedBodyStr,
-            lead_visible_in_list: visible,
-            leadsrain_list_check: listVisibilityCheck,
           });
           if (httpOk) break outer;
           if (/invalid username|api key|invalid api/i.test(errMsg || "")) break outer;
