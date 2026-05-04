@@ -52,16 +52,16 @@ const EMAIL_CTAS = [
 ];
 
 const SMS_OPENERS = [
-  "Hi {{name}}, this is Warren Guru. Just emailed you about one of your listings",
-  "Hey {{name}}, Warren Guru here. Sent you a quick email about your listing",
-  "Hi {{name}}, this is Warren Guru — reached out via email about your listing",
-  "Hey {{name}}, Warren here. I just emailed you about a listing of yours",
+  "Hi {{name}}, this is Warren Guru. Just emailed you about your listing at {{addr}}",
+  "Hey {{name}}, Warren Guru here. Sent you a quick email about {{addr}}",
+  "Hi {{name}}, this is Warren Guru — reached out via email about {{addr}}",
+  "Hey {{name}}, Warren here. I just emailed you about your listing at {{addr}}",
 ];
 
 const SMS_BODIES = [
-  "I create AI-powered property videos without needing to walk the home.",
-  "I make AI-driven listing videos — no walk-through required.",
-  "I produce AI marketing videos straight from your existing photos.",
+  "I create AI-powered property videos for {{addr}} without needing to walk the home.",
+  "I make AI-driven listing videos for {{addr}} — no walk-through required.",
+  "I produce AI marketing videos for {{addr}} straight from your existing photos.",
 ];
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
