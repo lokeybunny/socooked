@@ -37,6 +37,9 @@ export default function LeadsRainAnalytics() {
   const [defaultCampaignExternalId, setDefaultCampaignExternalId] = useState("");
   const [defaultAudioUrl, setDefaultAudioUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [zapierMode, setZapierMode] = useState(false);
+  const [zapierWebhookUrl, setZapierWebhookUrl] = useState("");
+  const [smsDelayMinutes, setSmsDelayMinutes] = useState(3);
   const [savingSettings, setSavingSettings] = useState(false);
   const [diagReport, setDiagReport] = useState<DiagnosticReport | null>(null);
   const [diagBusy, setDiagBusy] = useState(false);
