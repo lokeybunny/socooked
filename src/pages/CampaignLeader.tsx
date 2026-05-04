@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck } from "lucide-react";
+import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud } from "lucide-react";
 
 type Settings = {
   is_production: boolean;
@@ -118,6 +118,44 @@ export default function CampaignLeader() {
     };
   }, []);
 
+  // Re-render every second so countdown timers tick smoothly
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Currently in-flight contact (the one the server is actively sending)
+  const inFlight = useMemo(
+    () => contacts.find(c => c.status === "emailing" || c.status === "texting") || null,
+    [contacts],
+  );
+
+  // Most recently completed send (used to estimate the next one)
+  const lastSent = useMemo(() => {
+    const times = contacts
+      .map(c => {
+        const t = c.sms_sent_at || c.email_sent_at;
+        return t ? new Date(t).getTime() : 0;
+      })
+      .filter(Boolean);
+    return times.length ? Math.max(...times) : 0;
+  }, [contacts]);
+
+  // Average inter-send delay from settings (server picks a random value in this range)
+  const avgDelaySec = settings
+    ? Math.round((settings.min_delay_seconds + settings.max_delay_seconds) / 2)
+    : 0;
+
+  // Estimated seconds until next contact starts processing
+  const nextSendInSec = (() => {
+    if (!settings || !settings.is_production || settings.is_paused) return null;
+    if (inFlight) return 0; // sending right now
+    if (!lastSent) return null;
+    const elapsed = Math.floor((now - lastSent) / 1000);
+    return Math.max(0, avgDelaySec - elapsed);
+  })();
+
   async function updateSettings(patch: Partial<Settings>) {
     if (!settings) return;
     const { error } = await supabase.from("campaign_settings").update(patch).eq("id", 1);
@@ -196,6 +234,69 @@ export default function CampaignLeader() {
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">SMS Failed</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">{stats.sms_failed}</div></CardContent></Card>
         <Card><CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Success Rate</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{successRate}%</div></CardContent></Card>
       </div>
+
+      {/* Live send monitor */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="w-5 h-5 text-primary" /> Live Send Monitor
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Now sending */}
+          {inFlight ? (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-background border border-primary/40">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">
+                  Sending {inFlight.status === "emailing" ? "email" : "SMS"} to{" "}
+                  <span className="text-primary">{inFlight.first_name || inFlight.email}</span>
+                </div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {inFlight.email}
+                  {inFlight.phone_e164 && <> · {inFlight.phone_e164}</>}
+                  {inFlight.property_address && <> · {inFlight.property_address}</>}
+                </div>
+              </div>
+              <Badge>{STAGE_LABELS[inFlight.status]}</Badge>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-background border">
+              <Timer className="w-4 h-4 text-muted-foreground" />
+              <div className="flex-1 text-sm">
+                {!settings.is_production && <span className="text-muted-foreground">Production locked — no sends running.</span>}
+                {settings.is_production && settings.is_paused && <span className="text-muted-foreground">Campaign paused.</span>}
+                {settings.is_production && !settings.is_paused && nextSendInSec !== null && (
+                  <span>
+                    Next contact in{" "}
+                    <span className="font-mono text-base font-bold text-primary tabular-nums">
+                      {Math.floor(nextSendInSec / 60)}:{String(nextSendInSec % 60).padStart(2, "0")}
+                    </span>
+                  </span>
+                )}
+                {settings.is_production && !settings.is_paused && nextSendInSec === null && (
+                  <span className="text-muted-foreground">Waiting for next batch from scheduler…</span>
+                )}
+              </div>
+              {settings.is_production && !settings.is_paused && (
+                <Badge variant="outline" className="text-xs">avg delay {avgDelaySec}s</Badge>
+              )}
+            </div>
+          )}
+
+          {/* Reassurance: keeps running in background */}
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <Cloud className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span>
+              Sends run on the server — closing this tab won't stop the campaign. When you come back,
+              this page reconnects to the live feed automatically.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Controls */}
       <Card>
