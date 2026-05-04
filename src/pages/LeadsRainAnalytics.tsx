@@ -42,8 +42,8 @@ export default function LeadsRainAnalytics() {
   const [diagBusy, setDiagBusy] = useState(false);
   const diagHealth: DiagnosticHealth = reportToHealth(diagReport);
   void diagHealth; void diagBusy;
-  const [manualField, setManualField] = useState<string>("list_id");
-  const [manualContentType, setManualContentType] = useState<string>("json");
+  const [manualPhoneField, setManualPhoneField] = useState<string>("phone_number");
+  const [manualContentType, setManualContentType] = useState<string>("auto");
   const [manualExtra, setManualExtra] = useState<string>("");
 
   const normalizeDigits = (raw: string) => {
