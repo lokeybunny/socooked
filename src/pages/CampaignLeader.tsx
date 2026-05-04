@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud, Square, Rocket, ListChecks, Eye } from "lucide-react";
+import { Play, Pause, FlaskConical, Mail, MessageSquare, Activity, ShieldCheck, Send, Timer, Cloud, Square, Rocket, ListChecks, Eye, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -321,18 +321,24 @@ export default function CampaignLeader() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold">Campaign Leader</h1>
-          <p className="text-muted-foreground">Autonomous outbound to leads from US Lead Map · 9–5 PT · Mon–Fri</p>
+          <p className="text-muted-foreground">
+            Autonomous outbound to leads from US Lead Map ·{" "}
+            {settings.start_hour_pt}–{settings.end_hour_pt} PT · Mon–Fri
+          </p>
         </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          <Badge variant={settings.is_production ? "default" : "outline"}>
-            {settings.is_production ? "PRODUCTION ON" : "PRODUCTION LOCKED"}
-          </Badge>
-          <Badge variant={settings.is_paused ? "destructive" : "default"}>
-            {settings.is_paused ? "PAUSED" : "ACTIVE"}
-          </Badge>
-          <Button asChild variant="outline" size="sm">
-            <a href="/email-deliverability"><ShieldCheck className="w-4 h-4 mr-1" />Deliverability</a>
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+          <PstClock startHour={settings.start_hour_pt} endHour={settings.end_hour_pt} />
+          <div className="flex gap-2 items-center flex-wrap justify-end">
+            <Badge variant={settings.is_production ? "default" : "outline"}>
+              {settings.is_production ? "PRODUCTION ON" : "PRODUCTION LOCKED"}
+            </Badge>
+            <Badge variant={settings.is_paused ? "destructive" : "default"}>
+              {settings.is_paused ? "PAUSED" : "ACTIVE"}
+            </Badge>
+            <Button asChild variant="outline" size="sm">
+              <a href="/email-deliverability"><ShieldCheck className="w-4 h-4 mr-1" />Deliverability</a>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -725,3 +731,34 @@ export default function CampaignLeader() {
     </div>
   );
 }
+
+function PstClock({ startHour, endHour }: { startHour: number; endHour: number }) {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true,
+  });
+  const dayFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", weekday: "short",
+  });
+  // Hour in PT
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles", hour: "2-digit", hour12: false,
+  }).format(now);
+  const hour = parseInt(hourStr, 10);
+  const dayName = dayFmt.format(now);
+  const isWeekday = !["Sat", "Sun"].includes(dayName);
+  const inWindow = isWeekday && hour >= startHour && hour < endHour;
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-mono ${inWindow ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500" : "border-amber-500/40 bg-amber-500/10 text-amber-500"}`}>
+      <Clock className="w-4 h-4" />
+      <span>{fmt.format(now)} PT</span>
+      <span className="text-xs opacity-70">· {dayName} · {inWindow ? "SENDING" : "PAUSED"}</span>
+    </div>
+  );
+}
+
