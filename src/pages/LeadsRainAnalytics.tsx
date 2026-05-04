@@ -224,6 +224,34 @@ export default function LeadsRainAnalytics() {
             <Button variant="ghost" onClick={() => { loadAll(); checkHealth(); }}>
               <RefreshCw className="w-4 h-4" />
             </Button>
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline"><SettingsIcon className="w-4 h-4 mr-2" /> Settings</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>LeadsRain Defaults</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-200">
+                    <strong>Required for voice drops to actually fire.</strong> The Postlead API only adds a lead to a list — the voicemail audio is dropped by a Campaign you've configured inside the LeadsRain dashboard (RVM → Campaigns) that watches this list. Upload your audio file and attach it to the campaign there.
+                  </div>
+                  <div>
+                    <Label className="text-xs">List ID (LeadsRain → RVM → Lead Lists)</Label>
+                    <Input value={defaultListId} onChange={(e) => setDefaultListId(e.target.value)} placeholder="e.g. 12345" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Caller ID (10-digit, must be verified in LeadsRain)</Label>
+                    <Input value={defaultCallerId} onChange={(e) => setDefaultCallerId(e.target.value)} placeholder="e.g. 14244651253" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={saveSettings} disabled={savingSettings}>
+                    {savingSettings && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
