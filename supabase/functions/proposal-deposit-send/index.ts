@@ -42,8 +42,10 @@ function buildHtml(p: any, amount: string) {
 
           <div style="border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px;">
             <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Credit / Debit Card</div>
-            <a href="https://warren.guru/payme" style="display:inline-block;background:#059669;color:white;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Pay $${amount} with Card →</a>
-            <div style="font-size: 12px; color: #6b7280; margin-top: 6px;">https://warren.guru/payme</div>
+            <div style="font-size: 14px; color: #1a1a1a; line-height: 1.6;">
+              Reply to this email and we'll send a secure Stripe-style hosted invoice link
+              you can pay by card in seconds. Your card is never entered on our site.
+            </div>
           </div>
         </div>
 

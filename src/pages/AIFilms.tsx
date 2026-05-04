@@ -517,7 +517,7 @@ export default function AIFilms() {
 
           <p className="text-center text-[11px] tracking-[0.2em] uppercase text-muted-foreground mt-10 flex items-center justify-center gap-2">
             <Lock className="h-3 w-3" />
-            Secure checkout (Authorize.net integration coming soon)
+            Secure checkout via Stripe-powered hosted invoice or Zelle
           </p>
         </div>
       </section>

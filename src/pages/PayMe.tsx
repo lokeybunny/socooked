@@ -1,89 +1,13 @@
 import { useState } from "react";
-import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Loader2, ShieldCheck, AlertCircle, Download, Lock } from "lucide-react";
+import { DollarSign, Copy, Check, Smartphone, Send, CreditCard, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import jsPDF from "jspdf";
 
 const ZELLE = "Me@cozyhomestudio.com";
 const CASHAPP = "$ITSWARR";
+const INVOICE_EMAIL = "Me@cozyhomestudio.com";
 
 const PayMe = () => {
   const [copied, setCopied] = useState<string | null>(null);
-
-  // Card form state
-  const [amount, setAmount] = useState("");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [exp, setExp] = useState(""); // MM/YY
-  const [cvv, setCvv] = useState("");
-  const [zip, setZip] = useState("");
-  const [note, setNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ id: string; amount: string; last4: string; name: string; email: string; note: string; date: string } | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [errorField, setErrorField] = useState<string | null>(null);
-
-  // Eligibility gate
-  const [verifying, setVerifying] = useState(false);
-  const [eligible, setEligible] = useState<boolean | null>(null);
-  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
-
-  const luhnValid = (num: string): boolean => {
-    if (!/^\d+$/.test(num)) return false;
-    let sum = 0, alt = false;
-    for (let i = num.length - 1; i >= 0; i--) {
-      let d = parseInt(num[i], 10);
-      if (alt) { d *= 2; if (d > 9) d -= 9; }
-      sum += d;
-      alt = !alt;
-    }
-    return sum % 10 === 0;
-  };
-
-  const setError = (msg: string, field?: string) => {
-    setErrorMsg(msg);
-    setErrorField(field || null);
-    toast.error(msg);
-  };
-  const fieldClass = (name: string, base: string) =>
-    `${base} ${errorField === name ? "border-red-500 focus:border-red-500" : "border-zinc-700 focus:border-amber-500"}`;
-  const verifyEligibility = async () => {
-    const clean = email.trim().toLowerCase();
-    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
-      return setError("Enter a valid email to unlock card payments.", "email");
-    }
-    setVerifying(true);
-    setErrorMsg(null); setErrorField(null);
-    try {
-      // Use direct fetch (bypasses Lovable Preview proxy that breaks supabase.functions.invoke)
-      const url = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/verify-proposal-signed`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ email: clean }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `Verification failed (${res.status})`);
-      if (data?.eligible) {
-        setEligible(true);
-        setVerifiedEmail(clean);
-        toast.success("Card payments unlocked");
-      } else {
-        setEligible(false);
-        setVerifiedEmail(null);
-        setError("This email has no signed agreement on file. Card payments are restricted to clients with a signed proposal.", "email");
-      }
-    } catch (e: any) {
-      setError(e?.message || "Verification failed", "email");
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   const copy = async (label: string, value: string) => {
     try {
@@ -96,181 +20,6 @@ const PayMe = () => {
     }
   };
 
-  const formatCard = (v: string) =>
-    v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
-
-  const formatExp = (v: string) => {
-    const d = v.replace(/\D/g, "").slice(0, 4);
-    if (d.length <= 2) return d;
-    return `${d.slice(0, 2)}/${d.slice(2)}`;
-  };
-
-  const buildReceiptPdf = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
-    const doc = new jsPDF();
-    const pageW = doc.internal.pageSize.getWidth();
-    doc.setFillColor(245, 158, 11);
-    doc.rect(0, 0, pageW, 28, "F");
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("Payment Receipt", 14, 18);
-
-    doc.setTextColor(40, 40, 40);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-
-    let y = 44;
-    const line = (label: string, value: string) => {
-      doc.setFont("helvetica", "bold"); doc.text(label, 14, y);
-      doc.setFont("helvetica", "normal"); doc.text(value, 70, y);
-      y += 8;
-    };
-    line("Date:", r.date);
-    line("Reference:", r.id);
-    line("Paid by:", r.name || "—");
-    line("Email:", r.email || "—");
-    line("Card:", `•••• •••• •••• ${r.last4}`);
-    if (r.note) line("Note:", r.note);
-
-    y += 6;
-    doc.setDrawColor(220);
-    doc.line(14, y, pageW - 14, y);
-    y += 12;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("Amount Paid:", 14, y);
-    doc.setTextColor(245, 158, 11);
-    doc.text(`$${Number(r.amount).toFixed(2)}`, pageW - 14, y, { align: "right" });
-
-    doc.setTextColor(120);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text("Processed securely via Authorize.Net • Pay Warren", 14, 285);
-
-    return doc;
-  };
-
-  const downloadReceipt = (r: { id: string; amount: string; last4: string; name: string; email: string; note: string; date: string }) => {
-    buildReceiptPdf(r).save(`receipt-${r.id}.pdf`);
-  };
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null); setErrorField(null);
-
-    if (!eligible || !verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
-      return setError("Verify your email first to unlock card payments.", "email");
-    }
-
-    const amt = Number(amount);
-    if (!amt || amt < 1) return setError("Enter a valid amount of at least $1.", "amount");
-    if (amt > 100000) return setError("Amount cannot exceed $100,000.", "amount");
-
-    const rawCard = cardNumber.replace(/\D/g, "");
-    if (rawCard.length < 13 || rawCard.length > 16) return setError("Card number must be 13–16 digits.", "cardNumber");
-    if (!luhnValid(rawCard)) return setError("That card number doesn't look right. Please double-check the digits.", "cardNumber");
-
-    const [mm, yy] = exp.split("/");
-    if (!mm || !yy) return setError("Enter the expiration as MM/YY.", "exp");
-    const mmNum = Number(mm);
-    if (mmNum < 1 || mmNum > 12) return setError("Expiry month must be 01–12.", "exp");
-    const fullYear = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
-    const lastDay = new Date(fullYear, mmNum, 0, 23, 59, 59);
-    if (lastDay < new Date()) return setError("This card has expired.", "exp");
-
-    if (cvv.length < 3 || cvv.length > 4) return setError("CVV must be 3 or 4 digits.", "cvv");
-
-    setSubmitting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("authnet-charge", {
-        body: { amount: amt, cardNumber: rawCard, expMonth: mm, expYear: yy, cvv, zip, name, email, note },
-      });
-      if (error) throw new Error(error.message);
-      if (!data?.ok) {
-        setError(data?.error || "Charge failed", data?.field);
-        return;
-      }
-      const receipt = {
-        id: data.transactionId,
-        amount: data.amount,
-        last4: data.last4,
-        name,
-        email,
-        note,
-        date: new Date().toLocaleString(),
-      };
-      setSuccess(receipt);
-      toast.success(`Charged $${data.amount}`);
-      setCardNumber(""); setExp(""); setCvv("");
-
-      // Fire-and-forget thank-you receipt email via Gmail API
-      try {
-        const recipientEmail = (email || "").trim();
-        if (recipientEmail) {
-          const firstName = (name || "").trim().split(/\s+/)[0] || "there";
-          const html = `
-            <div style="font-family:Arial,sans-serif;color:#111;line-height:1.6;max-width:560px;">
-              <h2 style="color:#111;margin:0 0 12px;">Thank you, ${firstName} 🙏</h2>
-              <p>I just wanted to send a quick personal note to say <strong>thank you</strong> for your payment. It genuinely means a lot, and I'm grateful for the trust you've placed in me.</p>
-              <p>Here are your receipt details for your records:</p>
-              <table style="border-collapse:collapse;margin:12px 0 18px;font-size:14px;">
-                <tr><td style="padding:4px 12px 4px 0;color:#555;">Date</td><td style="padding:4px 0;"><strong>${receipt.date}</strong></td></tr>
-                <tr><td style="padding:4px 12px 4px 0;color:#555;">Reference</td><td style="padding:4px 0;font-family:monospace;">${receipt.id}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;color:#555;">Amount Paid</td><td style="padding:4px 0;color:#b45309;font-size:18px;"><strong>$${Number(receipt.amount).toFixed(2)}</strong></td></tr>
-                <tr><td style="padding:4px 12px 4px 0;color:#555;">Card</td><td style="padding:4px 0;">•••• •••• •••• ${receipt.last4}</td></tr>
-                ${receipt.note ? `<tr><td style="padding:4px 12px 4px 0;color:#555;">Note</td><td style="padding:4px 0;">${receipt.note}</td></tr>` : ""}
-              </table>
-              <p style="color:#555;font-size:12px;">Processed securely via Authorize.Net.</p>
-              <p>If you ever need anything, just reply to this email — I read every message personally.</p>
-              <p style="margin-top:24px;">— Warren</p>
-            </div>`;
-          const gmailUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/gmail-api?action=send`;
-
-          // Build PDF receipt and convert to base64 for attachment
-          const pdfDoc = buildReceiptPdf(receipt);
-          const pdfDataUri = pdfDoc.output("datauristring");
-          const pdfBase64 = pdfDataUri.split(",")[1] || "";
-
-          fetch(gmailUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({
-              to: recipientEmail,
-              subject: `Receipt + thank you — $${Number(receipt.amount).toFixed(2)} (Ref ${receipt.id})`,
-              body: html,
-              attachments: [
-                {
-                  filename: `receipt-${receipt.id}.pdf`,
-                  mimeType: "application/pdf",
-                  data: pdfBase64,
-                },
-              ],
-            }),
-          }).catch(() => { /* non-blocking */ });
-        }
-      } catch { /* non-blocking */ }
-    } catch (err: any) {
-      // FunctionsHttpError stashes the JSON body on err.context
-      let msg = err?.message || "Payment failed";
-      let field: string | undefined;
-      try {
-        const ctx = err?.context;
-        if (ctx && typeof ctx.json === "function") {
-          const j = await ctx.json();
-          if (j?.error) msg = j.error;
-          if (j?.field) field = j.field;
-        }
-      } catch { /* ignore */ }
-      setError(msg, field);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 flex items-center justify-center p-4 py-10">
       <div className="w-full max-w-md">
@@ -280,163 +29,29 @@ const PayMe = () => {
               <DollarSign className="h-8 w-8 text-amber-400" />
             </div>
             <h1 className="text-2xl font-bold text-white">Pay Warren</h1>
-            <p className="text-zinc-400 text-sm mt-1">Card, Zelle, or Cash App</p>
+            <p className="text-zinc-400 text-sm mt-1">Zelle, Cash App, or Card by Invoice</p>
           </div>
 
-          {/* Credit Card */}
+          {/* Card by Invoice */}
           <div className="bg-zinc-800/50 border border-zinc-700/50 rounded-xl p-5 mb-4">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3">
               <CreditCard className="h-4 w-4 text-amber-400" />
               <span className="text-xs uppercase tracking-wider text-zinc-400 font-semibold">Credit / Debit Card</span>
             </div>
-
-            {success ? (
-              <div className="text-center py-4">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 border border-green-500/30 mb-3">
-                  <Check className="h-6 w-6 text-green-400" />
-                </div>
-                <p className="text-white font-semibold">Payment of ${success.amount} received</p>
-                <p className="text-zinc-400 text-xs mt-1">Card ending {success.last4}</p>
-                <p className="text-zinc-500 text-xs mt-1">Ref: {success.id}</p>
-                <div className="mt-4 flex flex-col items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => downloadReceipt(success)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold transition"
-                  >
-                    <Download className="h-4 w-4" /> Download receipt (PDF)
-                  </button>
-                  <button
-                    onClick={() => { setSuccess(null); setAmount(""); }}
-                    className="text-amber-400 text-sm hover:underline"
-                  >
-                    Make another payment
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={submit} className="space-y-3">
-                <div>
-                  <label className="text-xs text-zinc-400">Amount (USD)</label>
-                  <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
-                    <input
-                      inputMode="decimal"
-                      value={amount}
-                      onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); if (errorField === "amount") setErrorField(null); }}
-                      placeholder="0.00"
-                      className={fieldClass("amount", "w-full pl-7 pr-3 py-2 bg-zinc-900 border rounded-lg text-white text-lg focus:outline-none")}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Full name"
-                    className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (errorField === "email") setErrorField(null);
-                      if (eligible !== null) { setEligible(null); setVerifiedEmail(null); }
-                    }}
-                    placeholder="Email (signed proposal)"
-                    className={fieldClass("email", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
-                    required
-                  />
-                </div>
-
-                {eligible !== true ? (
-                  <button
-                    type="button"
-                    onClick={verifyEligibility}
-                    disabled={verifying || !email}
-                    className="w-full py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-60 text-white text-sm font-semibold transition flex items-center justify-center gap-2"
-                  >
-                    {verifying
-                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Checking…</>
-                      : <><Lock className="h-4 w-4" /> Verify email to unlock card</>}
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30 text-green-300 text-xs">
-                    <Check className="h-3.5 w-3.5" /> Verified — card payments unlocked for {verifiedEmail}
-                  </div>
-                )}
-
-                <fieldset disabled={eligible !== true} className={eligible !== true ? "opacity-50 pointer-events-none space-y-3" : "space-y-3"}>
-                <input
-                  inputMode="numeric"
-                  autoComplete="cc-number"
-                  value={cardNumber}
-                  onChange={(e) => { setCardNumber(formatCard(e.target.value)); if (errorField === "cardNumber") setErrorField(null); }}
-                  placeholder="Card number"
-                  className={fieldClass("cardNumber", "w-full px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm tracking-wider focus:outline-none")}
-                  required
-                />
-
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    inputMode="numeric"
-                    autoComplete="cc-exp"
-                    value={exp}
-                    onChange={(e) => { setExp(formatExp(e.target.value)); if (errorField === "exp") setErrorField(null); }}
-                    placeholder="MM/YY"
-                    className={fieldClass("exp", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
-                    required
-                  />
-                  <input
-                    inputMode="numeric"
-                    autoComplete="cc-csc"
-                    value={cvv}
-                    onChange={(e) => { setCvv(e.target.value.replace(/\D/g, "").slice(0, 4)); if (errorField === "cvv") setErrorField(null); }}
-                    placeholder="CVV"
-                    className={fieldClass("cvv", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
-                    required
-                  />
-                  <input
-                    inputMode="numeric"
-                    autoComplete="postal-code"
-                    value={zip}
-                    onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 10)); if (errorField === "zip") setErrorField(null); }}
-                    placeholder="ZIP"
-                    className={fieldClass("zip", "px-3 py-2 bg-zinc-900 border rounded-lg text-white text-sm focus:outline-none")}
-                  />
-                </div>
-
-                <input
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Note (invoice # or memo)"
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500"
-                />
-                </fieldset>
-
-                {errorMsg && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-[1px]" />
-                    <span>{errorMsg}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full py-3 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black font-semibold text-sm transition flex items-center justify-center gap-2"
-                >
-                  {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</> : <>Pay ${amount || "0.00"}</>}
-                </button>
-                <p className="flex items-center justify-center gap-1 text-[10px] text-zinc-500">
-                  <ShieldCheck className="h-3 w-3" /> Secured by Authorize.Net
-                </p>
-              </form>
-            )}
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              Card payments are handled through a secure invoice link sent to your email.
+              Reply to your latest email or request an invoice and you'll receive a secure
+              hosted checkout link to pay by credit or debit card.
+            </p>
+            <a
+              href={`mailto:${INVOICE_EMAIL}?subject=Invoice%20Request&body=Hi%20Warren%2C%20please%20send%20me%20a%20secure%20card%20invoice.`}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold transition"
+            >
+              <Mail className="h-4 w-4" /> Request Card Invoice
+            </a>
+            <p className="mt-3 text-[11px] text-zinc-500">
+              Secure hosted checkout. Your card details are never entered or stored on this site.
+            </p>
           </div>
 
           {/* Zelle */}
@@ -489,7 +104,6 @@ const PayMe = () => {
             Please include your name or invoice # in the memo.
           </p>
         </div>
-
       </div>
     </div>
   );
