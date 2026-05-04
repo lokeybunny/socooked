@@ -37,7 +37,28 @@ function locationToZillowUrl(location: string): string {
   return `https://www.zillow.com/homes/for_sale/?searchQueryState=${encoded}`;
 }
 
-async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ items: any[]; tokenUsed: string | null; error?: string }> {
+function parseApifyError(status: number, body: string): { error: string; code?: string } {
+  let message = body;
+  let type = "";
+  try {
+    const parsed = JSON.parse(body);
+    message = parsed?.error?.message || parsed?.message || body;
+    type = parsed?.error?.type || parsed?.type || "";
+  } catch (_) {
+    // Keep raw body if Apify returns non-JSON.
+  }
+
+  if (type === "platform-feature-disabled" && /monthly usage hard limit/i.test(message)) {
+    return {
+      code: "APIFY_MONTHLY_LIMIT",
+      error: "Apify monthly usage hard limit exceeded. Raise the monthly usage hard limit or add credits in Apify, then retry the scrape.",
+    };
+  }
+
+  return { error: `token rejected ${status}: ${message.slice(0, 300)}` };
+}
+
+async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ items: any[]; tokenUsed: string | null; error?: string; code?: string }> {
   const input = {
     searchUrls: searchUrls.map((url) => ({ url })),
     extractionMethod: "PAGINATION_WITH_ZOOM_IN",
@@ -57,7 +78,11 @@ async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ 
       });
       if (r.status === 401 || r.status === 402 || r.status === 403) {
         const body = (await r.text()).slice(0, 400);
-        lastError = `token rejected ${r.status}: ${body}`;
+        const parsedError = parseApifyError(r.status, body);
+        lastError = parsedError.error;
+        if (parsedError.code === "APIFY_MONTHLY_LIMIT") {
+          return { items: [], tokenUsed: null, error: parsedError.error, code: parsedError.code };
+        }
         continue; // try next token
       }
       if (!r.ok) {
@@ -116,14 +141,15 @@ Deno.serve(async (req) => {
     jobId = job?.id || null;
 
     const searchUrl = locationToZillowUrl(location);
-    const { items, tokenUsed, error } = await runApifyActor([searchUrl], maxItems);
+    const { items, tokenUsed, error, code } = await runApifyActor([searchUrl], maxItems);
 
     if (error) {
       await supabase.from("af_scrape_jobs").update({
         status: "failed", error_log: error, completed_at: new Date().toISOString(),
       }).eq("id", jobId);
-      return new Response(JSON.stringify({ ok: false, error, location }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ ok: false, error, code, location }), {
+        status: code === "APIFY_MONTHLY_LIMIT" ? 200 : 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
