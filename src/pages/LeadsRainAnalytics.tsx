@@ -192,7 +192,7 @@ export default function LeadsRainAnalytics() {
     URL.revokeObjectURL(url);
   };
 
-  const healthColor = apiHealth === "Healthy" ? "green" : apiHealth === "Down" ? "red" : undefined;
+  void diagBusy;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
