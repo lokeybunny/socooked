@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
       status: newStatus,
       leadsrain_lead_id: lrLeadId,
       leadsrain_message: lrMsg,
-      raw_response: { ...lrJson, endpoint: usedEndpoint?.replace(/^https?:\/\//, "") },
+      raw_response: { parsed, json: lrJson, raw_text: lrRawText, http_status: httpStatus, endpoint: usedEndpoint?.replace(/^https?:\/\//, "") },
       error_message: errMsg,
     }).eq("id", row.id);
 
