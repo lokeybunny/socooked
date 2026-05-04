@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
           endpoint: RAW_PROXY || "(not configured — optional)",
           http_status: 0,
           duration_ms: 0,
-          result_type: "UNKNOWN" as ResultType,
+          result_type: "OPTIONAL_PROXY_NOT_CONFIGURED" as ResultType,
           diagnosis: RAW_PROXY
             ? "LEADSRAIN_PROXY_URL is set but invalid. Optional — only needed for legacy campaign-view endpoints. PostLead HTTPS works without it."
             : "Optional Cloudflare/Fly proxy not configured. PostLead HTTPS still works without it; only legacy campaign-view endpoints need this proxy.",
