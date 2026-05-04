@@ -18,6 +18,10 @@ type Settings = {
   max_delay_seconds: number;
   start_hour_pt: number;
   end_hour_pt: number;
+  stop_requested?: boolean;
+  drain_active?: boolean;
+  drain_started_at?: string | null;
+  drain_last_tick_at?: string | null;
 };
 
 type Contact = {
