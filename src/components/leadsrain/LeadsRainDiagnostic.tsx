@@ -97,9 +97,10 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
   const [username, setUsername] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [campaignId, setCampaignId] = useState("");
-  const [mode, setMode] = useState<"all" | "s2" | "s1" | "s3" | "proxy" | "postlead">("all");
+  const [mode, setMode] = useState<"all" | "s2" | "s1" | "s3" | "proxy" | "postlead">("postlead");
   const [report, setReport] = useState<DiagnosticReport | null>(null);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const run = async () => {
     setRunning(true);
@@ -159,7 +160,7 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
               <Stethoscope className="w-5 h-5 text-lime-400" /> LeadsRain Connection Diagnostic
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              This test proves whether the issue is network, authentication, proxy, or campaign parsing.
+              Live HTTPS PostLead is the production endpoint. Legacy Campaign View and Proxy tests are optional.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -187,12 +188,12 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
             <Select value={mode} onValueChange={(v: any) => setMode(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Run All</SelectItem>
-                <SelectItem value="s2">Direct HTTP s2</SelectItem>
-                <SelectItem value="s1">Direct HTTP s1</SelectItem>
-                <SelectItem value="s3">Direct HTTP s3</SelectItem>
-                <SelectItem value="proxy">Proxy URL</SelectItem>
-                <SelectItem value="postlead">PostLead HTTPS host</SelectItem>
+                <SelectItem value="postlead">Live PostLead HTTPS (production)</SelectItem>
+                <SelectItem value="all">Run All (incl. legacy)</SelectItem>
+                <SelectItem value="s2">Legacy: Direct HTTP s2</SelectItem>
+                <SelectItem value="s1">Legacy: Direct HTTP s1</SelectItem>
+                <SelectItem value="s3">Legacy: Direct HTTP s3</SelectItem>
+                <SelectItem value="proxy">Optional: Proxy URL</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -228,8 +229,10 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
               </Badge>
               {report.credentials && (
                 <span className="text-xs text-muted-foreground">
-                  creds: {report.credentials.username_source} · key {report.credentials.api_key_preview} ·{" "}
-                  proxy {report.credentials.proxy_configured ? "OK" : (report.credentials.proxy_misconfigured ? "misconfigured" : "not set")}
+                  creds: {report.credentials.username_source} · key {report.credentials.api_key_preview}
+                  {advancedOpen && (
+                    <> · proxy {report.credentials.proxy_configured ? "OK" : (report.credentials.proxy_misconfigured ? "misconfigured" : "not set (optional)")}</>
+                  )}
                 </span>
               )}
             </div>
@@ -240,8 +243,22 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
           </div>
         )}
 
-        {report?.tests && report.tests.length > 0 && (
-          <div className="overflow-x-auto rounded-md border border-border/40">
+        {report?.tests && report.tests.length > 0 && (() => {
+          const isLegacy = (t: any) => /s1|s2|s3|proxy|campaign view/i.test(`${t.name} ${t.endpoint}`);
+          const visibleTests = advancedOpen ? report.tests : report.tests.filter((t) => !isLegacy(t));
+          const hiddenCount = report.tests.length - visibleTests.length;
+          return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                {advancedOpen ? "Showing all tests including legacy/optional." : "Showing production tests only."}
+                {hiddenCount > 0 && !advancedOpen && ` ${hiddenCount} legacy/optional test(s) hidden.`}
+              </div>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setAdvancedOpen((v) => !v)}>
+                {advancedOpen ? "Hide" : "Show"} Advanced Diagnostics (Optional)
+              </Button>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-border/40">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -255,7 +272,7 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.tests.map((t, i) => {
+                {visibleTests.map((t, i) => {
                   const badge = TYPE_BADGE[t.result_type] || TYPE_BADGE.UNKNOWN;
                   const open = !!expanded[i];
                   return (
@@ -278,7 +295,7 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
                               <div><strong>Diagnosis:</strong> {t.diagnosis}</div>
                               {t.raw_text_preview && (
                                 <details>
-                                  <summary className="cursor-pointer text-muted-foreground">Raw response preview</summary>
+                                  <summary className="cursor-pointer text-muted-foreground">Raw LeadsRain Response</summary>
                                   <pre className="mt-2 p-2 bg-background rounded border border-border/40 overflow-x-auto max-h-64 text-[10px]">{t.raw_text_preview}</pre>
                                 </details>
                               )}
@@ -297,8 +314,10 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
                 })}
               </TableBody>
             </Table>
+            </div>
           </div>
-        )}
+          );
+        })()}
       </CardContent>
     </Card>
   );
