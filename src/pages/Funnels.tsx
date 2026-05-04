@@ -19,11 +19,11 @@ import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type FunnelType = 'all' | 'webdesign' | 'videography' | 'aicourses' | 'powerdial';
+type FunnelType = 'all' | 'airealty' | 'powerdial';
 
 interface FunnelLead {
   id: string;
-  funnel: 'webdesign' | 'aicourses' | 'videography' | 'powerdial';
+  funnel: 'airealty' | 'powerdial';
   full_name: string;
   email: string | null;
   phone: string | null;
@@ -76,14 +76,12 @@ const PAGE_SIZE = 30;
 const LIVE_CALL_STALE_MS = 15 * 60 * 1000;
 
 const FUNNEL_CONFIG: Record<string, { label: string; icon: typeof Globe; color: string; bgColor: string }> = {
-  webdesign: { label: 'Web Design', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  aicourses: { label: 'AI Courses', icon: GraduationCap, color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
-  videography: { label: 'Videography', icon: Video, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+  airealty: { label: 'AI Realty', icon: Globe, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   powerdial: { label: 'Power D', icon: PhoneCall, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
 };
 
 const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
-  webdesign: [
+  airealty: [
     { value: 'lead', label: 'Prospect' },
     { value: 'contacted', label: 'Contacted' },
     { value: 'callback', label: 'Call Back' },
@@ -92,21 +90,6 @@ const PIPELINE_STAGES: Record<string, { value: string; label: string }[]> = {
     { value: 'agreement_sent', label: 'Agreement Sent' },
     { value: 'closed', label: 'Closed' },
     { value: 'dead', label: 'Dead' },
-  ],
-  videography: [
-    { value: 'lead', label: 'Prospect' },
-    { value: 'contacted', label: 'Contacted' },
-    { value: 'callback', label: 'Call Back' },
-    { value: 'scheduled', label: 'Scheduled' },
-    { value: 'agreement_sent', label: 'Agreement Sent' },
-    { value: 'closed', label: 'Closed' },
-    { value: 'dead', label: 'Dead' },
-  ],
-  aicourses: [
-    { value: 'pending', label: 'Pending Payment' },
-    { value: 'active', label: 'Active' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'cancelled', label: 'Cancelled' },
   ],
   powerdial: [
     { value: 'positive', label: 'Positive' },
