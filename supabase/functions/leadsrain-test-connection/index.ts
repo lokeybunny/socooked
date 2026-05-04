@@ -10,7 +10,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const USERNAME = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
 const API_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
-const PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+const RAW_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+const PROXY_URL = /^https:\/\//i.test(RAW_PROXY_URL) && !/\.leadsrain\.com/i.test(RAW_PROXY_URL) ? RAW_PROXY_URL : "";
 
 function json(d: unknown, status = 200) {
   return new Response(JSON.stringify(d), { status, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -109,7 +110,7 @@ Deno.serve(async (req) => {
     const summary = proxyHit
       ? `LeadsRain proxy is healthy (${proxyHit.http_status} in ${proxyHit.duration_ms}ms).`
       : apiHit
-        ? `LeadsRain mirror is reachable but returned an empty/non-success response (HTTP ${apiHit.http_status}). Voice drops require the configured proxy or a direct s2 response that returns a lead_id.`
+        ? `LeadsRain mirror is reachable but returned an empty/non-success response (HTTP ${apiHit.http_status}). Voice drops require LEADSRAIN_PROXY_URL to be a deployed HTTPS proxy, not a leadsrain.com URL.`
         : `All ${attempts.length} endpoints failed. Egress IP: ${egressIp ?? "unknown"}. Check LeadsRain credentials and proxy configuration.`;
 
     return json({
@@ -117,6 +118,8 @@ Deno.serve(async (req) => {
       message: summary,
       egress_ip: egressIp,
       username: USERNAME,
+      proxy_configured: !!PROXY_URL,
+      proxy_misconfigured: !!RAW_PROXY_URL && !PROXY_URL,
       attempts,
     });
   } catch (e: any) {
