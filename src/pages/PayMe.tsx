@@ -2,7 +2,7 @@ import { useState } from "react";
 import { DollarSign, Copy, Check, Smartphone, Send } from "lucide-react";
 import { toast } from "sonner";
 
-const ZELLE = "Me@cozyhomestudio.com";
+const ZELLE = "warren@stu25.com";
 const CASHAPP = "$ITSWARR";
 const VENMO = "@Warrenstu25";
 
