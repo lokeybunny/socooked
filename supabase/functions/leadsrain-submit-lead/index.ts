@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
 
     const newStatus = httpOk ? "accepted_by_api" : "failed_to_submit";
     const lrLeadId = lrJson?.lead_id?.toString() || null;
-    const lrMsg = lrJson?.msg || lrJson?.message || (httpOk && lrJson?.accepted ? "LeadsRain accepted request with empty HTTP 200 response" : null);
+    const lrMsg = lrJson?.msg || lrJson?.message || lrJson?.error || null;
 
     await svc.from("leadsrain_submissions").update({
       status: newStatus,
