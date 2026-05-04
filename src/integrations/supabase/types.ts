@@ -2446,6 +2446,7 @@ export type Database = {
           created_at: string
           default_caller_id: string | null
           default_campaign_id: string | null
+          default_list_id: string | null
           enable_transfer: boolean
           enable_voidfix_followup: boolean
           id: string
@@ -2459,6 +2460,7 @@ export type Database = {
           created_at?: string
           default_caller_id?: string | null
           default_campaign_id?: string | null
+          default_list_id?: string | null
           enable_transfer?: boolean
           enable_voidfix_followup?: boolean
           id?: string
@@ -2472,6 +2474,7 @@ export type Database = {
           created_at?: string
           default_caller_id?: string | null
           default_campaign_id?: string | null
+          default_list_id?: string | null
           enable_transfer?: boolean
           enable_voidfix_followup?: boolean
           id?: string
