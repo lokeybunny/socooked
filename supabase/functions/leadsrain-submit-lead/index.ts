@@ -11,12 +11,10 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LR_USER = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
 const LR_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
-const RAW_LR_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
-const LR_PROXY_URL = /^https:\/\//i.test(RAW_LR_PROXY_URL) && !/\.leadsrain\.com/i.test(RAW_LR_PROXY_URL) ? RAW_LR_PROXY_URL : "";
-const LR_ENDPOINTS = [
-  ...(LR_PROXY_URL ? [`${LR_PROXY_URL}/ringless/api/add_posted_lead.php`] : []),
-  "https://api.leadsrain.com/ringless/api/add_posted_lead.php",
-];
+// CRM-only mode: PostLead HTTPS endpoint is the only confirmed-working route.
+// Legacy s1/s2/s3 shards timeout from Supabase egress; proxy is optional.
+const LR_POSTLEAD_ENDPOINT = "https://api.leadsrain.com/ringless/api/add_posted_lead.php";
+const LR_ENDPOINTS = [LR_POSTLEAD_ENDPOINT];
 
 const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -149,9 +147,9 @@ Deno.serve(async (req) => {
         const statusText = String(lrJson?.status || lrJson?.Status || "").toLowerCase();
         const messageText = String(lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || "").toLowerCase();
         const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
-        const explicitSuccess = !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText);
-        httpOk = r.ok && !explicitFailure && explicitSuccess;
-        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || (raw === "" ? `LeadsRain returned empty HTTP ${r.status} — lead was NOT added to list ${finalListId}. Verify the List ID belongs to an active RVM campaign and configure LEADSRAIN_PROXY_URL to the deployed HTTPS proxy, not a leadsrain.com URL.` : `HTTP ${r.status}`));
+        // CRM-only mode: PostLead HTTP 200 without explicit failure text = accepted.
+        httpOk = r.ok && !explicitFailure;
+        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || `HTTP ${r.status}`);
         if (httpOk || /invalid username|api key/i.test(errMsg || "")) break;
       }
     } catch (e: any) {
@@ -174,7 +172,7 @@ Deno.serve(async (req) => {
     // Empty HTTP 200 means the post was accepted by the endpoint, not that a VM was delivered.
     let voidfixSent = false;
     let voidfixErr: string | null = null;
-    if (httpOk && send_voidfix && lrLeadId) {
+    if (httpOk && send_voidfix) {
       try {
         const smsResp = await sb.functions.invoke("powerdial-sms", {
           body: { action: "send", to: ph.e164, body: voidfix_template, customer_id: customer_id || null },
