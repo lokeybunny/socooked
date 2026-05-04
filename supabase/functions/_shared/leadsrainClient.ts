@@ -13,17 +13,28 @@ const API_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
 // only on s2 and aren't reachable from here; that's fine, we only need postLead.
 // If LEADSRAIN_PROXY_URL is set (Cloudflare Worker), route HTTP-only s2 endpoints
 // through it so they're reachable from Supabase edge egress over HTTPS.
-const PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+// A LeadsRain URL here is a misconfiguration, not a proxy.
+const RAW_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+const PROXY_URL = /^https:\/\//i.test(RAW_PROXY_URL) && !/\.leadsrain\.com/i.test(RAW_PROXY_URL) ? RAW_PROXY_URL : "";
 const BASE_API = "https://api.leadsrain.com";
 
-// Try direct HTTPS first, then HTTP, then proxy fallback.
-// Each S2 endpoint is expressed as an array of candidate URLs to try in order.
+// Prefer the HTTPS proxy when configured. LeadsRain's real RVM API is HTTP-only
+// on s*.leadsrain.com; the api.leadsrain.com mirror can return empty 200s
+// without adding the lead, so it is only a last-resort diagnostic fallback.
 function s2Candidates(path: string): string[] {
-  const urls: string[] = [
+  const urls: string[] = [];
+  if (PROXY_URL) urls.push(`${PROXY_URL}${path}`);
+  urls.push(
     `https://s2.leadsrain.com${path}`,
     `http://s2.leadsrain.com${path}`,
-  ];
-  if (PROXY_URL) urls.push(`${PROXY_URL}${path}`);
+  );
+  return urls;
+}
+
+function postLeadCandidates(): string[] {
+  const urls: string[] = [];
+  if (PROXY_URL) urls.push(`${PROXY_URL}/ringless/api/add_posted_lead.php`);
+  urls.push(`${BASE_API}/ringless/api/add_posted_lead.php`);
   return urls;
 }
 
@@ -34,7 +45,7 @@ export const ENDPOINTS = {
   listAdd: s2Candidates("/rvm/api/leadlist/add_api"),
   listView: s2Candidates("/rvm/api/leadlist/view_api"),
   listDelete: s2Candidates("/rvm/api/leadlist/delete_api"),
-  postLead: [`${BASE_API}/ringless/api/add_posted_lead.php`],
+  postLead: postLeadCandidates(),
 };
 
 export type LRResult<T = any> = {
@@ -62,6 +73,7 @@ async function callOne(url: string, payload: Record<string, any>, timeoutMs: num
       signal: AbortSignal.timeout(timeoutMs),
     });
     const text = await resp.text();
+    const rawText = text.trim();
     let json: any = null;
     try { json = JSON.parse(text); } catch { json = { raw_text: text }; }
     const statusText = String(json?.status || json?.Status || "").toLowerCase();
@@ -76,10 +88,11 @@ async function callOne(url: string, payload: Record<string, any>, timeoutMs: num
       status: resp.status,
       data: json,
       raw: json,
-      error: success ? undefined : (json?.msg || json?.message || `HTTP ${resp.status}`),
+      error: success ? undefined : (json?.msg || json?.message || json?.error || (rawText === "" && payload?.list_id ? `LeadsRain returned empty HTTP ${resp.status} — lead was NOT added to list ${payload.list_id}. Verify the List ID belongs to an active RVM campaign and that the LeadsRain proxy is active.` : `HTTP ${resp.status}`)),
     };
   } catch (e: any) {
-    return { ok: false, status: 0, data: null, raw: null, error: e?.message || String(e) };
+    const detail = e?.message || String(e);
+    return { ok: false, status: 0, data: null, raw: null, error: PROXY_URL ? detail : `${detail}. Configure LEADSRAIN_PROXY_URL to a deployed HTTPS proxy; direct LeadsRain s2 endpoints are HTTP-only and blocked from this backend.` };
   }
 }
 
