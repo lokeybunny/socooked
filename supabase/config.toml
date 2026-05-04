@@ -5,3 +5,18 @@ verify_jwt = false
 
 [functions.voicedrop-twilio-callback]
 verify_jwt = false
+
+[functions.agentflow-generate-csv]
+verify_jwt = false
+
+[functions.agentflow-cron-tick]
+verify_jwt = false
+
+[functions.agentflow-scrape-zillow]
+verify_jwt = false
+
+[functions.agentflow-enrich-phones]
+verify_jwt = false
+
+[functions.agentflow-validate-phones]
+verify_jwt = false
