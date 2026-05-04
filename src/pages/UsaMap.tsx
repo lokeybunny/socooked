@@ -270,7 +270,8 @@ function StateModal({
 
           <div className="text-xs text-muted-foreground space-y-1 rounded-md bg-muted/40 p-3">
             <div className="flex items-center gap-1.5"><AlertCircle className="h-3 w-3" /> <strong>Required column:</strong> phone_number</div>
-            <div><strong>Optional:</strong> name, address, city, zip</div>
+            <div><strong>Optional:</strong> name, address, city, zip, email</div>
+            <div className="text-emerald-500">Auto-cleaned via La Growth Machine before insert.</div>
           </div>
 
           <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
