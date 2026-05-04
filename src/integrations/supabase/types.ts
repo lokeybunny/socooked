@@ -1131,6 +1131,7 @@ export type Database = {
           phone_e164: string | null
           property_address: string | null
           retry_count: number
+          sms_retry_count: number
           sms_sent_at: string | null
           sms_status: string | null
           sms_variant: number | null
@@ -1155,6 +1156,7 @@ export type Database = {
           phone_e164?: string | null
           property_address?: string | null
           retry_count?: number
+          sms_retry_count?: number
           sms_sent_at?: string | null
           sms_status?: string | null
           sms_variant?: number | null
@@ -1179,6 +1181,7 @@ export type Database = {
           phone_e164?: string | null
           property_address?: string | null
           retry_count?: number
+          sms_retry_count?: number
           sms_sent_at?: string | null
           sms_status?: string | null
           sms_variant?: number | null
@@ -1259,6 +1262,7 @@ export type Database = {
       campaign_settings: {
         Row: {
           batch_size: number
+          channel_mode: string
           daily_email_cap: number
           daily_sms_cap: number
           drain_active: boolean
@@ -1271,12 +1275,16 @@ export type Database = {
           is_production: boolean
           max_delay_seconds: number
           min_delay_seconds: number
+          sms_max_gap_seconds: number
+          sms_max_retries: number
+          sms_min_gap_seconds: number
           start_hour_pt: number
           stop_requested: boolean
           updated_at: string
         }
         Insert: {
           batch_size?: number
+          channel_mode?: string
           daily_email_cap?: number
           daily_sms_cap?: number
           drain_active?: boolean
@@ -1289,12 +1297,16 @@ export type Database = {
           is_production?: boolean
           max_delay_seconds?: number
           min_delay_seconds?: number
+          sms_max_gap_seconds?: number
+          sms_max_retries?: number
+          sms_min_gap_seconds?: number
           start_hour_pt?: number
           stop_requested?: boolean
           updated_at?: string
         }
         Update: {
           batch_size?: number
+          channel_mode?: string
           daily_email_cap?: number
           daily_sms_cap?: number
           drain_active?: boolean
@@ -1307,6 +1319,9 @@ export type Database = {
           is_production?: boolean
           max_delay_seconds?: number
           min_delay_seconds?: number
+          sms_max_gap_seconds?: number
+          sms_max_retries?: number
+          sms_min_gap_seconds?: number
           start_hour_pt?: number
           stop_requested?: boolean
           updated_at?: string

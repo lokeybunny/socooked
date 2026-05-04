@@ -24,6 +24,10 @@ type Settings = {
   drain_active?: boolean;
   drain_started_at?: string | null;
   drain_last_tick_at?: string | null;
+  channel_mode?: "both" | "sms_only" | "email_only";
+  sms_max_retries?: number;
+  sms_min_gap_seconds?: number;
+  sms_max_gap_seconds?: number;
 };
 
 type Contact = {
@@ -450,6 +454,33 @@ export default function CampaignLeader() {
               <Rocket className="w-3 h-3 mr-1" /> DRAINING
             </Badge>
           )}
+
+          <div className="w-full pt-3 border-t mt-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Label className="text-sm font-medium mr-2">Channels:</Label>
+              {([
+                { v: "both", label: "Both", icon: <><Mail className="w-3.5 h-3.5 mr-1" /><MessageSquare className="w-3.5 h-3.5 mr-1" /></> },
+                { v: "sms_only", label: "SMS Only", icon: <MessageSquare className="w-3.5 h-3.5 mr-1" /> },
+                { v: "email_only", label: "Email Only", icon: <Mail className="w-3.5 h-3.5 mr-1" /> },
+              ] as const).map(opt => {
+                const active = (settings.channel_mode || "both") === opt.v;
+                return (
+                  <Button
+                    key={opt.v}
+                    size="sm"
+                    variant={active ? "default" : "outline"}
+                    disabled={busy}
+                    onClick={() => updateSettings({ channel_mode: opt.v } as any)}
+                  >
+                    {opt.icon}{opt.label}
+                  </Button>
+                );
+              })}
+              <span className="text-xs text-muted-foreground ml-2">
+                SMS retries: {settings.sms_max_retries ?? 3} · gap {settings.sms_min_gap_seconds ?? 4}-{settings.sms_max_gap_seconds ?? 12}s (independent of email)
+              </span>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -358,20 +358,52 @@ async function bumpDailyStat(field: "emails_sent" | "emails_failed" | "sms_sent"
   }
 }
 
-// ---------- Per-channel back-to-back gap (5-25s randomized) ----------
-// Email and SMS run on INDEPENDENT timers — SMS never blocks on email being delayed,
-// and email never blocks on SMS being delayed. Each channel enforces its own min-gap
-// between consecutive sends across the entire invocation.
-const CHANNEL_MIN_GAP_MS = 5_000;
-const CHANNEL_MAX_GAP_MS = 25_000;
+// ---------- Per-channel back-to-back gap (independent timers) ----------
+// Email and SMS run on INDEPENDENT timers — neither channel blocks the other.
+// Email default: 5-25s (deliverability sensitive).
+// SMS default: 4-12s, tunable via campaign_settings.sms_(min|max)_gap_seconds —
+// chosen to support 2,000–3,000 sends/day across an 8-hour window
+// (avg ~8s gap → ~450/hr → ~3,600/day theoretical max, well above 3k goal).
+const EMAIL_MIN_GAP_MS = 5_000;
+const EMAIL_MAX_GAP_MS = 25_000;
+let SMS_MIN_GAP_MS = 4_000;
+let SMS_MAX_GAP_MS = 12_000;
 const lastChannelSendAt: Record<"email" | "sms", number> = { email: 0, sms: 0 };
 
 async function waitChannelGap(channel: "email" | "sms") {
   const last = lastChannelSendAt[channel];
-  if (last === 0) return; // first send of this invocation
-  const gap = CHANNEL_MIN_GAP_MS + Math.floor(Math.random() * (CHANNEL_MAX_GAP_MS - CHANNEL_MIN_GAP_MS));
+  if (last === 0) return;
+  const min = channel === "email" ? EMAIL_MIN_GAP_MS : SMS_MIN_GAP_MS;
+  const max = channel === "email" ? EMAIL_MAX_GAP_MS : SMS_MAX_GAP_MS;
+  const gap = min + Math.floor(Math.random() * Math.max(1, max - min));
   const remaining = last + gap - Date.now();
   if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+}
+
+// ---------- SMS retry with exponential backoff ----------
+// Transient SMS failures (network/provider hiccups) get retried with capped
+// exponential backoff + jitter. The retry loop is internal to runSmsFor and
+// never blocks the email pipeline.
+let SMS_MAX_RETRIES = 3;
+async function sendSmsWithRetry(toE164: string, message: string, contactId: string | null) {
+  let attempt = 0;
+  let lastErr: any = null;
+  while (attempt <= SMS_MAX_RETRIES) {
+    const r = await sendSms(toE164, message);
+    if (r.ok) return { ok: true as const, raw: r.raw, attempts: attempt + 1 };
+    lastErr = r;
+    // Don't retry on permanent credential errors
+    if (r.error === "missing_voidfix_credentials") return { ok: false as const, error: r.error, raw: r.raw, attempts: attempt + 1 };
+    attempt++;
+    if (attempt > SMS_MAX_RETRIES) break;
+    // Exponential backoff: 2s, 4s, 8s, 16s … capped at 30s, plus 0-1s jitter
+    const base = Math.min(30_000, 2_000 * Math.pow(2, attempt - 1));
+    const jitter = Math.floor(Math.random() * 1_000);
+    const wait = base + jitter;
+    await logActivity(contactId, "warn", "sms_retry", `SMS attempt ${attempt} failed (${String(r.error).slice(0,120)}), retrying in ${wait}ms`);
+    await new Promise(res => setTimeout(res, wait));
+  }
+  return { ok: false as const, error: lastErr?.error || "sms_failed", raw: lastErr?.raw, attempts: attempt };
 }
 
 async function alreadySent(channel: "email" | "sms", emailOrPhone: string): Promise<boolean> {
@@ -459,17 +491,18 @@ async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean
   const firstName = contact.first_name || "there";
   const addr = contact.property_address || "your property";
   const { text, variant: smsVariant } = buildSms(firstName, addr);
-  const smsResult = await sendSms(contact.phone_e164, text);
+  const smsResult = await sendSmsWithRetry(contact.phone_e164, text, contact.id);
   lastChannelSendAt.sms = Date.now();
 
   if (!smsResult.ok) {
     await sb.from("campaign_contacts").update({
       sms_status: "failed",
+      sms_retry_count: smsResult.attempts,
       error_message: String(smsResult.error).slice(0, 500),
       last_step: "sms_failed",
     }).eq("id", contact.id);
     await bumpDailyStat("sms_failed");
-    await logActivity(contact.id, "error", "sms_failed", String(smsResult.error));
+    await logActivity(contact.id, "error", "sms_failed", `SMS failed after ${smsResult.attempts} attempt(s): ${String(smsResult.error)}`);
     return { ok: false };
   }
 
@@ -477,6 +510,7 @@ async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean
     sms_status: "sent",
     sms_sent_at: new Date().toISOString(),
     sms_variant: smsVariant,
+    sms_retry_count: smsResult.attempts,
     last_step: "sms_sent",
   }).eq("id", contact.id);
   await bumpDailyStat("sms_sent");
@@ -495,16 +529,17 @@ async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean
 }
 
 // ---------- Process a single contact (production) ----------
-// Email and SMS run in PARALLEL on independent timers. SMS will go through even
-// if the email step is delayed, retried, or rate-limited. Both channels enforce
-// their own duplicate-suppression and 5-25s randomized back-to-back gap.
-async function processContact(contact: any) {
+// Email and SMS run in PARALLEL on independent timers. channelMode controls which
+// channels actually fire ("both" | "sms_only" | "email_only").
+async function processContact(contact: any, channelMode: "both" | "sms_only" | "email_only" = "both") {
+  const wantEmail = channelMode === "both" || channelMode === "email_only";
+  const wantSms = channelMode === "both" || channelMode === "sms_only";
+
   const [emailRes, smsRes] = await Promise.all([
-    runEmailFor(contact),
-    runSmsFor(contact),
+    wantEmail ? runEmailFor(contact) : Promise.resolve({ ok: false, skipped: true }),
+    wantSms ? runSmsFor(contact) : Promise.resolve({ ok: false, skipped: true }),
   ]);
 
-  // Final contact status — completed if either channel succeeded, failed only if both failed (and neither was skipped-duplicate)
   let finalStatus = "completed";
   if (!emailRes.ok && !smsRes.ok && !emailRes.skipped && !smsRes.skipped) {
     finalStatus = "failed";
@@ -560,6 +595,11 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
   if (!settings.is_production) return { ok: false, skipped: true, reason: "production_disabled" };
   if (settings.is_paused) return { ok: false, skipped: true, reason: "paused" };
 
+  // Apply tunable SMS retry/gap from settings
+  if (typeof settings.sms_max_retries === "number") SMS_MAX_RETRIES = Math.max(0, Math.min(10, settings.sms_max_retries));
+  if (typeof settings.sms_min_gap_seconds === "number") SMS_MIN_GAP_MS = Math.max(1000, settings.sms_min_gap_seconds * 1000);
+  if (typeof settings.sms_max_gap_seconds === "number") SMS_MAX_GAP_MS = Math.max(SMS_MIN_GAP_MS + 1000, settings.sms_max_gap_seconds * 1000);
+
   if (!force) {
     const sched = isBusinessHours(settings.start_hour_pt, settings.end_hour_pt);
     if (!sched.ok) return { ok: false, skipped: true, reason: sched.reason };
@@ -592,12 +632,19 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
       if (!sch.ok) return { done: true, reason: sch.reason, processed: 0, success: 0 };
     }
 
+    const channelMode: "both" | "sms_only" | "email_only" =
+      (live.channel_mode === "sms_only" || live.channel_mode === "email_only") ? live.channel_mode : "both";
+    const wantEmail = channelMode !== "sms_only";
+    const wantSms = channelMode !== "email_only";
+
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }))
       .toISOString().slice(0, 10);
     const { data: stats } = await sb.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle();
     const emailsToday = stats?.emails_sent || 0;
     const smsToday = stats?.sms_sent || 0;
-    if (emailsToday >= live.daily_email_cap && smsToday >= live.daily_sms_cap) {
+    const emailCapHit = !wantEmail || emailsToday >= live.daily_email_cap;
+    const smsCapHit = !wantSms || smsToday >= live.daily_sms_cap;
+    if (emailCapHit && smsCapHit) {
       return { done: true, reason: "daily_cap_reached", processed: 0, success: 0 };
     }
 
@@ -613,24 +660,32 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
       }
     }
 
-    const effectiveEmailCap = Math.min(live.daily_email_cap, GMAIL_HARD_DAILY_CAP);
-    const remainingEmails = Math.max(0, effectiveEmailCap - emailsToday);
-    const batchSize = Math.min(passSize, remainingEmails);
-    if (batchSize === 0) return { done: true, reason: "email_cap_reached", processed: 0, success: 0 };
+    // Compute batch size — bounded by whichever channels are active
+    let remaining = passSize;
+    if (wantEmail) {
+      const effectiveEmailCap = Math.min(live.daily_email_cap, GMAIL_HARD_DAILY_CAP);
+      remaining = Math.min(remaining, Math.max(0, effectiveEmailCap - emailsToday));
+    }
+    if (wantSms && !wantEmail) {
+      remaining = Math.min(remaining, Math.max(0, live.daily_sms_cap - smsToday));
+    }
+    const batchSize = remaining;
+    if (batchSize === 0) return { done: true, reason: "channel_cap_reached", processed: 0, success: 0 };
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: leads, error: leadErr } = await sb
+    let leadQuery = sb
       .from("state_leads")
       .select("id, email, phone_e164, first_name, property_address, city, state, zip")
-      .not("email", "is", null)
-      .not("phone_e164", "is", null)
       .or(`last_contacted_at.is.null,last_contacted_at.lt.${thirtyDaysAgo}`)
       .limit(batchSize * 5);
+    if (wantEmail) leadQuery = leadQuery.not("email", "is", null);
+    if (wantSms) leadQuery = leadQuery.not("phone_e164", "is", null);
+    const { data: leads, error: leadErr } = await leadQuery;
 
     if (leadErr) return { done: true, reason: `lead_err:${leadErr.message}`, processed: 0, success: 0 };
     if (!leads || leads.length === 0) return { done: true, reason: "no_eligible_leads", processed: 0, success: 0 };
 
-    const validatedLeads = leads.filter(l => emailLooksValid(l.email));
+    const validatedLeads = wantEmail ? leads.filter(l => emailLooksValid(l.email)) : leads;
 
     // Filter classic suppression list
     const emails = validatedLeads.map(l => l.email).filter(Boolean);
@@ -672,17 +727,19 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
 
     const eligible: typeof validatedLeads = [];
     for (const l of validatedLeads) {
-      if (suppressedEmails.has(l.email)) continue;
-      if (suppressedPhones.has(l.phone_e164)) continue;
-      if (sentEmails.has((l.email || "").toLowerCase())) continue;
-      if (sentPhones.has(l.phone_e164)) continue;
-      if (queuedEmails.has(l.email)) continue;
-      if (queuedPhones.has(l.phone_e164)) continue;
-      const d = emailDomain(l.email);
-      const used = domainCountToday.get(d) || 0;
-      const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
-      if (used >= cap) continue;
-      domainCountToday.set(d, used + 1);
+      if (wantEmail && suppressedEmails.has(l.email)) continue;
+      if (wantSms && suppressedPhones.has(l.phone_e164)) continue;
+      if (wantEmail && sentEmails.has((l.email || "").toLowerCase())) continue;
+      if (wantSms && sentPhones.has(l.phone_e164)) continue;
+      if (wantEmail && queuedEmails.has(l.email)) continue;
+      if (wantSms && queuedPhones.has(l.phone_e164)) continue;
+      if (wantEmail && l.email) {
+        const d = emailDomain(l.email);
+        const used = domainCountToday.get(d) || 0;
+        const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
+        if (used >= cap) continue;
+        domainCountToday.set(d, used + 1);
+      }
       eligible.push(l);
       if (eligible.length >= batchSize) break;
     }
@@ -709,7 +766,7 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
       if (stopCheck?.stop_requested || stopCheck?.is_paused) {
         return { done: true, reason: "stop_requested_mid_batch", processed: successCount, success: successCount };
       }
-      const r = await processContact(contact);
+      const r = await processContact(contact, channelMode);
       if (r.ok) successCount++;
       const delay = (live.min_delay_seconds + Math.floor(Math.random() * Math.max(1, live.max_delay_seconds - live.min_delay_seconds))) * 1000;
       await new Promise(res => setTimeout(res, delay));
