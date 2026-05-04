@@ -97,9 +97,10 @@ export default function LeadsRainDiagnostic({ onReport }: Props) {
   const [username, setUsername] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [campaignId, setCampaignId] = useState("");
-  const [mode, setMode] = useState<"all" | "s2" | "s1" | "s3" | "proxy" | "postlead">("all");
+  const [mode, setMode] = useState<"all" | "s2" | "s1" | "s3" | "proxy" | "postlead">("postlead");
   const [report, setReport] = useState<DiagnosticReport | null>(null);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const run = async () => {
     setRunning(true);
