@@ -95,16 +95,19 @@ export default function CampaignLeader() {
 
   async function loadAll() {
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).toISOString().slice(0, 10);
-    const [s, st, c, l] = await Promise.all([
+    const [s, st, c, l, sentEmails, sentSms] = await Promise.all([
       supabase.from("campaign_settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle(),
       supabase.from("campaign_contacts").select("*").eq("campaign_date", today).order("created_at", { ascending: false }).limit(50),
       supabase.from("campaign_activity_log").select("*").order("created_at", { ascending: false }).limit(40),
+      supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "email"),
+      supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "sms"),
     ]);
     if (s.data) setSettings(s.data as Settings);
     if (st.data) setStats(st.data as Stats);
     if (c.data) setContacts(c.data as Contact[]);
     if (l.data) setLogs(l.data as LogRow[]);
+    setLifetimeSent({ emails: sentEmails.count || 0, sms: sentSms.count || 0 });
   }
 
   useEffect(() => {
