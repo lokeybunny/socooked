@@ -155,34 +155,32 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "Missing/invalid Caller ID. Must be a 10-digit number verified in LeadsRain.", missing: "caller_id" }, 400);
     }
 
-    // Try multiple list_id field-name variants until one is accepted.
-    // Default order: list_id, listid, list, ListId. If the caller specified
-    // list_id_field, only try that one.
-    const listIdVariants: string[] = list_id_field
-      ? [String(list_id_field)]
-      : ["list_id", "listid", "list", "ListId"];
+    // Per LeadsRain docs: only the lowercase `list_id` field is valid.
+    // No variants, no caller_id, no campaign_id in the payload.
+    const listIdVariants: string[] = ["list_id"];
 
-    function buildPayload(listKey: string): Record<string, any> {
+    function buildPayload(_listKey: string): Record<string, any> {
+      // Send list_id as an integer per docs. Minimal clean payload.
+      const listIdNum = Number(finalListId);
       const p: Record<string, any> = {
         username: LR_USER,
         api_key: LR_KEY,
-        [listKey]: finalListId,
+        list_id: Number.isFinite(listIdNum) ? listIdNum : finalListId,
         phone_number: ph.ten,
-        first_name: first_name || "",
-        last_name: last_name || "",
-        email: email || "",
         country_code: "USA",
         phone_code: "1",
-        scrub_lead: "tcpa_check",
-        check_duplicate: "CHECK_DUPLICATE_IN_CAMPAIGN",
+        scrub_lead: "no_scrub",
+        check_duplicate: "NO_DUPLICATE_CHECK",
       };
-      if (finalCallerId) p.caller_id = finalCallerId;
-      if (finalCampaignId) p.campaign_id = finalCampaignId;
+      // Optional contact info — only include when provided.
+      if (first_name) p.first_name = first_name;
+      if (last_name) p.last_name = last_name;
+      if (email) p.email = email;
       if (extra_payload && typeof extra_payload === "object") Object.assign(p, extra_payload);
       return p;
     }
 
-    const initialPayload = buildPayload(listIdVariants[0]);
+    const initialPayload = buildPayload("list_id");
 
     // Insert pending row
     const { data: row, error: insErr } = await svc
@@ -203,9 +201,8 @@ Deno.serve(async (req) => {
       .single();
     if (insErr || !row) return json({ ok: false, error: insErr?.message || "Insert failed" }, 500);
 
-    // Call LeadsRain PostLead. Try JSON first, then form-encoded if requested,
-    // and try each list_id field-name variant until one returns a non-empty body.
-    const useForm = String(content_type || "").toLowerCase() === "form";
+    // Per LeadsRain docs: always send application/json. No form fallback, no variants.
+    const useForm = false;
     const attempts: Array<{ list_id_field: string; content_type: string; http_status: number; raw_text: string; mode: string }> = [];
     let lrJson: any = null;
     let lrRawText = "";
