@@ -350,8 +350,15 @@ export default function CampaignLeader() {
 
       {/* Controls */}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> Campaign Controls</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="w-5 h-5" /> Campaign Controls</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium">Resume</span> sends one contact at a time, then waits.{" "}
+            <span className="font-medium">Run Batch Now</span> keeps sending continuously (up to today's cap) until you press{" "}
+            <span className="font-medium">Stop</span>.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3 items-center">
           <Button
             variant={settings.is_production ? "destructive" : "default"}
             onClick={() => updateSettings({ is_production: !settings.is_production })}
@@ -360,14 +367,63 @@ export default function CampaignLeader() {
           </Button>
           <Button
             variant="outline"
-            disabled={!settings.is_production}
-            onClick={() => updateSettings({ is_paused: !settings.is_paused })}
+            disabled={!settings.is_production || busy}
+            onClick={async () => {
+              // Resume: clears pause + sends exactly 1
+              if (settings.is_paused) await updateSettings({ is_paused: false, stop_requested: false });
+              await runOneNow();
+            }}
           >
-            {settings.is_paused ? <><Play className="w-4 h-4 mr-2" /> Resume</> : <><Pause className="w-4 h-4 mr-2" /> Pause</>}
+            {settings.is_paused
+              ? <><Play className="w-4 h-4 mr-2" /> Resume (send 1)</>
+              : <><Send className="w-4 h-4 mr-2" /> Send 1 Now</>}
           </Button>
-          <Button variant="outline" onClick={runTickNow} disabled={busy || !settings.is_production || settings.is_paused}>
-            <Activity className="w-4 h-4 mr-2" /> Run Batch Now
+          <Button
+            variant="outline"
+            disabled={!settings.is_production || settings.is_paused || busy || settings.drain_active}
+            onClick={runDrainNow}
+          >
+            <Rocket className="w-4 h-4 mr-2" /> Run Batch Now
           </Button>
+          <Button
+            variant="destructive"
+            disabled={busy || (!settings.drain_active && settings.is_paused)}
+            onClick={async () => {
+              await stopDrain();
+              await updateSettings({ is_paused: true });
+            }}
+          >
+            <Square className="w-4 h-4 mr-2 fill-current" /> Stop
+          </Button>
+          {settings.drain_active && (
+            <Badge variant="default" className="ml-2 animate-pulse">
+              <Rocket className="w-3 h-3 mr-1" /> DRAINING
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Permanently sent (lifetime suppression) */}
+      <Card className="border-emerald-500/30 bg-emerald-500/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="w-5 h-5 text-emerald-500" /> Permanently Sent — Never Re-Send List
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Confirmed-successful sends are recorded forever. These recipients are filtered out of every future batch automatically.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs text-muted-foreground">Lifetime emails delivered</div>
+              <div className="text-2xl font-bold text-emerald-600">{lifetimeSent.emails.toLocaleString()}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Lifetime SMS delivered</div>
+              <div className="text-2xl font-bold text-emerald-600">{lifetimeSent.sms.toLocaleString()}</div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
