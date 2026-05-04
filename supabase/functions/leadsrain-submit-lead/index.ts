@@ -358,6 +358,20 @@ Deno.serve(async (req) => {
       parsed.mode = "failed";
     }
 
+    try {
+      const listCheck = await checkLeadVisibleInList(finalListId, ph.ten!);
+      const matchedLead = listCheck.matched_lead;
+      leadVisibleInList = !!matchedLead;
+      listVisibilityCheck = { ok: listCheck.ok, status: listCheck.status, error: listCheck.error, matched_lead: matchedLead ? { ...matchedLead, api_key: undefined } : null, raw_text: listCheck.raw_text };
+      if (leadVisibleInList && httpStatus >= 200 && httpStatus < 300) {
+        parsed = { ...parsed, ok: true, mode: "accepted", message: parsed.message || "Lead appeared inside LeadsRain list after test." };
+        httpOk = true;
+        errMsg = null;
+      }
+    } catch (e: any) {
+      listVisibilityCheck = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null };
+    }
+
     // Map parser mode -> CRM submission status
     const STATUS_BY_MODE: Record<string, string> = {
       accepted: "accepted_by_api",
