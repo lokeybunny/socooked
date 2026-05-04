@@ -34,10 +34,12 @@ function normPhone(raw: string): { ok: boolean; ten?: string; e164?: string; err
 }
 
 function normCallerId(raw: string | null | undefined): string | null {
+  // Strip +1, spaces, dashes, parens — return 10 digits only.
   const digits = String(raw || "").replace(/\D/g, "");
-  if (digits.length === 10) return `1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return digits;
-  return digits || null;
+  let ten = digits;
+  if (digits.length === 11 && digits.startsWith("1")) ten = digits.slice(1);
+  if (ten.length !== 10) return null;
+  return ten;
 }
 
 // Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
