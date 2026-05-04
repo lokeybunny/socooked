@@ -105,6 +105,36 @@ function buildSms(firstName: string, addr: string) {
   return { text, variant: oIdx * 10 + bIdx };
 }
 
+// ---------- Gmail deliverability guards ----------
+const GMAIL_HARD_DAILY_CAP = 1800;          // stay under Workspace 2k/day limit
+const GMAIL_PER_DOMAIN_DAILY_CAP = 25;      // never blast a single recipient domain
+const ROLE_PREFIX_BLOCK = [
+  "no-reply", "noreply", "postmaster", "abuse", "admin", "support",
+  "info", "sales", "billing", "contact", "help", "team", "office",
+  "hello", "hr", "jobs", "careers", "marketing", "webmaster", "mailer-daemon",
+];
+const FREE_PROVIDER_THROTTLE = new Set(["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com"]);
+
+function emailLooksValid(e?: string | null): boolean {
+  if (!e) return false;
+  const s = e.trim().toLowerCase();
+  // basic RFC-ish check
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s)) return false;
+  const local = s.split("@")[0];
+  if (ROLE_PREFIX_BLOCK.some(p => local === p || local.startsWith(`${p}.`) || local.startsWith(`${p}-`))) return false;
+  if (s.includes("..") || s.endsWith(".") || s.startsWith(".")) return false;
+  return true;
+}
+
+function emailDomain(e: string): string {
+  return (e.split("@")[1] || "").toLowerCase();
+}
+
+function isGmailRateLimitError(err: any): boolean {
+  const s = String(err || "").toLowerCase();
+  return s.includes("rate") || s.includes("quota") || s.includes("limit") || s.includes("429") || s.includes("user-rate") || s.includes("dailyquota");
+}
+
 // ---------- Senders ----------
 async function sendEmail(to: string, subject: string, body: string) {
   const res = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
