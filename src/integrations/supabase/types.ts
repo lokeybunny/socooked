@@ -5747,6 +5747,54 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_sms_jobs: {
+        Row: {
+          attempts: number
+          body: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          last_error: string | null
+          meta: Json
+          send_at: string
+          sent_at: string | null
+          source: string | null
+          status: string
+          to_phone: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          body: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json
+          send_at: string
+          sent_at?: string | null
+          source?: string | null
+          status?: string
+          to_phone: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json
+          send_at?: string
+          sent_at?: string | null
+          source?: string | null
+          status?: string
+          to_phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shill_clicks: {
         Row: {
           click_type: string
