@@ -700,7 +700,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const result = await runTick();
+    if (mode === "stop") {
+      await sb.from("campaign_settings").update({ stop_requested: true, is_paused: true }).eq("id", 1);
+      await logActivity(null, "info", "stop_requested", "Stop requested by user — drain will halt after current contact");
+      return new Response(JSON.stringify({ ok: true, stopped: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // tick mode → runMode controls behavior:
+    //   "single" (Resume = 1 at a time) | "batch" (default cron) | "drain" (Run Batch Now)
+    const runMode = (payload.runMode === "single" || payload.runMode === "drain")
+      ? payload.runMode : "batch";
+
+    // For long-running drain, fire and forget so the HTTP request returns immediately
+    if (runMode === "drain") {
+      // @ts-ignore — Deno EdgeRuntime
+      if (typeof EdgeRuntime !== "undefined" && (EdgeRuntime as any).waitUntil) {
+        (EdgeRuntime as any).waitUntil(runTick("drain"));
+      } else {
+        runTick("drain");
+      }
+      return new Response(JSON.stringify({ ok: true, mode: "drain", started: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const result = await runTick(runMode as any);
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
