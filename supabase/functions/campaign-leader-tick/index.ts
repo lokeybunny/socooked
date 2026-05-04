@@ -364,7 +364,9 @@ async function runTick() {
   }
 
   // Pull eligible leads not already queued today
-  const remainingEmails = Math.max(0, settings.daily_email_cap - emailsToday);
+  // Gmail deliverability promoter: enforce hard daily cap below Workspace's 2k limit
+  const effectiveEmailCap = Math.min(settings.daily_email_cap, GMAIL_HARD_DAILY_CAP);
+  const remainingEmails = Math.max(0, effectiveEmailCap - emailsToday);
   const batchSize = Math.min(settings.batch_size, remainingEmails);
   if (batchSize === 0) return { ok: false, skipped: true, reason: "email_cap_reached" };
 
@@ -376,18 +378,23 @@ async function runTick() {
     .not("email", "is", null)
     .not("phone_e164", "is", null)
     .or(`last_contacted_at.is.null,last_contacted_at.lt.${thirtyDaysAgo}`)
-    .limit(batchSize * 3); // overfetch to filter suppression
+    .limit(batchSize * 5); // overfetch to filter suppression + invalid + domain throttle
 
   if (leadErr) return { ok: false, error: leadErr.message };
   if (!leads || leads.length === 0) return { ok: true, skipped: true, reason: "no_eligible_leads" };
 
+  // Gmail promoter: drop role addresses + syntactically invalid emails BEFORE suppression query
+  const validatedLeads = leads.filter(l => emailLooksValid(l.email));
+
   // Filter suppression
-  const emails = leads.map(l => l.email).filter(Boolean);
-  const phones = leads.map(l => l.phone_e164).filter(Boolean);
-  const { data: suppressed } = await sb
-    .from("suppression_list")
-    .select("email, phone_e164")
-    .or(`email.in.(${emails.map(e => `"${e}"`).join(",")}),phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
+  const emails = validatedLeads.map(l => l.email).filter(Boolean);
+  const phones = validatedLeads.map(l => l.phone_e164).filter(Boolean);
+  const suppressionFilter: string[] = [];
+  if (emails.length) suppressionFilter.push(`email.in.(${emails.map(e => `"${e}"`).join(",")})`);
+  if (phones.length) suppressionFilter.push(`phone_e164.in.(${phones.map(p => `"${p}"`).join(",")})`);
+  const { data: suppressed } = suppressionFilter.length
+    ? await sb.from("suppression_list").select("email, phone_e164").or(suppressionFilter.join(","))
+    : { data: [] as any[] };
   const suppressedEmails = new Set((suppressed || []).map(s => s.email).filter(Boolean));
   const suppressedPhones = new Set((suppressed || []).map(s => s.phone_e164).filter(Boolean));
 
@@ -399,12 +406,30 @@ async function runTick() {
   const queuedEmails = new Set((alreadyQueued || []).map(c => c.email).filter(Boolean));
   const queuedPhones = new Set((alreadyQueued || []).map(c => c.phone_e164).filter(Boolean));
 
-  const eligible = leads.filter(l =>
-    !suppressedEmails.has(l.email) &&
-    !suppressedPhones.has(l.phone_e164) &&
-    !queuedEmails.has(l.email) &&
-    !queuedPhones.has(l.phone_e164)
-  ).slice(0, batchSize);
+  // Gmail promoter: per-domain daily throttle — count today's already-queued emails per domain
+  const domainCountToday = new Map<string, number>();
+  for (const c of (alreadyQueued || [])) {
+    if (c.email) {
+      const d = emailDomain(c.email);
+      domainCountToday.set(d, (domainCountToday.get(d) || 0) + 1);
+    }
+  }
+
+  const eligible: typeof validatedLeads = [];
+  for (const l of validatedLeads) {
+    if (suppressedEmails.has(l.email)) continue;
+    if (suppressedPhones.has(l.phone_e164)) continue;
+    if (queuedEmails.has(l.email)) continue;
+    if (queuedPhones.has(l.phone_e164)) continue;
+    const d = emailDomain(l.email);
+    const used = domainCountToday.get(d) || 0;
+    // Apply per-domain throttle, with stricter cap on free providers
+    const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
+    if (used >= cap) continue;
+    domainCountToday.set(d, used + 1);
+    eligible.push(l);
+    if (eligible.length >= batchSize) break;
+  }
 
   if (eligible.length === 0) return { ok: true, skipped: true, reason: "all_filtered" };
 
