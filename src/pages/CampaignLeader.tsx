@@ -24,6 +24,10 @@ type Settings = {
   drain_active?: boolean;
   drain_started_at?: string | null;
   drain_last_tick_at?: string | null;
+  channel_mode?: "both" | "sms_only" | "email_only";
+  sms_max_retries?: number;
+  sms_min_gap_seconds?: number;
+  sms_max_gap_seconds?: number;
 };
 
 type Contact = {
