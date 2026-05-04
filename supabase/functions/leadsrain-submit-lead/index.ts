@@ -9,8 +9,8 @@ const CORS = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LR_USER = Deno.env.get("LEADSRAIN_USERNAME") || "";
-const LR_KEY = Deno.env.get("LEADSRAIN_API_KEY") || "";
+const LR_USER = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
+const LR_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
 const LR_ENDPOINT = "https://api.leadsrain.com/ringless/api/add_posted_lead.php";
 
 const svc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -116,12 +116,10 @@ Deno.serve(async (req) => {
     let httpStatus = 0;
     let errMsg: string | null = null;
     try {
-      const form = new URLSearchParams();
-      for (const [k, v] of Object.entries(reqPayload)) form.append(k, String(v ?? ""));
       const r = await fetch(LR_ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: form.toString(),
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-cache" },
+        body: JSON.stringify(reqPayload),
         signal: AbortSignal.timeout(20000),
       });
       httpStatus = r.status;
@@ -181,7 +179,7 @@ Deno.serve(async (req) => {
       voidfix_error: voidfixErr,
       http_status: httpStatus,
       error: errMsg,
-    }, httpOk ? 200 : 502);
+    }, 200);
   } catch (e: any) {
     return json({ ok: false, error: e?.message || String(e) }, 500);
   }
