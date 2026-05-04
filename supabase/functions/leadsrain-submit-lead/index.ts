@@ -173,8 +173,6 @@ Deno.serve(async (req) => {
     if (userErr || !userData?.user) return json({ ok: false, error: "Unauthorized" }, 401);
     const userId = userData.user.id;
 
-    if (!LR_USER || !LR_KEY) return json({ ok: false, error: "Missing LeadsRain credentials" }, 500);
-
     const body = await req.json().catch(() => ({}));
     const {
       phone_number,
