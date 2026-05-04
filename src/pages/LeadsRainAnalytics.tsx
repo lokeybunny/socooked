@@ -286,7 +286,7 @@ export default function LeadsRainAnalytics() {
             label="PostLead API"
             value="Connected"
             accent="green"
-            sub="HTTPS PostLead endpoint operational"
+            sub="Connected — response parser updated"
           />
         </div>
 
