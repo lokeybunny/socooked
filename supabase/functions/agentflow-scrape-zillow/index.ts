@@ -30,33 +30,45 @@ async function fetchZenrows(url: string) {
   return null;
 }
 
+function looksLikeBrokerOnly(attribution: any): boolean {
+  if (!attribution) return false;
+  const txt = JSON.stringify(attribution).toLowerCase();
+  return /listing provided by|listed by brokerage|team lead|isteamlead/.test(txt) && !attribution.agentName;
+}
+
 function parseListings(html: string) {
   const out: any[] = [];
-  // Try Zillow's embedded JSON
   const m = html.match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (m) {
-    try {
-      const data = JSON.parse(m[1]);
-      const results = data?.props?.pageProps?.searchPageState?.cat1?.searchResults?.listResults
-        || data?.props?.pageProps?.searchResults?.listResults || [];
-      for (const r of results) {
-        const zpid = String(r.zpid || r.id || "");
-        if (!zpid) continue;
-        out.push({
-          zpid,
-          address: r.address || r.addressStreet,
-          city: r.addressCity,
-          state: r.addressState,
-          zip: r.addressZipcode,
-          price: typeof r.unformattedPrice === "number" ? r.unformattedPrice : null,
-          listing_url: r.detailUrl?.startsWith("http") ? r.detailUrl : `https://www.zillow.com${r.detailUrl || ""}`,
-          agent_name: r.brokerName || r.attributionInfo?.agentName,
-          brokerage: r.brokerName || r.attributionInfo?.brokerName,
-          phone: r.attributionInfo?.agentPhoneNumber || r.attributionInfo?.brokerPhoneNumber,
-        });
-      }
-    } catch (_) {}
-  }
+  if (!m) return out;
+  try {
+    const data = JSON.parse(m[1]);
+    const results = data?.props?.pageProps?.searchPageState?.cat1?.searchResults?.listResults
+      || data?.props?.pageProps?.searchResults?.listResults || [];
+    for (const r of results) {
+      const zpid = String(r.zpid || r.id || "");
+      if (!zpid) continue;
+      const attr = r.attributionInfo || {};
+      const profileRaw = attr.agentProfileUrl || r.agentProfileUrl;
+      const profile_url = profileRaw
+        ? (profileRaw.startsWith("http") ? profileRaw : `https://www.zillow.com${profileRaw}`)
+        : null;
+      out.push({
+        zpid,
+        address: r.address || r.addressStreet,
+        city: r.addressCity,
+        state: r.addressState,
+        zip: r.addressZipcode,
+        price: typeof r.unformattedPrice === "number" ? r.unformattedPrice : null,
+        listing_url: r.detailUrl?.startsWith("http") ? r.detailUrl : `https://www.zillow.com${r.detailUrl || ""}`,
+        agent_name: attr.agentName || r.brokerName,
+        brokerage: attr.brokerName || r.brokerName,
+        agent_zuid: attr.agentZuid || attr.encodedZuid || null,
+        agent_profile_url: profile_url,
+        broker_only: looksLikeBrokerOnly(attr),
+        attribution: attr,
+      });
+    }
+  } catch (_) {}
   return out;
 }
 
@@ -74,7 +86,7 @@ Deno.serve(async (req) => {
     }).select("id").single();
     jobId = job?.id;
 
-    let pages = 0, newListings = 0, newAgents = 0;
+    let pages = 0, newListings = 0, newAgents = 0, skipped = 0;
     const slug = encodeURIComponent(location.replace(/,\s*/g, "-").replace(/\s+/g, "-").toLowerCase());
 
     for (let p = 1; p <= max_pages; p++) {
@@ -88,34 +100,38 @@ Deno.serve(async (req) => {
       if (items.length === 0) break;
 
       for (const it of items) {
-        const { data: lst, error: le } = await supabase.from("af_listings").upsert({
+        const { data: lst } = await supabase.from("af_listings").upsert({
           zpid: it.zpid, address: it.address, city: it.city, state: it.state,
           zip: it.zip, price: it.price, listing_url: it.listing_url,
           scraped_at: new Date().toISOString(),
         }, { onConflict: "zpid" }).select("id").single();
-        if (le || !lst) continue;
-        if (le === null) newListings++;
+        if (!lst) continue;
+        newListings++;
 
-        if (it.agent_name) {
-          const key = normKey(it.agent_name, it.brokerage || "", it.city || "");
-          const { data: ag } = await supabase.from("af_agents").upsert({
-            name: it.agent_name, brokerage: it.brokerage, city: it.city,
-            normalized_key: key, source: "zillow",
-          }, { onConflict: "normalized_key" }).select("id").single();
-          if (ag) {
-            newAgents++;
-            await supabase.from("af_agent_listings").upsert({
-              agent_id: ag.id, listing_id: lst.id,
-            }, { onConflict: "agent_id,listing_id" });
-            if (it.phone) {
-              const phone = String(it.phone).replace(/\D/g, "").slice(-10);
-              if (phone.length === 10) {
-                await supabase.from("af_agent_contacts").upsert({
-                  agent_id: ag.id, phone: `+1${phone}`,
-                }, { onConflict: "phone" });
-              }
-            }
-          }
+        // Pre-filter: skip if no agent OR broker-only listing OR no profile URL & no zuid
+        if (!it.agent_name) { skipped++; continue; }
+        if (it.broker_only) { skipped++; continue; }
+
+        const key = normKey(it.agent_name, it.brokerage || "", it.city || "");
+        const agentPayload: any = {
+          name: it.agent_name,
+          brokerage: it.brokerage,
+          city: it.city,
+          normalized_key: key,
+          source: "zillow",
+        };
+        if (it.agent_zuid) agentPayload.agent_zuid = it.agent_zuid;
+        if (it.agent_profile_url) agentPayload.agent_profile_url = it.agent_profile_url;
+
+        const { data: ag } = await supabase.from("af_agents").upsert(agentPayload, {
+          onConflict: "normalized_key",
+        }).select("id").single();
+
+        if (ag) {
+          newAgents++;
+          await supabase.from("af_agent_listings").upsert({
+            agent_id: ag.id, listing_id: lst.id,
+          }, { onConflict: "agent_id,listing_id" });
         }
       }
       await new Promise(r => setTimeout(r, 2000 + Math.random() * 4000));
@@ -128,7 +144,7 @@ Deno.serve(async (req) => {
     }).eq("id", jobId!);
     await supabase.from("target_locations").update({ last_scraped_at: new Date().toISOString() }).eq("location", location);
 
-    return json({ ok: true, jobId, pages, newListings, newAgents });
+    return json({ ok: true, jobId, pages, newListings, newAgents, skipped });
   } catch (e: any) {
     if (jobId) await supabase.from("af_scrape_jobs").update({
       status: "failed", error_log: e?.message || String(e), completed_at: new Date().toISOString(),
