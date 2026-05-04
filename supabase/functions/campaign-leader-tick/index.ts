@@ -18,7 +18,10 @@ const VOIDFIX_SEND_URL = "https://sms.voidfix.com/services/send.php";
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-// ---------- Email variation pool ----------
+// ---------- Email variation pool (anti-spam fingerprint rotation) ----------
+// Large variant pools + per-message structural randomization keep spam filter
+// fingerprints (subject hash, body hash, layout signature) unique on every send.
+
 const SUBJECT_VARIANTS = [
   "Quick idea for your listing on {{addr}}",
   "Opportunity for your listing at {{addr}}",
@@ -27,6 +30,29 @@ const SUBJECT_VARIANTS = [
   "Thought about {{addr}}",
   "Quick note re: {{addr}}",
   "An idea for {{addr}}",
+  "Concept for {{addr}}",
+  "Suggestion regarding {{addr}}",
+  "Following up about {{addr}}",
+  "About your listing — {{addr}}",
+  "Wanted to share something for {{addr}}",
+  "A thought regarding {{addr}}",
+  "Possible angle for {{addr}}",
+  "Could be useful for {{addr}}",
+  "Saw {{addr}} — quick question",
+  "Brief note about {{addr}}",
+  "Reaching out re: {{addr}}",
+  "Idea I wanted to share for {{addr}}",
+  "Quick proposal for {{addr}}",
+  "Marketing angle for {{addr}}",
+];
+
+const GREETINGS = [
+  "Hello",
+  "Hi",
+  "Hey",
+  "Good day",
+  "Greetings",
+  "Hi there",
 ];
 
 const EMAIL_INTROS = [
@@ -35,6 +61,21 @@ const EMAIL_INTROS = [
   "Your listing at {{addr}} caught my eye — I wanted to send over a quick idea.",
   "Noticed your active listing at {{addr}} and figured this might be useful.",
   "I noticed {{addr}} on the market and wanted to share something that might help.",
+  "Stumbled across {{addr}} earlier today and thought I'd reach out.",
+  "Came across {{addr}} while browsing active listings and had an idea.",
+  "Spotted your listing at {{addr}} and wanted to share a quick concept.",
+  "Your property at {{addr}} popped up in my search — wanted to send a note.",
+  "Was looking through new listings and {{addr}} stood out to me.",
+  "Found your listing at {{addr}} and figured this idea might interest you.",
+  "Just saw {{addr}} listed and thought I'd send over a quick note.",
+];
+
+const PITCH_INTROS = [
+  "My name is Warren Guru.",
+  "I'm Warren Guru.",
+  "I go by Warren Guru.",
+  "Quick intro — I'm Warren Guru.",
+  "I'm Warren, also known as Warren Guru.",
 ];
 
 const EMAIL_PITCHES = [
@@ -42,6 +83,21 @@ const EMAIL_PITCHES = [
   "I create AI-driven cinematic property videos that don't require a physical walk-through.",
   "My work uses AI to produce drone-style marketing videos directly from existing photos — no on-site visit needed.",
   "I produce AI-generated marketing videos for listings using only the photos already on the MLS.",
+  "I build AI-powered cinematic listing videos straight from the photos you already have — no site visit required.",
+  "I focus on AI-driven property videos: cinematic, drone-style, and made entirely from existing imagery.",
+  "What I do is craft AI-generated walkthrough videos using nothing more than the photos on the listing.",
+  "I create high-end AI marketing reels for listings, built directly from the MLS photos already uploaded.",
+  "My specialty is AI cinematic property videos — produced remotely from your current listing photos.",
+];
+
+const SAMPLE_LINES = [
+  "You can see a sample of my work here:",
+  "Here's a sample of recent work:",
+  "Quick portfolio link:",
+  "A few examples of past work:",
+  "Take a look at a sample here:",
+  "Recent work is on Instagram:",
+  "Here's where you can preview the style:",
 ];
 
 const EMAIL_CTAS = [
@@ -49,6 +105,22 @@ const EMAIL_CTAS = [
   "Happy to put together a free preview for {{addr}} — first-time clients get 50% off.",
   "Would you be open to a quick demo for {{addr}}? First-timers get half off.",
   "Let me know if I can put together a quick preview — 50% off your first one.",
+  "If interested, I can produce a short sample for {{addr}} — first-time clients receive 50% off.",
+  "Let me know if you'd like a complimentary preview for {{addr}}; new clients get 50% off.",
+  "Glad to spin up a quick sample for {{addr}} — 50% off applies for first-time clients.",
+  "Open to a free demo for {{addr}}? First-time clients always get half off.",
+  "I can put together a no-obligation preview for {{addr}} if you're interested — 50% off your first one.",
+];
+
+const SIGN_OFFS = [
+  "Best regards",
+  "Best",
+  "Kind regards",
+  "Warm regards",
+  "Talk soon",
+  "Thanks",
+  "Appreciate your time",
+  "All the best",
 ];
 
 const SMS_OPENERS = [
@@ -56,12 +128,19 @@ const SMS_OPENERS = [
   "Hey {{name}}, Warren Guru here. Sent you a quick email about {{addr}}",
   "Hi {{name}}, this is Warren Guru — reached out via email about {{addr}}",
   "Hey {{name}}, Warren here. I just emailed you about your listing at {{addr}}",
+  "Hi {{name}}, Warren Guru — just dropped you an email regarding {{addr}}",
+  "Hey {{name}}, this is Warren. Sent over an email a moment ago about {{addr}}",
+  "Hi {{name}}, Warren Guru reaching out — emailed you about {{addr}}",
+  "Hey {{name}}, it's Warren Guru. Just sent an email about your listing at {{addr}}",
 ];
 
 const SMS_BODIES = [
   "I would like to create an AI-powered property video for it without needing to walk the home.",
   "I would like to make an AI-driven listing video for it — no walk-through required.",
   "I would like to produce an AI marketing video for it straight from your existing photos.",
+  "I'd love to put together an AI-generated cinematic video for it — no site visit needed.",
+  "I can build an AI-powered listing reel for it directly from your current photos.",
+  "I'd like to craft an AI-driven property video for it using only the existing MLS images.",
 ];
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -69,27 +148,78 @@ const pickIdx = <T,>(arr: T[]) => Math.floor(Math.random() * arr.length);
 const fill = (tpl: string, vars: Record<string, string>) =>
   tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] ?? "");
 
+// Inject an invisible zero-width character at random word boundaries to break
+// content-hash fingerprinting without affecting human readability.
+const ZW_CHARS = ["\u200B", "\u200C", "\u200D", "\u2060"];
+function fingerprintText(text: string, count = 2): string {
+  if (!text) return text;
+  const words = text.split(" ");
+  if (words.length < 4) return text;
+  for (let i = 0; i < count; i++) {
+    const pos = 1 + Math.floor(Math.random() * (words.length - 2));
+    words[pos] = words[pos] + ZW_CHARS[Math.floor(Math.random() * ZW_CHARS.length)];
+  }
+  return words.join(" ");
+}
+
+function randomMargin(): number {
+  // small variation in paragraph spacing — every email has a unique CSS hash
+  return 12 + Math.floor(Math.random() * 6); // 12..17px
+}
+
+function randomHexId(len = 10): string {
+  const c = "abcdef0123456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += c[Math.floor(Math.random() * c.length)];
+  return s;
+}
+
 function buildEmail(firstName: string, addr: string) {
   const sIdx = pickIdx(SUBJECT_VARIANTS);
   const iIdx = pickIdx(EMAIL_INTROS);
   const pIdx = pickIdx(EMAIL_PITCHES);
   const cIdx = pickIdx(EMAIL_CTAS);
+  const gIdx = pickIdx(GREETINGS);
+  const piIdx = pickIdx(PITCH_INTROS);
+  const slIdx = pickIdx(SAMPLE_LINES);
+  const soIdx = pickIdx(SIGN_OFFS);
+
   const vars = { addr, name: firstName };
   const subject = fill(SUBJECT_VARIANTS[sIdx], vars);
 
+  const greeting = GREETINGS[gIdx];
+  const pitchIntro = PITCH_INTROS[piIdx];
   const intro = fill(EMAIL_INTROS[iIdx], vars);
   const pitch = EMAIL_PITCHES[pIdx];
+  const sampleLine = SAMPLE_LINES[slIdx];
   const cta = fill(EMAIL_CTAS[cIdx], vars);
+  const signOff = SIGN_OFFS[soIdx];
+
+  // Per-message structural randomization
+  const m1 = randomMargin();
+  const m2 = randomMargin();
+  const m3 = randomMargin();
+  const m4 = randomMargin();
+  const m5 = randomMargin();
+
+  // Randomly merge or split intro + pitch paragraphs
+  const mergeIntroPitch = Math.random() < 0.5;
+  const introBlock = mergeIntroPitch
+    ? `<p style="margin:0 0 ${m2}px 0;">${pitchIntro} ${fingerprintText(intro)} ${fingerprintText(pitch)}</p>`
+    : `<p style="margin:0 0 ${m2}px 0;">${pitchIntro} ${fingerprintText(intro)}</p>\n<p style="margin:0 0 ${m3}px 0;">${fingerprintText(pitch)}</p>`;
+
+  // Random invisible tracking id (unique per message) — kills content hash dedupe
+  const trackId = randomHexId(12);
 
   const body = [
-    `<p style="margin:0 0 14px 0;">Hello ${firstName},</p>`,
-    `<p style="margin:0 0 14px 0;">My name is Warren Guru. ${intro}</p>`,
-    `<p style="margin:0 0 14px 0;">${pitch}</p>`,
-    `<p style="margin:0 0 14px 0;">You can see a sample of my work here: <a href="https://instagram.com/W4RR3NGuru">instagram.com/W4RR3NGuru</a></p>`,
-    `<p style="margin:0 0 14px 0;">${cta}</p>`,
-    `<p style="margin:0 0 4px 0;">Best regards,</p>`,
+    `<p style="margin:0 0 ${m1}px 0;">${greeting} ${firstName},</p>`,
+    introBlock,
+    `<p style="margin:0 0 ${m4}px 0;">${sampleLine} <a href="https://instagram.com/W4RR3NGuru">instagram.com/W4RR3NGuru</a></p>`,
+    `<p style="margin:0 0 ${m5}px 0;">${fingerprintText(cta)}</p>`,
+    `<p style="margin:0 0 4px 0;">${signOff},</p>`,
     `<p style="margin:0 0 2px 0;">Warren Guru</p>`,
     `<p style="margin:0;"><a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a></p>`,
+    `<div style="display:none;color:transparent;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">ref:${trackId}</div>`,
   ].join("\n");
 
   const variant = sIdx * 1000 + iIdx * 100 + pIdx * 10 + cIdx;
@@ -102,7 +232,17 @@ function buildSms(firstName: string, addr: string) {
   const vars = { name: firstName, addr };
   const opener = fill(SMS_OPENERS[oIdx], vars);
   const body = fill(SMS_BODIES[bIdx], vars);
-  const text = `${opener}. ${body} See: https://instagram.com/W4RR3NGuru`;
+  // randomize the connector punctuation and the sample link phrasing slightly
+  const connectors = [". ", " — ", ". "];
+  const connector = connectors[Math.floor(Math.random() * connectors.length)];
+  const linkPhrases = [
+    "See: https://instagram.com/W4RR3NGuru",
+    "Sample: https://instagram.com/W4RR3NGuru",
+    "Portfolio: https://instagram.com/W4RR3NGuru",
+    "Examples: https://instagram.com/W4RR3NGuru",
+  ];
+  const linkPhrase = linkPhrases[Math.floor(Math.random() * linkPhrases.length)];
+  const text = `${opener}${connector}${body} ${linkPhrase}`;
   return { text, variant: oIdx * 10 + bIdx };
 }
 
