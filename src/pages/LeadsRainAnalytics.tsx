@@ -58,7 +58,10 @@ export default function LeadsRainAnalytics() {
   const loadSettings = async () => {
     const { data } = await supabase
       .from("leadsrain_settings" as any)
-      .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active")
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from("leadsrain_settings" as any)
+      .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active, zapier_mode_enabled, zapier_webhook_url, sms_delay_minutes")
       .limit(1).maybeSingle();
     const d = data as any;
     setDefaultListId(d?.default_list_id || "");
@@ -66,6 +69,9 @@ export default function LeadsRainAnalytics() {
     setDefaultCampaignExternalId(d?.default_campaign_external_id || "");
     setDefaultAudioUrl(d?.default_audio_url || "");
     setIsActive(d?.is_active !== false);
+    setZapierMode(!!d?.zapier_mode_enabled);
+    setZapierWebhookUrl(d?.zapier_webhook_url || "");
+    setSmsDelayMinutes(Number(d?.sms_delay_minutes ?? 3));
   };
 
   const saveSettings = async () => {
@@ -76,6 +82,11 @@ export default function LeadsRainAnalytics() {
       setSavingSettings(false);
       return;
     }
+    if (zapierMode && zapierWebhookUrl && !/^https:\/\/hooks\.zapier\.com\//i.test(zapierWebhookUrl.trim())) {
+      toast.error("Zapier webhook URL must start with https://hooks.zapier.com/");
+      setSavingSettings(false);
+      return;
+    }
     const { data: existing } = await supabase.from("leadsrain_settings" as any).select("id").limit(1).maybeSingle();
     const payload = {
       default_list_id: defaultListId.trim() || null,
@@ -83,6 +94,9 @@ export default function LeadsRainAnalytics() {
       default_campaign_external_id: defaultCampaignExternalId.trim() || null,
       default_audio_url: defaultAudioUrl.trim() || null,
       is_active: isActive,
+      zapier_mode_enabled: zapierMode,
+      zapier_webhook_url: zapierWebhookUrl.trim() || null,
+      sms_delay_minutes: Math.max(0, Number(smsDelayMinutes) || 0),
     };
     if ((existing as any)?.id) {
       await supabase.from("leadsrain_settings" as any).update(payload).eq("id", (existing as any).id);
