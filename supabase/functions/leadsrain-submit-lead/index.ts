@@ -11,7 +11,8 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LR_USER = (Deno.env.get("LEADSRAIN_USERNAME") || "").trim();
 const LR_KEY = (Deno.env.get("LEADSRAIN_API_KEY") || "").trim();
-const LR_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+const RAW_LR_PROXY_URL = (Deno.env.get("LEADSRAIN_PROXY_URL") || "").replace(/\/+$/, "");
+const LR_PROXY_URL = /^https:\/\//i.test(RAW_LR_PROXY_URL) && !/\.leadsrain\.com/i.test(RAW_LR_PROXY_URL) ? RAW_LR_PROXY_URL : "";
 const LR_ENDPOINTS = [
   ...(LR_PROXY_URL ? [`${LR_PROXY_URL}/ringless/api/add_posted_lead.php`] : []),
   "https://api.leadsrain.com/ringless/api/add_posted_lead.php",
@@ -150,7 +151,7 @@ Deno.serve(async (req) => {
         const explicitFailure = /\b(error|fail|failed|invalid|duplicate|denied|unauthorized|missing)\b/.test(statusText) || /\b(error|fail|failed|invalid|denied|unauthorized|missing)\b/.test(messageText);
         const explicitSuccess = !!lrJson?.lead_id || ["success", "ok", "accepted", "submitted"].includes(statusText);
         httpOk = r.ok && !explicitFailure && explicitSuccess;
-        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || (raw === "" ? `LeadsRain returned empty HTTP ${r.status} — lead was NOT added to list ${finalListId}. Verify the List ID belongs to an active RVM campaign and that the LeadsRain proxy is active.` : `HTTP ${r.status}`));
+        errMsg = httpOk ? null : (lrJson?.msg || lrJson?.message || lrJson?.error || lrJson?.raw || (raw === "" ? `LeadsRain returned empty HTTP ${r.status} — lead was NOT added to list ${finalListId}. Verify the List ID belongs to an active RVM campaign and configure LEADSRAIN_PROXY_URL to the deployed HTTPS proxy, not a leadsrain.com URL.` : `HTTP ${r.status}`));
         if (httpOk || /invalid username|api key/i.test(errMsg || "")) break;
       }
     } catch (e: any) {
