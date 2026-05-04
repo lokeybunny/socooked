@@ -34,22 +34,46 @@ export default function LeadsRainAnalytics() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [defaultListId, setDefaultListId] = useState("");
   const [defaultCallerId, setDefaultCallerId] = useState("");
+  const [defaultCampaignExternalId, setDefaultCampaignExternalId] = useState("");
+  const [defaultAudioUrl, setDefaultAudioUrl] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [diagReport, setDiagReport] = useState<DiagnosticReport | null>(null);
-  const [diagBusy, setDiagBusy] = useState(false);
-  const diagHealth: DiagnosticHealth = reportToHealth(diagReport);
-  void diagHealth; void apiHealth; void setApiHealth;
+
+  const normalizeDigits = (raw: string) => {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+    return digits;
+  };
 
   const loadSettings = async () => {
-    const { data } = await supabase.from("leadsrain_settings" as any).select("default_list_id, default_caller_id").limit(1).maybeSingle();
-    setDefaultListId(((data as any)?.default_list_id) || "");
-    setDefaultCallerId(((data as any)?.default_caller_id) || "");
+    const { data } = await supabase
+      .from("leadsrain_settings" as any)
+      .select("default_list_id, default_caller_id, default_campaign_external_id, default_audio_url, is_active")
+      .limit(1).maybeSingle();
+    const d = data as any;
+    setDefaultListId(d?.default_list_id || "");
+    setDefaultCallerId(d?.default_caller_id || "");
+    setDefaultCampaignExternalId(d?.default_campaign_external_id || "");
+    setDefaultAudioUrl(d?.default_audio_url || "");
+    setIsActive(d?.is_active !== false);
   };
 
   const saveSettings = async () => {
     setSavingSettings(true);
+    const callerDigits = normalizeDigits(defaultCallerId);
+    if (defaultCallerId && callerDigits.length !== 10) {
+      toast.error("Caller ID must be 10 digits");
+      setSavingSettings(false);
+      return;
+    }
     const { data: existing } = await supabase.from("leadsrain_settings" as any).select("id").limit(1).maybeSingle();
-    const payload = { default_list_id: defaultListId.trim() || null, default_caller_id: defaultCallerId.trim() || null };
+    const payload = {
+      default_list_id: defaultListId.trim() || null,
+      default_caller_id: callerDigits || null,
+      default_campaign_external_id: defaultCampaignExternalId.trim() || null,
+      default_audio_url: defaultAudioUrl.trim() || null,
+      is_active: isActive,
+    };
     if ((existing as any)?.id) {
       await supabase.from("leadsrain_settings" as any).update(payload).eq("id", (existing as any).id);
     } else {
