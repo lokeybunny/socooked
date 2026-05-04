@@ -380,8 +380,11 @@ export default function CampaignLeader() {
           </Button>
           <Button
             variant="outline"
-            disabled={!settings.is_production || settings.is_paused || busy || settings.drain_active}
-            onClick={runDrainNow}
+            disabled={!settings.is_production || busy || settings.drain_active}
+            onClick={async () => {
+              if (settings.is_paused) await updateSettings({ is_paused: false, stop_requested: false });
+              await runDrainNow();
+            }}
           >
             <Rocket className="w-4 h-4 mr-2" /> Run Batch Now
           </Button>
