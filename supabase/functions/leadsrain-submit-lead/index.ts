@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     // Resolve defaults from settings (list_id + caller_id REQUIRED; integration must be active)
     const { data: settings } = await svc
       .from("leadsrain_settings")
-      .select("default_list_id, default_caller_id, is_active")
+      .select("default_list_id, default_caller_id, default_campaign_external_id, is_active")
       .limit(1)
       .maybeSingle();
 
