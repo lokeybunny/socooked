@@ -19,15 +19,28 @@ function normKey(name: string, brokerage: string, city: string) {
 }
 
 function locationToZillowUrl(location: string): string {
-  // "Portland, OR" -> https://www.zillow.com/portland-or/
-  const slug = location.toLowerCase().replace(/,\s*/g, "-").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-  return `https://www.zillow.com/${slug}/`;
+  // Apify maxcopell/zillow-scraper REQUIRES ?searchQueryState=... in the URL.
+  // We build a for-sale search using usersSearchTerm + a wide US mapBounds so the
+  // actor's pagination/map zoom-in logic narrows down to the location automatically.
+  const searchQueryState = {
+    pagination: {},
+    usersSearchTerm: location,
+    mapBounds: { west: -125, east: -66, south: 24, north: 50 },
+    isMapVisible: true,
+    isListVisible: true,
+    filterState: {
+      sort: { value: "days" },
+      ah: { value: true },
+    },
+  };
+  const encoded = encodeURIComponent(JSON.stringify(searchQueryState));
+  return `https://www.zillow.com/homes/for_sale/?searchQueryState=${encoded}`;
 }
 
 async function runApifyActor(searchUrls: string[], maxItems: number): Promise<{ items: any[]; tokenUsed: string | null; error?: string }> {
   const input = {
     searchUrls: searchUrls.map((url) => ({ url })),
-    extractionMethod: "MAP_MARKERS",
+    extractionMethod: "PAGINATION_WITH_ZOOM_IN",
     maxItems,
     proxy: { useApifyProxy: true },
   };
