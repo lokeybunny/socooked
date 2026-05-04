@@ -2455,9 +2455,12 @@ export type Database = {
           is_active: boolean
           proxy_url: string | null
           singleton: boolean
+          sms_delay_minutes: number
           transfer_number: string | null
           updated_at: string
           voidfix_template: string
+          zapier_mode_enabled: boolean
+          zapier_webhook_url: string | null
         }
         Insert: {
           created_at?: string
@@ -2472,9 +2475,12 @@ export type Database = {
           is_active?: boolean
           proxy_url?: string | null
           singleton?: boolean
+          sms_delay_minutes?: number
           transfer_number?: string | null
           updated_at?: string
           voidfix_template?: string
+          zapier_mode_enabled?: boolean
+          zapier_webhook_url?: string | null
         }
         Update: {
           created_at?: string
@@ -2489,9 +2495,12 @@ export type Database = {
           is_active?: boolean
           proxy_url?: string | null
           singleton?: boolean
+          sms_delay_minutes?: number
           transfer_number?: string | null
           updated_at?: string
           voidfix_template?: string
+          zapier_mode_enabled?: boolean
+          zapier_webhook_url?: string | null
         }
         Relationships: [
           {
