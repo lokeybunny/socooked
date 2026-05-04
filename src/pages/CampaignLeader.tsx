@@ -200,30 +200,39 @@ export default function CampaignLeader() {
     [contacts],
   );
 
-  // Most recently completed send (used to estimate the next one)
-  const lastSent = useMemo(() => {
-    const times = contacts
-      .map(c => {
-        const t = c.sms_sent_at || c.email_sent_at;
-        return t ? new Date(t).getTime() : 0;
-      })
-      .filter(Boolean);
+  // Most recently completed sends per channel (independent timers)
+  const lastEmailSent = useMemo(() => {
+    const times = contacts.map(c => c.email_sent_at ? new Date(c.email_sent_at).getTime() : 0).filter(Boolean);
+    return times.length ? Math.max(...times) : 0;
+  }, [contacts]);
+  const lastSmsSent = useMemo(() => {
+    const times = contacts.map(c => c.sms_sent_at ? new Date(c.sms_sent_at).getTime() : 0).filter(Boolean);
     return times.length ? Math.max(...times) : 0;
   }, [contacts]);
 
-  // Average inter-send delay from settings (server picks a random value in this range)
-  const avgDelaySec = settings
+  // Average inter-send delay per channel (server picks a random value in each range)
+  const avgEmailDelaySec = settings
     ? Math.round((settings.min_delay_seconds + settings.max_delay_seconds) / 2)
     : 0;
+  const avgSmsDelaySec = settings
+    ? Math.round(((settings.sms_min_gap_seconds ?? 10) + (settings.sms_max_gap_seconds ?? 30)) / 2)
+    : 0;
 
-  // Estimated seconds until next contact starts processing
-  const nextSendInSec = (() => {
+  function calcNext(last: number, avg: number): number | null {
     if (!settings || !settings.is_production || settings.is_paused) return null;
-    if (inFlight) return 0; // sending right now
-    if (!lastSent) return null;
-    const elapsed = Math.floor((now - lastSent) / 1000);
-    return Math.max(0, avgDelaySec - elapsed);
+    if (!last) return null;
+    const elapsed = Math.floor((now - last) / 1000);
+    return Math.max(0, avg - elapsed);
+  }
+  const nextEmailInSec = calcNext(lastEmailSent, avgEmailDelaySec);
+  const nextSmsInSec = calcNext(lastSmsSent, avgSmsDelaySec);
+  // Whichever fires first
+  const nextSendInSec = (() => {
+    if (inFlight) return 0;
+    const candidates = [nextEmailInSec, nextSmsInSec].filter((v): v is number => v !== null);
+    return candidates.length ? Math.min(...candidates) : null;
   })();
+  const avgDelaySec = avgEmailDelaySec;
 
   async function updateSettings(patch: Partial<Settings>) {
     if (!settings) return;
@@ -370,20 +379,34 @@ export default function CampaignLeader() {
               <div className="flex-1 text-sm">
                 {!settings.is_production && <span className="text-muted-foreground">Production locked — no sends running.</span>}
                 {settings.is_production && settings.is_paused && <span className="text-muted-foreground">Campaign paused.</span>}
-                {settings.is_production && !settings.is_paused && nextSendInSec !== null && (
-                  <span>
-                    Next contact in{" "}
-                    <span className="font-mono text-base font-bold text-primary tabular-nums">
-                      {Math.floor(nextSendInSec / 60)}:{String(nextSendInSec % 60).padStart(2, "0")}
-                    </span>
+                {settings.is_production && !settings.is_paused && (nextEmailInSec !== null || nextSmsInSec !== null) && (
+                  <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {nextEmailInSec !== null && (
+                      <span>
+                        Next email in{" "}
+                        <span className="font-mono text-base font-bold text-primary tabular-nums">
+                          {Math.floor(nextEmailInSec / 60)}:{String(nextEmailInSec % 60).padStart(2, "0")}
+                        </span>
+                      </span>
+                    )}
+                    {nextSmsInSec !== null && (
+                      <span>
+                        Next SMS in{" "}
+                        <span className="font-mono text-base font-bold text-primary tabular-nums">
+                          {Math.floor(nextSmsInSec / 60)}:{String(nextSmsInSec % 60).padStart(2, "0")}
+                        </span>
+                      </span>
+                    )}
                   </span>
                 )}
-                {settings.is_production && !settings.is_paused && nextSendInSec === null && (
+                {settings.is_production && !settings.is_paused && nextEmailInSec === null && nextSmsInSec === null && (
                   <span className="text-muted-foreground">Waiting for next batch from scheduler…</span>
                 )}
               </div>
               {settings.is_production && !settings.is_paused && (
-                <Badge variant="outline" className="text-xs">avg delay {avgDelaySec}s</Badge>
+                <Badge variant="outline" className="text-xs">
+                  email ~{avgEmailDelaySec}s · sms ~{avgSmsDelaySec}s
+                </Badge>
               )}
             </div>
           )}
