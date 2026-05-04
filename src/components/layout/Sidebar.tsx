@@ -58,6 +58,7 @@ const navEntries: NavEntry[] = [
     ],
   },
   { to: '/usa-map', icon: Crosshair, label: 'USA Map', green: true },
+  { to: '/campaign-leader', icon: Megaphone, label: 'Campaign Leader', green: true },
   { to: '/zillow', icon: Building2, label: 'Zillow', green: true },
   { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
