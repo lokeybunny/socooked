@@ -834,6 +834,45 @@ export type Database = {
           },
         ]
       }
+      batchleads_phone_pulls: {
+        Row: {
+          id: string
+          location: string | null
+          phone_e164: string | null
+          phone_number: string | null
+          phone_type: string | null
+          pulled_at: string | null
+          radius_miles: number | null
+          raw_response: Json | null
+          source: string | null
+          status: string | null
+        }
+        Insert: {
+          id?: string
+          location?: string | null
+          phone_e164?: string | null
+          phone_number?: string | null
+          phone_type?: string | null
+          pulled_at?: string | null
+          radius_miles?: number | null
+          raw_response?: Json | null
+          source?: string | null
+          status?: string | null
+        }
+        Update: {
+          id?: string
+          location?: string | null
+          phone_e164?: string | null
+          phone_number?: string | null
+          phone_type?: string | null
+          pulled_at?: string | null
+          radius_miles?: number | null
+          raw_response?: Json | null
+          source?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       boards: {
         Row: {
           category: string | null
@@ -4565,6 +4604,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      outbound_call_queue: {
+        Row: {
+          campaign_status: string | null
+          created_at: string | null
+          id: string
+          last_attempt_at: string | null
+          notes: string | null
+          phone_e164: string | null
+          source: string | null
+        }
+        Insert: {
+          campaign_status?: string | null
+          created_at?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          notes?: string | null
+          phone_e164?: string | null
+          source?: string | null
+        }
+        Update: {
+          campaign_status?: string | null
+          created_at?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          notes?: string | null
+          phone_e164?: string | null
+          source?: string | null
+        }
+        Relationships: []
       }
       payme_charges: {
         Row: {
