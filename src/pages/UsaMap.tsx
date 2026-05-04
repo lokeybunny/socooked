@@ -228,7 +228,8 @@ function StateModal({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Upload failed");
       setResult(json);
-      toast.success(`Inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates`);
+      const lgmMsg = json.lgm_enabled ? ` · LGM rejected ${json.lgm_rejected ?? 0}` : "";
+      toast.success(`Inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates${lgmMsg}`);
       await onUploaded();
     } catch (e: any) {
       toast.error(e.message);
