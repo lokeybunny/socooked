@@ -279,19 +279,23 @@ Deno.serve(async (req) => {
 
     try {
       outer: for (const endpoint of LR_ENDPOINTS) {
-        for (const lf of listIdVariants) {
+        for (const ct of contentTypeVariants) {
+          for (const phoneField of activePhoneFields) {
           usedEndpoint = endpoint;
-          usedListField = lf;
-          const payload = buildPayload(lf);
+          usedPhoneField = phoneField;
+          const payload = buildPayload(phoneField);
           lastPayload = payload;
           const headers: Record<string, string> = { "Cache-Control": "no-cache", "Accept": "application/json" };
           let bodyStr: string;
-          if (useForm) {
+          if (ct === "application/x-www-form-urlencoded") {
             headers["Content-Type"] = "application/x-www-form-urlencoded";
-            const usp = new URLSearchParams();
-            for (const [k, v] of Object.entries(payload)) usp.append(k, String(v));
-            bodyStr = usp.toString();
+            bodyStr = encodeUrlPayload(payload);
             usedContentType = "application/x-www-form-urlencoded";
+          } else if (ct === "multipart/form-data") {
+            const boundary = `----LeadsRain${crypto.randomUUID().replace(/-/g, "")}`;
+            headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+            bodyStr = encodeMultipartPayload(payload, boundary);
+            usedContentType = "multipart/form-data";
           } else {
             headers["Content-Type"] = "application/json";
             bodyStr = JSON.stringify(payload);
@@ -305,11 +309,36 @@ Deno.serve(async (req) => {
           parsed = parsePostLeadResponse(r.status, lrRawText, lrJson);
           httpOk = parsed.ok;
           errMsg = httpOk ? null : (parsed.message || `HTTP ${r.status}`);
-          attempts.push({ list_id_field: lf, content_type: usedContentType, http_status: r.status, raw_text: trimmed.slice(0, 500), mode: parsed.mode });
+          let matchedLead: any = null;
+          let visible = false;
+          try {
+            const listCheck = await viewList(finalListId);
+            matchedLead = findLeadInList(listCheck.raw ?? listCheck.data, ph.ten);
+            visible = !!matchedLead;
+            listVisibilityCheck = { ok: listCheck.ok, status: listCheck.status, error: listCheck.error, matched_lead: matchedLead ? { ...matchedLead, api_key: undefined } : null };
+          } catch (e: any) {
+            listVisibilityCheck = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null };
+          }
+          leadVisibleInList = visible;
+          if (visible && r.status >= 200 && r.status < 300) {
+            parsed = { ...parsed, ok: true, mode: "accepted", message: parsed.message || "Lead appeared inside LeadsRain list after test." };
+            httpOk = true;
+            errMsg = null;
+          }
+          attempts.push({
+            phone_field: phoneField,
+            content_type: usedContentType,
+            http_status: r.status,
+            raw_text: trimmed.slice(0, 500),
+            mode: parsed.mode,
+            submitted_payload: maskPayload(payload),
+            lead_visible_in_list: visible,
+            leadsrain_list_check: listVisibilityCheck,
+          });
           if (httpOk || parsed.mode === "parser_needs_mapping") break outer;
           if (/invalid username|api key|invalid api/i.test(errMsg || "")) break outer;
-          // If we got SOME body back (not empty), don't keep trying variants
           if (trimmed.length > 0) break outer;
+          }
         }
       }
     } catch (e: any) {
