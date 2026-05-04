@@ -101,6 +101,66 @@ Deno.serve(async (req) => {
     // Build candidate records, dedupe within file
     const seen = new Set<string>();
     const candidates: any[] = [];
+    let lgmRejected = 0;
+    let lgmChecked = 0;
+    let lgmEnriched = 0;
+    const LGM_KEY = Deno.env.get("LAGROWTHMACHINE_API_KEY") || "";
+    const LGM_BASE = "https://apiv2.lagrowthmachine.com/flow";
+
+    // Verify a single lead through LGM. Returns { ok, enrich? }.
+    // Fail-open: network/5xx errors are treated as accepted so a flaky API doesn't drop rows.
+    async function lgmVerify(payload: { email?: string | null; phone?: string | null; firstName?: string | null; lastName?: string | null; }): Promise<{ ok: boolean; enrich?: Record<string, any> }> {
+      if (!LGM_KEY) return { ok: true };
+      if (!payload.email && !payload.phone) return { ok: true };
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const body: Record<string, any> = {};
+        if (payload.email) body.email = payload.email;
+        if (payload.phone) body.phone = payload.phone;
+        if (payload.firstName) body.firstName = payload.firstName;
+        if (payload.lastName) body.lastName = payload.lastName;
+        const r = await fetch(`${LGM_BASE}/leads/verify?apikey=${encodeURIComponent(LGM_KEY)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        if (r.status === 429) {
+          await new Promise((res) => setTimeout(res, 1500));
+          return { ok: true }; // rate-limited -> fail open
+        }
+        if (r.status >= 500) return { ok: true };
+        const j = await r.json().catch(() => ({}));
+        // Heuristic acceptance: explicit 'valid' / 'verified' / status===ok
+        const valid = j?.valid === true
+          || j?.verified === true
+          || j?.status === "valid"
+          || j?.status === "ok"
+          || (j?.email?.valid === true)
+          || (j?.phone?.valid === true);
+        const invalid = j?.valid === false
+          || j?.verified === false
+          || j?.status === "invalid"
+          || j?.status === "rejected"
+          || (j?.email?.valid === false && !payload.phone)
+          || (j?.phone?.valid === false && !payload.email);
+        if (invalid) return { ok: false };
+        if (valid) {
+          const enrich: Record<string, any> = {};
+          if (j?.firstName && !payload.firstName) enrich.first_name = j.firstName;
+          if (j?.lastName) enrich.last_name = j.lastName;
+          return { ok: true, enrich };
+        }
+        // 2xx but no clear signal -> accept
+        return { ok: true };
+      } catch (_e) {
+        return { ok: true }; // network failure -> fail open
+      }
+    }
+
+
     for (const r of rows) {
       const e164 = toE164(r[phoneKey]);
       if (!e164 || seen.has(e164)) continue;
