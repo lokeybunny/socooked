@@ -40,6 +40,45 @@ function normCallerId(raw: string | null | undefined): string | null {
   return digits || null;
 }
 
+// Flexible PostLead response parser. Handles JSON objects, plain strings, and HTML.
+// HTTP 200 + no explicit failure markers = accepted.
+function parsePostLeadResponse(httpStatus: number, rawText: string, json: any) {
+  const text = String(rawText || "").trim();
+  const lower = text.toLowerCase();
+  const FAIL_RX = /\b(invalid api key|invalid username|missing phone|duplicate|campaign not found|failed|failure|denied|unauthorized|missing|required|error)\b/;
+  const SUCCESS_RX = /\b(success|accepted|added|submitted|queued|lead_id|posted)\b/;
+
+  let provider_status = "";
+  let provider_lead_id: string | null = null;
+  let message: string | null = null;
+
+  if (json && typeof json === "object") {
+    provider_status = String(json.status ?? json.Status ?? (json.success === true ? "success" : json.success === false ? "error" : "")).toLowerCase();
+    provider_lead_id =
+      json.lead_id?.toString?.() ??
+      json.id?.toString?.() ??
+      json.posted_lead_id?.toString?.() ??
+      json.data?.lead_id?.toString?.() ??
+      json.data?.id?.toString?.() ??
+      null;
+    message = json.msg ?? json.message ?? json.error ?? json.data?.message ?? null;
+  } else if (text) {
+    message = text.length > 500 ? text.slice(0, 500) : text;
+  }
+
+  const haystack = `${provider_status} ${message ?? ""} ${lower}`;
+  const explicitFail = FAIL_RX.test(haystack);
+  const explicitSuccess = !!provider_lead_id || SUCCESS_RX.test(haystack) || provider_status === "success" || (json && json.success === true);
+
+  let ok = false;
+  if (httpStatus >= 200 && httpStatus < 300) {
+    ok = !explicitFail || explicitSuccess;
+  }
+
+  if (!ok && !message) message = explicitFail ? "LeadsRain rejected the lead" : `HTTP ${httpStatus}`;
+  return { ok, provider_status, provider_lead_id, message, raw: json ?? text };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
