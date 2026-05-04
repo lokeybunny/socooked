@@ -10,6 +10,15 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+
+const DELIVERY_STATUSES = new Set(["completed", "delivered", "sent", "success", "vm_delivered", "sent_to_voicemail"]);
+
+function normPhone(raw: string | null | undefined): string | null {
+  const digits = String(raw || "").replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits.slice(-10);
+  return ten.length === 10 ? `+1${ten}` : null;
+}
 
 function pickItems(json: any): any[] {
   if (!json) return [];
@@ -36,6 +45,19 @@ function mapStatus(raw?: string | null): string {
   if (["failed", "error", "fail"].includes(s)) return "failed";
   if (["cancelled", "canceled"].includes(s)) return "cancelled";
   return s;
+}
+
+function pickProviderLeadId(raw: any): string | null {
+  if (!raw || typeof raw !== "object") return null;
+  return raw.lead_id?.toString() ?? raw.id?.toString() ?? raw.posted_lead_id?.toString() ?? raw.provider_lead_id?.toString() ?? null;
+}
+
+function pickPhone(raw: any): string | null {
+  return normPhone(raw?.phone_number ?? raw?.phone ?? raw?.mobile ?? raw?.number ?? raw?.recipient);
+}
+
+function pickLeadStatus(raw: any): string {
+  return String(raw?.status ?? raw?.lead_status ?? raw?.delivery_status ?? raw?.call_status ?? "").toLowerCase().trim();
 }
 
 function estimateETA(snapshots: { snapshot_at: string; processed_count: number }[], totalLeads: number): string | null {
