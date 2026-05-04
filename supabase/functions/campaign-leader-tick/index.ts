@@ -727,17 +727,19 @@ async function runTick(runMode: "single" | "batch" | "drain" = "batch", force = 
 
     const eligible: typeof validatedLeads = [];
     for (const l of validatedLeads) {
-      if (suppressedEmails.has(l.email)) continue;
-      if (suppressedPhones.has(l.phone_e164)) continue;
-      if (sentEmails.has((l.email || "").toLowerCase())) continue;
-      if (sentPhones.has(l.phone_e164)) continue;
-      if (queuedEmails.has(l.email)) continue;
-      if (queuedPhones.has(l.phone_e164)) continue;
-      const d = emailDomain(l.email);
-      const used = domainCountToday.get(d) || 0;
-      const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
-      if (used >= cap) continue;
-      domainCountToday.set(d, used + 1);
+      if (wantEmail && suppressedEmails.has(l.email)) continue;
+      if (wantSms && suppressedPhones.has(l.phone_e164)) continue;
+      if (wantEmail && sentEmails.has((l.email || "").toLowerCase())) continue;
+      if (wantSms && sentPhones.has(l.phone_e164)) continue;
+      if (wantEmail && queuedEmails.has(l.email)) continue;
+      if (wantSms && queuedPhones.has(l.phone_e164)) continue;
+      if (wantEmail && l.email) {
+        const d = emailDomain(l.email);
+        const used = domainCountToday.get(d) || 0;
+        const cap = FREE_PROVIDER_THROTTLE.has(d) ? Math.min(GMAIL_PER_DOMAIN_DAILY_CAP, 15) : GMAIL_PER_DOMAIN_DAILY_CAP;
+        if (used >= cap) continue;
+        domainCountToday.set(d, used + 1);
+      }
       eligible.push(l);
       if (eligible.length >= batchSize) break;
     }
