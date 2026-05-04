@@ -150,7 +150,7 @@ const App = () => (
                 <Route path="/meetings" element={<RestrictedGate><Meetings /></RestrictedGate>} />
                 <Route path="/meet/:roomCode" element={<MeetingRoom />} />
                 <Route path="/calendar" element={<RestrictedGate><CalendarPage /></RestrictedGate>} />
-                <Route path="/ai-staff" element={<RestrictedGate><AIStaff /></RestrictedGate>} />
+                
                 <Route path="/custom-u" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/landing" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
@@ -181,8 +181,7 @@ const App = () => (
                 <Route path="/wholesale" element={<WarrenOnlyGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/arbitrage" element={<WarrenOnlyGate><AuthLayoutGate><ArbitragePage /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/sell/:slug" element={<SellerLanding />} />
-                <Route path="/batchleads" element={<WarrenOnlyGate><AuthLayoutGate><BatchLeadsPuller /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/ads" element={<WarrenOnlyGate><AuthLayoutGate><Ads /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/usa-map" element={<WarrenOnlyGate><AuthLayoutGate><UsaMap /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/video" element={<VideographyLanding />} />
                 <Route path="/videography" element={<Navigate to="/video" replace />} />
