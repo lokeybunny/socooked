@@ -350,10 +350,10 @@ Deno.serve(async (req) => {
           let matchedLead: any = null;
           let visible = false;
           try {
-            const listCheck = await viewList(finalListId);
-            matchedLead = findLeadInList(listCheck.raw ?? listCheck.data, ph.ten);
+            const listCheck = await checkLeadVisibleInList(finalListId, ph.ten!);
+            matchedLead = listCheck.matched_lead;
             visible = !!matchedLead;
-            listVisibilityCheck = { ok: listCheck.ok, status: listCheck.status, error: listCheck.error, matched_lead: matchedLead ? { ...matchedLead, api_key: undefined } : null };
+            listVisibilityCheck = { ok: listCheck.ok, status: listCheck.status, error: listCheck.error, matched_lead: matchedLead ? { ...matchedLead, api_key: undefined } : null, raw_text: listCheck.raw_text };
           } catch (e: any) {
             listVisibilityCheck = { ok: false, status: 0, error: e?.message || String(e), matched_lead: null };
           }
