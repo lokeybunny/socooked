@@ -59,9 +59,9 @@ const SMS_OPENERS = [
 ];
 
 const SMS_BODIES = [
-  "I create AI-powered property videos for {{addr}} without needing to walk the home.",
-  "I make AI-driven listing videos for {{addr}} — no walk-through required.",
-  "I produce AI marketing videos for {{addr}} straight from your existing photos.",
+  "I would like to create an AI-powered property video for {{addr}} without needing to walk the home.",
+  "I would like to make an AI-driven listing video for {{addr}} — no walk-through required.",
+  "I would like to produce an AI marketing video for {{addr}} straight from your existing photos.",
 ];
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
