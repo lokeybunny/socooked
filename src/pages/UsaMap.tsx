@@ -29,6 +29,50 @@ export default function UsaMap() {
   const [logs, setLogs] = useState<UploadLog[]>([]);
   const [hover, setHover] = useState<{ code: string; x: number; y: number } | null>(null);
   const [openState, setOpenState] = useState<string | null>(null);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanResult, setCleanResult] = useState<null | { checked: number; kept: number; rejected: number; enriched: number; campaign_contacts_removed: number; rejected_details: any[] }>(null);
+
+  const runLgmClean = async () => {
+    if (cleaning) return;
+    setCleaning(true);
+    setCleanResult(null);
+    const agg = { checked: 0, kept: 0, rejected: 0, enriched: 0, campaign_contacts_removed: 0, rejected_details: [] as any[] };
+    try {
+      let offset = 0;
+      // Paginated sweep through all existing leads
+      // Stops when next_offset is null
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/clean-existing-state-leads`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ limit: 500, offset }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "LGM clean failed");
+        agg.checked += json.checked || 0;
+        agg.kept += json.kept || 0;
+        agg.rejected += json.rejected || 0;
+        agg.enriched += json.enriched || 0;
+        agg.campaign_contacts_removed += json.campaign_contacts_removed || 0;
+        if (json.rejected_details?.length) agg.rejected_details.push(...json.rejected_details);
+        if (json.next_offset == null) break;
+        offset = json.next_offset;
+      }
+      setCleanResult(agg);
+      toast.success(`LGM clean complete: kept ${agg.kept}, removed ${agg.rejected}`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(e.message || "Clean failed");
+    } finally {
+      setCleaning(false);
+    }
+  };
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
