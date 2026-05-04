@@ -57,6 +57,7 @@ const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arb
 const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
 const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
 const CampaignLeader = lazyWithRetry(() => import("./pages/CampaignLeader"), "page-campaign-leader");
+const EmailDeliverability = lazyWithRetry(() => import("./pages/EmailDeliverability"), "page-email-deliverability");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
 const SellerLanding = lazyWithRetry(() => import("./pages/SellerLanding"), "page-seller-landing");
 const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "page-videography-hub");
@@ -184,6 +185,7 @@ const App = () => (
                 <Route path="/sell/:slug" element={<SellerLanding />} />
                 <Route path="/usa-map" element={<WarrenOnlyGate><AuthLayoutGate><UsaMap /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/campaign-leader" element={<WarrenOnlyGate><AuthLayoutGate><CampaignLeader /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/email-deliverability" element={<WarrenOnlyGate><AuthLayoutGate><EmailDeliverability /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/video" element={<VideographyLanding />} />
                 <Route path="/videography" element={<Navigate to="/video" replace />} />
