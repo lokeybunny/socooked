@@ -254,8 +254,8 @@ Deno.serve(async (req) => {
 
     const userMessage =
       parsed.mode === "accepted" ? "LeadsRain accepted the lead." :
-      parsed.mode === "parser_needs_mapping" ? "Submitted to LeadsRain — parser mapping pending." :
-      parsed.mode === "rejected" ? (lrMsg || "LeadsRain rejected the lead.") :
+      parsed.mode === "parser_needs_mapping" ? "LeadsRain returned 200 but no lead_id — NOT counted as accepted. Inspect the raw response and confirm in LeadsRain dashboard before relying on it." :
+      parsed.mode === "rejected" ? (lrMsg || errMsg || "LeadsRain did not accept the lead.") :
       (errMsg || "LeadsRain submission failed.");
 
     return json({
