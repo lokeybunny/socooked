@@ -510,6 +510,7 @@ async function runSmsFor(contact: any): Promise<{ ok: boolean; skipped?: boolean
     sms_status: "sent",
     sms_sent_at: new Date().toISOString(),
     sms_variant: smsVariant,
+    sms_retry_count: smsResult.attempts,
     last_step: "sms_sent",
   }).eq("id", contact.id);
   await bumpDailyStat("sms_sent");
