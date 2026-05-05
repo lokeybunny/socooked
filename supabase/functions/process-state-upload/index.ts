@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
         }
       }
     }
-    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled, "lgm_checked:", lgmChecked, "lgm_rejected:", lgmRejected, "lgm_enriched:", lgmEnriched);
+    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled);
 
     await supabase.from("upload_logs").insert({
       state: selectedState,
