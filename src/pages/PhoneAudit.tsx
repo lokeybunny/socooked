@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Phone, Play, Pause, Trash2, Download, RefreshCw, Upload } from "lucide-react";
+import { prepareExportRows, type ExportPhoneFormat, type ExportSummary } from "@/lib/phoneFormat";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type Job = {
   id: string;
@@ -40,6 +42,8 @@ export default function PhoneAudit() {
   const [deleting, setDeleting] = useState(false);
   const [auditLimit, setAuditLimit] = useState<number | "">("");
   const [uploadJob, setUploadJob] = useState<{ status: string; processed?: number; total?: number; result?: any } | null>(null);
+  const [exportFormat, setExportFormat] = useState<ExportPhoneFormat>("us10");
+  const [exportSummary, setExportSummary] = useState<(ExportSummary & { filename: string }) | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const stateArg = selectedState === "ALL" ? undefined : selectedState;
@@ -168,7 +172,7 @@ export default function PhoneAudit() {
       while (true) {
         let q = supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,office_phone,email,state")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,state,phone_valid,phone_line_type")
           .eq("phone_line_type", "mobile")
           .eq("phone_valid", true)
           .range(from, from + pageSize - 1);
@@ -183,6 +187,16 @@ export default function PhoneAudit() {
       toast.dismiss(tid);
       if (!rows.length) return toast.error("No verified mobile leads found");
 
+      // Apply global export formatting layer (normalize, validate, dedup, mobile-only)
+      const { rows: prepared, summary } = prepareExportRows(rows, {
+        mode: exportFormat,
+        mobileOnly: true,
+      });
+
+      if (!prepared.length) {
+        return toast.error("No exportable numbers after formatting");
+      }
+
       const esc = (v: any) => {
         const s = (v ?? "").toString();
         return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -190,7 +204,7 @@ export default function PhoneAudit() {
       const header = stateArg
         ? "first_name,last_name,phone_number,email"
         : "first_name,last_name,phone_number,email,state";
-      const lines = rows.map((r) => {
+      const lines = prepared.map(({ row: r, phone_number }) => {
         let first = (r.first_name ?? "").trim();
         let last = "";
         if (!first && r.name) {
@@ -203,19 +217,20 @@ export default function PhoneAudit() {
             last = parts.slice(1).join(" ");
           }
         }
-        const phone = r.phone_e164 || r.phone_number || r.office_phone || "";
-        const base = [esc(first), esc(last), esc(phone), esc(r.email)];
+        const base = [esc(first), esc(last), esc(phone_number), esc(r.email)];
         return stateArg ? base.join(",") : [...base, esc(r.state)].join(",");
       });
       const csv = [header, ...lines].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
+      const filename = `${stateArg ?? "all"}_mobile_${exportFormat}_${new Date().toISOString().slice(0, 10)}.csv`;
       a.href = url;
-      a.download = `${stateArg ?? "all"}_mobile_verified_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
-      toast.success(`Exported ${rows.length.toLocaleString()} mobile leads`);
+      setExportSummary({ ...summary, filename });
+      toast.success(`Exported ${summary.exported.toLocaleString()} mobile leads`);
     } catch (e: any) {
       toast.dismiss(tid);
       toast.error(`Export failed: ${e.message}`);
@@ -350,6 +365,15 @@ export default function PhoneAudit() {
               <Play className="h-4 w-4 mr-2" /> Resume
             </Button>
           )}
+          <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ExportPhoneFormat)}>
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="us10">US 10-digit (LeadsRain)</SelectItem>
+              <SelectItem value="e164">E.164 (+1XXXXXXXXXX)</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant="outline" onClick={exportMobile}>
             <Download className="h-4 w-4 mr-2" /> Export Mobile CSV
           </Button>
@@ -401,6 +425,30 @@ export default function PhoneAudit() {
           )}
         </div>
       </Card>
+
+      <Dialog open={!!exportSummary} onOpenChange={(o) => !o && setExportSummary(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Summary</DialogTitle>
+          </DialogHeader>
+          {exportSummary && (
+            <div className="space-y-2 text-sm">
+              <div className="text-muted-foreground">{exportSummary.filename}</div>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Stat label="Total selected" value={exportSummary.total_selected} tone="text-foreground" />
+                <Stat label="Valid mobile exported" value={exportSummary.exported} tone="text-emerald-500" />
+                <Stat label="Reformatted" value={exportSummary.reformatted} tone="text-blue-500" />
+                <Stat label="Excluded (invalid)" value={exportSummary.excluded_invalid} tone="text-red-500" />
+                <Stat label="Excluded (non-mobile)" value={exportSummary.excluded_non_mobile} tone="text-yellow-500" />
+                <Stat label="Duplicates removed" value={exportSummary.duplicates_removed} tone="text-orange-500" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setExportSummary(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
