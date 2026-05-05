@@ -391,6 +391,16 @@ export default function PhoneAudit() {
               <Play className="h-4 w-4 mr-2" /> Resume
             </Button>
           )}
+          <Select value={exportSource} onValueChange={(v) => setExportSource(v as "cell" | "office" | "both")}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cell">Cell only</SelectItem>
+              <SelectItem value="office">Office only</SelectItem>
+              <SelectItem value="both">Cell + Office</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ExportPhoneFormat)}>
             <SelectTrigger className="w-[180px] h-9">
               <SelectValue />
@@ -401,7 +411,7 @@ export default function PhoneAudit() {
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={exportMobile}>
-            <Download className="h-4 w-4 mr-2" /> Export Mobile CSV
+            <Download className="h-4 w-4 mr-2" /> Export CSV
           </Button>
           <Button variant="outline" onClick={exportRejected}>
             <Download className="h-4 w-4 mr-2" /> Export Rejected CSV
