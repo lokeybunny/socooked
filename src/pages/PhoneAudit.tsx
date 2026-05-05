@@ -248,10 +248,33 @@ export default function PhoneAudit() {
           </div>
         )}
 
+        {(!job || job.status === "completed" || job.status === "error") && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+            <span className="text-xs text-muted-foreground">Limit:</span>
+            <input
+              type="number"
+              min={1}
+              placeholder="all"
+              value={auditLimit}
+              onChange={(e) => setAuditLimit(e.target.value === "" ? "" : Math.max(1, Number(e.target.value)))}
+              className="w-28 h-9 rounded-md border border-input bg-background px-3 text-sm"
+            />
+            {[100, 500, 1000, 5000].map((n) => (
+              <Button key={n} type="button" size="sm" variant="outline" onClick={() => setAuditLimit(n)}>
+                {n.toLocaleString()}
+              </Button>
+            ))}
+            <span className="text-xs text-muted-foreground">
+              ≈ ${(((typeof auditLimit === "number" ? auditLimit : preview?.need_audit ?? 0)) * 0.008).toFixed(2)}
+            </span>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2 pt-2">
           {(!job || job.status === "completed" || job.status === "error") && (
             <Button onClick={onStart} disabled={loading || !preview?.need_audit}>
-              <Play className="h-4 w-4 mr-2" /> Start Audit
+              <Play className="h-4 w-4 mr-2" />
+              {auditLimit ? `Audit ${Number(auditLimit).toLocaleString()}` : "Start Full Audit"}
             </Button>
           )}
           {job?.status === "running" && (
