@@ -186,24 +186,44 @@ async function getMessages(
   }));
 }
 
-const EMAIL_SIGNATURE = `
+async function getCellNumber(): Promise<{ e164: string; pretty: string }> {
+  const fallback = { e164: "+14802200405", pretty: "(480) 220-0405" };
+  try {
+    const sbUrl = Deno.env.get("SUPABASE_URL");
+    const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!sbUrl || !sbKey) return fallback;
+    const r = await fetch(`${sbUrl}/rest/v1/app_settings?key=eq.business_numbers&select=value`, {
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+    });
+    const rows = await r.json();
+    const cell = String(rows?.[0]?.value?.cell || "").trim();
+    if (!cell) return fallback;
+    const d = cell.replace(/\D/g, "").slice(-10);
+    if (d.length !== 10) return fallback;
+    return { e164: `+1${d}`, pretty: `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` };
+  } catch { return fallback; }
+}
+
+function buildSignature(cell: { e164: string; pretty: string }): string {
+  return `
 <br/><br/>
 <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;">
   <strong style="color:#111;">Warren Thompson</strong><br/>
   <a href="https://warren.guru" style="color:#2754C5;text-decoration:none;">Warren.Guru</a><br/>
-  <a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a> (cell)<br/>
+  <a href="tel:${cell.e164}" style="color:#555;text-decoration:none;">${cell.pretty}</a> (cell)<br/>
   <a href="https://warren.guru/payme" style="color:#2754C5;text-decoration:none;">💳 Pay Me</a>
 </div>`;
+}
 
-function appendSignature(html: string): string {
-  // Insert before closing </body> or </html>, or just append
+async function appendSignature(html: string): Promise<string> {
+  const sig = buildSignature(await getCellNumber());
   if (html.toLowerCase().includes('</body>')) {
-    return html.replace(/<\/body>/i, `${EMAIL_SIGNATURE}</body>`);
+    return html.replace(/<\/body>/i, `${sig}</body>`);
   }
   if (html.toLowerCase().includes('</html>')) {
-    return html.replace(/<\/html>/i, `${EMAIL_SIGNATURE}</html>`);
+    return html.replace(/<\/html>/i, `${sig}</html>`);
   }
-  return html + EMAIL_SIGNATURE;
+  return html + sig;
 }
 
 const INVOICE_KEYWORDS = [/\binvoice\b/i, /\binv[-\s]?\d{2,}\b/i];
