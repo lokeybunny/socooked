@@ -24,20 +24,45 @@ const GRID: (string | null)[][] = [
 type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null };
 type UploadLog = { id: string; state: string; file_name: string | null; total_rows: number; inserted_count: number; duplicate_count: number; created_at: string };
 
+type AuditSummary = {
+  import_batch_id: string;
+  file_name: string;
+  state: string;
+  total_rows: number;
+  unique_numbers: number;
+  malformed_blank: number;
+  duplicates_in_file: number;
+  duplicates_in_db: number;
+  mobile_approved: number;
+  landlines_rejected: number;
+  voip_rejected: number;
+  invalid_rejected: number;
+  unknown_rejected: number;
+  failed_lookups: number;
+  cache_hits: number;
+  new_lookups: number;
+  estimated_cost_usd: number;
+  rejected_sample?: any[];
+  inserted?: number;
+  rejected_total?: number;
+};
+
 type UploadJob = {
   id: string;
   state: string;
   file_name: string;
   file_size: number;
-  // 0..100 for the file network upload phase
+  file?: File; // kept in memory until user confirms save
   uploadPct: number;
-  phase: "uploading" | "parsing" | "parsed" | "inserting" | "complete" | "error";
+  phase: "uploading" | "parsing" | "parsed" | "normalizing" | "deduping" | "looking_up" | "filtering" | "audited" | "saving" | "complete" | "error";
   message?: string;
   total_rows?: number;
-  candidates?: number;
-  processed?: number;
+  to_lookup?: number;
+  cache_hits?: number;
+  new_lookups?: number;
   inserted?: number;
   duplicates?: number;
+  audit?: AuditSummary;
   finishedAt?: number;
 };
 
