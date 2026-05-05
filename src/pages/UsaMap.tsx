@@ -505,9 +505,14 @@ function StateModal({
             <div><strong>Optional:</strong> name, address, city, zip, email</div>
           </div>
 
-          <Button onClick={handleUpload} disabled={!file} className="w-full">
-            <Upload className="h-4 w-4 mr-2" /> Start Upload
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={handleUpload} disabled={!file}>
+              <Upload className="h-4 w-4 mr-2" /> Start Upload
+            </Button>
+            <Button variant="outline" onClick={onExport} disabled={!summary?.total_leads}>
+              <Download className="h-4 w-4 mr-2" /> Export CSV
+            </Button>
+          </div>
 
           {jobs.length > 0 && (
             <div className="space-y-2">
