@@ -165,18 +165,21 @@ export default function PhoneAudit() {
   };
 
   const exportMobile = async () => {
-    const tid = toast.loading(`Exporting verified mobile numbers${stateArg ? ` for ${stateArg}` : ""}…`);
+    const tid = toast.loading(`Exporting ${exportSource} numbers${stateArg ? ` for ${stateArg}` : ""}…`);
     try {
       const pageSize = 1000;
       let from = 0;
       const rows: any[] = [];
+      // For "office" only, mobile-line filter doesn't apply — pull all leads in scope
+      const cellRequiresMobile = exportSource !== "office";
       while (true) {
         let q = supabase
           .from("state_leads")
           .select("first_name,name,phone_e164,phone_number,office_phone,email,state,phone_valid,phone_line_type")
-          .eq("phone_line_type", "mobile")
-          .eq("phone_valid", true)
           .range(from, from + pageSize - 1);
+        if (cellRequiresMobile) {
+          q = q.eq("phone_line_type", "mobile").eq("phone_valid", true);
+        }
         if (stateArg) q = q.eq("state", stateArg);
         const { data, error } = await q;
         if (error) throw error;
@@ -186,26 +189,46 @@ export default function PhoneAudit() {
         from += pageSize;
       }
       toast.dismiss(tid);
-      if (!rows.length) return toast.error("No verified mobile leads found");
+      if (!rows.length) return toast.error("No leads found in scope");
 
-      // Apply global export formatting layer (normalize, validate, dedup, mobile-only)
-      const { rows: prepared, summary } = prepareExportRows(rows, {
-        mode: exportFormat,
-        mobileOnly: true,
-      });
-
-      if (!prepared.length) {
-        return toast.error("No exportable numbers after formatting");
+      // Build per-number entries depending on selected source(s)
+      const entries: Array<{ row: any; rawPhone: string; type: "cell" | "office" }> = [];
+      for (const r of rows) {
+        if (exportSource === "cell" || exportSource === "both") {
+          const cell = r.phone_e164 || r.phone_number || "";
+          if (cell) entries.push({ row: r, rawPhone: cell, type: "cell" });
+        }
+        if (exportSource === "office" || exportSource === "both") {
+          if (r.office_phone) entries.push({ row: r, rawPhone: r.office_phone, type: "office" });
+        }
       }
+
+      // Apply formatter via prepareExportRows by mapping into PhoneRowLike shape
+      const shaped = entries.map((e) => ({
+        phone_e164: e.rawPhone,
+        phone_valid: true,
+        phone_line_type: "mobile", // bypass mobile filter — already pre-filtered above
+        __orig: e,
+      }));
+      const { rows: prepared, summary } = prepareExportRows(shaped as any, {
+        mode: exportFormat,
+        mobileOnly: false, // already filtered above per source
+      });
+      if (!prepared.length) return toast.error("No exportable numbers after formatting");
 
       const esc = (v: any) => {
         const s = (v ?? "").toString();
         return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       };
-      const header = stateArg
-        ? "first_name,last_name,phone_number,email"
-        : "first_name,last_name,phone_number,email,state";
-      const lines = prepared.map(({ row: r, phone_number }) => {
+      const includeType = exportSource === "both";
+      const headerCols = ["first_name", "last_name", "phone_number", "email"];
+      if (includeType) headerCols.push("phone_type");
+      if (!stateArg) headerCols.push("state");
+      const header = headerCols.join(",");
+
+      const lines = prepared.map((p: any) => {
+        const e = p.row.__orig as { row: any; type: "cell" | "office" };
+        const r = e.row;
         let first = (r.first_name ?? "").trim();
         let last = "";
         if (!first && r.name) {
@@ -218,20 +241,22 @@ export default function PhoneAudit() {
             last = parts.slice(1).join(" ");
           }
         }
-        const base = [esc(first), esc(last), esc(phone_number), esc(r.email)];
-        return stateArg ? base.join(",") : [...base, esc(r.state)].join(",");
+        const cols = [esc(first), esc(last), esc(p.phone_number), esc(r.email)];
+        if (includeType) cols.push(esc(e.type));
+        if (!stateArg) cols.push(esc(r.state));
+        return cols.join(",");
       });
       const csv = [header, ...lines].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const filename = `${stateArg ?? "all"}_mobile_${exportFormat}_${new Date().toISOString().slice(0, 10)}.csv`;
+      const filename = `${stateArg ?? "all"}_${exportSource}_${exportFormat}_${new Date().toISOString().slice(0, 10)}.csv`;
       a.href = url;
       a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
       setExportSummary({ ...summary, filename });
-      toast.success(`Exported ${summary.exported.toLocaleString()} mobile leads`);
+      toast.success(`Exported ${summary.exported.toLocaleString()} numbers`);
     } catch (e: any) {
       toast.dismiss(tid);
       toast.error(`Export failed: ${e.message}`);
