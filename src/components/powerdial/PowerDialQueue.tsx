@@ -104,27 +104,34 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
             const badge = statusBadge[item.status] || statusBadge.pending;
             const globalIndex = (page - 1) * ITEMS_PER_PAGE + items.indexOf(item) + 1;
             return (
-              <div key={item.id} className={`flex items-center gap-3 px-4 py-2.5 ${item.status === 'dialing' ? 'bg-emerald-500/5' : ''}`}>
-                <span className="text-xs text-muted-foreground w-6 text-right">{item.position + 1}</span>
-                <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-sm font-mono text-foreground">{item.phone}</span>
-                {item.contact_name && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <User className="h-3 w-3" /> {item.contact_name}
-                  </span>
-                )}
-                <div className="ml-auto flex items-center gap-2">
-                  {item.last_result && (
-                    <span className="text-[10px] text-muted-foreground">{resultLabels[item.last_result] || item.last_result}</span>
+              <div key={item.id} className={`flex flex-col gap-1 px-4 py-2.5 ${item.status === 'dialing' ? 'bg-emerald-500/5' : ''}`}>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-6 text-right">{item.position + 1}</span>
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-mono text-foreground">{item.phone}</span>
+                  {item.contact_name && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <User className="h-3 w-3" /> {item.contact_name}
+                    </span>
                   )}
-                  {item.retry_count > 0 && (
-                    <span className="text-[10px] text-muted-foreground">×{item.retry_count}</span>
-                  )}
-                  {item.status === 'retry_later' && item.retry_at && (
-                    <span className="text-[10px] text-amber-400">in {formatRetry(item.retry_at)}</span>
-                  )}
-                  <Badge variant="outline" className={`text-[10px] ${badge.class}`}>{badge.label}</Badge>
+                  <div className="ml-auto flex items-center gap-2">
+                    {item.last_result && (
+                      <span className="text-[10px] text-muted-foreground">{resultLabels[item.last_result] || item.last_result}</span>
+                    )}
+                    {item.retry_count > 0 && (
+                      <span className="text-[10px] text-muted-foreground">×{item.retry_count}</span>
+                    )}
+                    {item.status === 'retry_later' && item.retry_at && (
+                      <span className="text-[10px] text-amber-400">in {formatRetry(item.retry_at)}</span>
+                    )}
+                    <Badge variant="outline" className={`text-[10px] ${badge.class}`}>{badge.label}</Badge>
+                  </div>
                 </div>
+                {item.note && (
+                  <div className="pl-12 text-xs italic text-amber-500/90 truncate" title={item.note}>
+                    💬 "{item.note}"
+                  </div>
+                )}
               </div>
             );
           })}
