@@ -208,6 +208,7 @@ function StateModal({
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [progress, setProgress] = useState<{ phase: string; message?: string; total_rows?: number; candidates?: number; processed?: number; inserted?: number; duplicates?: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const acceptFile = (f: File | null | undefined) => {
@@ -221,10 +222,22 @@ function StateModal({
     if (!file) return;
     setUploading(true);
     setResult(null);
+    setProgress({ phase: "uploading", message: "Uploading file…" });
+
+    const progressId = (crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    const channel = supabase.channel(`upload:${progressId}`, { config: { broadcast: { self: true } } });
+    channel
+      .on("broadcast", { event: "status" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), ...payload })))
+      .on("broadcast", { event: "progress" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), ...payload })))
+      .on("broadcast", { event: "complete" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "complete", ...payload })))
+      .on("broadcast", { event: "error" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "error", message: (payload as any)?.message })));
+    await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
+
     try {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("selected_state", state);
+      fd.append("progress_id", progressId);
       const { data: { session } } = await supabase.auth.getSession();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-state-upload`;
       const res = await fetch(url, {
@@ -242,8 +255,10 @@ function StateModal({
       await onUploaded();
     } catch (e: any) {
       toast.error(e.message);
+      setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "error", message: e.message }));
     } finally {
       setUploading(false);
+      supabase.removeChannel(channel);
     }
   };
 
