@@ -4,8 +4,8 @@ import { STATE_CODES, STATE_NAMES } from "@/lib/usStates";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 
