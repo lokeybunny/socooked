@@ -687,9 +687,9 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           </Button>
         )}
         {lead.funnel === 'airealty' && !editingPhone && lead.phone && lead.phone !== 'N/A' && (
-          <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-500 px-2 py-1 font-medium">
-            <Phone className="h-3 w-3" /> Call {lead.phone}
-          </a>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600 hover:text-emerald-500 font-medium" onClick={() => onCall(lead.phone!)}>
+            <Phone className="h-3 w-3 mr-1" /> Call {lead.phone}
+          </Button>
         )}
         {lead.funnel === 'airealty' && !editingPhone && (
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPhoneInput(lead.phone || ''); setEditingPhone(true); }}>
@@ -710,9 +710,9 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           </div>
         )}
         {lead.funnel !== 'airealty' && lead.phone && lead.phone !== 'N/A' && (
-          <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
-            <Phone className="h-3 w-3" /> Call
-          </a>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={() => onCall(lead.phone!)}>
+            <Phone className="h-3 w-3 mr-1" /> Call
+          </Button>
         )}
         {lead.funnel === 'airealty' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
