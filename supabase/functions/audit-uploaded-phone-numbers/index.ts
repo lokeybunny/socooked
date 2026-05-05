@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
     const selectedState = String(form.get("selected_state") || "").trim();
     const progressId = String(form.get("progress_id") || "").trim();
     const confirmed = String(form.get("confirmed") || "false") === "true";
+    const skipAudit = String(form.get("skip_audit") || "false") === "true";
     const importBatchId = String(form.get("import_batch_id") || crypto.randomUUID());
 
     if (!file || !selectedState) {
@@ -190,46 +191,60 @@ Deno.serve(async (req) => {
         const dupesInDb = unique.filter((t) => existingSet.has(t.e164!));
         const toLookup = unique.filter((t) => !existingSet.has(t.e164!));
 
-        // Twilio Lookup
-        await broadcast("status", {
-          phase: "looking_up",
-          message: `Twilio Lookup on ${toLookup.length} numbers…`,
-          to_lookup: toLookup.length,
-        });
-        const lookupNumbers = toLookup.map((t) => t.e164!);
-        const { results, cacheHits, newLookups } = await lookupBatch(supabase, lookupNumbers);
-
-        await broadcast("status", {
-          phase: "filtering",
-          cache_hits: cacheHits,
-          new_lookups: newLookups,
-          message: "Classifying results…",
-        });
-
-        // Classify
-        const approved: Tagged[] = [];
+        // Twilio Lookup (skipped when skipAudit is true)
+        let approved: Tagged[] = [];
         const rejected: Array<{ t: Tagged; reason: string; result: any }> = [];
         let mobileCount = 0, landlineCount = 0, voipCount = 0,
           invalidCount = 0, unknownCount = 0, failedCount = 0;
+        let cacheHits = 0, newLookups = 0;
+        let results: Record<string, any> = {};
 
-        for (const t of toLookup) {
-          const r = results[t.e164!];
-          if (!r || r.status === "failed") {
-            failedCount++;
-            rejected.push({ t, reason: "lookup_failed", result: r ?? null });
-            continue;
+        if (skipAudit) {
+          await broadcast("status", {
+            phase: "filtering",
+            message: "Skipping Twilio audit — saving all valid numbers…",
+          });
+          // Treat every successfully-normalized unique number as approved, no lookup data
+          approved = toLookup.slice();
+          mobileCount = approved.length;
+        } else {
+          await broadcast("status", {
+            phase: "looking_up",
+            message: `Twilio Lookup on ${toLookup.length} numbers…`,
+            to_lookup: toLookup.length,
+          });
+          const lookupNumbers = toLookup.map((t) => t.e164!);
+          const lookup = await lookupBatch(supabase, lookupNumbers);
+          results = lookup.results;
+          cacheHits = lookup.cacheHits;
+          newLookups = lookup.newLookups;
+
+          await broadcast("status", {
+            phase: "filtering",
+            cache_hits: cacheHits,
+            new_lookups: newLookups,
+            message: "Classifying results…",
+          });
+
+          for (const t of toLookup) {
+            const r = results[t.e164!];
+            if (!r || r.status === "failed") {
+              failedCount++;
+              rejected.push({ t, reason: "lookup_failed", result: r ?? null });
+              continue;
+            }
+            if (!r.valid) {
+              invalidCount++;
+              rejected.push({ t, reason: "invalid", result: r });
+              continue;
+            }
+            const lt = r.line_type;
+            if (lt === "mobile") { mobileCount++; approved.push(t); }
+            else if (lt === "landline") { landlineCount++; rejected.push({ t, reason: "landline", result: r }); }
+            else if (lt === "voip") { voipCount++; rejected.push({ t, reason: "voip", result: r }); }
+            else if (lt === "unknown" || !lt) { unknownCount++; rejected.push({ t, reason: "unknown", result: r }); }
+            else { rejected.push({ t, reason: lt, result: r }); }
           }
-          if (!r.valid) {
-            invalidCount++;
-            rejected.push({ t, reason: "invalid", result: r });
-            continue;
-          }
-          const lt = r.line_type;
-          if (lt === "mobile") { mobileCount++; approved.push(t); }
-          else if (lt === "landline") { landlineCount++; rejected.push({ t, reason: "landline", result: r }); }
-          else if (lt === "voip") { voipCount++; rejected.push({ t, reason: "voip", result: r }); }
-          else if (lt === "unknown" || !lt) { unknownCount++; rejected.push({ t, reason: "unknown", result: r }); }
-          else { rejected.push({ t, reason: lt, result: r }); }
         }
 
         const audit = {
@@ -250,7 +265,6 @@ Deno.serve(async (req) => {
           cache_hits: cacheHits,
           new_lookups: newLookups,
           estimated_cost_usd: Number((newLookups * COST_PER_LOOKUP).toFixed(4)),
-          // Sample of rejected rows for download (lightweight)
           rejected_sample: rejected.slice(0, 50).map((r) => ({
             phone_raw: r.t.raw,
             phone_normalized: r.t.e164,
@@ -260,8 +274,7 @@ Deno.serve(async (req) => {
           })),
         };
 
-        if (!confirmed) {
-          // PHASE A: just return summary
+        if (!confirmed && !skipAudit) {
           await broadcast("audit", { audit });
           await broadcast("complete", { audit, saved: false });
           return;

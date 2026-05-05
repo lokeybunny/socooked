@@ -185,7 +185,8 @@ export default function UsaMap() {
       fd.append("selected_state", state);
       fd.append("progress_id", id);
       fd.append("import_batch_id", importBatchId);
-      fd.append("confirmed", confirmed ? "true" : "false");
+      fd.append("confirmed", "true");
+      fd.append("skip_audit", "true");
 
       await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
