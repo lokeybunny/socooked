@@ -43,6 +43,7 @@ export default function PhoneAudit() {
   const [auditLimit, setAuditLimit] = useState<number | "">("");
   const [uploadJob, setUploadJob] = useState<{ status: string; processed?: number; total?: number; result?: any } | null>(null);
   const [exportFormat, setExportFormat] = useState<ExportPhoneFormat>("us10");
+  const [exportSource, setExportSource] = useState<"cell" | "office" | "both">("cell");
   const [exportSummary, setExportSummary] = useState<(ExportSummary & { filename: string }) | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
