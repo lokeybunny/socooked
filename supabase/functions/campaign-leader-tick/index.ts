@@ -218,7 +218,7 @@ function buildEmail(firstName: string, addr: string) {
     `<p style="margin:0 0 ${m5}px 0;">${fingerprintText(cta)}</p>`,
     `<p style="margin:0 0 4px 0;">${signOff},</p>`,
     `<p style="margin:0 0 2px 0;">Warren Guru</p>`,
-    `<p style="margin:0;"><a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a></p>`,
+    `<p style="margin:0;"><a href="${cellTel}" style="color:#555;text-decoration:none;">${cellPretty}</a></p>`,
     `<div style="display:none;color:transparent;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">ref:${trackId}</div>`,
   ].join("\n");
 
