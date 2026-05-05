@@ -8,6 +8,40 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function parseCsvFast(text: string): Record<string, string>[] {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const rows: string[][] = [];
+  let cur: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ",") { cur.push(field); field = ""; }
+      else if (ch === "\n") { cur.push(field); rows.push(cur); cur = []; field = ""; }
+      else if (ch === "\r") { /* skip */ }
+      else field += ch;
+    }
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
+  if (!rows.length) return [];
+  const headers = rows[0].map((h) => h.trim());
+  const out: Record<string, string>[] = new Array(rows.length - 1);
+  for (let r = 1; r < rows.length; r++) {
+    const obj: Record<string, string> = {};
+    const row = rows[r];
+    for (let c = 0; c < headers.length; c++) obj[headers[c]] = row[c] ?? "";
+    out[r - 1] = obj;
+  }
+  return out;
+}
+
 function toE164(raw: unknown): string | null {
   if (raw == null) return null;
   const digits = String(raw).replace(/\D+/g, "");
