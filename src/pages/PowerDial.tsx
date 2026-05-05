@@ -987,7 +987,36 @@ export default function PowerDial() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Numbers Dialog */}
+      <Dialog open={showAddNumbers} onOpenChange={setShowAddNumbers}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Numbers to {activeCampaign?.name}</DialogTitle>
+            <DialogDescription>
+              Append more phone numbers to this campaign's queue. Duplicates already in the queue are skipped automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Phone Numbers (one per line, optionally: number, name, note)</Label>
+            <Textarea
+              value={addNumbersInput}
+              onChange={e => setAddNumbersInput(e.target.value)}
+              placeholder={"7025551234\n7025555678, John Smith\n+18005551111, Jane Doe, follow up"}
+              rows={10}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddNumbers(false)}>Cancel</Button>
+            <Button onClick={handleAddNumbers} disabled={addingNumbers || !addNumbersInput.trim()}>
+              {addingNumbers ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+              Add Numbers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
+
   );
 }
 
