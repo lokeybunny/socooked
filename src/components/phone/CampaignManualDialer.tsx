@@ -299,20 +299,23 @@ export default function CampaignManualDialer() {
                 {items.map((item, idx) => {
                   const isActive = item.id === activeId;
                   const isDone = doneSet.has(item.id);
+                  const last10 = String(item.phone).replace(/\D/g, '').slice(-10);
+                  const wasContacted = contactedSet.has(last10);
                   return (
-                    <div key={item.id} className={`px-3 py-2 ${isActive ? 'bg-primary/5' : ''} ${isDone ? 'opacity-60' : ''}`}>
+                    <div key={item.id} className={`px-3 py-2 ${isActive ? 'bg-primary/5' : ''} ${isDone ? 'opacity-60' : ''} ${wasContacted ? 'bg-red-500/10' : ''}`}>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-muted-foreground w-5 text-right">{idx + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate text-foreground">
+                          <p className={`text-sm font-medium truncate ${wasContacted ? 'text-red-400' : 'text-foreground'}`}>
                             {item.contact_name || <span className="text-muted-foreground italic">No name</span>}
+                            {wasContacted && <span className="ml-2 text-[9px] uppercase tracking-wider text-red-400">· Texted</span>}
                           </p>
-                          <p className="text-[11px] font-mono text-muted-foreground">{item.phone}</p>
+                          <p className={`text-[11px] font-mono ${wasContacted ? 'text-red-400/70' : 'text-muted-foreground'}`}>{item.phone}</p>
                         </div>
                         {isDone && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Done</Badge>}
                         <Button
                           size="sm"
-                          className="h-7 bg-emerald-500 hover:bg-emerald-600 text-white"
+                          className={`h-7 text-white ${wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                           onClick={() => startCall(item)}
                         >
                           <Phone className="h-3 w-3 mr-1" /> Call
