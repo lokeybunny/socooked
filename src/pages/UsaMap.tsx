@@ -353,6 +353,7 @@ export default function UsaMap() {
           onClose={() => setOpenState(null)}
           onStartUpload={(f) => startUpload(f, openState)}
           onDismissJob={dismissJob}
+          onExport={() => exportStateCsv(openState)}
         />
       )}
 
