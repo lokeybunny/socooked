@@ -4933,6 +4933,108 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_audit_jobs: {
+        Row: {
+          cache_hits: number
+          completed_at: string | null
+          created_at: string
+          current_phone: string | null
+          error_message: string | null
+          failed: number
+          id: string
+          invalid: number
+          landline: number
+          mobile: number
+          new_lookups: number
+          paused_at: string | null
+          processed: number
+          started_at: string | null
+          status: string
+          total: number
+          unknown: number
+          updated_at: string
+          voip: number
+        }
+        Insert: {
+          cache_hits?: number
+          completed_at?: string | null
+          created_at?: string
+          current_phone?: string | null
+          error_message?: string | null
+          failed?: number
+          id?: string
+          invalid?: number
+          landline?: number
+          mobile?: number
+          new_lookups?: number
+          paused_at?: string | null
+          processed?: number
+          started_at?: string | null
+          status?: string
+          total?: number
+          unknown?: number
+          updated_at?: string
+          voip?: number
+        }
+        Update: {
+          cache_hits?: number
+          completed_at?: string | null
+          created_at?: string
+          current_phone?: string | null
+          error_message?: string | null
+          failed?: number
+          id?: string
+          invalid?: number
+          landline?: number
+          mobile?: number
+          new_lookups?: number
+          paused_at?: string | null
+          processed?: number
+          started_at?: string | null
+          status?: string
+          total?: number
+          unknown?: number
+          updated_at?: string
+          voip?: number
+        }
+        Relationships: []
+      }
+      phone_lookups: {
+        Row: {
+          carrier_name: string | null
+          carrier_type: string | null
+          checked_at: string
+          country_code: string | null
+          line_type: string | null
+          phone_e164: string
+          raw_response: Json | null
+          status: string
+          valid: boolean
+        }
+        Insert: {
+          carrier_name?: string | null
+          carrier_type?: string | null
+          checked_at?: string
+          country_code?: string | null
+          line_type?: string | null
+          phone_e164: string
+          raw_response?: Json | null
+          status?: string
+          valid?: boolean
+        }
+        Update: {
+          carrier_name?: string | null
+          carrier_type?: string | null
+          checked_at?: string
+          country_code?: string | null
+          line_type?: string | null
+          phone_e164?: string
+          raw_response?: Json | null
+          status?: string
+          valid?: boolean
+        }
+        Relationships: []
+      }
       poly_admins: {
         Row: {
           created_at: string
@@ -5959,6 +6061,60 @@ export type Database = {
           total_clicks?: number
           total_earned?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      rejected_leads: {
+        Row: {
+          created_at: string
+          id: string
+          import_batch_id: string | null
+          original_row: Json | null
+          phone_carrier: string | null
+          phone_line_type: string | null
+          phone_lookup_checked_at: string | null
+          phone_lookup_status: string | null
+          phone_normalized: string | null
+          phone_raw: string | null
+          phone_valid: boolean | null
+          rejection_reason: string
+          source: string | null
+          state: string | null
+          uploaded_file_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          import_batch_id?: string | null
+          original_row?: Json | null
+          phone_carrier?: string | null
+          phone_line_type?: string | null
+          phone_lookup_checked_at?: string | null
+          phone_lookup_status?: string | null
+          phone_normalized?: string | null
+          phone_raw?: string | null
+          phone_valid?: boolean | null
+          rejection_reason: string
+          source?: string | null
+          state?: string | null
+          uploaded_file_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          import_batch_id?: string | null
+          original_row?: Json | null
+          phone_carrier?: string | null
+          phone_line_type?: string | null
+          phone_lookup_checked_at?: string | null
+          phone_lookup_status?: string | null
+          phone_normalized?: string | null
+          phone_raw?: string | null
+          phone_valid?: boolean | null
+          rejection_reason?: string
+          source?: string | null
+          state?: string | null
+          uploaded_file_name?: string | null
         }
         Relationships: []
       }
@@ -7508,14 +7664,21 @@ export type Database = {
           address: string | null
           city: string | null
           created_at: string
+          duplicate_of_lead_id: string | null
           email: string | null
           first_name: string | null
           id: string
+          import_batch_id: string | null
           last_contacted_at: string | null
           name: string | null
           office_phone: string | null
+          phone_carrier: string | null
           phone_e164: string
+          phone_line_type: string | null
+          phone_lookup_checked_at: string | null
+          phone_lookup_status: string | null
           phone_number: string
+          phone_valid: boolean | null
           property_address: string | null
           source: string
           state: string
@@ -7526,14 +7689,21 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          duplicate_of_lead_id?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
+          import_batch_id?: string | null
           last_contacted_at?: string | null
           name?: string | null
           office_phone?: string | null
+          phone_carrier?: string | null
           phone_e164: string
+          phone_line_type?: string | null
+          phone_lookup_checked_at?: string | null
+          phone_lookup_status?: string | null
           phone_number: string
+          phone_valid?: boolean | null
           property_address?: string | null
           source?: string
           state: string
@@ -7544,14 +7714,21 @@ export type Database = {
           address?: string | null
           city?: string | null
           created_at?: string
+          duplicate_of_lead_id?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
+          import_batch_id?: string | null
           last_contacted_at?: string | null
           name?: string | null
           office_phone?: string | null
+          phone_carrier?: string | null
           phone_e164?: string
+          phone_line_type?: string | null
+          phone_lookup_checked_at?: string | null
+          phone_lookup_status?: string | null
           phone_number?: string
+          phone_valid?: boolean | null
           property_address?: string | null
           source?: string
           state?: string
