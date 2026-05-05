@@ -314,6 +314,32 @@ function StateModal({
             {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing…</> : <><Upload className="h-4 w-4 mr-2" /> Upload Leads</>}
           </Button>
 
+          {(uploading || (progress && progress.phase !== "complete" && progress.phase !== "error")) && progress && (
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm space-y-2">
+              <div className="flex items-center gap-2 font-medium">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="capitalize">{progress.phase || "working"}</span>
+                {progress.message && <span className="text-muted-foreground">— {progress.message}</span>}
+              </div>
+              {progress.candidates ? (
+                <>
+                  <div className="h-2 w-full overflow-hidden rounded bg-border">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${Math.min(100, Math.round(((progress.processed ?? 0) / Math.max(1, progress.candidates)) * 100))}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{(progress.processed ?? 0).toLocaleString()} / {progress.candidates.toLocaleString()} processed</span>
+                    <span>+{(progress.inserted ?? 0).toLocaleString()} inserted · {(progress.duplicates ?? 0).toLocaleString()} dup</span>
+                  </div>
+                </>
+              ) : progress.total_rows ? (
+                <div className="text-xs text-muted-foreground">{progress.total_rows.toLocaleString()} rows parsed</div>
+              ) : null}
+            </div>
+          )}
+
           {result && (
             <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm space-y-1">
               <div className="flex items-center gap-2 font-semibold text-emerald-500"><CheckCircle2 className="h-4 w-4" /> Upload complete</div>
