@@ -391,8 +391,47 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                 </div>
                 <div>
                   <Label>Ring timeout (seconds)</Label>
-                  <Input type="number" min={10} max={60} value={cfg.timeout_seconds} onChange={(e) => setCfg({ ...cfg, timeout_seconds: parseInt(e.target.value) || 22 })} />
+                  <Input type="number" min={6} max={60} value={cfg.timeout_seconds} onChange={(e) => setCfg({ ...cfg, timeout_seconds: parseInt(e.target.value) || 22 })} />
                 </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={cfg.timeout_seconds <= 13 ? "default" : "outline"}
+                  onClick={async () => {
+                    const next = { ...cfg, timeout_seconds: 12 };
+                    setCfg(next);
+                    setSaving(true);
+                    const { error } = await supabase
+                      .from("app_settings")
+                      .upsert({ key: "voidfix_missed_call", value: next as any }, { onConflict: "key" });
+                    setSaving(false);
+                    if (error) toast({ title: "Save failed", description: error.message, variant: "destructive" });
+                    else toast({ title: "Ring twice enabled", description: "Cell rings ~2x (12s) then Twilio voicemail." });
+                  }}
+                >
+                  Ring twice (12s) → Twilio VM
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={cfg.timeout_seconds >= 20 ? "default" : "outline"}
+                  onClick={async () => {
+                    const next = { ...cfg, timeout_seconds: 22 };
+                    setCfg(next);
+                    setSaving(true);
+                    const { error } = await supabase
+                      .from("app_settings")
+                      .upsert({ key: "voidfix_missed_call", value: next as any }, { onConflict: "key" });
+                    setSaving(false);
+                    if (error) toast({ title: "Save failed", description: error.message, variant: "destructive" });
+                    else toast({ title: "Default timeout restored", description: "Cell rings ~22s before Twilio voicemail." });
+                  }}
+                >
+                  Default (22s)
+                </Button>
               </div>
 
               <div>
