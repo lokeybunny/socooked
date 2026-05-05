@@ -80,15 +80,23 @@ export default function UsaMap() {
     // Subscribe to realtime broadcasts from the edge function
     const channel = supabase.channel(`upload:${id}`, { config: { broadcast: { self: true } } });
     channelsRef.current[id] = channel;
+    const cleanup = () => {
+      const ch = channelsRef.current[id];
+      if (ch) { supabase.removeChannel(ch); delete channelsRef.current[id]; }
+    };
     channel
       .on("broadcast", { event: "status" }, ({ payload }) => updateJob(id, payload as any))
       .on("broadcast", { event: "progress" }, ({ payload }) => updateJob(id, payload as any))
       .on("broadcast", { event: "complete" }, ({ payload }) => {
         updateJob(id, { ...(payload as any), phase: "complete", finishedAt: Date.now() });
+        toast.success(`${state}: inserted ${(payload as any)?.inserted_count ?? 0}, skipped ${(payload as any)?.duplicate_count ?? 0} duplicates`);
         loadAll();
+        cleanup();
       })
       .on("broadcast", { event: "error" }, ({ payload }) => {
         updateJob(id, { phase: "error", message: (payload as any)?.message, finishedAt: Date.now() });
+        toast.error(`${state} upload failed: ${(payload as any)?.message ?? "error"}`);
+        cleanup();
       });
     await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
 
@@ -101,8 +109,7 @@ export default function UsaMap() {
       fd.append("selected_state", state);
       fd.append("progress_id", id);
 
-      // Use XHR so we can show real upload progress
-      const json = await new Promise<any>((resolve, reject) => {
+      await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", url);
         xhr.setRequestHeader("apikey", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string);
@@ -124,16 +131,12 @@ export default function UsaMap() {
         xhr.send(fd);
       });
 
-      // Server returns 202 immediately and continues processing in the background.
-      // Final completion arrives via the realtime "complete" broadcast (handled above).
+      // Server returns 202 immediately; final completion arrives via realtime "complete".
       updateJob(id, { phase: "parsing", message: "Server processing…", uploadPct: 100 });
-      void json;
     } catch (e: any) {
       toast.error(`${state} upload failed: ${e.message}`);
       updateJob(id, { phase: "error", message: e.message, finishedAt: Date.now() });
-    } finally {
-      const ch = channelsRef.current[id];
-      if (ch) { supabase.removeChannel(ch); delete channelsRef.current[id]; }
+      cleanup();
     }
   };
 
