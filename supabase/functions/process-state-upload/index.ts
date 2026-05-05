@@ -72,10 +72,18 @@ Deno.serve(async (req) => {
     }
 
     await broadcast("status", { phase: "parsing", message: "Reading file…" });
-    const buf = new Uint8Array(await file.arrayBuffer());
-    const wb = XLSX.read(buf, { type: "array" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+    const isCsv = /\.csv$/i.test(file.name) || (file.type || "").includes("csv");
+    let rows: Record<string, any>[];
+    if (isCsv) {
+      // Fast streaming-ish CSV parse (handles quoted fields, commas, CRLF)
+      const text = await file.text();
+      rows = parseCsvFast(text);
+    } else {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+    }
     await broadcast("status", { phase: "parsed", total_rows: rows.length, message: `Parsed ${rows.length} rows` });
 
     if (!rows.length) {
