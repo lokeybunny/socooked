@@ -282,7 +282,17 @@ export default function UsaMap() {
         mode: fmt,
         mobileOnly: false,
       });
-      if (!prepared.length) { toast.dismiss(tid); toast.error("No exportable numbers after formatting"); return; }
+      if (!entries.length) {
+        toast.dismiss(tid);
+        const msg = source === "office"
+          ? `No office numbers stored for ${state}. Office numbers must be in the source upload (office_phone column).`
+          : source === "both"
+          ? `No cell or office numbers found for ${state}.`
+          : `No cell numbers found for ${state}.`;
+        toast.error(msg);
+        return;
+      }
+      if (!prepared.length) { toast.dismiss(tid); toast.error("All numbers were invalid or duplicates after formatting"); return; }
 
       const esc = (v: any) => {
         const s = (v ?? "").toString();
