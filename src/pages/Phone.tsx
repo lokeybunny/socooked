@@ -69,6 +69,25 @@ export default function PhonePage() {
   const [areaCodeFilter, setAreaCodeFilter] = useState<string>('');
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
+  const [cellDisplay, setCellDisplay] = useState<string>('(480) 220-0405');
+
+  useEffect(() => {
+    let active = true;
+    const fmt = (e164: string) => {
+      const d = String(e164 || '').replace(/\D/g, '').replace(/^1/, '');
+      return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : (e164 || '');
+    };
+    const load = async () => {
+      const { data } = await supabase.from('app_settings').select('value').eq('key', 'business_numbers').maybeSingle();
+      const cell = (data?.value as any)?.cell;
+      if (active && cell) setCellDisplay(fmt(cell));
+    };
+    load();
+    const ch = supabase.channel('business_numbers_phone')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.business_numbers' }, load)
+      .subscribe();
+    return () => { active = false; supabase.removeChannel(ch); };
+  }, []);
 
   // Interested prospects panel (warren only)
   const [interestedPanelOpen, setInterestedPanelOpen] = useState(true);
