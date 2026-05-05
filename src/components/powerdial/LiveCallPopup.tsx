@@ -170,6 +170,67 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
     }
   };
 
+  const handleInterested = async () => {
+    if (!call?.phone) {
+      toast.error('No phone number for this call');
+      return;
+    }
+    setMarkingInterested(true);
+    try {
+      const digits = String(call.phone).replace(/\D/g, '');
+      const last10 = digits.slice(-10);
+      const e164 = digits.length === 11 ? `+${digits}` : `+1${last10}`;
+
+      // Fetch existing tags so we can merge
+      const { data: existing } = await supabase
+        .from('sms_contacts')
+        .select('tags, name')
+        .eq('phone_last10', last10)
+        .maybeSingle();
+      const tags = new Set<string>(((existing as any)?.tags as string[]) || []);
+      tags.add('interested');
+
+      const { error } = await supabase.from('sms_contacts').upsert(
+        {
+          phone_last10: last10,
+          phone: e164,
+          name: (existing as any)?.name || call.contact_name || e164,
+          tags: Array.from(tags),
+        },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) throw error;
+
+      // Flag the latest call log too
+      try {
+        const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const { data: logs } = await supabase
+          .from('powerdial_call_logs')
+          .select('id, meta')
+          .ilike('phone', `%${last10}`)
+          .gte('created_at', since)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const log = logs?.[0] as any;
+        if (log?.id) {
+          const meta = (log.meta && typeof log.meta === 'object') ? log.meta : {};
+          await supabase.from('powerdial_call_logs').update({
+            meta: { ...meta, interested: true, interested_at: new Date().toISOString() },
+            disposition: 'interested',
+          }).eq('id', log.id);
+        }
+      } catch (e) {
+        console.warn('[LiveCallPopup] flag log interested failed', e);
+      }
+
+      toast.success('Marked Interested · Green dot will show in SMS');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to mark interested');
+    } finally {
+      setMarkingInterested(false);
+    }
+  };
+
   if (!open || !call) return null;
 
   return (
