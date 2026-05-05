@@ -1233,6 +1233,14 @@ export default function Funnels() {
 
         <EmailModal lead={emailLead} open={!!emailLead} onClose={() => setEmailLead(null)} />
         <LeadDetailModal lead={viewLead} open={!!viewLead} onClose={() => setViewLead(null)} onLeadUpdate={(updated) => setLeads(prev => prev.map(l => l.id === updated.id ? updated : l))} />
+        <Dialog open={!!callPhone} onOpenChange={(o) => { if (!o) setCallPhone(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Call Lead</DialogTitle>
+            </DialogHeader>
+            {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthLayoutGate>
   );
