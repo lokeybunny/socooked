@@ -45,16 +45,38 @@ Deno.serve(async (req) => {
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const selectedState = String(form.get("selected_state") || "").trim();
+    const progressId = String(form.get("progress_id") || "").trim();
+
+    const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const broadcast = async (event: string, payload: Record<string, unknown>) => {
+      if (!progressId) return;
+      try {
+        await fetch(`${SUPA_URL}/realtime/v1/api/broadcast`, {
+          method: "POST",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: [{ topic: `upload:${progressId}`, event, payload, private: false }],
+          }),
+        });
+      } catch (_) { /* ignore */ }
+    };
     if (!file || !selectedState) {
       return new Response(JSON.stringify({ error: "file and selected_state are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    await broadcast("status", { phase: "parsing", message: "Reading file…" });
     const buf = new Uint8Array(await file.arrayBuffer());
     const wb = XLSX.read(buf, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+    await broadcast("status", { phase: "parsed", total_rows: rows.length, message: `Parsed ${rows.length} rows` });
 
     if (!rows.length) {
       return new Response(JSON.stringify({ total_rows: 0, inserted_count: 0, duplicate_count: 0 }), {
@@ -147,6 +169,14 @@ Deno.serve(async (req) => {
     let duplicates = totalRows - candidates.length;
 
     const chunkSize = 1000;
+    await broadcast("progress", {
+      phase: "inserting",
+      total_rows: totalRows,
+      candidates: candidates.length,
+      processed: 0,
+      inserted: 0,
+      duplicates,
+    });
     for (let i = 0; i < candidates.length; i += chunkSize) {
       const chunk = candidates.slice(i, i + chunkSize);
       const { data: insertedData, error: insErr } = await supabase
@@ -155,6 +185,7 @@ Deno.serve(async (req) => {
         .select("id");
       if (insErr) {
         console.error("insert error", insErr);
+        await broadcast("error", { message: insErr.message });
         return new Response(JSON.stringify({ error: insErr.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -162,12 +193,26 @@ Deno.serve(async (req) => {
       const insertedThis = insertedData?.length ?? 0;
       inserted += insertedThis;
       duplicates += chunk.length - insertedThis;
+      await broadcast("progress", {
+        phase: "inserting",
+        total_rows: totalRows,
+        candidates: candidates.length,
+        processed: Math.min(i + chunk.length, candidates.length),
+        inserted,
+        duplicates,
+      });
     }
     console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates);
 
     await supabase.from("upload_logs").insert({
       state: selectedState,
       file_name: file.name,
+      total_rows: totalRows,
+      inserted_count: inserted,
+      duplicate_count: duplicates,
+    });
+
+    await broadcast("complete", {
       total_rows: totalRows,
       inserted_count: inserted,
       duplicate_count: duplicates,

@@ -208,6 +208,7 @@ function StateModal({
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [progress, setProgress] = useState<{ phase: string; message?: string; total_rows?: number; candidates?: number; processed?: number; inserted?: number; duplicates?: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const acceptFile = (f: File | null | undefined) => {
@@ -221,10 +222,22 @@ function StateModal({
     if (!file) return;
     setUploading(true);
     setResult(null);
+    setProgress({ phase: "uploading", message: "Uploading file…" });
+
+    const progressId = (crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    const channel = supabase.channel(`upload:${progressId}`, { config: { broadcast: { self: true } } });
+    channel
+      .on("broadcast", { event: "status" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), ...payload })))
+      .on("broadcast", { event: "progress" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), ...payload })))
+      .on("broadcast", { event: "complete" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "complete", ...payload })))
+      .on("broadcast", { event: "error" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "error", message: (payload as any)?.message })));
+    await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
+
     try {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("selected_state", state);
+      fd.append("progress_id", progressId);
       const { data: { session } } = await supabase.auth.getSession();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-state-upload`;
       const res = await fetch(url, {
@@ -242,8 +255,10 @@ function StateModal({
       await onUploaded();
     } catch (e: any) {
       toast.error(e.message);
+      setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "error", message: e.message }));
     } finally {
       setUploading(false);
+      supabase.removeChannel(channel);
     }
   };
 
@@ -298,6 +313,32 @@ function StateModal({
           <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
             {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing…</> : <><Upload className="h-4 w-4 mr-2" /> Upload Leads</>}
           </Button>
+
+          {(uploading || (progress && progress.phase !== "complete" && progress.phase !== "error")) && progress && (
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm space-y-2">
+              <div className="flex items-center gap-2 font-medium">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="capitalize">{progress.phase || "working"}</span>
+                {progress.message && <span className="text-muted-foreground">— {progress.message}</span>}
+              </div>
+              {progress.candidates ? (
+                <>
+                  <div className="h-2 w-full overflow-hidden rounded bg-border">
+                    <div
+                      className="h-full bg-primary transition-all"
+                      style={{ width: `${Math.min(100, Math.round(((progress.processed ?? 0) / Math.max(1, progress.candidates)) * 100))}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{(progress.processed ?? 0).toLocaleString()} / {progress.candidates.toLocaleString()} processed</span>
+                    <span>+{(progress.inserted ?? 0).toLocaleString()} inserted · {(progress.duplicates ?? 0).toLocaleString()} dup</span>
+                  </div>
+                </>
+              ) : progress.total_rows ? (
+                <div className="text-xs text-muted-foreground">{progress.total_rows.toLocaleString()} rows parsed</div>
+              ) : null}
+            </div>
+          )}
 
           {result && (
             <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm space-y-1">
