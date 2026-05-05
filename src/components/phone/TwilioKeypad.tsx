@@ -67,6 +67,33 @@ export default function TwilioKeypad({ prefilledNumber, onCallComplete }: Twilio
     if (prefilledNumber) setNumber(prefilledNumber.replace(/\D/g, ''));
   }, [prefilledNumber]);
 
+  // Listen for external dial requests (e.g., from CampaignManualDialer)
+  // Sets the number and auto-dials via the Twilio Device on this page.
+  const pendingDialRef = useRef<string | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { phone?: string } | undefined;
+      const raw = detail?.phone || '';
+      const digits = raw.replace(/\D/g, '');
+      if (!digits) return;
+      if (activeCall) { toast.error('End current call first'); return; }
+      setNumber(digits.slice(0, 15));
+      pendingDialRef.current = digits;
+    };
+    window.addEventListener('twilio:dial', handler as EventListener);
+    return () => window.removeEventListener('twilio:dial', handler as EventListener);
+  }, [activeCall]);
+
+  // Auto-trigger dial after number state updates from external request
+  useEffect(() => {
+    if (!pendingDialRef.current) return;
+    if (pendingDialRef.current !== number) return;
+    if (!device || !deviceReady || activeCall || dialing) return;
+    pendingDialRef.current = null;
+    dial();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [number, device, deviceReady, activeCall, dialing]);
+
   // Initialize Twilio Device on mount
   useEffect(() => {
     let mounted = true;
