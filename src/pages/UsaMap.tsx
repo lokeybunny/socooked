@@ -291,7 +291,15 @@ function StateModal({
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number; lgm_checked?: number; lgm_rejected?: number; lgm_enriched?: number; lgm_enabled?: boolean } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const acceptFile = (f: File | null | undefined) => {
+    if (!f) return;
+    if (!/\.(csv|xlsx|xls)$/i.test(f.name)) { toast.error("Please upload a CSV or Excel file"); return; }
+    setFile(f);
+    setResult(null);
+  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -342,16 +350,29 @@ function StateModal({
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center">
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              acceptFile(e.dataTransfer.files?.[0]);
+            }}
+            onClick={() => inputRef.current?.click()}
+            className={`rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${dragOver ? "border-primary bg-primary/10" : "border-border bg-muted/30 hover:bg-muted/50"}`}
+          >
             <FileSpreadsheet className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm font-medium">{file ? file.name : "Drag & drop CSV/Excel here"}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {file ? `${Math.round(file.size / 1024)} KB · click to change` : "or click to browse"}
+            </p>
             <Input
               ref={inputRef}
               type="file"
               accept=".csv,.xlsx,.xls"
-              onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }}
-              className="cursor-pointer"
+              onChange={(e) => acceptFile(e.target.files?.[0])}
+              className="hidden"
             />
-            {file && <p className="text-xs text-muted-foreground mt-2">{file.name} ({Math.round(file.size / 1024)} KB)</p>}
           </div>
 
           <div className="text-xs text-muted-foreground space-y-1 rounded-md bg-muted/40 p-3">
