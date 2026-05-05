@@ -129,7 +129,7 @@ export default function PowerDialSMSInbox() {
     if (!silent) setLoading(true);
     const { data } = await supabase
       .from('communications')
-      .select('id, direction, body, from_address, to_address, status, created_at, customer_id, metadata, type, provider')
+      .select('id, direction, body, from_address, to_address, phone_number, external_id, status, created_at, customer_id, metadata, type, provider')
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
       .limit(300);
