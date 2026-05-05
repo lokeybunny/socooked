@@ -350,6 +350,9 @@ export default function PhoneAudit() {
               <Play className="h-4 w-4 mr-2" /> Resume
             </Button>
           )}
+          <Button variant="outline" onClick={exportMobile}>
+            <Download className="h-4 w-4 mr-2" /> Export Mobile CSV
+          </Button>
           <Button variant="outline" onClick={exportRejected}>
             <Download className="h-4 w-4 mr-2" /> Export Rejected CSV
           </Button>
