@@ -292,12 +292,26 @@ export default function PowerDialSMSInbox() {
     return Array.from(map.values()).sort((a, b) => new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime());
   }, [messages]);
 
+  const disconnectedSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const m of messages) {
+      if (m.direction === 'outbound' && (m.body || '').toLowerCase().includes('just got disconnected')) {
+        const k = normalizeLast10(m.to_address);
+        if (k) s.add(k);
+      }
+    }
+    return s;
+  }, [messages]);
+
   const visibleThreads = useMemo(() => {
     if (filterMode === 'starred') {
       return threads.filter(t => starredSet.has(normalizeLast10(t.phone)));
     }
+    if (filterMode === 'disconnected') {
+      return threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone)));
+    }
     return threads;
-  }, [threads, filterMode, starredSet]);
+  }, [threads, filterMode, starredSet, disconnectedSet]);
 
   const activeMessages = useMemo(() => {
     if (!activeThread) return [];
