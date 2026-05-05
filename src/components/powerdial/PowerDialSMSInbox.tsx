@@ -114,13 +114,19 @@ export default function PowerDialSMSInbox() {
     setStarredSet(starred);
   }, []);
 
+  const pollVoidFix = useCallback(async () => {
+    const timeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('VoidFix poll timeout')), 4500);
+    });
+    await Promise.race([
+      supabase.functions.invoke('powerdial-sms', { body: { action: 'poll', limit: 50 } }),
+      timeout,
+    ]);
+  }, []);
+
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? hasLoadedRef.current;
     if (!silent) setLoading(true);
-    // Pull any new inbound messages from VoidFix first (their webhook is unreliable)
-    try {
-      await supabase.functions.invoke('powerdial-sms', { body: { action: 'poll', limit: 50 } });
-    } catch { /* non-fatal */ }
     const { data } = await supabase
       .from('communications')
       .select('*')
@@ -139,7 +145,16 @@ export default function PowerDialSMSInbox() {
     hasLoadedRef.current = true;
   }, []);
 
-  useEffect(() => { load({ silent: false }); }, [load]);
+  const syncAndLoad = useCallback(async (opts?: { silent?: boolean }) => {
+    await load(opts);
+    // Pull VoidFix in the background so a slow carrier/device API can never block
+    // the inbox from rendering existing SMS records.
+    pollVoidFix()
+      .then(() => load({ silent: true }))
+      .catch(() => { /* non-fatal: keep inbox usable even if VoidFix is slow */ });
+  }, [load, pollVoidFix]);
+
+  useEffect(() => { syncAndLoad({ silent: false }); }, [syncAndLoad]);
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
   // Track unread inbound per thread.
@@ -207,9 +222,9 @@ export default function PowerDialSMSInbox() {
 
   // Background poll every 8s — seamless, no spinner, no thread reset
   useEffect(() => {
-    const id = setInterval(() => { load({ silent: true }); }, 8000);
+    const id = setInterval(() => { syncAndLoad({ silent: true }); }, 8000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [syncAndLoad]);
 
   // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
@@ -684,7 +699,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           <Button size="sm" variant="ghost" onClick={handleTestInbound} title="Send a test inbound webhook to verify VoidFix integration">
             <Webhook className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => load({ silent: false })}><RefreshCw className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => syncAndLoad({ silent: false })}><RefreshCw className="h-3.5 w-3.5" /></Button>
           <Button size="sm" variant="ghost" onClick={() => { setShowCompose(true); setActiveThread(null); }}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
