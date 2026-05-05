@@ -167,6 +167,7 @@ async function processRows(
     const cityKey = findKey(rows[0], ["city", "town"]);
     const zipKey = findKey(rows[0], ["zip", "zipcode", "postal", "postal_code"]);
     const emailKey = findKey(rows[0], ["email", "email_address", "e_mail", "owner_email", "contact_email", "mail"]);
+    const officePhoneKey = findKey(rows[0], ["office_phone", "office phone", "office", "work_phone", "work phone", "landline"]);
 
     console.log("[process-state-upload] file:", fileName, "rows:", rows.length);
     console.log("[process-state-upload] mapped keys:", { phoneKey, nameKey, firstNameKey, lastNameKey, addrKey, cityKey, zipKey, emailKey });
