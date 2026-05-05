@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X } from "lucide-react";
+import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 
@@ -142,6 +142,65 @@ export default function UsaMap() {
 
   const dismissJob = (id: string) =>
     setJobs((prev) => { const next = { ...prev }; delete next[id]; return next; });
+
+  const exportStateCsv = async (state: string) => {
+    const tid = toast.loading(`Exporting ${state}…`);
+    try {
+      const pageSize = 1000;
+      let from = 0;
+      const rows: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from("state_leads")
+          .select("first_name,name,phone_e164,phone_number,email")
+          .eq("state", state)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data?.length) break;
+        rows.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      if (!rows.length) { toast.dismiss(tid); toast.error(`No leads for ${state}`); return; }
+
+      const esc = (v: any) => {
+        const s = (v ?? "").toString();
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = ["first_name,last_name,phone_number,email"];
+      for (const r of rows) {
+        let first = (r.first_name ?? "").trim();
+        let last = "";
+        if (!first && r.name) {
+          const parts = String(r.name).trim().split(/\s+/);
+          first = parts.shift() ?? "";
+          last = parts.join(" ");
+        } else if (r.name && !first) {
+          last = "";
+        } else if (r.name) {
+          // first_name present; try derive last from name if name has more than first
+          const parts = String(r.name).trim().split(/\s+/);
+          if (parts.length > 1 && parts[0].toLowerCase() === first.toLowerCase()) {
+            last = parts.slice(1).join(" ");
+          }
+        }
+        const phone = r.phone_e164 || r.phone_number || "";
+        lines.push([esc(first), esc(last), esc(phone), esc(r.email)].join(","));
+      }
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${state}_leads_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.dismiss(tid);
+      toast.success(`${state}: exported ${rows.length.toLocaleString()} leads`);
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(`Export failed: ${e.message}`);
+    }
+  };
 
   const maxLeads = useMemo(() => {
     const vals = Object.values(summary).map((s) => s.total_leads);
@@ -294,6 +353,7 @@ export default function UsaMap() {
           onClose={() => setOpenState(null)}
           onStartUpload={(f) => startUpload(f, openState)}
           onDismissJob={dismissJob}
+          onExport={() => exportStateCsv(openState)}
         />
       )}
 
@@ -368,7 +428,7 @@ function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void 
 }
 
 function StateModal({
-  state, summary, jobs, onClose, onStartUpload, onDismissJob,
+  state, summary, jobs, onClose, onStartUpload, onDismissJob, onExport,
 }: {
   state: string;
   summary?: Summary;
@@ -376,6 +436,7 @@ function StateModal({
   onClose: () => void;
   onStartUpload: (file: File) => void;
   onDismissJob: (id: string) => void;
+  onExport: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -444,9 +505,14 @@ function StateModal({
             <div><strong>Optional:</strong> name, address, city, zip, email</div>
           </div>
 
-          <Button onClick={handleUpload} disabled={!file} className="w-full">
-            <Upload className="h-4 w-4 mr-2" /> Start Upload
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={handleUpload} disabled={!file}>
+              <Upload className="h-4 w-4 mr-2" /> Start Upload
+            </Button>
+            <Button variant="outline" onClick={onExport} disabled={!summary?.total_leads}>
+              <Download className="h-4 w-4 mr-2" /> Export CSV
+            </Button>
+          </div>
 
           {jobs.length > 0 && (
             <div className="space-y-2">
