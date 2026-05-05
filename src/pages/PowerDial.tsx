@@ -337,6 +337,52 @@ export default function PowerDial() {
 
   const deletableCampaigns = campaigns.filter(c => ['stopped', 'completed', 'idle'].includes(c.status));
 
+  const handleAddNumbers = async () => {
+    if (!activeCampaign) return;
+    const phones = extractPhones(addNumbersInput);
+    if (!phones.length) {
+      toast.error('No valid phone numbers found');
+      return;
+    }
+    setAddingNumbers(true);
+    try {
+      // Dedup against existing queue
+      const { data: existing } = await supabase
+        .from('powerdial_queue')
+        .select('phone, position')
+        .eq('campaign_id', activeCampaign.id);
+      const existingPhones = new Set((existing || []).map((r: any) => r.phone));
+      const maxPos = (existing || []).reduce((m: number, r: any) => Math.max(m, r.position ?? 0), -1);
+      const fresh = phones.filter(p => !existingPhones.has(p.phone));
+      if (!fresh.length) {
+        toast.info('All numbers already in this campaign');
+        setAddingNumbers(false);
+        return;
+      }
+      const rows = fresh.map((p, i) => ({
+        campaign_id: activeCampaign.id,
+        phone: p.phone,
+        contact_name: p.name,
+        note: p.note,
+        position: maxPos + 1 + i,
+        status: 'pending',
+      }));
+      const { error } = await supabase.from('powerdial_queue').insert(rows);
+      if (error) throw error;
+      const newTotal = (activeCampaign.total_leads || 0) + rows.length;
+      await supabase.from('powerdial_campaigns').update({ total_leads: newTotal }).eq('id', activeCampaign.id);
+      setActiveCampaign({ ...activeCampaign, total_leads: newTotal });
+      toast.success(`Added ${rows.length} number(s)${phones.length - rows.length > 0 ? ` (${phones.length - rows.length} duplicate skipped)` : ''}`);
+      setAddNumbersInput('');
+      setShowAddNumbers(false);
+      loadCampaigns();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add numbers');
+    } finally {
+      setAddingNumbers(false);
+    }
+  };
+
   const remaining = activeCampaign ? activeCampaign.total_leads - activeCampaign.completed_count : 0;
 
   return (
