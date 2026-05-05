@@ -684,9 +684,14 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
             <Mail className="h-3 w-3 mr-1" /> Reply
           </Button>
         )}
+        {lead.funnel === 'airealty' && !editingPhone && lead.phone && lead.phone !== 'N/A' && (
+          <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-500 px-2 py-1 font-medium">
+            <Phone className="h-3 w-3" /> Call {lead.phone}
+          </a>
+        )}
         {lead.funnel === 'airealty' && !editingPhone && (
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPhoneInput(lead.phone || ''); setEditingPhone(true); }}>
-            <Phone className="h-3 w-3 mr-1" /> {lead.phone && lead.phone !== 'N/A' ? lead.phone : 'Add Phone'}
+            <Phone className="h-3 w-3 mr-1" /> {lead.phone && lead.phone !== 'N/A' ? 'Edit' : 'Add Phone'}
           </Button>
         )}
         {lead.funnel === 'airealty' && editingPhone && (
