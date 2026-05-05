@@ -14,6 +14,7 @@ import { Teleprompter } from '@/components/phone/Teleprompter';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import VoidFixActivityTab from '@/components/phone/VoidFixActivityTab';
+import ChangeNumberSettings from '@/components/phone/ChangeNumberSettings';
 
 import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import MissedCallSettings from '@/components/phone/MissedCallSettings';
@@ -1509,6 +1510,7 @@ export default function PhonePage() {
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6 space-y-6">
+            <ChangeNumberSettings />
             <MissedCallSettings section="settings" />
             <VoidFixFirstReplySettings />
             <VoidFixActivityTab />
