@@ -529,7 +529,7 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit, onDismiss }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit, onDismiss, onCall }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
@@ -538,6 +538,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   onDeadToggle: (checked: boolean) => void;
   onPhoneEdit: (newPhone: string) => void;
   onDismiss?: () => void;
+  onCall: (phone: string) => void;
 }) {
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(lead.phone || '');
