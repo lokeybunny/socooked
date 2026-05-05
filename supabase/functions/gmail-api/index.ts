@@ -538,7 +538,7 @@ serve(async (req) => {
         ? buildInvoiceSupportBody(to)
         : (body || "");
 
-      const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, normalizedBody, attachments);
+      const raw = await buildRawEmail(to, IMPERSONATE_EMAIL, subject, normalizedBody, attachments);
       const sendPayload: any = { raw };
       if (threadId) sendPayload.threadId = threadId;
       const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
@@ -622,7 +622,7 @@ serve(async (req) => {
 
     if (action === "save-draft") {
       const { to, subject, body } = await req.json();
-      const raw = buildRawEmail(to || "", IMPERSONATE_EMAIL, subject || "", body || "");
+      const raw = await buildRawEmail(to || "", IMPERSONATE_EMAIL, subject || "", body || "");
       const draftRes = await fetch(`${GMAIL_API}/users/me/drafts`, {
         method: "POST",
         headers: {
