@@ -15,6 +15,7 @@ type ActiveCall = {
   contact_name?: string | null;
   customer_id?: string | null;
   notes?: string | null;
+  note?: string | null;
 };
 
 interface Props {
