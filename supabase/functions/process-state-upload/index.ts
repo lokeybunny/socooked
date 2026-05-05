@@ -105,27 +105,60 @@ Deno.serve(async (req) => {
       });
     }
 
-    await broadcast("status", { phase: "parsing", message: "Reading file…" });
+    // Read file bytes BEFORE returning (the request body must be consumed in the request scope).
     const isCsv = /\.csv$/i.test(file.name) || (file.type || "").includes("csv");
-    let rows: Record<string, any>[];
-    if (isCsv) {
-      // Fast streaming-ish CSV parse (handles quoted fields, commas, CRLF)
-      const text = await file.text();
-      rows = parseCsvFast(text);
-    } else {
-      const buf = new Uint8Array(await file.arrayBuffer());
-      const wb = XLSX.read(buf, { type: "array" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
-    }
-    await broadcast("status", { phase: "parsed", total_rows: rows.length, message: `Parsed ${rows.length} rows` });
+    const fileName = file.name;
+    const fileText = isCsv ? await file.text() : "";
+    const fileBuf = isCsv ? null : new Uint8Array(await file.arrayBuffer());
 
-    if (!rows.length) {
-      return new Response(JSON.stringify({ total_rows: 0, inserted_count: 0, duplicate_count: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Heavy work runs in the background so the HTTP response returns immediately
+    // (avoids the 150s gateway 504). The client tracks progress via realtime broadcasts.
+    const work = (async () => {
+      try {
+        await broadcast("status", { phase: "parsing", message: "Reading file…" });
+        let rows: Record<string, any>[];
+        if (isCsv) {
+          rows = parseCsvFast(fileText);
+        } else {
+          const wb = XLSX.read(fileBuf!, { type: "array" });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+        }
+        await broadcast("status", { phase: "parsed", total_rows: rows.length, message: `Parsed ${rows.length} rows` });
 
+        if (!rows.length) {
+          await broadcast("complete", { total_rows: 0, inserted_count: 0, duplicate_count: 0 });
+          return;
+        }
+        await processRows(rows, supabase, selectedState, fileName, broadcast);
+      } catch (e) {
+        console.error("[process-state-upload] background error", e);
+        await broadcast("error", { message: String((e as Error).message || e) });
+      }
+    })();
+
+    // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+    if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
+
+    return new Response(JSON.stringify({ accepted: true, progress_id: progressId }), {
+      status: 202,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error(e);
+    return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
+
+async function processRows(
+  rows: Record<string, any>[],
+  supabase: ReturnType<typeof createClient>,
+  selectedState: string,
+  fileName: string,
+  broadcast: (event: string, payload: Record<string, unknown>) => Promise<void>,
+) {
     const phoneKey = findKey(rows[0], ["phone_number", "phone", "mobile", "cell", "telephone"]);
     const nameKey = findKey(rows[0], ["full_name", "owner_name", "owner", "name"]);
     const firstNameKey = findKey(rows[0], ["first_name", "firstname", "given_name", "fname"]);
@@ -135,14 +168,12 @@ Deno.serve(async (req) => {
     const zipKey = findKey(rows[0], ["zip", "zipcode", "postal", "postal_code"]);
     const emailKey = findKey(rows[0], ["email", "email_address", "e_mail", "owner_email", "contact_email", "mail"]);
 
-    console.log("[process-state-upload] file:", file.name, "rows:", rows.length);
-    console.log("[process-state-upload] headers:", Object.keys(rows[0] ?? {}));
+    console.log("[process-state-upload] file:", fileName, "rows:", rows.length);
     console.log("[process-state-upload] mapped keys:", { phoneKey, nameKey, firstNameKey, lastNameKey, addrKey, cityKey, zipKey, emailKey });
 
     if (!phoneKey) {
-      return new Response(JSON.stringify({ error: "No phone_number column found" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      await broadcast("error", { message: "No phone_number column found" });
+      return;
     }
 
     const cleanStr = (v: unknown) => {
@@ -162,7 +193,6 @@ Deno.serve(async (req) => {
       return null;
     };
 
-    // Build candidate records, dedupe within file
     const seen = new Set<string>();
     type Cand = {
       phone_number: string; phone_e164: string; state: string;
@@ -171,7 +201,7 @@ Deno.serve(async (req) => {
       city: string | null; zip: string | null; email: string | null;
       source: string; uploaded_file_name: string;
     };
-    const preCandidates: Cand[] = [];
+    const candidates: Cand[] = [];
 
     for (const r of rows) {
       const e164 = toE164(r[phoneKey]);
@@ -187,7 +217,7 @@ Deno.serve(async (req) => {
       const address = addrKey ? cleanStr(r[addrKey]) : null;
       const email = emailKey ? cleanEmail(r[emailKey]) : null;
 
-      preCandidates.push({
+      candidates.push({
         phone_number: String(r[phoneKey]).trim(),
         phone_e164: e164,
         state: selectedState,
@@ -200,11 +230,9 @@ Deno.serve(async (req) => {
         zip: zipKey ? cleanStr(r[zipKey]) : null,
         email,
         source: "batch_upload",
-        uploaded_file_name: file.name,
+        uploaded_file_name: fileName,
       });
     }
-
-    const candidates: Cand[] = [...preCandidates];
 
     const totalRows = rows.length;
     let inserted = 0;
@@ -212,12 +240,8 @@ Deno.serve(async (req) => {
 
     const chunkSize = 1000;
     await broadcast("progress", {
-      phase: "inserting",
-      total_rows: totalRows,
-      candidates: candidates.length,
-      processed: 0,
-      inserted: 0,
-      duplicates,
+      phase: "inserting", total_rows: totalRows, candidates: candidates.length,
+      processed: 0, inserted: 0, duplicates,
     });
     for (let i = 0; i < candidates.length; i += chunkSize) {
       const chunk = candidates.slice(i, i + chunkSize);
@@ -228,51 +252,25 @@ Deno.serve(async (req) => {
       if (insErr) {
         console.error("insert error", insErr);
         await broadcast("error", { message: insErr.message });
-        return new Response(JSON.stringify({ error: insErr.message }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return;
       }
       const insertedThis = insertedData?.length ?? 0;
       inserted += insertedThis;
       duplicates += chunk.length - insertedThis;
       await broadcast("progress", {
-        phase: "inserting",
-        total_rows: totalRows,
-        candidates: candidates.length,
-        processed: Math.min(i + chunk.length, candidates.length),
-        inserted,
-        duplicates,
+        phase: "inserting", total_rows: totalRows, candidates: candidates.length,
+        processed: Math.min(i + chunk.length, candidates.length), inserted, duplicates,
       });
     }
     console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates);
 
     await supabase.from("upload_logs").insert({
-      state: selectedState,
-      file_name: file.name,
-      total_rows: totalRows,
-      inserted_count: inserted,
-      duplicate_count: duplicates,
+      state: selectedState, file_name: fileName,
+      total_rows: totalRows, inserted_count: inserted, duplicate_count: duplicates,
     });
 
     await broadcast("complete", {
-      total_rows: totalRows,
-      inserted_count: inserted,
-      duplicate_count: duplicates,
+      total_rows: totalRows, inserted_count: inserted, duplicate_count: duplicates,
     });
+}
 
-    return new Response(
-      JSON.stringify({
-        total_rows: totalRows,
-        inserted_count: inserted,
-        duplicate_count: duplicates,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-
-  } catch (e) {
-    console.error(e);
-    return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
