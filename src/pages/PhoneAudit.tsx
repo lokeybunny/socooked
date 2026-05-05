@@ -10,13 +10,13 @@ type Job = {
   status: string;
   total: number;
   processed: number;
-  mobile_count: number;
-  landline_count: number;
-  voip_count: number;
-  invalid_count: number;
+  mobile: number;
+  landline: number;
+  voip: number;
+  invalid: number;
   started_at: string | null;
   paused_at: string | null;
-  finished_at: string | null;
+  completed_at: string | null;
 };
 
 type Preview = {
@@ -192,10 +192,10 @@ export default function PhoneAudit() {
               {job.processed} / {job.total} processed ({pct}%)
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-              <Stat label="Mobile" value={job.mobile_count} tone="text-emerald-500" />
-              <Stat label="Landline" value={job.landline_count} tone="text-yellow-500" />
-              <Stat label="VoIP" value={job.voip_count} tone="text-orange-500" />
-              <Stat label="Invalid" value={job.invalid_count} tone="text-red-500" />
+              <Stat label="Mobile" value={job.mobile} tone="text-emerald-500" />
+              <Stat label="Landline" value={job.landline} tone="text-yellow-500" />
+              <Stat label="VoIP" value={job.voip} tone="text-orange-500" />
+              <Stat label="Invalid" value={job.invalid} tone="text-red-500" />
             </div>
           </div>
         )}
