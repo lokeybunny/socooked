@@ -87,12 +87,27 @@ Deno.serve(async (req) => {
     // VoidFix dedupe + send
     let smsSent = false;
     let smsError: string | null = null;
+    const callSid = String(payload.CallSid || payload.callSid || "");
     if (isMissed) {
-      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const { data: dupe } = await supabase
-        .from("voice_drop_events").select("id")
-        .eq("phone_number", phone).eq("event_type", "sms_auto_reply_sent")
-        .gte("created_at", tenMinAgo).limit(1).maybeSingle();
+      // 1) Dedupe by CallSid — each call should trigger AT MOST one auto-reply, ever.
+      let dupe: any = null;
+      if (callSid) {
+        const { data: sidDupe } = await supabase
+          .from("voice_drop_events").select("id")
+          .eq("event_type", "sms_auto_reply_sent")
+          .contains("raw_payload", { CallSid: callSid })
+          .limit(1).maybeSingle();
+        if (sidDupe) dupe = sidDupe;
+      }
+      // 2) Backup dedupe by phone within last 60 minutes (was 10) to stop retry storms.
+      if (!dupe) {
+        const sixtyMinAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: phoneDupe } = await supabase
+          .from("voice_drop_events").select("id")
+          .eq("phone_number", phone).eq("event_type", "sms_auto_reply_sent")
+          .gte("created_at", sixtyMinAgo).limit(1).maybeSingle();
+        if (phoneDupe) dupe = phoneDupe;
+      }
 
       // Resolve user setting
       let messageBody = DEFAULT_SMS;
@@ -104,6 +119,14 @@ Deno.serve(async (req) => {
       }
 
       if (!dupe && voidfixEnabled && VOIDFIX_API_KEY) {
+        // Insert sentinel BEFORE sending so concurrent/retry webhooks see it and bail.
+        await supabase.from("voice_drop_events").insert({
+          user_id: userId, campaign_id: campaignId, phone_number: phone,
+          event_type: "sms_auto_reply_sent", provider: "voidfix",
+          event_source: "voicedrop-twilio-callback",
+          raw_payload: { sent: false, pending: true, CallSid: callSid, message: messageBody },
+        });
+
         try {
           const r = await fetch("https://voidfix.com/api/send", {
             method: "POST",
@@ -117,12 +140,6 @@ Deno.serve(async (req) => {
           smsError = e?.message || String(e);
         }
 
-        await supabase.from("voice_drop_events").insert({
-          user_id: userId, campaign_id: campaignId, phone_number: phone,
-          event_type: "sms_auto_reply_sent", provider: "voidfix",
-          event_source: "voicedrop-twilio-callback",
-          raw_payload: { sent: smsSent, error: smsError, message: messageBody },
-        });
         if (campaignId && smsSent) {
           const { data: cur } = await supabase.from("voice_drop_campaigns").select("sms_replies_sent_count").eq("id", campaignId).single();
           await supabase.from("voice_drop_campaigns").update({ sms_replies_sent_count: (cur?.sms_replies_sent_count ?? 0) + 1 }).eq("id", campaignId);
