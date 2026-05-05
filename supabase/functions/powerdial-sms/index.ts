@@ -386,8 +386,15 @@ Deno.serve(async (req) => {
       if (logError.code === "23505" && source === "powerdial-voicemail-drop-sms") {
         return json({ ok: true, duplicate: true, id: result.id || null });
       }
-      console.error("[powerdial-sms] outbound log insert error:", logError);
-      return json({ ok: false, error: "sms_sent_but_log_failed" }, 500);
+      console.error("[powerdial-sms] outbound log insert error (non-fatal):", logError);
+      // SMS was already sent via VoidFix — don't fail the request just because logging failed.
+      // The inbox poll will pick up the message on the next sync.
+      return json({
+        ok: result.ok,
+        id: result.id || null,
+        log_warning: "log_insert_failed",
+        log_error: logError.message || String(logError),
+      }, result.ok ? 200 : 502);
     }
 
     // Hook Reply tracking — create a thread when the Warren Guru hook outbound is sent
