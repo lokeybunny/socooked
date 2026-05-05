@@ -5565,6 +5565,7 @@ export type Database = {
           id: string
           last_dialed_at: string | null
           last_result: string | null
+          note: string | null
           phone: string
           position: number
           retry_at: string | null
@@ -5580,6 +5581,7 @@ export type Database = {
           id?: string
           last_dialed_at?: string | null
           last_result?: string | null
+          note?: string | null
           phone: string
           position?: number
           retry_at?: string | null
@@ -5595,6 +5597,7 @@ export type Database = {
           id?: string
           last_dialed_at?: string | null
           last_result?: string | null
+          note?: string | null
           phone?: string
           position?: number
           retry_at?: string | null
