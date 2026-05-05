@@ -1195,6 +1195,7 @@ export default function Funnels() {
                 key={lead.id}
                 lead={lead}
                 onEmail={() => setEmailLead(lead)}
+                onCall={(phone) => setCallPhone(phone)}
                 onView={() => setViewLead(lead)}
                 onDraft={() => handleDraft(lead)}
                 onUndraft={() => handleUndraft(lead)}
