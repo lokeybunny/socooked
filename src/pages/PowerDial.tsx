@@ -73,6 +73,9 @@ export default function PowerDial() {
   const [scheduleEndDate, setScheduleEndDate] = useState('');
   const [scheduleEndTime, setScheduleEndTime] = useState('17:00');
   const [livePopupCall, setLivePopupCall] = useState<{ phone: string; contact_name?: string | null; customer_id?: string | null } | null>(null);
+  const [showAddNumbers, setShowAddNumbers] = useState(false);
+  const [addNumbersInput, setAddNumbersInput] = useState('');
+  const [addingNumbers, setAddingNumbers] = useState(false);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
