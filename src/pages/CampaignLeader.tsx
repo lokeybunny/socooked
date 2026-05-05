@@ -132,19 +132,35 @@ export default function CampaignLeader() {
 
   async function loadAll() {
     const today = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).toISOString().slice(0, 10);
-    const [s, st, c, l, sentEmails, sentSms] = await Promise.all([
-      supabase.from("campaign_settings").select("*").eq("id", 1).maybeSingle(),
-      supabase.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle(),
-      supabase.from("campaign_contacts").select("*").eq("campaign_date", today).order("created_at", { ascending: false }).limit(50),
-      supabase.from("campaign_activity_log").select("*").order("created_at", { ascending: false }).limit(40),
-      supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "email"),
-      supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "sms"),
-    ]);
-    if (s.data) setSettings(s.data as Settings);
-    if (st.data) setStats(st.data as Stats);
-    if (c.data) setContacts(c.data as Contact[]);
-    if (l.data) setLogs(l.data as LogRow[]);
-    setLifetimeSent({ emails: sentEmails.count || 0, sms: sentSms.count || 0 });
+    try {
+      const [s, st, c, l, sentEmails, sentSms] = await Promise.all([
+        supabase.from("campaign_settings").select("*").eq("id", 1).maybeSingle(),
+        supabase.from("campaign_daily_stats").select("*").eq("campaign_date", today).maybeSingle(),
+        supabase.from("campaign_contacts").select("*").eq("campaign_date", today).order("created_at", { ascending: false }).limit(50),
+        supabase.from("campaign_activity_log").select("*").order("created_at", { ascending: false }).limit(40),
+        supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "email"),
+        supabase.from("campaign_sent_log").select("id", { count: "exact", head: true }).eq("channel", "sms"),
+      ]);
+      if (s.data) setSettings(s.data as Settings);
+      else if (s.error) {
+        // Backend slow/unreachable — render UI with safe defaults so the page isn't stuck
+        setSettings((prev) => prev ?? ({
+          is_production: false, is_paused: true, daily_email_cap: 0, daily_sms_cap: 0,
+          batch_size: 1, min_delay_seconds: 30, max_delay_seconds: 60, start_hour_pt: 9, end_hour_pt: 17,
+          channel_mode: "both", sms_max_retries: 0, sms_min_gap_seconds: 10, sms_max_gap_seconds: 30,
+        } as Settings));
+      }
+      if (st.data) setStats(st.data as Stats);
+      if (c.data) setContacts(c.data as Contact[]);
+      if (l.data) setLogs(l.data as LogRow[]);
+      setLifetimeSent({ emails: sentEmails.count || 0, sms: sentSms.count || 0 });
+    } catch (e: any) {
+      setSettings((prev) => prev ?? ({
+        is_production: false, is_paused: true, daily_email_cap: 0, daily_sms_cap: 0,
+        batch_size: 1, min_delay_seconds: 30, max_delay_seconds: 60, start_hour_pt: 9, end_hour_pt: 17,
+        channel_mode: "both", sms_max_retries: 0, sms_min_gap_seconds: 10, sms_max_gap_seconds: 30,
+      } as Settings));
+    }
   }
 
   async function loadSentLog() {
