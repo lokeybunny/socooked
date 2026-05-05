@@ -243,7 +243,7 @@ export default function UsaMap() {
       while (true) {
         let q = supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid,address,property_address,city,zip")
           .eq("state", state)
           .range(from, from + pageSize - 1);
         if (mobileOnly && cellInScope && source === "cell") {
