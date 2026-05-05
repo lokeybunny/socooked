@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import CallNotesPopup from '@/components/phone/CallNotesPopup';
@@ -60,7 +60,7 @@ export default function PowerDialSMSInbox() {
   const [contacts, setContacts] = useState<Record<string, string>>({});
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
-  const [filterMode, setFilterMode] = useState<'all' | 'starred'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -292,12 +292,26 @@ export default function PowerDialSMSInbox() {
     return Array.from(map.values()).sort((a, b) => new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime());
   }, [messages]);
 
+  const disconnectedSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const m of messages) {
+      if (m.direction === 'outbound' && (m.body || '').toLowerCase().includes('just got disconnected')) {
+        const k = normalizeLast10(m.to_address);
+        if (k) s.add(k);
+      }
+    }
+    return s;
+  }, [messages]);
+
   const visibleThreads = useMemo(() => {
     if (filterMode === 'starred') {
       return threads.filter(t => starredSet.has(normalizeLast10(t.phone)));
     }
+    if (filterMode === 'disconnected') {
+      return threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone)));
+    }
     return threads;
-  }, [threads, filterMode, starredSet]);
+  }, [threads, filterMode, starredSet, disconnectedSet]);
 
   const activeMessages = useMemo(() => {
     if (!activeThread) return [];
@@ -726,13 +740,22 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <Star className="h-3 w-3" />
             Starred ({threads.filter(t => starredSet.has(normalizeLast10(t.phone))).length})
           </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('disconnected')}
+            className={`text-[11px] px-2 py-1 rounded-full border transition-colors flex items-center gap-1 ${filterMode === 'disconnected' ? 'bg-orange-500/20 border-orange-500/50 text-orange-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+            title="Threads where VoidFix sent the 'just got disconnected' follow-up — needs callback"
+          >
+            <PhoneOff className="h-3 w-3" />
+            Disconnected ({threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone))).length})
+          </button>
         </div>
         <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
           ) : visibleThreads.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground py-8">
-              {filterMode === 'starred' ? 'No starred clients yet' : 'No SMS yet'}
+              {filterMode === 'starred' ? 'No starred clients yet' : filterMode === 'disconnected' ? 'No disconnected callbacks pending' : 'No SMS yet'}
             </p>
           ) : (
             visibleThreads.map(t => {
