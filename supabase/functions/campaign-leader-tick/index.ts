@@ -500,7 +500,7 @@ async function runEmailFor(contact: any): Promise<{ ok: boolean; skipped?: boole
 
   const firstName = contact.first_name || "there";
   const addr = contact.property_address || "your property";
-  const { subject, body, variant: emailVariant } = buildEmail(firstName, addr);
+  const { subject, body, variant: emailVariant } = await buildEmail(firstName, addr);
   const emailResult = await sendEmail(contact.email, subject, body);
   lastChannelSendAt.email = Date.now();
 
@@ -627,7 +627,7 @@ async function runTest(payload: any) {
 
   if (channel === "email" || channel === "both") {
     if (!email) return { ok: false, error: "missing_test_email" };
-    const { subject, body } = buildEmail(firstName, addr);
+    const { subject, body } = await buildEmail(firstName, addr);
     result.steps.push({ step: "email_preview", subject, body });
     const er = await sendEmail(email, subject, body);
     result.steps.push({ step: "email_send", ok: er.ok, error: er.error, id: er.id });
@@ -886,7 +886,7 @@ Deno.serve(async (req) => {
     if (mode === "preview") {
       const firstName = payload.first_name || "there";
       const addr = payload.property_address || "your property";
-      const { subject, body, variant } = buildEmail(firstName, addr);
+      const { subject, body, variant } = await buildEmail(firstName, addr);
       const { text } = buildSms(firstName, addr);
       return new Response(JSON.stringify({
         ok: true,
