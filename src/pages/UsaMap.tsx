@@ -188,25 +188,29 @@ export default function UsaMap() {
   const dismissJob = (id: string) =>
     setJobs((prev) => { const next = { ...prev }; delete next[id]; return next; });
 
-  const exportStateCsv = async (state: string, batchSize = 3000) => {
-    const tid = toast.loading(`Exporting ${state}…`);
+  const exportStateCsv = async (state: string, batchSize = 3000, mobileOnly = false) => {
+    const tid = toast.loading(`Exporting ${state}${mobileOnly ? " (mobile only)" : ""}…`);
     try {
       const pageSize = 1000;
       let from = 0;
       const rows: any[] = [];
       while (true) {
-        const { data, error } = await supabase
+        let q = supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,office_phone,email")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid")
           .eq("state", state)
           .range(from, from + pageSize - 1);
+        if (mobileOnly) {
+          q = q.eq("phone_line_type", "mobile").eq("phone_valid", true);
+        }
+        const { data, error } = await q;
         if (error) throw error;
         if (!data?.length) break;
         rows.push(...data);
         if (data.length < pageSize) break;
         from += pageSize;
       }
-      if (!rows.length) { toast.dismiss(tid); toast.error(`No leads for ${state}`); return; }
+      if (!rows.length) { toast.dismiss(tid); toast.error(`No ${mobileOnly ? "mobile " : ""}leads for ${state}`); return; }
 
       const esc = (v: any) => {
         const s = (v ?? "").toString();
