@@ -425,6 +425,30 @@ export default function PhoneAudit() {
           )}
         </div>
       </Card>
+
+      <Dialog open={!!exportSummary} onOpenChange={(o) => !o && setExportSummary(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Summary</DialogTitle>
+          </DialogHeader>
+          {exportSummary && (
+            <div className="space-y-2 text-sm">
+              <div className="text-muted-foreground">{exportSummary.filename}</div>
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <Stat label="Total selected" value={exportSummary.total_selected} tone="text-foreground" />
+                <Stat label="Valid mobile exported" value={exportSummary.exported} tone="text-emerald-500" />
+                <Stat label="Reformatted" value={exportSummary.reformatted} tone="text-blue-500" />
+                <Stat label="Excluded (invalid)" value={exportSummary.excluded_invalid} tone="text-red-500" />
+                <Stat label="Excluded (non-mobile)" value={exportSummary.excluded_non_mobile} tone="text-yellow-500" />
+                <Stat label="Duplicates removed" value={exportSummary.duplicates_removed} tone="text-orange-500" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setExportSummary(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
