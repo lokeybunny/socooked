@@ -71,10 +71,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    await broadcast("status", { phase: "parsing", message: "Reading file…" });
     const buf = new Uint8Array(await file.arrayBuffer());
     const wb = XLSX.read(buf, { type: "array" });
     const sheet = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+    await broadcast("status", { phase: "parsed", total_rows: rows.length, message: `Parsed ${rows.length} rows` });
 
     if (!rows.length) {
       return new Response(JSON.stringify({ total_rows: 0, inserted_count: 0, duplicate_count: 0 }), {
