@@ -174,7 +174,24 @@ function randomHexId(len = 10): string {
   return s;
 }
 
-function buildEmail(firstName: string, addr: string) {
+async function getCellNumberForSig(): Promise<{ tel: string; pretty: string }> {
+  const fb = { tel: "tel:+14802200405", pretty: "(480) 220-0405" };
+  try {
+    const sbUrl = Deno.env.get("SUPABASE_URL");
+    const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!sbUrl || !sbKey) return fb;
+    const r = await fetch(`${sbUrl}/rest/v1/app_settings?key=eq.business_numbers&select=value`, {
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+    });
+    const rows = await r.json();
+    const d = String(rows?.[0]?.value?.cell || "").replace(/\D/g, "").slice(-10);
+    if (d.length !== 10) return fb;
+    return { tel: `tel:+1${d}`, pretty: `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` };
+  } catch { return fb; }
+}
+
+async function buildEmail(firstName: string, addr: string) {
+  const { tel: cellTel, pretty: cellPretty } = await getCellNumberForSig();
   const sIdx = pickIdx(SUBJECT_VARIANTS);
   const iIdx = pickIdx(EMAIL_INTROS);
   const pIdx = pickIdx(EMAIL_PITCHES);
