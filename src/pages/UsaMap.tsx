@@ -428,7 +428,7 @@ function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void 
 }
 
 function StateModal({
-  state, summary, jobs, onClose, onStartUpload, onDismissJob,
+  state, summary, jobs, onClose, onStartUpload, onDismissJob, onExport,
 }: {
   state: string;
   summary?: Summary;
@@ -436,6 +436,7 @@ function StateModal({
   onClose: () => void;
   onStartUpload: (file: File) => void;
   onDismissJob: (id: string) => void;
+  onExport: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
