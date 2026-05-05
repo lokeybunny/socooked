@@ -243,7 +243,7 @@ export default function UsaMap() {
       while (true) {
         let q = supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid,address,property_address,city,zip")
           .eq("state", state)
           .range(from, from + pageSize - 1);
         if (mobileOnly && cellInScope && source === "cell") {
@@ -299,8 +299,9 @@ export default function UsaMap() {
         return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       };
       const includeType = source === "both";
-      const headerCols = ["first_name", "last_name", "phone_number", "email"];
-      if (includeType) headerCols.push("phone_type");
+      // Lead Mapping Info schema: Phone Number, First Name, Last Name, Address1, City
+      const headerCols = ["Phone Number", "First Name", "Last Name", "Address1", "City", "Email"];
+      if (includeType) headerCols.push("Phone Type");
       const header = headerCols.join(",");
 
       const toLine = (p: any) => {
@@ -318,7 +319,15 @@ export default function UsaMap() {
             last = parts.slice(1).join(" ");
           }
         }
-        const cols = [esc(first), esc(last), esc(p.phone_number), esc(r.email)];
+        const address1 = r.property_address || r.address || "";
+        const cols = [
+          esc(p.phone_number),
+          esc(first),
+          esc(last),
+          esc(address1),
+          esc(r.city),
+          esc(r.email),
+        ];
         if (includeType) cols.push(esc(e.type));
         return cols.join(",");
       };
