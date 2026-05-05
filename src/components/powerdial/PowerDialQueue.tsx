@@ -9,6 +9,7 @@ type QueueItem = {
   id: string;
   phone: string;
   contact_name: string | null;
+  note: string | null;
   position: number;
   status: string;
   last_result: string | null;
