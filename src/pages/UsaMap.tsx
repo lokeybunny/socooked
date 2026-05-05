@@ -291,7 +291,15 @@ function StateModal({
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number; lgm_checked?: number; lgm_rejected?: number; lgm_enriched?: number; lgm_enabled?: boolean } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const acceptFile = (f: File | null | undefined) => {
+    if (!f) return;
+    if (!/\.(csv|xlsx|xls)$/i.test(f.name)) { toast.error("Please upload a CSV or Excel file"); return; }
+    setFile(f);
+    setResult(null);
+  };
 
   const handleUpload = async () => {
     if (!file) return;
