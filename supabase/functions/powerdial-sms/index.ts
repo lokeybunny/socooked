@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
     const customerId = payload?.customer_id || (await findCustomerByPhone(to));
     tStamp("customer lookup done");
 
-    const { error: logError } = await sb.from("communications").insert({
+    const insertPromise = sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
       body: message,
@@ -380,21 +380,32 @@ Deno.serve(async (req) => {
         ...(result.timing ? { timing_ms: result.timing } : {}),
       },
     });
-    tStamp("DB log insert done");
 
+    // Race the DB insert against a short timeout — DB has been timing out and blocking the response.
+    // SMS is already sent via VoidFix at this point; the inbox poll will reconcile if log insert fails.
+    const logResult = await Promise.race([
+      insertPromise.then((r: any) => ({ timeout: false, error: r?.error })),
+      new Promise<{ timeout: true; error: null }>((resolve) =>
+        setTimeout(() => resolve({ timeout: true, error: null }), 8000)
+      ),
+    ]);
+    tStamp(`DB log insert done (timeout=${logResult.timeout})`);
+
+    const logError = logResult.error;
     if (logError) {
       if (logError.code === "23505" && source === "powerdial-voicemail-drop-sms") {
         return json({ ok: true, duplicate: true, id: result.id || null });
       }
       console.error("[powerdial-sms] outbound log insert error (non-fatal):", logError);
-      // SMS was already sent via VoidFix — don't fail the request just because logging failed.
-      // The inbox poll will pick up the message on the next sync.
       return json({
         ok: result.ok,
         id: result.id || null,
         log_warning: "log_insert_failed",
         log_error: logError.message || String(logError),
       }, result.ok ? 200 : 502);
+    }
+    if (logResult.timeout) {
+      console.warn("[powerdial-sms] log insert timed out — returning success anyway");
     }
 
     // Hook Reply tracking — create a thread when the Warren Guru hook outbound is sent
