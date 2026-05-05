@@ -159,6 +159,69 @@ export default function PhoneAudit() {
     URL.revokeObjectURL(url);
   };
 
+  const exportMobile = async () => {
+    const tid = toast.loading(`Exporting verified mobile numbers${stateArg ? ` for ${stateArg}` : ""}…`);
+    try {
+      const pageSize = 1000;
+      let from = 0;
+      const rows: any[] = [];
+      while (true) {
+        let q = supabase
+          .from("state_leads")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,state")
+          .eq("phone_line_type", "mobile")
+          .eq("phone_valid", true)
+          .range(from, from + pageSize - 1);
+        if (stateArg) q = q.eq("state", stateArg);
+        const { data, error } = await q;
+        if (error) throw error;
+        if (!data?.length) break;
+        rows.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      toast.dismiss(tid);
+      if (!rows.length) return toast.error("No verified mobile leads found");
+
+      const esc = (v: any) => {
+        const s = (v ?? "").toString();
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const header = stateArg
+        ? "first_name,last_name,phone_number,email"
+        : "first_name,last_name,phone_number,email,state";
+      const lines = rows.map((r) => {
+        let first = (r.first_name ?? "").trim();
+        let last = "";
+        if (!first && r.name) {
+          const parts = String(r.name).trim().split(/\s+/);
+          first = parts.shift() ?? "";
+          last = parts.join(" ");
+        } else if (r.name) {
+          const parts = String(r.name).trim().split(/\s+/);
+          if (parts.length > 1 && parts[0].toLowerCase() === first.toLowerCase()) {
+            last = parts.slice(1).join(" ");
+          }
+        }
+        const phone = r.phone_e164 || r.phone_number || r.office_phone || "";
+        const base = [esc(first), esc(last), esc(phone), esc(r.email)];
+        return stateArg ? base.join(",") : [...base, esc(r.state)].join(",");
+      });
+      const csv = [header, ...lines].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${stateArg ?? "all"}_mobile_verified_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${rows.length.toLocaleString()} mobile leads`);
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(`Export failed: ${e.message}`);
+    }
+  };
+
   const onUploadFile = async (file: File) => {
     if (!/\.(csv|xlsx|xls)$/i.test(file.name)) { toast.error("Upload a CSV or Excel file"); return; }
     if (selectedState === "ALL") { toast.error("Pick a state first"); return; }
