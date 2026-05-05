@@ -172,7 +172,7 @@ export default function PhoneAudit() {
       while (true) {
         let q = supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,office_phone,email,state")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,state,phone_valid,phone_line_type")
           .eq("phone_line_type", "mobile")
           .eq("phone_valid", true)
           .range(from, from + pageSize - 1);
@@ -187,6 +187,16 @@ export default function PhoneAudit() {
       toast.dismiss(tid);
       if (!rows.length) return toast.error("No verified mobile leads found");
 
+      // Apply global export formatting layer (normalize, validate, dedup, mobile-only)
+      const { rows: prepared, summary } = prepareExportRows(rows, {
+        mode: exportFormat,
+        mobileOnly: true,
+      });
+
+      if (!prepared.length) {
+        return toast.error("No exportable numbers after formatting");
+      }
+
       const esc = (v: any) => {
         const s = (v ?? "").toString();
         return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -194,7 +204,7 @@ export default function PhoneAudit() {
       const header = stateArg
         ? "first_name,last_name,phone_number,email"
         : "first_name,last_name,phone_number,email,state";
-      const lines = rows.map((r) => {
+      const lines = prepared.map(({ row: r, phone_number }) => {
         let first = (r.first_name ?? "").trim();
         let last = "";
         if (!first && r.name) {
@@ -207,19 +217,20 @@ export default function PhoneAudit() {
             last = parts.slice(1).join(" ");
           }
         }
-        const phone = r.phone_e164 || r.phone_number || r.office_phone || "";
-        const base = [esc(first), esc(last), esc(phone), esc(r.email)];
+        const base = [esc(first), esc(last), esc(phone_number), esc(r.email)];
         return stateArg ? base.join(",") : [...base, esc(r.state)].join(",");
       });
       const csv = [header, ...lines].join("\n");
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
+      const filename = `${stateArg ?? "all"}_mobile_${exportFormat}_${new Date().toISOString().slice(0, 10)}.csv`;
       a.href = url;
-      a.download = `${stateArg ?? "all"}_mobile_verified_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
-      toast.success(`Exported ${rows.length.toLocaleString()} mobile leads`);
+      setExportSummary({ ...summary, filename });
+      toast.success(`Exported ${summary.exported.toLocaleString()} mobile leads`);
     } catch (e: any) {
       toast.dismiss(tid);
       toast.error(`Export failed: ${e.message}`);
