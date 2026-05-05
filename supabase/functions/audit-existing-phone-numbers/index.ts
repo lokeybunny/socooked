@@ -39,39 +39,52 @@ Deno.serve(async (req) => {
       });
     }
 
+    const stateFilter = body.state ? String(body.state).toUpperCase() : null;
+    const applyState = (q: any) => stateFilter ? q.eq("state", stateFilter) : q;
+
     if (action === "preview") {
-      // Return counts so UI can show estimated cost before user starts
-      const { count: totalLeads } = await supabase.from("state_leads").select("*", { count: "exact", head: true });
+      const totalQ = applyState(supabase.from("state_leads").select("*", { count: "exact", head: true }));
+      const { count: totalLeads } = await totalQ;
       const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString();
-      const { count: needAudit } = await supabase
-        .from("state_leads")
-        .select("*", { count: "exact", head: true })
-        .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`);
-      // Cache-hit estimate: count phone_lookups recent rows
+      const needQ = applyState(
+        supabase.from("state_leads").select("*", { count: "exact", head: true })
+          .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`),
+      );
+      const { count: needAudit } = await needQ;
       const { count: cacheReady } = await supabase
         .from("phone_lookups")
         .select("*", { count: "exact", head: true })
         .gte("checked_at", cutoff);
+      // Per-state breakdown for selector
+      const { data: byState } = await supabase
+        .from("state_leads")
+        .select("state")
+        .limit(50000);
+      const stateCounts: Record<string, number> = {};
+      (byState ?? []).forEach((r: any) => {
+        if (r.state) stateCounts[r.state] = (stateCounts[r.state] ?? 0) + 1;
+      });
       return new Response(JSON.stringify({
         total_leads: totalLeads ?? 0,
         need_audit: needAudit ?? 0,
         cache_ready: cacheReady ?? 0,
         estimated_cost_usd: Number(((needAudit ?? 0) * 0.008).toFixed(2)),
+        states: Object.entries(stateCounts).map(([state, count]) => ({ state, count })).sort((a, b) => b.count - a.count),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     let job: any = null;
     if (action === "start") {
-      // Count remaining
       const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString();
-      const { count: needAudit } = await supabase
-        .from("state_leads")
-        .select("*", { count: "exact", head: true })
-        .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`);
+      const needQ = applyState(
+        supabase.from("state_leads").select("*", { count: "exact", head: true })
+          .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`),
+      );
+      const { count: needAudit } = await needQ;
       const { data } = await supabase.from("phone_audit_jobs").insert({
         status: "running", total: needAudit ?? 0, started_at: new Date().toISOString(),
       }).select("*").single();
-      job = data;
+      job = { ...data, _state: stateFilter };
     } else if (action === "resume" && jobId) {
       const { data } = await supabase.from("phone_audit_jobs").update({
         status: "running", paused_at: null,
