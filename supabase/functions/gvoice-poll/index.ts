@@ -162,7 +162,11 @@ serve(async (req) => {
         : `Re: Google Voice text from ${phone || "unknown"}`;
       
       // Build raw reply MIME with signature
-      const EMAIL_SIGNATURE = `<br/><br/><div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;"><strong style="color:#111;">Warren Thompson</strong><br/><a href="https://warren.guru" style="color:#2754C5;text-decoration:none;">Warren.Guru</a><br/><a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a> (cell)<br/><a href="https://warren.guru/payme" style="color:#2754C5;text-decoration:none;">💳 Pay Me</a></div>`;
+      const { data: bn } = await supabase.from("app_settings").select("value").eq("key", "business_numbers").maybeSingle();
+      const cellRaw = String((bn?.value as any)?.cell || "+14802200405").replace(/\D/g, "").slice(-10);
+      const cellPretty = cellRaw.length === 10 ? `(${cellRaw.slice(0,3)}) ${cellRaw.slice(3,6)}-${cellRaw.slice(6)}` : "(480) 220-0405";
+      const cellE164 = cellRaw.length === 10 ? `+1${cellRaw}` : "+14802200405";
+      const EMAIL_SIGNATURE = `<br/><br/><div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;"><strong style="color:#111;">Warren Thompson</strong><br/><a href="https://warren.guru" style="color:#2754C5;text-decoration:none;">Warren.Guru</a><br/><a href="tel:${cellE164}" style="color:#555;text-decoration:none;">${cellPretty}</a> (cell)<br/><a href="https://warren.guru/payme" style="color:#2754C5;text-decoration:none;">💳 Pay Me</a></div>`;
       const htmlBody = `<div style="font-family:Arial,sans-serif;">${message.replace(/\n/g, '<br/>')}</div>${EMAIL_SIGNATURE}`;
       const rawLines = [
         `From: ${IMPERSONATE_EMAIL}`,

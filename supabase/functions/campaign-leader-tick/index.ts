@@ -174,7 +174,24 @@ function randomHexId(len = 10): string {
   return s;
 }
 
-function buildEmail(firstName: string, addr: string) {
+async function getCellNumberForSig(): Promise<{ tel: string; pretty: string }> {
+  const fb = { tel: "tel:+14802200405", pretty: "(480) 220-0405" };
+  try {
+    const sbUrl = Deno.env.get("SUPABASE_URL");
+    const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!sbUrl || !sbKey) return fb;
+    const r = await fetch(`${sbUrl}/rest/v1/app_settings?key=eq.business_numbers&select=value`, {
+      headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+    });
+    const rows = await r.json();
+    const d = String(rows?.[0]?.value?.cell || "").replace(/\D/g, "").slice(-10);
+    if (d.length !== 10) return fb;
+    return { tel: `tel:+1${d}`, pretty: `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` };
+  } catch { return fb; }
+}
+
+async function buildEmail(firstName: string, addr: string) {
+  const { tel: cellTel, pretty: cellPretty } = await getCellNumberForSig();
   const sIdx = pickIdx(SUBJECT_VARIANTS);
   const iIdx = pickIdx(EMAIL_INTROS);
   const pIdx = pickIdx(EMAIL_PITCHES);
@@ -218,7 +235,7 @@ function buildEmail(firstName: string, addr: string) {
     `<p style="margin:0 0 ${m5}px 0;">${fingerprintText(cta)}</p>`,
     `<p style="margin:0 0 4px 0;">${signOff},</p>`,
     `<p style="margin:0 0 2px 0;">Warren Guru</p>`,
-    `<p style="margin:0;"><a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a></p>`,
+    `<p style="margin:0;"><a href="${cellTel}" style="color:#555;text-decoration:none;">${cellPretty}</a></p>`,
     `<div style="display:none;color:transparent;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">ref:${trackId}</div>`,
   ].join("\n");
 
@@ -483,7 +500,7 @@ async function runEmailFor(contact: any): Promise<{ ok: boolean; skipped?: boole
 
   const firstName = contact.first_name || "there";
   const addr = contact.property_address || "your property";
-  const { subject, body, variant: emailVariant } = buildEmail(firstName, addr);
+  const { subject, body, variant: emailVariant } = await buildEmail(firstName, addr);
   const emailResult = await sendEmail(contact.email, subject, body);
   lastChannelSendAt.email = Date.now();
 
@@ -610,7 +627,7 @@ async function runTest(payload: any) {
 
   if (channel === "email" || channel === "both") {
     if (!email) return { ok: false, error: "missing_test_email" };
-    const { subject, body } = buildEmail(firstName, addr);
+    const { subject, body } = await buildEmail(firstName, addr);
     result.steps.push({ step: "email_preview", subject, body });
     const er = await sendEmail(email, subject, body);
     result.steps.push({ step: "email_send", ok: er.ok, error: er.error, id: er.id });
@@ -869,7 +886,7 @@ Deno.serve(async (req) => {
     if (mode === "preview") {
       const firstName = payload.first_name || "there";
       const addr = payload.property_address || "your property";
-      const { subject, body, variant } = buildEmail(firstName, addr);
+      const { subject, body, variant } = await buildEmail(firstName, addr);
       const { text } = buildSms(firstName, addr);
       return new Response(JSON.stringify({
         ok: true,

@@ -49,14 +49,32 @@ async function getAccessToken(sa: any): Promise<string> {
   return data.access_token;
 }
 
-const EMAIL_SIGNATURE = `
+async function getEmailSignature(): Promise<string> {
+  let cellE164 = "+14802200405", cellPretty = "(480) 220-0405";
+  try {
+    const sbUrl = Deno.env.get("SUPABASE_URL");
+    const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (sbUrl && sbKey) {
+      const r = await fetch(`${sbUrl}/rest/v1/app_settings?key=eq.business_numbers&select=value`, {
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+      });
+      const rows = await r.json();
+      const d = String(rows?.[0]?.value?.cell || "").replace(/\D/g, "").slice(-10);
+      if (d.length === 10) {
+        cellE164 = `+1${d}`;
+        cellPretty = `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+      }
+    }
+  } catch { /* fallback */ }
+  return `
 <br/><br/>
 <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;">
   <strong style="color:#111;">Warren Thompson</strong><br/>
   <a href="https://warren.guru" style="color:#2754C5;text-decoration:none;">Warren.Guru</a><br/>
-  <a href="tel:+14802200405" style="color:#555;text-decoration:none;">(480) 220-0405</a> (cell)<br/>
+  <a href="tel:${cellE164}" style="color:#555;text-decoration:none;">${cellPretty}</a> (cell)<br/>
   <a href="https://warren.guru/payme" style="color:#2754C5;text-decoration:none;">💳 Pay Me</a>
 </div>`;
+}
 
 interface FunnelEmailConfig {
   subject: string;
@@ -157,7 +175,7 @@ serve(async (req) => {
     if (!sa) throw new Error("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON");
 
     const token = await getAccessToken(sa);
-    const htmlBody = template.body(recipientName) + EMAIL_SIGNATURE;
+    const htmlBody = template.body(recipientName) + (await getEmailSignature());
 
     // Build raw email – RFC 2047 encode subject to prevent charset corruption
     const subjectB64 = btoa(unescape(encodeURIComponent(template.subject)))

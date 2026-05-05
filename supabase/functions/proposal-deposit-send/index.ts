@@ -12,8 +12,21 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-function buildHtml(p: any, amount: string) {
+async function getCellPretty(): Promise<string> {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.business_numbers&select=value`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+    });
+    const rows = await r.json();
+    const d = String(rows?.[0]?.value?.cell || "").replace(/\D/g, "").slice(-10);
+    if (d.length === 10) return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+  } catch { /* fallback */ }
+  return "(480) 220-0405";
+}
+
+async function buildHtml(p: any, amount: string) {
   const firstName = (p.client_name || "").split(" ")[0] || "there";
+  const cellPretty = await getCellPretty();
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
       <div style="background: #059669; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -59,7 +72,7 @@ function buildHtml(p: any, amount: string) {
 
         <p style="font-size: 14px; margin-top: 24px;">
           — Warren<br/>
-          <span style="color: #6b7280; font-size: 13px;">(480) 220-0405 (cell)</span>
+          <span style="color: #6b7280; font-size: 13px;">${cellPretty} (cell)</span>
         </p>
       </div>
       <img src="${SUPABASE_URL}/functions/v1/proposal-deposit-track?id=${p.id}&t=${Date.now()}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;" />
@@ -113,7 +126,7 @@ Deno.serve(async (req) => {
     const amount = 199.50;
     const amountStr = amount.toFixed(2);
     const subject = `Deposit to start your video — $${amountStr}`;
-    const html = buildHtml(p, amountStr);
+    const html = await buildHtml(p, amountStr);
 
     const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
       method: "POST",
