@@ -1,72 +1,90 @@
-## AgentFlow → Apify Migration (Focused Swap)
+## Phone Quality Gate — Twilio Lookup Audit System
 
-The existing AgentFlow system is **90% built and working**: the database schema (`af_listings`, `af_agents`, `af_agent_contacts`, `af_agent_listings`, `af_scrape_jobs`, `target_locations`), the cron orchestrator, phone validation (Twilio Lookup), CSV generation, and the dashboard at `/agentflow` are all in place. The ONLY broken piece is the scraping layer, which depends on ZenRows credits that are exhausted.
+Add a strict phone-quality gate that uses Twilio Lookup (carrier/line-type) to verify every number before it lands in `state_leads`. Includes a new admin "Phone Number Audit" page for cleaning existing data.
 
-This plan replaces ZenRows with Apify — nothing else gets rewritten.
+### Cost warning
 
----
-
-### What changes
-
-**1. `agentflow-scrape-zillow` — full rewrite**
-- Calls Apify actor `maxcopell/zillow-scraper` via `POST /v2/acts/{actor_id}/run-sync-get-dataset-items` (waits for completion, returns items inline — perfect for an edge function)
-- Input: `{ searchUrls: ["https://www.zillow.com/<location>/homes/"], extractionMethod: "MAP_MARKERS" }` (cheapest path; ~$0.001/listing)
-- For each item, extract: `zpid`, address parts, `price`, `detailUrl`, `brokerName`, `attributionInfo.agentName`, `attributionInfo.agentLicenseNumber`, `attributionInfo.agentZuid`, `attributionInfo.agentProfileUrl`
-- Upsert listings + agents (using existing `normalized_key` dedupe)
-- Apify token rotation: try `APIFY_TOKEN`, then `APIFY_TOKEN_CRAIGSLIST`, then `APIFY_TOKEN_COMMUNITY` (matches existing rotation memory)
-
-**2. `agentflow-enrich-phones` → renamed concept, same file**
-- Calls Apify actor `maxcopell/zillow-detail-scraper` with up to 50 agent profile URLs at a time
-- Extracts `phoneNumber`, `cellPhone`, `businessPhone` from the agent detail payload
-- Inserts into `af_agent_contacts` with appropriate `source` (`apify_cell`, `apify_business`)
-- Skips agents scraped within last 30 days
-
-**3. Delete `agentflow-debug-fields`** (ZenRows-specific debug helper, no longer needed)
-
-**4. `ApiManagement.tsx` — add Apify section**
-- Connection status card (token presence check via existing `agentflow-api-status` helper, or new lightweight call)
-- Two action buttons: "Trigger Listing Scrape" (calls `agentflow-scrape-zillow`) and "Run Profile Enrichment" (calls `agentflow-enrich-phones`)
-- Live Apify usage stats from `af_scrape_jobs` (last run, items scraped today, total cost estimate)
+Twilio Lookup with `LineTypeIntelligence` is **$0.008/lookup**. A 50k-lead CSV = ~$400. The system will:
+- Cache results for 30 days (no re-billing for repeats)
+- Show estimated cost **before** running and require confirmation
+- Allow pause/resume on the admin audit
 
 ---
 
-### What stays unchanged
+### 1. Database changes (migration)
 
-- Database schema (already matches spec)
-- `agentflow-cron-tick` (already orchestrates correctly)
-- `agentflow-validate-phones` (Twilio Lookup, already working)
-- `agentflow-generate-csv` (CSV download, already working)
-- `AgentFlow.tsx` dashboard (already shows all required cards/tables)
-- pg_cron schedules (already running every 30/60/90 min + daily CSV)
-- Auth, Storage, real-time subscriptions
+**New table `phone_lookups`** (cache, deduped by E.164):
+- `phone_e164` (PK), `valid`, `line_type` (mobile/landline/voip/unknown), `carrier_name`, `carrier_type`, `country_code`, `raw_response` (jsonb), `status` (success/failed), `checked_at`
+
+**New table `rejected_leads`**:
+- Mirror of `state_leads` core columns + `phone_raw`, `phone_normalized`, `phone_valid`, `phone_line_type`, `phone_carrier`, `phone_lookup_status`, `phone_lookup_checked_at`, `rejection_reason`, `import_batch_id`, `original_row` (jsonb), `created_at`
+- RLS: authenticated only
+
+**Add columns to `state_leads`**:
+- `phone_line_type`, `phone_carrier`, `phone_lookup_status`, `phone_lookup_checked_at`, `import_batch_id`, `duplicate_of_lead_id`
+- (`phone_e164` already unique — that's our enforcement)
+
+### 2. Edge functions
+
+**`twilio-lookup-batch`** (shared internal helper)
+- Input: array of E.164 numbers
+- Checks `phone_lookups` cache (≤30 days old) first
+- Calls Twilio `https://lookups.twilio.com/v2/PhoneNumbers/{e164}?Fields=line_type_intelligence` for misses
+- Concurrency: 10 parallel, retry 3x on 429/5xx with exponential backoff
+- Upserts results to `phone_lookups`
+- Returns map of `{e164 → {valid, line_type, carrier, status}}`
+
+**`audit-uploaded-phone-numbers`** (replaces parsing path of `process-state-upload`)
+- Accept CSV upload + `selected_state` + `import_batch_id` + `confirmed:boolean`
+- Phase A (`confirmed=false`): parse, normalize, dedupe within file + against existing `state_leads`, run lookups, return audit summary (no writes to state_leads)
+- Phase B (`confirmed=true`): re-fetch cached results, insert mobile-valid into `state_leads`, insert rejects into `rejected_leads`
+- Stream progress via existing `upload:{progressId}` realtime broadcast (parsing/normalizing/looking-up/saving phases)
+
+**`audit-existing-phone-numbers`**
+- Body: `{ batch_id, action: 'start'|'pause'|'resume'|'status', batch_size: 200 }`
+- Tracked in new `phone_audit_jobs` table (status, total, processed, mobile, landline, voip, invalid, unknown, failed, paused, started_at)
+- Pulls un-audited or stale (>30d) `state_leads.phone_e164`, runs through `twilio-lookup-batch`, updates each lead with audit fields
+- Polls itself via `EdgeRuntime.waitUntil` until job paused/done
+- Marks duplicates (same `phone_e164` collisions don't exist — enforced — but flags any `phone_normalized` mismatches with `duplicate_of_lead_id`)
+
+**`delete-non-mobile-leads`**
+- Body: `{ confirm: true, dry_run?: boolean }`
+- Moves all `state_leads` where `phone_line_type != 'mobile'` OR `phone_valid = false` into `rejected_leads`, then deletes from `state_leads`
+- Returns count deleted
+
+### 3. Frontend changes
+
+**Update `src/pages/UsaMap.tsx`** (upload modal):
+- New 2-step flow: upload → audit summary modal → confirm save
+- Audit summary shows: total rows, unique numbers, mobile approved, duplicates removed, landlines/voip/invalid/unknown rejected, failed lookups, **estimated cost** ($0.008 × new lookups)
+- Live progress phases (parsing → normalizing → deduping → twilio lookup → filtering → saving) with progress bar
+- Buttons: "Save Mobile Leads Only", "Download Rejected CSV", "Download Full Audit CSV", "Cancel"
+
+**New page `src/pages/PhoneAudit.tsx`** at `/phone-audit` (sidebar entry, admin-gated like other admin pages):
+- Stats cards: total leads, unique numbers, audited, needing audit, mobile, landlines, voip, invalid, unknown, duplicates, est. cost
+- Buttons: Start / Pause / Resume Audit, Delete Non-Mobile (with confirm dialog), Export Non-Mobile CSV, Export Full Audit CSV
+- Live progress (poll `phone_audit_jobs` every 2s while running)
+
+### 4. Cost-protection guardrails
+
+- Audit summary modal **always shows estimated cost** before any write
+- Existing-DB audit requires explicit "Start Audit" click + cost ack
+- Cache reuse logs to console so user sees savings
+- `phone_lookups` cache TTL = 30 days
+
+### Out of scope (per your answers)
+
+- Other tables (lw_sellers, sms_contacts, customers) — only `state_leads`
+- Twilio Connector gateway — using existing TWILIO_ACCOUNT_SID/AUTH_TOKEN secrets
 
 ---
 
-### Apify cost math
-- `maxcopell/zillow-scraper` (MAP_MARKERS mode): ~$0.001 per listing → 3,000 listings/day = **$3/day**
-- `maxcopell/zillow-detail-scraper`: ~$0.005 per detail page → 1,500 enrichments/day = **$7.50/day**
-- **Total: ~$10/day** for the daily 3k+ mobile target. Apify token already has credits.
+### Technical notes
 
----
-
-### Files touched
-
-```text
-supabase/functions/agentflow-scrape-zillow/index.ts   (rewrite, ~180 lines)
-supabase/functions/agentflow-enrich-phones/index.ts   (rewrite, ~150 lines)
-supabase/functions/agentflow-debug-fields/           (delete)
-src/pages/ApiManagement.tsx                          (add Apify card section)
-```
-
-No DB migration needed. No new secrets needed (`APIFY_TOKEN` already exists).
-
----
-
-### Why I'm pushing back on "rebuild from scratch"
-
-Re-creating the schema, dashboard, cron, CSV, and validation would:
-1. Lose the 843 already-scraped agents and 2,215 listings in the DB
-2. Take ~10x longer with no functional benefit
-3. Risk breaking the working pieces (Twilio Lookup, pg_cron schedules)
-
-The actual problem is one provider swap. This plan fixes that without disturbing what works.
+- Twilio Lookup v2 endpoint: `GET https://lookups.twilio.com/v2/PhoneNumbers/{E164}?Fields=line_type_intelligence`
+- Auth: HTTP Basic with `TWILIO_ACCOUNT_SID:TWILIO_AUTH_TOKEN`
+- `line_type_intelligence.type` values: `mobile`, `landline`, `fixedVoip`, `nonFixedVoip`, `personal`, `tollFree`, `premium`, `sharedCost`, `uan`, `voicemail`, `unknown`
+- We treat `mobile` as the only acceptable type; `fixedVoip`/`nonFixedVoip` rejected as voip; missing/null = unknown
+- 404 from Twilio = invalid number
+- Concurrency 10 keeps us under Twilio's default 100 req/s limit
+- Background work in edge functions uses `EdgeRuntime.waitUntil` (already pattern in `process-state-upload`)
