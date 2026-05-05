@@ -1464,7 +1464,7 @@ export default function PhonePage() {
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Phone className="h-3.5 w-3.5 text-primary" />
                         <span className="font-medium">Cell:</span>
-                        <span className="text-foreground font-mono">(424) 465-1253</span>
+                        <span className="text-foreground font-mono">(480) 220-0405</span>
                         <button
                           onClick={() => setTeleprompterOpen(true)}
                           className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
