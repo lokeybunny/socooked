@@ -74,6 +74,7 @@ export default function UsaMap() {
   const [jobs, setJobs] = useState<Record<string, UploadJob>>({});
   const channelsRef = useRef<Record<string, ReturnType<typeof supabase.channel>>>({});
   const [exportPrompt, setExportPrompt] = useState<string | null>(null);
+  const [exportMobileOnly, setExportMobileOnly] = useState(false);
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
@@ -89,6 +90,19 @@ export default function UsaMap() {
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  // Realtime: refresh map summary when audits run or summaries change
+  useEffect(() => {
+    const ch = supabase
+      .channel("usa-map-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "state_summary" }, () => loadAll())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "phone_audit_jobs" }, (payload) => {
+        const status = (payload.new as { status?: string } | null)?.status;
+        if (status === "completed") loadAll();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const updateJob = (id: string, patch: Partial<UploadJob>) =>
     setJobs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
@@ -188,25 +202,29 @@ export default function UsaMap() {
   const dismissJob = (id: string) =>
     setJobs((prev) => { const next = { ...prev }; delete next[id]; return next; });
 
-  const exportStateCsv = async (state: string, batchSize = 3000) => {
-    const tid = toast.loading(`Exporting ${state}…`);
+  const exportStateCsv = async (state: string, batchSize = 3000, mobileOnly = false) => {
+    const tid = toast.loading(`Exporting ${state}${mobileOnly ? " (mobile only)" : ""}…`);
     try {
       const pageSize = 1000;
       let from = 0;
       const rows: any[] = [];
       while (true) {
-        const { data, error } = await supabase
+        let q = supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,office_phone,email")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid")
           .eq("state", state)
           .range(from, from + pageSize - 1);
+        if (mobileOnly) {
+          q = q.eq("phone_line_type", "mobile").eq("phone_valid", true);
+        }
+        const { data, error } = await q;
         if (error) throw error;
         if (!data?.length) break;
         rows.push(...data);
         if (data.length < pageSize) break;
         from += pageSize;
       }
-      if (!rows.length) { toast.dismiss(tid); toast.error(`No leads for ${state}`); return; }
+      if (!rows.length) { toast.dismiss(tid); toast.error(`No ${mobileOnly ? "mobile " : ""}leads for ${state}`); return; }
 
       const esc = (v: any) => {
         const s = (v ?? "").toString();
@@ -445,15 +463,25 @@ export default function UsaMap() {
                 Choose how you want to download the CSV. Total leads: {(summary[exportPrompt]?.total_leads ?? 0).toLocaleString()}.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-2">
+            <div className="grid gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-muted/40">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={exportMobileOnly}
+                  onChange={(e) => setExportMobileOnly(e.target.checked)}
+                />
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <span>Mobile numbers only (Twilio-verified)</span>
+              </label>
               <Button
-                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, 3000); }}
+                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; setExportPrompt(null); exportStateCsv(s, 3000, m); }}
               >
                 <Download className="h-4 w-4 mr-2" /> Split by Day (3,000 / day, ZIP)
               </Button>
               <Button
                 variant="outline"
-                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, Infinity); }}
+                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; setExportPrompt(null); exportStateCsv(s, Infinity, m); }}
               >
                 <Download className="h-4 w-4 mr-2" /> Full Batch (single CSV)
               </Button>

@@ -64,11 +64,22 @@ export default function PhoneAudit() {
   useEffect(() => { loadPreview(); }, [loadPreview]);
   useEffect(() => { loadLatestJob(); }, [loadLatestJob]);
 
+  // Realtime updates for the audit job + poll fallback
+  useEffect(() => {
+    if (!job?.id) return;
+    const ch = supabase
+      .channel(`phone-audit-${job.id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "phone_audit_jobs", filter: `id=eq.${job.id}` },
+        (payload) => setJob(payload.new as unknown as Job))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [job?.id]);
+
   useEffect(() => {
     if (job?.status !== "running") return;
-    const id = setInterval(() => loadLatestJob(), 3000);
+    const id = setInterval(() => { loadLatestJob(); loadPreview(); }, 4000);
     return () => clearInterval(id);
-  }, [job?.status, loadLatestJob]);
+  }, [job?.status, loadLatestJob, loadPreview]);
 
   const callAudit = async (action: string) => {
     setLoading(true);
