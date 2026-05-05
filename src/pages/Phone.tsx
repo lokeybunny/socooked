@@ -1510,6 +1510,7 @@ export default function PhonePage() {
             </SheetDescription>
           </SheetHeader>
           <div className="mt-6 space-y-6">
+            <ChangeNumberSettings />
             <MissedCallSettings section="settings" />
             <VoidFixFirstReplySettings />
             <VoidFixActivityTab />
