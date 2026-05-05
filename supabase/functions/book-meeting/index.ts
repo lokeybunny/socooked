@@ -125,7 +125,7 @@ async function sendEmail(to: string, subject: string, body: string) {
   try {
     const sa = JSON.parse(saJson);
     const accessToken = await getAccessToken(sa);
-    const raw = buildRawEmail(to, subject, body);
+    const raw = await buildRawEmail(to, subject, body);
     await fetch(`${GMAIL_API}/users/me/messages/send`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
