@@ -310,7 +310,13 @@ export default function CampaignLeader() {
   }
 
   if (!settings) {
-    return <div className="p-8 text-muted-foreground">Loading Campaign Leader…</div>;
+    return (
+      <div className="p-8 space-y-4">
+        <div className="text-muted-foreground">Loading Campaign Leader…</div>
+        <Button variant="outline" onClick={() => loadAll()}>Retry</Button>
+        <p className="text-xs text-muted-foreground">If this persists, the backend may be temporarily slow. Try again in a moment.</p>
+      </div>
+    );
   }
 
   const totalToday = (stats.emails_sent || 0) + (stats.emails_failed || 0) + (stats.sms_sent || 0) + (stats.sms_failed || 0);
