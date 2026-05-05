@@ -45,6 +45,26 @@ Deno.serve(async (req) => {
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const selectedState = String(form.get("selected_state") || "").trim();
+    const progressId = String(form.get("progress_id") || "").trim();
+
+    const SUPA_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const broadcast = async (event: string, payload: Record<string, unknown>) => {
+      if (!progressId) return;
+      try {
+        await fetch(`${SUPA_URL}/realtime/v1/api/broadcast`, {
+          method: "POST",
+          headers: {
+            apikey: SERVICE_KEY,
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messages: [{ topic: `upload:${progressId}`, event, payload, private: false }],
+          }),
+        });
+      } catch (_) { /* ignore */ }
+    };
     if (!file || !selectedState) {
       return new Response(JSON.stringify({ error: "file and selected_state are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
