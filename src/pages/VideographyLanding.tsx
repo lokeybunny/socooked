@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
+import FloatingCallButton from '@/components/landing/FloatingCallButton';
 import { motion } from 'framer-motion';
 import { useVisitorLocation } from '@/hooks/useVisitorCity';
 
@@ -480,6 +481,7 @@ export default function VideographyLanding() {
         </div>
       </footer>
       <FloatingBookNow />
+      <FloatingCallButton />
       <ScrollToTopButton />
 
       {/* Reel Video Popup */}

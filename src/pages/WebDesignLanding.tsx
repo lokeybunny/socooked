@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ScrollToTopButton from '@/components/landing/ScrollToTopButton';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
+import FloatingCallButton from '@/components/landing/FloatingCallButton';
 import { motion } from 'framer-motion';
 import { useVisitorLocation } from '@/hooks/useVisitorCity';
 
@@ -530,6 +531,7 @@ export default function WebDesignLanding() {
         </div>
       </footer>
       <FloatingBookNow variant="cyan" />
+      <FloatingCallButton variant="cyan" />
       <ScrollToTopButton />
 
       {/* Iframe Preview Modal */}
