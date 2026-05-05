@@ -134,7 +134,8 @@ export default function PowerDial() {
             contact_name: row.contact_name,
             customer_id: row.customer_id || row.lead_id,
             notes: row.notes || null,
-          });
+            note: row.note || null,
+          } as any);
         }
       })
       .subscribe();
