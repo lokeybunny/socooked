@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Phone, Play, Pause, Trash2, Download, RefreshCw } from "lucide-react";
+import { Phone, Play, Pause, Trash2, Download, RefreshCw, Upload } from "lucide-react";
 
 type Job = {
   id: string;
@@ -14,31 +15,41 @@ type Job = {
   landline: number;
   voip: number;
   invalid: number;
+  unknown: number;
+  failed: number;
   started_at: string | null;
   paused_at: string | null;
   completed_at: string | null;
 };
+
+type StateCount = { state: string; count: number };
 
 type Preview = {
   total_leads: number;
   need_audit: number;
   cache_ready: number;
   estimated_cost_usd: number;
+  states: StateCount[];
 };
 
 export default function PhoneAudit() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [job, setJob] = useState<Job | null>(null);
+  const [selectedState, setSelectedState] = useState<string>("ALL");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [uploadJob, setUploadJob] = useState<{ status: string; processed?: number; total?: number; result?: any } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const stateArg = selectedState === "ALL" ? undefined : selectedState;
 
   const loadPreview = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke("audit-existing-phone-numbers", {
-      body: { action: "preview" },
+      body: { action: "preview", state: stateArg },
     });
     if (error) toast.error(error.message);
     else setPreview(data as Preview);
-  }, []);
+  }, [stateArg]);
 
   const loadLatestJob = useCallback(async () => {
     const { data } = await supabase
@@ -47,15 +58,12 @@ export default function PhoneAudit() {
       .order("started_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
-    if (data) setJob(data as Job);
+    if (data) setJob(data as unknown as Job);
   }, []);
 
-  useEffect(() => {
-    loadPreview();
-    loadLatestJob();
-  }, [loadPreview, loadLatestJob]);
+  useEffect(() => { loadPreview(); }, [loadPreview]);
+  useEffect(() => { loadLatestJob(); }, [loadLatestJob]);
 
-  // Poll while running
   useEffect(() => {
     if (job?.status !== "running") return;
     const id = setInterval(() => loadLatestJob(), 3000);
@@ -65,16 +73,13 @@ export default function PhoneAudit() {
   const callAudit = async (action: string) => {
     setLoading(true);
     try {
-      const body: Record<string, unknown> = { action };
-      if (job?.id && (action === "pause" || action === "resume" || action === "status")) {
-        body.job_id = job.id;
-      }
-      const { data, error } = await supabase.functions.invoke("audit-existing-phone-numbers", { body });
+      const body: Record<string, unknown> = { action, state: stateArg };
+      if (job?.id && (action === "pause" || action === "resume")) body.job_id = job.id;
+      const { error } = await supabase.functions.invoke("audit-existing-phone-numbers", { body });
       if (error) throw error;
-      toast.success(`Action: ${action}`);
+      toast.success(`Audit ${action}`);
       await loadLatestJob();
       await loadPreview();
-      return data;
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -84,22 +89,22 @@ export default function PhoneAudit() {
 
   const onStart = async () => {
     if (!preview) return;
-    const ok = window.confirm(
-      `Start audit?\n\nLeads needing lookup: ${preview.need_audit}\nEstimated Twilio cost: $${preview.estimated_cost_usd}\n\nContinue?`,
-    );
-    if (!ok) return;
+    const scope = selectedState === "ALL" ? "all states" : selectedState;
+    if (!window.confirm(
+      `Start audit for ${scope}?\n\nLeads needing lookup: ${preview.need_audit}\nEstimated Twilio cost: $${preview.estimated_cost_usd}\n\nContinue?`,
+    )) return;
     await callAudit("start");
   };
 
   const onDeleteNonMobile = async () => {
-    const dry = await supabase.functions.invoke("delete-non-mobile-leads", { body: { dry_run: true } });
+    const dry = await supabase.functions.invoke("delete-non-mobile-leads", { body: { dry_run: true, state: stateArg } });
     if (dry.error) return toast.error(dry.error.message);
     const count = (dry.data as { would_move: number })?.would_move ?? 0;
-    if (!window.confirm(`Move ${count} non-mobile leads to rejected_leads and delete them from state_leads?`)) return;
+    if (!window.confirm(`Move ${count} non-mobile leads to rejected_leads and delete from state_leads?`)) return;
     setDeleting(true);
     try {
       const { error } = await supabase.functions.invoke("delete-non-mobile-leads", {
-        body: { confirm: true },
+        body: { confirm: true, state: stateArg },
       });
       if (error) throw error;
       toast.success(`Deleted ${count} non-mobile leads`);
@@ -124,13 +129,11 @@ export default function PhoneAudit() {
     const csv = [
       headers.join(","),
       ...rows.map((r) =>
-        headers
-          .map((h) => {
-            const v = (r as Record<string, unknown>)[h];
-            const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
-            return `"${s.replace(/"/g, '""')}"`;
-          })
-          .join(","),
+        headers.map((h) => {
+          const v = (r as Record<string, unknown>)[h];
+          const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+          return `"${s.replace(/"/g, '""')}"`;
+        }).join(","),
       ),
     ].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -140,6 +143,35 @@ export default function PhoneAudit() {
     a.download = `rejected_leads_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const onUploadFile = async (file: File) => {
+    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) { toast.error("Upload a CSV or Excel file"); return; }
+    if (selectedState === "ALL") { toast.error("Pick a state first"); return; }
+    setUploadJob({ status: "uploading" });
+    try {
+      const text = await file.text();
+      const phaseA = await supabase.functions.invoke("audit-uploaded-phone-numbers", {
+        body: { state: selectedState, csv: text, confirmed: false, filename: file.name },
+      });
+      if (phaseA.error) throw phaseA.error;
+      const audit = phaseA.data as { import_batch_id: string; total: number; mobile: number; landline: number; voip: number; invalid: number; estimated_cost_usd: number };
+      setUploadJob({ status: "audited", result: audit });
+      const ok = window.confirm(
+        `Audit complete:\nMobile: ${audit.mobile}\nLandline: ${audit.landline}\nVoIP: ${audit.voip}\nInvalid: ${audit.invalid}\n\nSave ${audit.mobile} mobile leads to ${selectedState}?`,
+      );
+      if (!ok) { setUploadJob(null); return; }
+      const phaseB = await supabase.functions.invoke("audit-uploaded-phone-numbers", {
+        body: { state: selectedState, confirmed: true, import_batch_id: audit.import_batch_id },
+      });
+      if (phaseB.error) throw phaseB.error;
+      toast.success(`Saved ${audit.mobile} mobile leads`);
+      setUploadJob(null);
+      await loadPreview();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+      setUploadJob(null);
+    }
   };
 
   const pct = job && job.total > 0 ? Math.min(100, Math.round((job.processed / job.total) * 100)) : 0;
@@ -156,31 +188,35 @@ export default function PhoneAudit() {
         </Button>
       </div>
 
+      <Card className="p-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium">State:</span>
+        <Select value={selectedState} onValueChange={setSelectedState}>
+          <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All States</SelectItem>
+            {(preview?.states ?? []).map((s) => (
+              <SelectItem key={s.state} value={s.state}>{s.state} ({s.count})</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">
+          {selectedState === "ALL"
+            ? "Audit/manage every state"
+            : `Scope all actions to ${selectedState}`}
+        </span>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Total Leads</div>
-          <div className="text-2xl font-bold">{preview?.total_leads ?? "—"}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Need Audit</div>
-          <div className="text-2xl font-bold">{preview?.need_audit ?? "—"}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Cached Lookups</div>
-          <div className="text-2xl font-bold">{preview?.cache_ready ?? "—"}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground">Est. Twilio Cost</div>
-          <div className="text-2xl font-bold">${preview?.estimated_cost_usd ?? "0.00"}</div>
-        </Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Total Leads</div><div className="text-2xl font-bold">{preview?.total_leads ?? "—"}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Need Audit</div><div className="text-2xl font-bold">{preview?.need_audit ?? "—"}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Cached Lookups</div><div className="text-2xl font-bold">{preview?.cache_ready ?? "—"}</div></Card>
+        <Card className="p-4"><div className="text-xs text-muted-foreground">Est. Twilio Cost</div><div className="text-2xl font-bold">${preview?.estimated_cost_usd ?? "0.00"}</div></Card>
       </div>
 
       <Card className="p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Audit Job</h2>
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">
-            {job?.status ?? "no job yet"}
-          </span>
+          <h2 className="text-lg font-medium">Existing Database Audit</h2>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{job?.status ?? "no job yet"}</span>
         </div>
 
         {job && (
@@ -188,9 +224,7 @@ export default function PhoneAudit() {
             <div className="h-2 w-full bg-muted rounded">
               <div className="h-2 bg-primary rounded transition-all" style={{ width: `${pct}%` }} />
             </div>
-            <div className="text-sm text-muted-foreground">
-              {job.processed} / {job.total} processed ({pct}%)
-            </div>
+            <div className="text-sm text-muted-foreground">{job.processed} / {job.total} processed ({pct}%)</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
               <Stat label="Mobile" value={job.mobile} tone="text-emerald-500" />
               <Stat label="Landline" value={job.landline} tone="text-yellow-500" />
@@ -201,7 +235,7 @@ export default function PhoneAudit() {
         )}
 
         <div className="flex flex-wrap gap-2 pt-2">
-          {(!job || job.status === "completed" || job.status === "failed") && (
+          {(!job || job.status === "completed" || job.status === "error") && (
             <Button onClick={onStart} disabled={loading || !preview?.need_audit}>
               <Play className="h-4 w-4 mr-2" /> Start Audit
             </Button>
@@ -222,6 +256,46 @@ export default function PhoneAudit() {
           <Button variant="destructive" onClick={onDeleteNonMobile} disabled={deleting}>
             <Trash2 className="h-4 w-4 mr-2" /> Delete Non-Mobile
           </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Upload New CSV (gated by Twilio)</h2>
+          <span className="text-xs text-muted-foreground">
+            {selectedState === "ALL" ? "Pick a state above" : `Target: ${selectedState}`}
+          </span>
+        </div>
+        <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-3">
+          <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            Upload a CSV/Excel — every phone is audited via Twilio Lookup before save.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onUploadFile(f);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            onClick={() => fileRef.current?.click()}
+            disabled={selectedState === "ALL" || !!uploadJob}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {uploadJob?.status === "uploading" ? "Auditing…" : "Choose File"}
+          </Button>
+          {uploadJob?.result && (
+            <div className="text-sm text-muted-foreground pt-2">
+              Mobile {uploadJob.result.mobile} · Landline {uploadJob.result.landline} ·
+              VoIP {uploadJob.result.voip} · Invalid {uploadJob.result.invalid} ·
+              Est ${uploadJob.result.estimated_cost_usd}
+            </div>
+          )}
         </div>
       </Card>
     </div>
