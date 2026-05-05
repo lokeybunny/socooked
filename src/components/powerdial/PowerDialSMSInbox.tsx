@@ -910,6 +910,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     {starredSet.has(last10) && (
                       <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" aria-label="Signed proposal — starred client" />
                     )}
+                    {interestedSet.has(last10) && (
+                      <span
+                        className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)] shrink-0"
+                        aria-label="Marked interested on Power Dial call"
+                        title="Marked interested on Power Dial call"
+                      />
+                    )}
                     <span
                       className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none truncate"
                       title="Double-click to add or edit a name"
