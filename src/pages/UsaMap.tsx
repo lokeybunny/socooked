@@ -317,6 +317,8 @@ export default function UsaMap() {
   };
 
   const totalAll = useMemo(() => Object.values(summary).reduce((a, s) => a + s.total_leads, 0), [summary]);
+  const totalVerified = useMemo(() => Object.values(summary).reduce((a, s) => a + (s.verified_mobile ?? 0), 0), [summary]);
+  const totalAudited = useMemo(() => Object.values(summary).reduce((a, s) => a + (s.audited_count ?? 0), 0), [summary]);
   const totalDupes = useMemo(() => logs.reduce((a, l) => a + l.duplicate_count, 0), [logs]);
   const ranked = useMemo(
     () => Object.values(summary).sort((a, b) => b.total_leads - a.total_leads).slice(0, 10),
