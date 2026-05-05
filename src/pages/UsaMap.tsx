@@ -21,7 +21,8 @@ const GRID: (string | null)[][] = [
   [null, null, null, null, null, null, null, null, "FL", null, null],
 ];
 
-type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null };
+type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null; verified_mobile?: number; audited_count?: number };
+type VerifiedRow = { state: string; verified_mobile: number; landline_count: number; voip_count: number; invalid_count: number; audited_count: number; total_count: number };
 type UploadLog = { id: string; state: string; file_name: string | null; total_rows: number; inserted_count: number; duplicate_count: number; created_at: string };
 
 type AuditSummary = {
