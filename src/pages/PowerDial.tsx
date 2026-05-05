@@ -176,35 +176,54 @@ export default function PowerDial() {
     }
   };
 
-  // Extract phone numbers from messy pasted text (addresses, names, URLs, etc.)
-  const extractPhones = (raw: string): { phone: string; name: string | null }[] => {
-    // Match common US phone formats: (xxx) xxx-xxxx, xxx-xxx-xxxx, xxx.xxx.xxxx, +1xxxxxxxxxx, etc.
+  // Extract phone numbers from messy pasted text. Supports CSV "Name,Phone,Message" lines.
+  const extractPhones = (raw: string): { phone: string; name: string | null; note: string | null }[] => {
     const phoneRegex = /(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g;
     const seen = new Set<string>();
-    const results: { phone: string; name: string | null }[] = [];
+    const results: { phone: string; name: string | null; note: string | null }[] = [];
     const lines = raw.split('\n');
 
-    for (const line of lines) {
-      const matches = line.match(phoneRegex);
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      // Try CSV-style: Name,Phone,Message  (message may contain commas)
+      let csvName: string | null = null;
+      let csvNote: string | null = null;
+      let csvPhone: string | null = null;
+      if (line.includes(',')) {
+        const parts = line.split(',');
+        // Find the first part that contains a phone number
+        const phoneIdx = parts.findIndex(p => phoneRegex.test(p));
+        phoneRegex.lastIndex = 0;
+        if (phoneIdx > 0) {
+          csvName = parts.slice(0, phoneIdx).join(',').trim() || null;
+          csvPhone = parts[phoneIdx].trim();
+          csvNote = parts.slice(phoneIdx + 1).join(',').trim() || null;
+        }
+      }
+
+      const matches = (csvPhone || line).match(phoneRegex);
       if (!matches) continue;
       for (const match of matches) {
         const digits = match.replace(/\D/g, '');
-        // Normalize: must be 10 or 11 digits (with leading 1)
         const normalized = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
         if (normalized.length !== 10) continue;
         if (seen.has(normalized)) continue;
         seen.add(normalized);
 
-        // Try to extract a name from the same line (text before the phone number)
-        const idx = line.indexOf(match);
-        const before = line.slice(0, idx).replace(/[^a-zA-Z\s&'.-]/g, '').trim();
-        // Filter out noise: must be 2+ chars, not just whitespace
-        const name = before.length >= 2 && !/^\d+$/.test(before) ? before : null;
-        results.push({ phone: `+1${normalized}`, name });
+        let name = csvName;
+        if (!name) {
+          const idx = line.indexOf(match);
+          const before = line.slice(0, idx).replace(/[^a-zA-Z\s&'.-]/g, '').trim();
+          name = before.length >= 2 && !/^\d+$/.test(before) ? before : null;
+        }
+        results.push({ phone: `+1${normalized}`, name, note: csvNote });
       }
     }
     return results;
   };
+
 
   const handleCreate = async () => {
     if (!user) return;
