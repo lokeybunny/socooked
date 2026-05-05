@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { prepareExportRows, type ExportPhoneFormat } from "@/lib/phoneFormat";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Geographic-ish grid layout (rows top→bottom). Each cell = state code.
 const GRID: (string | null)[][] = [
