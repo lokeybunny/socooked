@@ -91,6 +91,19 @@ export default function UsaMap() {
 
   useEffect(() => { loadAll(); }, []);
 
+  // Realtime: refresh map summary when audits run or summaries change
+  useEffect(() => {
+    const ch = supabase
+      .channel("usa-map-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "state_summary" }, () => loadAll())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "phone_audit_jobs" }, (payload) => {
+        const status = (payload.new as { status?: string } | null)?.status;
+        if (status === "completed") loadAll();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   const updateJob = (id: string, patch: Partial<UploadJob>) =>
     setJobs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
 
