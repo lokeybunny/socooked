@@ -59,15 +59,13 @@ export function SmsThreadPopup({
     if (!last10) return;
     if (!silent) setLoading(true);
     try {
-      // Try to pull any new inbound from VoidFix
-      try { await supabase.functions.invoke("powerdial-sms", { body: { action: "poll", limit: 50 } }); } catch {}
       const { data } = await supabase
         .from("communications")
         .select("id, direction, body, from_address, to_address, status, created_at")
         .eq("type", "sms")
         .or(`from_address.ilike.%${last10},to_address.ilike.%${last10}`)
         .order("created_at", { ascending: true })
-        .limit(500);
+        .limit(300);
       const filtered = ((data as SMSMessage[]) || []).filter((m) => {
         const cp = m.direction === "inbound" ? m.from_address : m.to_address;
         return normalizeLast10(cp) === last10;
@@ -81,12 +79,13 @@ export function SmsThreadPopup({
   useEffect(() => {
     if (!open) return;
     load(false);
-    const id = setInterval(() => load(true), 6000);
+    // Poll VoidFix once on open so we pull any pending inbound for this thread
+    supabase.functions.invoke("powerdial-sms", { body: { action: "poll", limit: 50 } }).catch(() => {});
     const ch = supabase
       .channel(`sms-popup-${last10}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "communications", filter: "type=eq.sms" }, () => load(true))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "communications", filter: "type=eq.sms" }, () => load(true))
       .subscribe();
-    return () => { clearInterval(id); supabase.removeChannel(ch); };
+    return () => { supabase.removeChannel(ch); };
   }, [open, last10, load]);
 
   // Auto-scroll to bottom whenever messages change while open

@@ -129,10 +129,10 @@ export default function PowerDialSMSInbox() {
     if (!silent) setLoading(true);
     const { data } = await supabase
       .from('communications')
-      .select('*')
+      .select('id, direction, body, from_address, to_address, phone_number, external_id, status, created_at, customer_id, metadata, type, provider')
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
-      .limit(500);
+      .limit(300);
     setMessages((prev) => {
       const next = (data as SMSMessage[]) || [];
       // Avoid re-rendering if nothing actually changed (prevents thread "recycle" flash)
@@ -220,17 +220,22 @@ export default function PowerDialSMSInbox() {
     }
   }, [activeThread, messages, persistSeen]);
 
-  // Background poll every 8s — seamless, no spinner, no thread reset
+  // Background VoidFix poll every 12s — relies on realtime to refresh UI on new rows
   useEffect(() => {
-    const id = setInterval(() => { syncAndLoad({ silent: true }); }, 8000);
+    const id = setInterval(() => {
+      pollVoidFix().catch(() => {});
+    }, 12000);
     return () => clearInterval(id);
-  }, [syncAndLoad]);
+  }, [pollVoidFix]);
 
   // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
     const channel = supabase
       .channel('powerdial-sms-inbox')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
+        load({ silent: true });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
         load({ silent: true });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {

@@ -83,13 +83,12 @@ export default function SMS() {
   useEffect(() => {
     load();
     loadCounts();
-    const id = setInterval(loadCounts, 20000);
     const ch = supabase
       .channel('sms-tab-counts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hook_reply_threads' }, () => loadCounts())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_dnd_list' }, () => loadCounts())
       .subscribe();
-    return () => { clearInterval(id); supabase.removeChannel(ch); };
+    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const saveTemplate = async () => {
