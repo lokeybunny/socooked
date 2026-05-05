@@ -455,31 +455,31 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void }) {
+function UploadCard({ job, onDismiss, onConfirmSave, onCancel }: { job: UploadJob; onDismiss: () => void; onConfirmSave?: () => void; onCancel?: () => void }) {
   const isDone = job.phase === "complete";
   const isError = job.phase === "error";
-  const pct = job.candidates
-    ? Math.round(((job.processed ?? 0) / Math.max(1, job.candidates)) * 100)
-    : job.uploadPct ?? 0;
+  const isAudited = job.phase === "audited";
+  const pct = job.uploadPct ?? 0;
 
   return (
-    <div className={`rounded-lg border p-3 shadow-lg backdrop-blur bg-card/95 ${isError ? "border-destructive/40" : isDone ? "border-emerald-500/40" : "border-border"}`}>
+    <div className={`rounded-lg border p-3 shadow-lg backdrop-blur bg-card/95 ${isError ? "border-destructive/40" : isDone ? "border-emerald-500/40" : isAudited ? "border-amber-500/40" : "border-border"}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-xs font-semibold flex items-center gap-1.5">
             {isDone ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
               : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+              : isAudited ? <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
               : <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
             {job.state} · <span className="truncate">{job.file_name}</span>
           </div>
           <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">
-            {isDone ? "Complete" : isError ? `Error: ${job.message ?? "failed"}` : `${job.phase}${job.message ? ` — ${job.message}` : ""}`}
+            {isDone ? "Complete" : isError ? `Error: ${job.message ?? "failed"}` : `${job.phase.replace(/_/g, " ")}${job.message ? ` — ${job.message}` : ""}`}
           </div>
         </div>
         <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
       </div>
 
-      {!isError && (
+      {!isError && !isAudited && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-border">
           <div
             className={`h-full transition-all ${isDone ? "bg-emerald-500" : "bg-primary"}`}
@@ -488,18 +488,33 @@ function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void 
         </div>
       )}
 
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-        {job.candidates ? (
-          <span>{(job.processed ?? 0).toLocaleString()} / {job.candidates.toLocaleString()} rows</span>
-        ) : job.phase === "uploading" ? (
-          <span>Uploading {job.uploadPct ?? 0}%</span>
-        ) : job.total_rows ? (
-          <span>{job.total_rows.toLocaleString()} rows parsed</span>
-        ) : <span>&nbsp;</span>}
-        {(isDone || (job.inserted != null)) && (
-          <span>+{(job.inserted ?? 0).toLocaleString()} · {(job.duplicates ?? 0).toLocaleString()} dup</span>
-        )}
-      </div>
+      {isAudited && job.audit && onConfirmSave && (
+        <div className="mt-2 space-y-1.5 text-[11px]">
+          <div className="grid grid-cols-2 gap-1">
+            <div>📱 Mobile: <strong className="text-emerald-500">{job.audit.mobile_approved}</strong></div>
+            <div>☎️ Landline: <strong className="text-amber-500">{job.audit.landlines_rejected}</strong></div>
+            <div>🌐 VoIP: <strong className="text-amber-500">{job.audit.voip_rejected}</strong></div>
+            <div>❌ Invalid: <strong className="text-destructive">{job.audit.invalid_rejected}</strong></div>
+            <div>❓ Unknown: <strong>{job.audit.unknown_rejected}</strong></div>
+            <div>🔁 Dupes: <strong>{job.audit.duplicates_in_file + job.audit.duplicates_in_db}</strong></div>
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            New lookups: {job.audit.new_lookups} · Cache hits: {job.audit.cache_hits} · Cost: ${job.audit.estimated_cost_usd.toFixed(3)}
+          </div>
+          <div className="flex gap-1">
+            <Button size="sm" className="h-6 text-[11px] flex-1" onClick={onConfirmSave}>
+              <ShieldCheck className="h-3 w-3 mr-1" /> Save {job.audit.mobile_approved} Mobile
+            </Button>
+            {onCancel && <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={onCancel}>Cancel</Button>}
+          </div>
+        </div>
+      )}
+
+      {(isDone || job.inserted != null) && !isAudited && (
+        <div className="text-[10px] text-muted-foreground mt-1">
+          +{(job.inserted ?? 0).toLocaleString()} mobile saved · {(job.audit?.rejected_total ?? 0).toLocaleString()} rejected
+        </div>
+      )}
     </div>
   );
 }
