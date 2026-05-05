@@ -18,6 +18,7 @@ import ChangeNumberSettings from '@/components/phone/ChangeNumberSettings';
 
 import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import MissedCallSettings from '@/components/phone/MissedCallSettings';
+import CampaignManualDialer from '@/components/phone/CampaignManualDialer';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
