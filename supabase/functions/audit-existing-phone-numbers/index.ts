@@ -1,6 +1,6 @@
 // Audit existing state_leads phone numbers via Twilio Lookup, with start/pause/resume tracking.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { lookupBatch } from "../twilio-lookup-batch/index.ts";
+import { lookupBatch } from "../_shared/twilio-lookup.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

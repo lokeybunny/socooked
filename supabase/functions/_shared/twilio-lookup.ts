@@ -162,27 +162,3 @@ export async function lookupBatch(
   return { results, cacheHits, newLookups };
 }
 
-// Direct callable endpoint (for testing / explicit use)
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-    const { numbers } = await req.json();
-    if (!Array.isArray(numbers)) {
-      return new Response(JSON.stringify({ error: "numbers[] required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const out = await lookupBatch(supabase, numbers);
-    return new Response(JSON.stringify(out), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
