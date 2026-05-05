@@ -740,13 +740,22 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <Star className="h-3 w-3" />
             Starred ({threads.filter(t => starredSet.has(normalizeLast10(t.phone))).length})
           </button>
+          <button
+            type="button"
+            onClick={() => setFilterMode('disconnected')}
+            className={`text-[11px] px-2 py-1 rounded-full border transition-colors flex items-center gap-1 ${filterMode === 'disconnected' ? 'bg-orange-500/20 border-orange-500/50 text-orange-300' : 'border-border text-muted-foreground hover:text-foreground'}`}
+            title="Threads where VoidFix sent the 'just got disconnected' follow-up — needs callback"
+          >
+            <PhoneOff className="h-3 w-3" />
+            Disconnected ({threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone))).length})
+          </button>
         </div>
         <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
           ) : visibleThreads.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground py-8">
-              {filterMode === 'starred' ? 'No starred clients yet' : 'No SMS yet'}
+              {filterMode === 'starred' ? 'No starred clients yet' : filterMode === 'disconnected' ? 'No disconnected callbacks pending' : 'No SMS yet'}
             </p>
           ) : (
             visibleThreads.map(t => {
