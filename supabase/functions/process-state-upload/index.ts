@@ -100,21 +100,59 @@ Deno.serve(async (req) => {
 
     // Build candidate records, dedupe within file
     const seen = new Set<string>();
-    const candidates: any[] = [];
+    type Cand = {
+      phone_number: string; phone_e164: string; state: string;
+      name: string | null; first_name: string | null; last_name?: string | null;
+      address: string | null; property_address: string | null;
+      city: string | null; zip: string | null; email: string | null;
+      source: string; uploaded_file_name: string;
+    };
+    const preCandidates: Cand[] = [];
+
+    for (const r of rows) {
+      const e164 = toE164(r[phoneKey]);
+      if (!e164 || seen.has(e164)) continue;
+      seen.add(e164);
+
+      const fullName = nameKey ? cleanStr(r[nameKey]) : null;
+      const firstRaw = firstNameKey ? cleanStr(r[firstNameKey]) : null;
+      const lastRaw = lastNameKey ? cleanStr(r[lastNameKey]) : null;
+      const composedFull = fullName || [firstRaw, lastRaw].filter(Boolean).join(" ") || null;
+      const firstName = deriveFirstName(composedFull, firstRaw);
+      const lastName = lastRaw;
+      const address = addrKey ? cleanStr(r[addrKey]) : null;
+      const email = emailKey ? cleanEmail(r[emailKey]) : null;
+
+      preCandidates.push({
+        phone_number: String(r[phoneKey]).trim(),
+        phone_e164: e164,
+        state: selectedState,
+        name: composedFull || [firstName, lastName].filter(Boolean).join(" ") || null,
+        first_name: firstName,
+        last_name: lastName,
+        address,
+        property_address: address,
+        city: cityKey ? cleanStr(r[cityKey]) : null,
+        zip: zipKey ? cleanStr(r[zipKey]) : null,
+        email,
+        source: "batch_upload",
+        uploaded_file_name: file.name,
+      });
+    }
+
+    // ===== LGM verify in parallel (concurrency 25, 4s timeout) =====
     let lgmRejected = 0;
     let lgmChecked = 0;
     let lgmEnriched = 0;
     const LGM_KEY = Deno.env.get("LAGROWTHMACHINE_API_KEY") || "";
     const LGM_BASE = "https://apiv2.lagrowthmachine.com/flow";
 
-    // Verify a single lead through LGM. Returns { ok, enrich? }.
-    // Fail-open: network/5xx errors are treated as accepted so a flaky API doesn't drop rows.
     async function lgmVerify(payload: { email?: string | null; phone?: string | null; firstName?: string | null; lastName?: string | null; }): Promise<{ ok: boolean; enrich?: Record<string, any> }> {
       if (!LGM_KEY) return { ok: true };
       if (!payload.email && !payload.phone) return { ok: true };
       try {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 7000);
+        const timer = setTimeout(() => ctrl.abort(), 4000);
         const body: Record<string, any> = {};
         if (payload.email) body.email = payload.email;
         if (payload.phone) body.phone = payload.phone;
@@ -127,25 +165,10 @@ Deno.serve(async (req) => {
           signal: ctrl.signal,
         });
         clearTimeout(timer);
-        if (r.status === 429) {
-          await new Promise((res) => setTimeout(res, 1500));
-          return { ok: true }; // rate-limited -> fail open
-        }
-        if (r.status >= 500) return { ok: true };
+        if (r.status === 429 || r.status >= 500) return { ok: true };
         const j = await r.json().catch(() => ({}));
-        // Heuristic acceptance: explicit 'valid' / 'verified' / status===ok
-        const valid = j?.valid === true
-          || j?.verified === true
-          || j?.status === "valid"
-          || j?.status === "ok"
-          || (j?.email?.valid === true)
-          || (j?.phone?.valid === true);
-        const invalid = j?.valid === false
-          || j?.verified === false
-          || j?.status === "invalid"
-          || j?.status === "rejected"
-          || (j?.email?.valid === false && !payload.phone)
-          || (j?.phone?.valid === false && !payload.email);
+        const valid = j?.valid === true || j?.verified === true || j?.status === "valid" || j?.status === "ok" || (j?.email?.valid === true) || (j?.phone?.valid === true);
+        const invalid = j?.valid === false || j?.verified === false || j?.status === "invalid" || j?.status === "rejected" || (j?.email?.valid === false && !payload.phone) || (j?.phone?.valid === false && !payload.email);
         if (invalid) return { ok: false };
         if (valid) {
           const enrich: Record<string, any> = {};
@@ -153,73 +176,49 @@ Deno.serve(async (req) => {
           if (j?.lastName) enrich.last_name = j.lastName;
           return { ok: true, enrich };
         }
-        // 2xx but no clear signal -> accept
         return { ok: true };
       } catch (_e) {
-        return { ok: true }; // network failure -> fail open
+        return { ok: true };
       }
     }
 
-
-    for (const r of rows) {
-      const e164 = toE164(r[phoneKey]);
-      if (!e164 || seen.has(e164)) continue;
-      seen.add(e164);
-
-      const fullName = nameKey ? cleanStr(r[nameKey]) : null;
-      const firstRaw = firstNameKey ? cleanStr(r[firstNameKey]) : null;
-      const lastRaw = lastNameKey ? cleanStr(r[lastNameKey]) : null;
-      const composedFull = fullName || [firstRaw, lastRaw].filter(Boolean).join(" ") || null;
-      let firstName = deriveFirstName(composedFull, firstRaw);
-      let lastName = lastRaw;
-      const address = addrKey ? cleanStr(r[addrKey]) : null;
-      const email = emailKey ? cleanEmail(r[emailKey]) : null;
-
-      // LGM verify (fail-open). Drops row on explicit invalid signal.
-      lgmChecked += 1;
-      const verdict = await lgmVerify({ email, phone: e164, firstName, lastName });
-      if (!verdict.ok) {
-        lgmRejected += 1;
-        continue;
+    const candidates: Cand[] = [];
+    if (LGM_KEY) {
+      const CONCURRENCY = 25;
+      for (let i = 0; i < preCandidates.length; i += CONCURRENCY) {
+        const batch = preCandidates.slice(i, i + CONCURRENCY);
+        const verdicts = await Promise.all(batch.map((c) =>
+          lgmVerify({ email: c.email, phone: c.phone_e164, firstName: c.first_name, lastName: c.last_name ?? null })
+        ));
+        for (let j = 0; j < batch.length; j++) {
+          lgmChecked += 1;
+          const v = verdicts[j];
+          if (!v.ok) { lgmRejected += 1; continue; }
+          const c = batch[j];
+          if (v.enrich) {
+            if (v.enrich.first_name && !c.first_name) c.first_name = v.enrich.first_name;
+            if (v.enrich.last_name && !c.last_name) c.last_name = v.enrich.last_name;
+            lgmEnriched += 1;
+          }
+          candidates.push(c);
+        }
       }
-      if (verdict.enrich) {
-        if (verdict.enrich.first_name && !firstName) firstName = verdict.enrich.first_name;
-        if (verdict.enrich.last_name && !lastName) lastName = verdict.enrich.last_name;
-        lgmEnriched += 1;
-      }
-
-      candidates.push({
-        phone_number: String(r[phoneKey]).trim(),
-        phone_e164: e164,
-        state: selectedState,
-        name: composedFull || [firstName, lastName].filter(Boolean).join(" ") || null,
-        first_name: firstName,
-        address,
-        property_address: address,
-        city: cityKey ? cleanStr(r[cityKey]) : null,
-        zip: zipKey ? cleanStr(r[zipKey]) : null,
-        email,
-        source: "batch_upload",
-        uploaded_file_name: file.name,
-      });
+    } else {
+      candidates.push(...preCandidates);
     }
-
 
     const totalRows = rows.length;
     let inserted = 0;
-    let duplicates = totalRows - candidates.length; // duplicates within file
+    let duplicates = totalRows - candidates.length;
 
-    // Insert in chunks. For duplicates by phone_e164, backfill email/name/address fields
-    // when the existing row is missing them (COALESCE-style merge via upsert without ignoreDuplicates).
     const chunkSize = 500;
     let emailBackfilled = 0;
     for (let i = 0; i < candidates.length; i += chunkSize) {
       const chunk = candidates.slice(i, i + chunkSize);
 
-      // Step 1: insert new rows only (ignore duplicates) to count true new inserts
       const { data: insertedData, error: insErr } = await supabase
         .from("state_leads")
-        .upsert(chunk, { onConflict: "phone_e164", ignoreDuplicates: true })
+        .upsert(chunk.map(({ last_name: _ln, ...c }) => c), { onConflict: "phone_e164", ignoreDuplicates: true })
         .select("id");
       if (insErr) {
         console.error("insert error", insErr);
@@ -231,45 +230,42 @@ Deno.serve(async (req) => {
       inserted += insertedThis;
       duplicates += chunk.length - insertedThis;
 
-      // Step 2: for rows in this chunk that have an email, backfill email on existing leads
-      // where the stored email is null/empty. Same for first_name and address if missing.
-      const enrichRows = chunk.filter((c) => c.email || c.first_name || c.name || c.address);
-      for (const c of enrichRows) {
+      // Bulk-fetch existing rows for this chunk in ONE query
+      const phones = chunk.map((c) => c.phone_e164);
+      const { data: existingRows } = await supabase
+        .from("state_leads")
+        .select("id,phone_e164,email,first_name,name,address,city,zip")
+        .in("phone_e164", phones);
+      const existingMap = new Map<string, any>();
+      for (const e of existingRows || []) existingMap.set(e.phone_e164, e);
+
+      const updates: Array<{ id: string; patch: Record<string, unknown>; hasEmail: boolean }> = [];
+      for (const c of chunk) {
+        const existing = existingMap.get(c.phone_e164);
+        if (!existing) continue;
         const patch: Record<string, unknown> = {};
-        if (c.email) patch.email = c.email;
-        if (c.first_name) patch.first_name = c.first_name;
-        if (c.name) patch.name = c.name;
-        if (c.address) {
+        if (c.email && (existing.email == null || existing.email === "")) patch.email = c.email;
+        if (c.first_name && (existing.first_name == null || existing.first_name === "")) patch.first_name = c.first_name;
+        if (c.name && (existing.name == null || existing.name === "")) patch.name = c.name;
+        if (c.address && (existing.address == null || existing.address === "")) {
           patch.address = c.address;
           patch.property_address = c.address;
         }
-        if (c.city) patch.city = c.city;
-        if (c.zip) patch.zip = c.zip;
+        if (c.city && (existing.city == null || existing.city === "")) patch.city = c.city;
+        if (c.zip && (existing.zip == null || existing.zip === "")) patch.zip = c.zip;
         if (Object.keys(patch).length === 0) continue;
+        updates.push({ id: existing.id, patch, hasEmail: !!patch.email });
+      }
 
-        // Only update fields that are currently null on the existing row.
-        // We can't do COALESCE in PostgREST easily, so fetch first.
-        const { data: existing } = await supabase
-          .from("state_leads")
-          .select("id,email,first_name,name,address,city,zip")
-          .eq("phone_e164", c.phone_e164)
-          .maybeSingle();
-        if (!existing) continue;
-
-        const finalPatch: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(patch)) {
-          if (!v) continue;
-          if ((existing as any)[k] == null || (existing as any)[k] === "") {
-            finalPatch[k] = v;
-          }
+      const UCONC = 20;
+      for (let u = 0; u < updates.length; u += UCONC) {
+        const slice = updates.slice(u, u + UCONC);
+        const results = await Promise.all(slice.map((up) =>
+          supabase.from("state_leads").update(up.patch).eq("id", up.id)
+        ));
+        for (let k = 0; k < slice.length; k++) {
+          if (!results[k].error && slice[k].hasEmail) emailBackfilled += 1;
         }
-        if (Object.keys(finalPatch).length === 0) continue;
-
-        const { error: upErr } = await supabase
-          .from("state_leads")
-          .update(finalPatch)
-          .eq("id", (existing as any).id);
-        if (!upErr && finalPatch.email) emailBackfilled += 1;
       }
     }
     console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled, "lgm_checked:", lgmChecked, "lgm_rejected:", lgmRejected, "lgm_enriched:", lgmEnriched);
