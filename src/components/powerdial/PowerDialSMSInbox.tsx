@@ -220,17 +220,22 @@ export default function PowerDialSMSInbox() {
     }
   }, [activeThread, messages, persistSeen]);
 
-  // Background poll every 8s — seamless, no spinner, no thread reset
+  // Background VoidFix poll every 12s — relies on realtime to refresh UI on new rows
   useEffect(() => {
-    const id = setInterval(() => { syncAndLoad({ silent: true }); }, 8000);
+    const id = setInterval(() => {
+      pollVoidFix().catch(() => {});
+    }, 12000);
     return () => clearInterval(id);
-  }, [syncAndLoad]);
+  }, [pollVoidFix]);
 
   // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
     const channel = supabase
       .channel('powerdial-sms-inbox')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
+        load({ silent: true });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communications', filter: 'type=eq.sms' }, () => {
         load({ silent: true });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
