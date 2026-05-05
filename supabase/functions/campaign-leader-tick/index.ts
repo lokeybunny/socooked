@@ -288,39 +288,7 @@ function emailDomain(e: string): string {
   return (e.split("@")[1] || "").toLowerCase();
 }
 
-// ---------- LGM verification (REQUIRED before any email send) ----------
-const LGM_API_KEY = Deno.env.get("LAGROWTHMACHINE_API_KEY") || "";
-const LGM_BASE = "https://apiv2.lagrowthmachine.com/flow";
-const lgmCache = new Map<string, { ok: boolean; at: number }>();
-const LGM_CACHE_MS = 24 * 60 * 60 * 1000;
 
-async function lgmVerifyEmail(email: string): Promise<{ ok: boolean; reason?: string }> {
-  if (!LGM_API_KEY) return { ok: false, reason: "lgm_key_missing" };
-  const key = email.toLowerCase();
-  const cached = lgmCache.get(key);
-  if (cached && Date.now() - cached.at < LGM_CACHE_MS) return { ok: cached.ok, reason: cached.ok ? undefined : "lgm_cached_invalid" };
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(`${LGM_BASE}/leads/verify?apikey=${encodeURIComponent(LGM_API_KEY)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: key }),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    if (r.status === 429) return { ok: true, reason: "lgm_rate_limited_failopen" };
-    if (r.status >= 500) return { ok: true, reason: "lgm_server_failopen" };
-    const j = await r.json().catch(() => ({} as any));
-    const valid = j?.valid === true || j?.verified === true || j?.status === "valid" || j?.status === "ok" || j?.email?.valid === true;
-    const invalid = j?.valid === false || j?.verified === false || j?.status === "invalid" || j?.status === "rejected" || j?.email?.valid === false;
-    if (invalid) { lgmCache.set(key, { ok: false, at: Date.now() }); return { ok: false, reason: "lgm_invalid" }; }
-    if (valid) { lgmCache.set(key, { ok: true, at: Date.now() }); return { ok: true }; }
-    return { ok: true, reason: "lgm_unknown_failopen" };
-  } catch (_e) {
-    return { ok: true, reason: "lgm_network_failopen" };
-  }
-}
 
 
 function isGmailRateLimitError(err: any): boolean {
