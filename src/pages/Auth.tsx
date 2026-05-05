@@ -22,19 +22,33 @@ export default function Auth() {
   // When user is already logged in, determine where to send them
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
+    // Hard fallback: if role check hangs (backend slow), send to /dashboard after 3s
+    const fallback = setTimeout(() => {
+      if (!cancelled) setRedirectTarget((prev) => prev ?? '/dashboard');
+    }, 3000);
     const checkRole = async () => {
-      const { data } = await supabase
-        .from('lw_landing_pages')
-        .select('id')
-        .eq('client_user_id', user.id)
-        .limit(1);
-      if (data && data.length > 0) {
-        setRedirectTarget('/client-dashboard');
-      } else {
-        setRedirectTarget('/dashboard');
+      try {
+        const { data, error } = await supabase
+          .from('lw_landing_pages')
+          .select('id')
+          .eq('client_user_id', user.id)
+          .limit(1);
+        if (cancelled) return;
+        if (!error && data && data.length > 0) {
+          setRedirectTarget('/client-dashboard');
+        } else {
+          setRedirectTarget('/dashboard');
+        }
+      } catch {
+        if (!cancelled) setRedirectTarget('/dashboard');
       }
     };
     checkRole();
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+    };
   }, [user]);
 
   if (loading) return <div className="flex items-center justify-center min-h-screen bg-background"><div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" /></div>;
