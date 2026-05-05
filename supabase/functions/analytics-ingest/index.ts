@@ -139,8 +139,9 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ error: "unknown type" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (e) {
-    console.error("analytics-ingest error", e);
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e: any) {
+    const msg = e?.message || e?.error_description || (typeof e === "string" ? e : JSON.stringify(e));
+    console.error("analytics-ingest error", msg, e);
+    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
