@@ -18,6 +18,7 @@ import ChangeNumberSettings from '@/components/phone/ChangeNumberSettings';
 
 import VoidFixFirstReplySettings from '@/components/sms/VoidFixFirstReplySettings';
 import MissedCallSettings from '@/components/phone/MissedCallSettings';
+import CampaignManualDialer from '@/components/phone/CampaignManualDialer';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -1505,8 +1506,11 @@ export default function PhonePage() {
               </div>
             </div>
 
-            {/* ── Right flank: Recent Missed Calls ── */}
+            {/* ── Right flank: Manual Campaign Dialer + Recent Missed Calls ── */}
             <div className="order-3 space-y-4 xl:max-w-md xl:justify-self-start w-full">
+
+              {/* Import a Power Dial campaign and call leads one-by-one */}
+              <CampaignManualDialer />
 
               {/* Recent missed calls (last 50, with voicemail playback) */}
               <MissedCallSettings section="recent" />
