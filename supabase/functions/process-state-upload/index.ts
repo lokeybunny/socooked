@@ -140,72 +140,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ===== LGM verify in parallel (concurrency 25, 4s timeout) =====
-    let lgmRejected = 0;
-    let lgmChecked = 0;
-    let lgmEnriched = 0;
-    const LGM_KEY = Deno.env.get("LAGROWTHMACHINE_API_KEY") || "";
-    const LGM_BASE = "https://apiv2.lagrowthmachine.com/flow";
-
-    async function lgmVerify(payload: { email?: string | null; phone?: string | null; firstName?: string | null; lastName?: string | null; }): Promise<{ ok: boolean; enrich?: Record<string, any> }> {
-      if (!LGM_KEY) return { ok: true };
-      if (!payload.email && !payload.phone) return { ok: true };
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 4000);
-        const body: Record<string, any> = {};
-        if (payload.email) body.email = payload.email;
-        if (payload.phone) body.phone = payload.phone;
-        if (payload.firstName) body.firstName = payload.firstName;
-        if (payload.lastName) body.lastName = payload.lastName;
-        const r = await fetch(`${LGM_BASE}/leads/verify?apikey=${encodeURIComponent(LGM_KEY)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: ctrl.signal,
-        });
-        clearTimeout(timer);
-        if (r.status === 429 || r.status >= 500) return { ok: true };
-        const j = await r.json().catch(() => ({}));
-        const valid = j?.valid === true || j?.verified === true || j?.status === "valid" || j?.status === "ok" || (j?.email?.valid === true) || (j?.phone?.valid === true);
-        const invalid = j?.valid === false || j?.verified === false || j?.status === "invalid" || j?.status === "rejected" || (j?.email?.valid === false && !payload.phone) || (j?.phone?.valid === false && !payload.email);
-        if (invalid) return { ok: false };
-        if (valid) {
-          const enrich: Record<string, any> = {};
-          if (j?.firstName && !payload.firstName) enrich.first_name = j.firstName;
-          if (j?.lastName) enrich.last_name = j.lastName;
-          return { ok: true, enrich };
-        }
-        return { ok: true };
-      } catch (_e) {
-        return { ok: true };
-      }
-    }
-
-    const candidates: Cand[] = [];
-    if (LGM_KEY) {
-      const CONCURRENCY = 25;
-      for (let i = 0; i < preCandidates.length; i += CONCURRENCY) {
-        const batch = preCandidates.slice(i, i + CONCURRENCY);
-        const verdicts = await Promise.all(batch.map((c) =>
-          lgmVerify({ email: c.email, phone: c.phone_e164, firstName: c.first_name, lastName: c.last_name ?? null })
-        ));
-        for (let j = 0; j < batch.length; j++) {
-          lgmChecked += 1;
-          const v = verdicts[j];
-          if (!v.ok) { lgmRejected += 1; continue; }
-          const c = batch[j];
-          if (v.enrich) {
-            if (v.enrich.first_name && !c.first_name) c.first_name = v.enrich.first_name;
-            if (v.enrich.last_name && !c.last_name) c.last_name = v.enrich.last_name;
-            lgmEnriched += 1;
-          }
-          candidates.push(c);
-        }
-      }
-    } else {
-      candidates.push(...preCandidates);
-    }
+    const candidates: Cand[] = [...preCandidates];
 
     const totalRows = rows.length;
     let inserted = 0;
