@@ -38,6 +38,7 @@ export default function PhoneAudit() {
   const [selectedState, setSelectedState] = useState<string>("ALL");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [auditLimit, setAuditLimit] = useState<number | "">("");
   const [uploadJob, setUploadJob] = useState<{ status: string; processed?: number; total?: number; result?: any } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -81,10 +82,10 @@ export default function PhoneAudit() {
     return () => clearInterval(id);
   }, [job?.status, loadLatestJob, loadPreview]);
 
-  const callAudit = async (action: string) => {
+  const callAudit = async (action: string, extra: Record<string, unknown> = {}) => {
     setLoading(true);
     try {
-      const body: Record<string, unknown> = { action, state: stateArg };
+      const body: Record<string, unknown> = { action, state: stateArg, ...extra };
       if (job?.id && (action === "pause" || action === "resume")) body.job_id = job.id;
       const { error } = await supabase.functions.invoke("audit-existing-phone-numbers", { body });
       if (error) throw error;
@@ -101,10 +102,12 @@ export default function PhoneAudit() {
   const onStart = async () => {
     if (!preview) return;
     const scope = selectedState === "ALL" ? "all states" : selectedState;
+    const planned = auditLimit && auditLimit > 0 ? Math.min(auditLimit, preview.need_audit) : preview.need_audit;
+    const cost = (planned * 0.008).toFixed(2);
     if (!window.confirm(
-      `Start audit for ${scope}?\n\nLeads needing lookup: ${preview.need_audit}\nEstimated Twilio cost: $${preview.estimated_cost_usd}\n\nContinue?`,
+      `Start audit for ${scope}?\n\nLeads to audit: ${planned} (of ${preview.need_audit} needing lookup)\nEstimated Twilio cost: $${cost}\n\nContinue?`,
     )) return;
-    await callAudit("start");
+    await callAudit("start", auditLimit ? { limit: auditLimit } : {});
   };
 
   const onDeleteNonMobile = async () => {
@@ -245,10 +248,33 @@ export default function PhoneAudit() {
           </div>
         )}
 
+        {(!job || job.status === "completed" || job.status === "error") && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+            <span className="text-xs text-muted-foreground">Limit:</span>
+            <input
+              type="number"
+              min={1}
+              placeholder="all"
+              value={auditLimit}
+              onChange={(e) => setAuditLimit(e.target.value === "" ? "" : Math.max(1, Number(e.target.value)))}
+              className="w-28 h-9 rounded-md border border-input bg-background px-3 text-sm"
+            />
+            {[100, 500, 1000, 5000].map((n) => (
+              <Button key={n} type="button" size="sm" variant="outline" onClick={() => setAuditLimit(n)}>
+                {n.toLocaleString()}
+              </Button>
+            ))}
+            <span className="text-xs text-muted-foreground">
+              ≈ ${(((typeof auditLimit === "number" ? auditLimit : preview?.need_audit ?? 0)) * 0.008).toFixed(2)}
+            </span>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2 pt-2">
           {(!job || job.status === "completed" || job.status === "error") && (
             <Button onClick={onStart} disabled={loading || !preview?.need_audit}>
-              <Play className="h-4 w-4 mr-2" /> Start Audit
+              <Play className="h-4 w-4 mr-2" />
+              {auditLimit ? `Audit ${Number(auditLimit).toLocaleString()}` : "Start Full Audit"}
             </Button>
           )}
           {job?.status === "running" && (
