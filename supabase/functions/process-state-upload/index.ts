@@ -218,10 +218,6 @@ Deno.serve(async (req) => {
         total_rows: totalRows,
         inserted_count: inserted,
         duplicate_count: duplicates,
-        lgm_checked: lgmChecked,
-        lgm_rejected: lgmRejected,
-        lgm_enriched: lgmEnriched,
-        lgm_enabled: !!Deno.env.get("LAGROWTHMACHINE_API_KEY"),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
