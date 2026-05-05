@@ -65,17 +65,18 @@ Deno.serve(async (req) => {
       let err: string | null = null;
       if (listId && LR_USER && LR_KEY) {
         try {
+          const formBody = new URLSearchParams({
+            username: LR_USER, api_key: LR_KEY,
+            list_id: String(listId), phone_number: phone,
+            first_name: lead.first_name ?? "", last_name: lead.last_name ?? "", email: lead.email ?? "",
+            scrub_lead: "no_scrub",
+            check_duplicate: "NO_DUPLICATE_CHECK",
+            country_code: "USA", phone_code: "1",
+          });
           const r = await fetch(`${LR_API}/ringless/api/add_posted_lead.php`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              username: LR_USER, api_key: LR_KEY,
-              list_id: listId, phone_number: phone,
-              first_name: lead.first_name, last_name: lead.last_name, email: lead.email,
-              scrub_lead: "tcpa_check",
-              check_duplicate: "CHECK_DUPLICATE_IN_CAMPAIGN",
-              country_code: "USA", phone_code: "1",
-            }),
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formBody.toString(),
             signal: AbortSignal.timeout(20000),
           });
           const txt = await r.text();
