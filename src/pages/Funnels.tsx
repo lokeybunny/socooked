@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, formatDistanceToNow, differenceInHours } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
+import TwilioKeypad from '@/components/phone/TwilioKeypad';
 
 type FunnelType = 'all' | 'airealty' | 'powerdial';
 
@@ -528,7 +529,7 @@ function LeadDetailModal({ lead, open, onClose, onLeadUpdate }: { lead: FunnelLe
 }
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit, onDismiss }: {
+function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, onRemind, onHappyToggle, onDeadToggle, onPhoneEdit, onDismiss, onCall }: {
   lead: FunnelLead; onEmail: () => void; onView: () => void;
   onDraft: () => void; onUndraft: () => void;
   onStageChange: (newStatus: string) => void;
@@ -537,6 +538,7 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
   onDeadToggle: (checked: boolean) => void;
   onPhoneEdit: (newPhone: string) => void;
   onDismiss?: () => void;
+  onCall: (phone: string) => void;
 }) {
   const [editingPhone, setEditingPhone] = useState(false);
   const [phoneInput, setPhoneInput] = useState(lead.phone || '');
@@ -685,9 +687,9 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           </Button>
         )}
         {lead.funnel === 'airealty' && !editingPhone && lead.phone && lead.phone !== 'N/A' && (
-          <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-500 px-2 py-1 font-medium">
-            <Phone className="h-3 w-3" /> Call {lead.phone}
-          </a>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-emerald-600 hover:text-emerald-500 font-medium" onClick={() => onCall(lead.phone!)}>
+            <Phone className="h-3 w-3 mr-1" /> Call {lead.phone}
+          </Button>
         )}
         {lead.funnel === 'airealty' && !editingPhone && (
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPhoneInput(lead.phone || ''); setEditingPhone(true); }}>
@@ -708,9 +710,9 @@ function LeadCard({ lead, onEmail, onView, onDraft, onUndraft, onStageChange, on
           </div>
         )}
         {lead.funnel !== 'airealty' && lead.phone && lead.phone !== 'N/A' && (
-          <a href={`tel:${lead.phone}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1">
-            <Phone className="h-3 w-3" /> Call
-          </a>
+          <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground" onClick={() => onCall(lead.phone!)}>
+            <Phone className="h-3 w-3 mr-1" /> Call
+          </Button>
         )}
         {lead.funnel === 'airealty' && (
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer">
@@ -770,6 +772,7 @@ export default function Funnels() {
   const [page, setPage] = useState(1);
   const [emailLead, setEmailLead] = useState<FunnelLead | null>(null);
   const [viewLead, setViewLead] = useState<FunnelLead | null>(null);
+  const [callPhone, setCallPhone] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
   const fetchInFlightRef = useRef(false);
 
@@ -1192,6 +1195,7 @@ export default function Funnels() {
                 key={lead.id}
                 lead={lead}
                 onEmail={() => setEmailLead(lead)}
+                onCall={(phone) => setCallPhone(phone)}
                 onView={() => setViewLead(lead)}
                 onDraft={() => handleDraft(lead)}
                 onUndraft={() => handleUndraft(lead)}
@@ -1229,6 +1233,14 @@ export default function Funnels() {
 
         <EmailModal lead={emailLead} open={!!emailLead} onClose={() => setEmailLead(null)} />
         <LeadDetailModal lead={viewLead} open={!!viewLead} onClose={() => setViewLead(null)} onLeadUpdate={(updated) => setLeads(prev => prev.map(l => l.id === updated.id ? updated : l))} />
+        <Dialog open={!!callPhone} onOpenChange={(o) => { if (!o) setCallPhone(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Call Lead</DialogTitle>
+            </DialogHeader>
+            {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthLayoutGate>
   );
