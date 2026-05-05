@@ -81,10 +81,10 @@ export default function PhoneAudit() {
     return () => clearInterval(id);
   }, [job?.status, loadLatestJob, loadPreview]);
 
-  const callAudit = async (action: string) => {
+  const callAudit = async (action: string, extra: Record<string, unknown> = {}) => {
     setLoading(true);
     try {
-      const body: Record<string, unknown> = { action, state: stateArg };
+      const body: Record<string, unknown> = { action, state: stateArg, ...extra };
       if (job?.id && (action === "pause" || action === "resume")) body.job_id = job.id;
       const { error } = await supabase.functions.invoke("audit-existing-phone-numbers", { body });
       if (error) throw error;
@@ -101,10 +101,12 @@ export default function PhoneAudit() {
   const onStart = async () => {
     if (!preview) return;
     const scope = selectedState === "ALL" ? "all states" : selectedState;
+    const planned = auditLimit && auditLimit > 0 ? Math.min(auditLimit, preview.need_audit) : preview.need_audit;
+    const cost = (planned * 0.008).toFixed(2);
     if (!window.confirm(
-      `Start audit for ${scope}?\n\nLeads needing lookup: ${preview.need_audit}\nEstimated Twilio cost: $${preview.estimated_cost_usd}\n\nContinue?`,
+      `Start audit for ${scope}?\n\nLeads to audit: ${planned} (of ${preview.need_audit} needing lookup)\nEstimated Twilio cost: $${cost}\n\nContinue?`,
     )) return;
-    await callAudit("start");
+    await callAudit("start", auditLimit ? { limit: auditLimit } : {});
   };
 
   const onDeleteNonMobile = async () => {
