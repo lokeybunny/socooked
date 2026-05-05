@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 
@@ -24,12 +24,30 @@ const GRID: (string | null)[][] = [
 type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null };
 type UploadLog = { id: string; state: string; file_name: string | null; total_rows: number; inserted_count: number; duplicate_count: number; created_at: string };
 
+type UploadJob = {
+  id: string;
+  state: string;
+  file_name: string;
+  file_size: number;
+  // 0..100 for the file network upload phase
+  uploadPct: number;
+  phase: "uploading" | "parsing" | "parsed" | "inserting" | "complete" | "error";
+  message?: string;
+  total_rows?: number;
+  candidates?: number;
+  processed?: number;
+  inserted?: number;
+  duplicates?: number;
+  finishedAt?: number;
+};
+
 export default function UsaMap() {
   const [summary, setSummary] = useState<Record<string, Summary>>({});
   const [logs, setLogs] = useState<UploadLog[]>([]);
   const [hover, setHover] = useState<{ code: string; x: number; y: number } | null>(null);
   const [openState, setOpenState] = useState<string | null>(null);
-
+  const [jobs, setJobs] = useState<Record<string, UploadJob>>({});
+  const channelsRef = useRef<Record<string, ReturnType<typeof supabase.channel>>>({});
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
@@ -45,6 +63,87 @@ export default function UsaMap() {
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  const updateJob = (id: string, patch: Partial<UploadJob>) =>
+    setJobs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
+
+  const startUpload = async (file: File, state: string) => {
+    const id = (crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    setJobs((prev) => ({
+      ...prev,
+      [id]: {
+        id, state, file_name: file.name, file_size: file.size,
+        uploadPct: 0, phase: "uploading", message: "Uploading file…",
+      },
+    }));
+
+    // Subscribe to realtime broadcasts from the edge function
+    const channel = supabase.channel(`upload:${id}`, { config: { broadcast: { self: true } } });
+    channelsRef.current[id] = channel;
+    channel
+      .on("broadcast", { event: "status" }, ({ payload }) => updateJob(id, payload as any))
+      .on("broadcast", { event: "progress" }, ({ payload }) => updateJob(id, payload as any))
+      .on("broadcast", { event: "complete" }, ({ payload }) => {
+        updateJob(id, { ...(payload as any), phase: "complete", finishedAt: Date.now() });
+        loadAll();
+      })
+      .on("broadcast", { event: "error" }, ({ payload }) => {
+        updateJob(id, { phase: "error", message: (payload as any)?.message, finishedAt: Date.now() });
+      });
+    await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-state-upload`;
+
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("selected_state", state);
+      fd.append("progress_id", id);
+
+      // Use XHR so we can show real upload progress
+      const json = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", url);
+        xhr.setRequestHeader("apikey", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string);
+        if (session) xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            updateJob(id, { uploadPct: pct, phase: pct >= 100 ? "parsing" : "uploading" });
+          }
+        };
+        xhr.onload = () => {
+          try {
+            const body = JSON.parse(xhr.responseText || "{}");
+            if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+            else reject(new Error(body.error || `Upload failed (${xhr.status})`));
+          } catch (e) { reject(e); }
+        };
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.send(fd);
+      });
+
+      updateJob(id, {
+        phase: "complete",
+        total_rows: json.total_rows,
+        inserted: json.inserted_count,
+        duplicates: json.duplicate_count,
+        finishedAt: Date.now(),
+      });
+      toast.success(`${state}: inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates`);
+      await loadAll();
+    } catch (e: any) {
+      toast.error(`${state} upload failed: ${e.message}`);
+      updateJob(id, { phase: "error", message: e.message, finishedAt: Date.now() });
+    } finally {
+      const ch = channelsRef.current[id];
+      if (ch) { supabase.removeChannel(ch); delete channelsRef.current[id]; }
+    }
+  };
+
+  const dismissJob = (id: string) =>
+    setJobs((prev) => { const next = { ...prev }; delete next[id]; return next; });
 
   const maxLeads = useMemo(() => {
     const vals = Object.values(summary).map((s) => s.total_leads);
@@ -65,6 +164,16 @@ export default function UsaMap() {
     [summary],
   );
 
+  const jobList = Object.values(jobs).sort((a, b) => (a.finishedAt ?? Infinity) - (b.finishedAt ?? Infinity));
+  const activeJobsByState = useMemo(() => {
+    const map: Record<string, UploadJob[]> = {};
+    for (const j of jobList) {
+      if (j.phase === "complete" || j.phase === "error") continue;
+      (map[j.state] ||= []).push(j);
+    }
+    return map;
+  }, [jobList]);
+
   return (
     <div className="flex min-h-screen w-full bg-background">
       <Sidebar />
@@ -74,7 +183,7 @@ export default function UsaMap() {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <MapPin className="h-6 w-6 text-primary" /> US Lead Map Manager
             </h1>
-            <p className="text-sm text-muted-foreground">Click any state to upload and manage its lead list.</p>
+            <p className="text-sm text-muted-foreground">Click any state to upload and manage its lead list. Uploads keep running even if you close the popup.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Stat label="Total Leads" value={totalAll.toLocaleString()} />
@@ -91,6 +200,7 @@ export default function UsaMap() {
               row.map((code, c) => {
                 if (!code) return <div key={`${r}-${c}`} />;
                 const s = summary[code];
+                const busy = (activeJobsByState[code]?.length ?? 0) > 0;
                 return (
                   <button
                     key={code}
@@ -102,6 +212,9 @@ export default function UsaMap() {
                     style={{ background: colorFor(code) }}
                   >
                     {code}
+                    {busy && (
+                      <Loader2 className="absolute top-0.5 right-0.5 h-3 w-3 animate-spin text-primary" />
+                    )}
                     {s && s.total_leads > 0 && (
                       <span className="absolute bottom-0.5 right-1 text-[9px] font-bold text-background/90">
                         {s.total_leads >= 1000 ? `${Math.round(s.total_leads / 100) / 10}k` : s.total_leads}
@@ -179,9 +292,20 @@ export default function UsaMap() {
         <StateModal
           state={openState}
           summary={summary[openState]}
+          jobs={jobList.filter((j) => j.state === openState)}
           onClose={() => setOpenState(null)}
-          onUploaded={async () => { await loadAll(); }}
+          onStartUpload={(f) => startUpload(f, openState)}
+          onDismissJob={dismissJob}
         />
+      )}
+
+      {/* Floating uploads tray (persists when modal closed) */}
+      {jobList.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-50 w-80 space-y-2">
+          {jobList.slice(-5).map((j) => (
+            <UploadCard key={j.id} job={j} onDismiss={() => dismissJob(j.id)} />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -196,70 +320,80 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void }) {
+  const isDone = job.phase === "complete";
+  const isError = job.phase === "error";
+  const pct = job.candidates
+    ? Math.round(((job.processed ?? 0) / Math.max(1, job.candidates)) * 100)
+    : job.uploadPct ?? 0;
+
+  return (
+    <div className={`rounded-lg border p-3 shadow-lg backdrop-blur bg-card/95 ${isError ? "border-destructive/40" : isDone ? "border-emerald-500/40" : "border-border"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold flex items-center gap-1.5">
+            {isDone ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+              : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+              : <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+            {job.state} · <span className="truncate">{job.file_name}</span>
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">
+            {isDone ? "Complete" : isError ? `Error: ${job.message ?? "failed"}` : `${job.phase}${job.message ? ` — ${job.message}` : ""}`}
+          </div>
+        </div>
+        <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+      </div>
+
+      {!isError && (
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-border">
+          <div
+            className={`h-full transition-all ${isDone ? "bg-emerald-500" : "bg-primary"}`}
+            style={{ width: `${isDone ? 100 : Math.min(100, pct)}%` }}
+          />
+        </div>
+      )}
+
+      <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+        {job.candidates ? (
+          <span>{(job.processed ?? 0).toLocaleString()} / {job.candidates.toLocaleString()} rows</span>
+        ) : job.phase === "uploading" ? (
+          <span>Uploading {job.uploadPct ?? 0}%</span>
+        ) : job.total_rows ? (
+          <span>{job.total_rows.toLocaleString()} rows parsed</span>
+        ) : <span>&nbsp;</span>}
+        {(isDone || (job.inserted != null)) && (
+          <span>+{(job.inserted ?? 0).toLocaleString()} · {(job.duplicates ?? 0).toLocaleString()} dup</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StateModal({
-  state, summary, onClose, onUploaded,
+  state, summary, jobs, onClose, onStartUpload, onDismissJob,
 }: {
   state: string;
   summary?: Summary;
+  jobs: UploadJob[];
   onClose: () => void;
-  onUploaded: () => Promise<void>;
+  onStartUpload: (file: File) => void;
+  onDismissJob: (id: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [progress, setProgress] = useState<{ phase: string; message?: string; total_rows?: number; candidates?: number; processed?: number; inserted?: number; duplicates?: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const acceptFile = (f: File | null | undefined) => {
     if (!f) return;
     if (!/\.(csv|xlsx|xls)$/i.test(f.name)) { toast.error("Please upload a CSV or Excel file"); return; }
     setFile(f);
-    setResult(null);
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!file) return;
-    setUploading(true);
-    setResult(null);
-    setProgress({ phase: "uploading", message: "Uploading file…" });
-
-    const progressId = (crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-    const channel = supabase.channel(`upload:${progressId}`, { config: { broadcast: { self: true } } });
-    channel
-      .on("broadcast", { event: "status" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), ...payload })))
-      .on("broadcast", { event: "progress" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), ...payload })))
-      .on("broadcast", { event: "complete" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "complete", ...payload })))
-      .on("broadcast", { event: "error" }, ({ payload }) => setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "error", message: (payload as any)?.message })));
-    await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
-
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("selected_state", state);
-      fd.append("progress_id", progressId);
-      const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-state-upload`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body: fd,
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Upload failed");
-      setResult(json);
-      toast.success(`Inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates`);
-      await onUploaded();
-    } catch (e: any) {
-      toast.error(e.message);
-      setProgress((p) => ({ ...(p ?? { phase: "" }), phase: "error", message: e.message }));
-    } finally {
-      setUploading(false);
-      supabase.removeChannel(channel);
-    }
+    onStartUpload(file);
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
@@ -270,7 +404,9 @@ function StateModal({
             <MapPin className="h-5 w-5 text-primary" />
             {STATE_NAMES[state] ?? state}
           </DialogTitle>
-          <DialogDescription>Upload a CSV or Excel file to add leads to this state.</DialogDescription>
+          <DialogDescription>
+            Upload a CSV or Excel file to add leads. You can close this popup — uploads keep running in the background.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -310,42 +446,18 @@ function StateModal({
             <div><strong>Optional:</strong> name, address, city, zip, email</div>
           </div>
 
-          <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
-            {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing…</> : <><Upload className="h-4 w-4 mr-2" /> Upload Leads</>}
+          <Button onClick={handleUpload} disabled={!file} className="w-full">
+            <Upload className="h-4 w-4 mr-2" /> Start Upload
           </Button>
 
-          {(uploading || (progress && progress.phase !== "complete" && progress.phase !== "error")) && progress && (
-            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm space-y-2">
-              <div className="flex items-center gap-2 font-medium">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span className="capitalize">{progress.phase || "working"}</span>
-                {progress.message && <span className="text-muted-foreground">— {progress.message}</span>}
+          {jobs.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Uploads for {STATE_NAMES[state] ?? state}
               </div>
-              {progress.candidates ? (
-                <>
-                  <div className="h-2 w-full overflow-hidden rounded bg-border">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${Math.min(100, Math.round(((progress.processed ?? 0) / Math.max(1, progress.candidates)) * 100))}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{(progress.processed ?? 0).toLocaleString()} / {progress.candidates.toLocaleString()} processed</span>
-                    <span>+{(progress.inserted ?? 0).toLocaleString()} inserted · {(progress.duplicates ?? 0).toLocaleString()} dup</span>
-                  </div>
-                </>
-              ) : progress.total_rows ? (
-                <div className="text-xs text-muted-foreground">{progress.total_rows.toLocaleString()} rows parsed</div>
-              ) : null}
-            </div>
-          )}
-
-          {result && (
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm space-y-1">
-              <div className="flex items-center gap-2 font-semibold text-emerald-500"><CheckCircle2 className="h-4 w-4" /> Upload complete</div>
-              <div>Total rows processed: <strong>{result.total_rows}</strong></div>
-              <div>Inserted: <strong className="text-emerald-500">{result.inserted_count}</strong></div>
-              <div>Duplicates skipped: <strong className="text-amber-500">{result.duplicate_count}</strong></div>
+              {jobs.map((j) => (
+                <UploadCard key={j.id} job={j} onDismiss={() => onDismissJob(j.id)} />
+              ))}
             </div>
           )}
         </div>
