@@ -200,6 +200,7 @@ async function processRows(
       name: string | null; first_name: string | null; last_name?: string | null;
       address: string | null; property_address: string | null;
       city: string | null; zip: string | null; email: string | null;
+      office_phone: string | null;
       source: string; uploaded_file_name: string;
     };
     const candidates: Cand[] = [];
@@ -217,6 +218,7 @@ async function processRows(
       const lastName = lastRaw;
       const address = addrKey ? cleanStr(r[addrKey]) : null;
       const email = emailKey ? cleanEmail(r[emailKey]) : null;
+      const officePhone = officePhoneKey ? (toE164(r[officePhoneKey]) || cleanStr(r[officePhoneKey])) : null;
 
       candidates.push({
         phone_number: String(r[phoneKey]).trim(),
@@ -230,6 +232,7 @@ async function processRows(
         city: cityKey ? cleanStr(r[cityKey]) : null,
         zip: zipKey ? cleanStr(r[zipKey]) : null,
         email,
+        office_phone: officePhone,
         source: "batch_upload",
         uploaded_file_name: fileName,
       });
