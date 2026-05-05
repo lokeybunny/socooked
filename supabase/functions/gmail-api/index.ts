@@ -272,9 +272,9 @@ function encodeSubject(subject: string): string {
   return subject;
 }
 
-function buildRawEmail(to: string, from: string, subject: string, body: string, attachments?: { filename: string; mimeType: string; data: string }[]): string {
+async function buildRawEmail(to: string, from: string, subject: string, body: string, attachments?: { filename: string; mimeType: string; data: string }[]): Promise<string> {
   const boundary = `boundary_${crypto.randomUUID().replace(/-/g, '')}`;
-  const signedBody = appendSignature(body);
+  const signedBody = await appendSignature(body);
 
   if (!attachments || attachments.length === 0) {
     const lines = [
