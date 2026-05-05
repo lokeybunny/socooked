@@ -90,6 +90,7 @@ Deno.serve(async (req) => {
     const selectedState = String(form.get("selected_state") || "").trim();
     const progressId = String(form.get("progress_id") || "").trim();
     const confirmed = String(form.get("confirmed") || "false") === "true";
+    const skipAudit = String(form.get("skip_audit") || "false") === "true";
     const importBatchId = String(form.get("import_batch_id") || crypto.randomUUID());
 
     if (!file || !selectedState) {
