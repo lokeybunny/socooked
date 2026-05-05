@@ -699,7 +699,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           <Button size="sm" variant="ghost" onClick={handleTestInbound} title="Send a test inbound webhook to verify VoidFix integration">
             <Webhook className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => load({ silent: false })}><RefreshCw className="h-3.5 w-3.5" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => syncAndLoad({ silent: false })}><RefreshCw className="h-3.5 w-3.5" /></Button>
           <Button size="sm" variant="ghost" onClick={() => { setShowCompose(true); setActiveThread(null); }}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
