@@ -74,6 +74,7 @@ export default function UsaMap() {
   const [jobs, setJobs] = useState<Record<string, UploadJob>>({});
   const channelsRef = useRef<Record<string, ReturnType<typeof supabase.channel>>>({});
   const [exportPrompt, setExportPrompt] = useState<string | null>(null);
+  const [exportMobileOnly, setExportMobileOnly] = useState(false);
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
@@ -449,15 +450,25 @@ export default function UsaMap() {
                 Choose how you want to download the CSV. Total leads: {(summary[exportPrompt]?.total_leads ?? 0).toLocaleString()}.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-2">
+            <div className="grid gap-3">
+              <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-muted/40">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={exportMobileOnly}
+                  onChange={(e) => setExportMobileOnly(e.target.checked)}
+                />
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <span>Mobile numbers only (Twilio-verified)</span>
+              </label>
               <Button
-                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, 3000); }}
+                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; setExportPrompt(null); exportStateCsv(s, 3000, m); }}
               >
                 <Download className="h-4 w-4 mr-2" /> Split by Day (3,000 / day, ZIP)
               </Button>
               <Button
                 variant="outline"
-                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, Infinity); }}
+                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; setExportPrompt(null); exportStateCsv(s, Infinity, m); }}
               >
                 <Download className="h-4 w-4 mr-2" /> Full Batch (single CSV)
               </Button>
