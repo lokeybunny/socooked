@@ -129,10 +129,10 @@ export default function PowerDialSMSInbox() {
     if (!silent) setLoading(true);
     const { data } = await supabase
       .from('communications')
-      .select('*')
+      .select('id, direction, body, from_address, to_address, status, created_at, customer_id, metadata, type, provider')
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
-      .limit(500);
+      .limit(300);
     setMessages((prev) => {
       const next = (data as SMSMessage[]) || [];
       // Avoid re-rendering if nothing actually changed (prevents thread "recycle" flash)
