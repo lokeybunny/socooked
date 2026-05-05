@@ -108,11 +108,12 @@ Deno.serve(async (req) => {
           if (!current || current.status !== "running") return;
 
           // Pull next batch of un-audited leads
-          const { data: leads, error } = await supabase
-            .from("state_leads")
-            .select("id, phone_e164")
-            .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`)
-            .limit(BATCH_SIZE);
+          const leadsQ = applyState(
+            supabase.from("state_leads").select("id, phone_e164")
+              .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`)
+              .limit(BATCH_SIZE),
+          );
+          const { data: leads, error } = await leadsQ;
           if (error) throw error;
           if (!leads?.length) {
             await supabase.from("phone_audit_jobs").update({
