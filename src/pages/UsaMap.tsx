@@ -115,7 +115,7 @@ export default function UsaMap() {
         };
         xhr.onload = () => {
           try {
-            const body = JSON.parse(xhr.responseText || "{}");
+            const body = xhr.responseText ? JSON.parse(xhr.responseText) : {};
             if (xhr.status >= 200 && xhr.status < 300) resolve(body);
             else reject(new Error(body.error || `Upload failed (${xhr.status})`));
           } catch (e) { reject(e); }
@@ -124,15 +124,10 @@ export default function UsaMap() {
         xhr.send(fd);
       });
 
-      updateJob(id, {
-        phase: "complete",
-        total_rows: json.total_rows,
-        inserted: json.inserted_count,
-        duplicates: json.duplicate_count,
-        finishedAt: Date.now(),
-      });
-      toast.success(`${state}: inserted ${json.inserted_count}, skipped ${json.duplicate_count} duplicates`);
-      await loadAll();
+      // Server returns 202 immediately and continues processing in the background.
+      // Final completion arrives via the realtime "complete" broadcast (handled above).
+      updateJob(id, { phase: "parsing", message: "Server processing…", uploadPct: 100 });
+      void json;
     } catch (e: any) {
       toast.error(`${state} upload failed: ${e.message}`);
       updateJob(id, { phase: "error", message: e.message, finishedAt: Date.now() });
