@@ -78,13 +78,26 @@ export default function UsaMap() {
   const [exportMobileOnly, setExportMobileOnly] = useState(false);
 
   const loadAll = async () => {
-    const [sumRes, logRes] = await Promise.all([
+    const [sumRes, logRes, verRes] = await Promise.all([
       supabase.from("state_summary").select("*"),
       supabase.from("upload_logs").select("*").order("created_at", { ascending: false }).limit(10),
+      supabase.from("state_verified_summary" as any).select("*"),
     ]);
+    const verMap: Record<string, VerifiedRow> = {};
+    if (verRes.data) for (const r of verRes.data as VerifiedRow[]) verMap[r.state] = r;
     if (sumRes.data) {
       const map: Record<string, Summary> = {};
-      for (const r of sumRes.data as Summary[]) map[r.state] = r;
+      for (const r of sumRes.data as Summary[]) {
+        const v = verMap[r.state];
+        map[r.state] = { ...r, verified_mobile: v?.verified_mobile ?? 0, audited_count: v?.audited_count ?? 0 };
+      }
+      // include states present only in verified view
+      for (const state of Object.keys(verMap)) {
+        if (!map[state]) {
+          const v = verMap[state];
+          map[state] = { state, total_leads: v.total_count, total_unique_numbers: v.total_count, last_upload_at: null, verified_mobile: v.verified_mobile, audited_count: v.audited_count };
+        }
+      }
       setSummary(map);
     }
     if (logRes.data) setLogs(logRes.data as UploadLog[]);
