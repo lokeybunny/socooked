@@ -7513,6 +7513,7 @@ export type Database = {
           id: string
           last_contacted_at: string | null
           name: string | null
+          office_phone: string | null
           phone_e164: string
           phone_number: string
           property_address: string | null
@@ -7530,6 +7531,7 @@ export type Database = {
           id?: string
           last_contacted_at?: string | null
           name?: string | null
+          office_phone?: string | null
           phone_e164: string
           phone_number: string
           property_address?: string | null
@@ -7547,6 +7549,7 @@ export type Database = {
           id?: string
           last_contacted_at?: string | null
           name?: string | null
+          office_phone?: string | null
           phone_e164?: string
           phone_number?: string
           property_address?: string | null

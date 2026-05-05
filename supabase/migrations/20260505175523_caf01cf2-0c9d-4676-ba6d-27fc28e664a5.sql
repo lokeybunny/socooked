@@ -1,0 +1,1 @@
+ALTER TABLE public.state_leads ADD COLUMN IF NOT EXISTS office_phone text;
