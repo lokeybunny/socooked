@@ -169,6 +169,14 @@ Deno.serve(async (req) => {
     let duplicates = totalRows - candidates.length;
 
     const chunkSize = 1000;
+    await broadcast("progress", {
+      phase: "inserting",
+      total_rows: totalRows,
+      candidates: candidates.length,
+      processed: 0,
+      inserted: 0,
+      duplicates,
+    });
     for (let i = 0; i < candidates.length; i += chunkSize) {
       const chunk = candidates.slice(i, i + chunkSize);
       const { data: insertedData, error: insErr } = await supabase
@@ -177,6 +185,7 @@ Deno.serve(async (req) => {
         .select("id");
       if (insErr) {
         console.error("insert error", insErr);
+        await broadcast("error", { message: insErr.message });
         return new Response(JSON.stringify({ error: insErr.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -184,12 +193,26 @@ Deno.serve(async (req) => {
       const insertedThis = insertedData?.length ?? 0;
       inserted += insertedThis;
       duplicates += chunk.length - insertedThis;
+      await broadcast("progress", {
+        phase: "inserting",
+        total_rows: totalRows,
+        candidates: candidates.length,
+        processed: Math.min(i + chunk.length, candidates.length),
+        inserted,
+        duplicates,
+      });
     }
     console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates);
 
     await supabase.from("upload_logs").insert({
       state: selectedState,
       file_name: file.name,
+      total_rows: totalRows,
+      inserted_count: inserted,
+      duplicate_count: duplicates,
+    });
+
+    await broadcast("complete", {
       total_rows: totalRows,
       inserted_count: inserted,
       duplicate_count: duplicates,
