@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
               campaign_id: campaign.id,
               phone: typeof phoneEntry === "string" ? phoneEntry : phoneEntry.phone,
               contact_name: typeof phoneEntry === "string" ? null : phoneEntry.name,
+              note: typeof phoneEntry === "string" ? null : (phoneEntry.note ?? null),
               position: index,
             });
           });
