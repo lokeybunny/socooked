@@ -182,7 +182,7 @@ export default function UsaMap() {
             last = parts.slice(1).join(" ");
           }
         }
-        const phone = r.phone_e164 || r.phone_number || "";
+        const phone = r.office_phone || "";
         return [esc(first), esc(last), esc(phone), esc(r.email)].join(",");
       };
 
