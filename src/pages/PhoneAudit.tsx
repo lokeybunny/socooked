@@ -42,6 +42,8 @@ export default function PhoneAudit() {
   const [deleting, setDeleting] = useState(false);
   const [auditLimit, setAuditLimit] = useState<number | "">("");
   const [uploadJob, setUploadJob] = useState<{ status: string; processed?: number; total?: number; result?: any } | null>(null);
+  const [exportFormat, setExportFormat] = useState<ExportPhoneFormat>("us10");
+  const [exportSummary, setExportSummary] = useState<(ExportSummary & { filename: string }) | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const stateArg = selectedState === "ALL" ? undefined : selectedState;
