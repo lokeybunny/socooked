@@ -143,6 +143,65 @@ export default function UsaMap() {
   const dismissJob = (id: string) =>
     setJobs((prev) => { const next = { ...prev }; delete next[id]; return next; });
 
+  const exportStateCsv = async (state: string) => {
+    const tid = toast.loading(`Exporting ${state}…`);
+    try {
+      const pageSize = 1000;
+      let from = 0;
+      const rows: any[] = [];
+      while (true) {
+        const { data, error } = await supabase
+          .from("state_leads")
+          .select("first_name,name,phone_e164,phone_number,email")
+          .eq("state", state)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data?.length) break;
+        rows.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      if (!rows.length) { toast.dismiss(tid); toast.error(`No leads for ${state}`); return; }
+
+      const esc = (v: any) => {
+        const s = (v ?? "").toString();
+        return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = ["first_name,last_name,phone_number,email"];
+      for (const r of rows) {
+        let first = (r.first_name ?? "").trim();
+        let last = "";
+        if (!first && r.name) {
+          const parts = String(r.name).trim().split(/\s+/);
+          first = parts.shift() ?? "";
+          last = parts.join(" ");
+        } else if (r.name && !first) {
+          last = "";
+        } else if (r.name) {
+          // first_name present; try derive last from name if name has more than first
+          const parts = String(r.name).trim().split(/\s+/);
+          if (parts.length > 1 && parts[0].toLowerCase() === first.toLowerCase()) {
+            last = parts.slice(1).join(" ");
+          }
+        }
+        const phone = r.phone_e164 || r.phone_number || "";
+        lines.push([esc(first), esc(last), esc(phone), esc(r.email)].join(","));
+      }
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${state}_leads_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast.dismiss(tid);
+      toast.success(`${state}: exported ${rows.length.toLocaleString()} leads`);
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(`Export failed: ${e.message}`);
+    }
+  };
+
   const maxLeads = useMemo(() => {
     const vals = Object.values(summary).map((s) => s.total_leads);
     return Math.max(1, ...vals);
