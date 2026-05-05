@@ -46,6 +46,7 @@ const services = [
 
 export default function Landing() {
   const { user, loading } = useAuth();
+  const cell = useCellNumber();
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeService, setActiveService] = useState<number | null>(null);

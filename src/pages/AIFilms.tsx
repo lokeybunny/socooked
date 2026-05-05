@@ -211,6 +211,7 @@ export default function AIFilms() {
   const [submitting, setSubmitting] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const { user } = useAuth();
+  const cell = useCellNumber();
 
   const faqs = [
     {
