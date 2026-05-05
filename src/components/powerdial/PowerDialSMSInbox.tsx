@@ -60,6 +60,7 @@ export default function PowerDialSMSInbox() {
   const [contacts, setContacts] = useState<Record<string, string>>({});
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
+  const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -99,19 +100,22 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags');
     const map: Record<string, string> = {};
     const emails: Record<string, string> = {};
     const starred = new Set<string>();
+    const interested = new Set<string>();
     (data || []).forEach((c: any) => {
       if (!c.phone_last10) return;
       if (c.name) map[c.phone_last10] = c.name;
       if (c.email) emails[c.phone_last10] = c.email;
       if (c.starred) starred.add(c.phone_last10);
+      if (Array.isArray(c.tags) && c.tags.includes('interested')) interested.add(c.phone_last10);
     });
     setContacts(map);
     setContactEmails(emails);
     setStarredSet(starred);
+    setInterestedSet(interested);
   }, []);
 
   const pollVoidFix = useCallback(async () => {
@@ -785,6 +789,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             aria-label="Signed proposal — starred client"
                           />
                         )}
+                        {interestedSet.has(key) && (
+                          <span
+                            className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)] shrink-0"
+                            aria-label="Marked interested on Power Dial call"
+                            title="Marked interested on Power Dial call"
+                          />
+                        )}
                         <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
                       </div>
                       <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
@@ -898,6 +909,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   <div className="flex items-center gap-1.5 min-w-0">
                     {starredSet.has(last10) && (
                       <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" aria-label="Signed proposal — starred client" />
+                    )}
+                    {interestedSet.has(last10) && (
+                      <span
+                        className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)] shrink-0"
+                        aria-label="Marked interested on Power Dial call"
+                        title="Marked interested on Power Dial call"
+                      />
                     )}
                     <span
                       className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none truncate"
