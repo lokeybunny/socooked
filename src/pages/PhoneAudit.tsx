@@ -38,6 +38,7 @@ export default function PhoneAudit() {
   const [selectedState, setSelectedState] = useState<string>("ALL");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [auditLimit, setAuditLimit] = useState<number | "">("");
   const [uploadJob, setUploadJob] = useState<{ status: string; processed?: number; total?: number; result?: any } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
