@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Send, Loader2, X, Phone, FileText, Ban } from 'lucide-react';
+import { Send, Loader2, X, Phone, FileText, Ban, ThumbsUp } from 'lucide-react';
 import { Teleprompter } from '@/components/phone/Teleprompter';
 
 type ActiveCall = {
