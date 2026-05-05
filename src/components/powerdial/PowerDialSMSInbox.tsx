@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import CallNotesPopup from '@/components/phone/CallNotesPopup';
@@ -951,6 +951,19 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               >
                 <StickyNote className="h-3.5 w-3.5" />
                 <span className="text-xs">Notes</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
+                onClick={() => {
+                  const snippet = "Hi, I'm Warren. I do AI drone footage and I'd love to do one of your properties free of charge so we can build a network together. If you get an opportunity, call me back so we can discuss more.";
+                  setComposeBody((b) => (b ? b + (b.endsWith(' ') ? '' : ' ') + snippet : snippet));
+                }}
+                title="Insert quick pitch shortcut into reply"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span className="text-xs">Quick Pitch</span>
               </Button>
               <Button
                 size="sm"
