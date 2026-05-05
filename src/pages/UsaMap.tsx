@@ -391,6 +391,32 @@ export default function UsaMap() {
           ))}
         </div>
       )}
+
+      {exportPrompt && (
+        <Dialog open onOpenChange={(o) => !o && setExportPrompt(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export {STATE_NAMES[exportPrompt] ?? exportPrompt} Leads</DialogTitle>
+              <DialogDescription>
+                Choose how you want to download the CSV. Total leads: {(summary[exportPrompt]?.total_leads ?? 0).toLocaleString()}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Button
+                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, 3000); }}
+              >
+                <Download className="h-4 w-4 mr-2" /> Split by Day (3,000 / day, ZIP)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, Infinity); }}
+              >
+                <Download className="h-4 w-4 mr-2" /> Full Batch (single CSV)
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
