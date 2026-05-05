@@ -163,7 +163,9 @@ export default function CampaignManualDialer() {
 
   const startCall = (item: QueueItem) => {
     setActiveId(item.id);
-    window.location.href = `tel:${phoneE164(item.phone)}`;
+    // Dial via the Twilio Voice device already mounted on this page (TwilioKeypad)
+    window.dispatchEvent(new CustomEvent('twilio:dial', { detail: { phone: phoneE164(item.phone) } }));
+    toast.success(`Calling ${item.contact_name || item.phone}…`);
   };
 
   return (
