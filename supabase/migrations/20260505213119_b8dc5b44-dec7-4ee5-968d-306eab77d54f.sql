@@ -1,0 +1,1 @@
+ALTER TABLE public.powerdial_queue ADD COLUMN IF NOT EXISTS note text;
