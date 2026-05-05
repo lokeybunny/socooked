@@ -1015,13 +1015,19 @@ export default function Funnels() {
         business_name: lead.company || '',
       },
     });
-    if (error) { toast.error('Failed to start remind'); return; }
-    if (data?.error) {
+    // Treat "already active" (409) as success — sync UI state
+    const alreadyActive = data?.error && /already has an active/i.test(String(data.error));
+    if (error && !alreadyActive) { toast.error('Failed to start remind'); return; }
+    if (data?.error && !alreadyActive) {
       toast.error(data.error);
       return;
     }
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: 'active' as const, remind_attempts: 0 } : l));
-    toast.success(`🔔 Remind campaign started for ${lead.full_name} — calls every 4hrs (9am-5pm PST) for 5 days`);
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, remind_status: 'active' as const, remind_attempts: l.remind_attempts ?? 0 } : l));
+    if (alreadyActive) {
+      toast.info(`🔔 Remind campaign already active for ${lead.full_name}`);
+    } else {
+      toast.success(`🔔 Remind campaign started for ${lead.full_name} — calls every 4hrs (9am-5pm PST) for 5 days`);
+    }
   };
 
   const handleHappyToggle = async (lead: FunnelLead, checked: boolean) => {
