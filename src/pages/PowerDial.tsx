@@ -434,6 +434,11 @@ export default function PowerDial() {
               <Button variant="ghost" size="icon" onClick={loadCampaigns}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
+              {activeCampaign && (
+                <Button variant="outline" size="sm" onClick={() => setShowAddNumbers(true)} className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Numbers
+                </Button>
+              )}
               {activeCampaign && (activeCampaign.status === 'stopped' || activeCampaign.status === 'completed' || activeCampaign.status === 'idle') && (
                 <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => setDeleteConfirmId(activeCampaign.id)}>
                   <Trash2 className="h-4 w-4" />
