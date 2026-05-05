@@ -539,24 +539,48 @@ export default function UsaMap() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Numbers</div>
+                  <Select value={exportSource} onValueChange={(v) => setExportSource(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cell">Cell only</SelectItem>
+                      <SelectItem value="office">Office only</SelectItem>
+                      <SelectItem value="both">Cell + Office</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Format</div>
+                  <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ExportPhoneFormat)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="us10">US 10-digit (LeadsRain)</SelectItem>
+                      <SelectItem value="e164">E.164 (+1XXXXXXXXXX)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <label className="flex items-center gap-2 text-sm cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-muted/40">
                 <input
                   type="checkbox"
                   className="h-4 w-4"
                   checked={exportMobileOnly}
                   onChange={(e) => setExportMobileOnly(e.target.checked)}
+                  disabled={exportSource === "office"}
                 />
                 <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                <span>Mobile numbers only (Twilio-verified)</span>
+                <span>Mobile numbers only (Twilio-verified) — applies to cell</span>
               </label>
               <Button
-                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; setExportPrompt(null); exportStateCsv(s, 3000, m); }}
+                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; const src = exportSource; const f = exportFormat; setExportPrompt(null); exportStateCsv(s, 3000, m, src, f); }}
               >
                 <Download className="h-4 w-4 mr-2" /> Split by Day (3,000 / day, ZIP)
               </Button>
               <Button
                 variant="outline"
-                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; setExportPrompt(null); exportStateCsv(s, Infinity, m); }}
+                onClick={() => { const s = exportPrompt; const m = exportMobileOnly; const src = exportSource; const f = exportFormat; setExportPrompt(null); exportStateCsv(s, Infinity, m, src, f); }}
               >
                 <Download className="h-4 w-4 mr-2" /> Full Batch (single CSV)
               </Button>
