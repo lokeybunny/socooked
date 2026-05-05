@@ -175,7 +175,7 @@ serve(async (req) => {
     if (!sa) throw new Error("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON");
 
     const token = await getAccessToken(sa);
-    const htmlBody = template.body(recipientName) + EMAIL_SIGNATURE;
+    const htmlBody = template.body(recipientName) + (await getEmailSignature());
 
     // Build raw email – RFC 2047 encode subject to prevent charset corruption
     const subjectB64 = btoa(unescape(encodeURIComponent(template.subject)))
