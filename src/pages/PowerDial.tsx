@@ -73,6 +73,9 @@ export default function PowerDial() {
   const [scheduleEndDate, setScheduleEndDate] = useState('');
   const [scheduleEndTime, setScheduleEndTime] = useState('17:00');
   const [livePopupCall, setLivePopupCall] = useState<{ phone: string; contact_name?: string | null; customer_id?: string | null } | null>(null);
+  const [showAddNumbers, setShowAddNumbers] = useState(false);
+  const [addNumbersInput, setAddNumbersInput] = useState('');
+  const [addingNumbers, setAddingNumbers] = useState(false);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -334,6 +337,52 @@ export default function PowerDial() {
 
   const deletableCampaigns = campaigns.filter(c => ['stopped', 'completed', 'idle'].includes(c.status));
 
+  const handleAddNumbers = async () => {
+    if (!activeCampaign) return;
+    const phones = extractPhones(addNumbersInput);
+    if (!phones.length) {
+      toast.error('No valid phone numbers found');
+      return;
+    }
+    setAddingNumbers(true);
+    try {
+      // Dedup against existing queue
+      const { data: existing } = await supabase
+        .from('powerdial_queue')
+        .select('phone, position')
+        .eq('campaign_id', activeCampaign.id);
+      const existingPhones = new Set((existing || []).map((r: any) => r.phone));
+      const maxPos = (existing || []).reduce((m: number, r: any) => Math.max(m, r.position ?? 0), -1);
+      const fresh = phones.filter(p => !existingPhones.has(p.phone));
+      if (!fresh.length) {
+        toast.info('All numbers already in this campaign');
+        setAddingNumbers(false);
+        return;
+      }
+      const rows = fresh.map((p, i) => ({
+        campaign_id: activeCampaign.id,
+        phone: p.phone,
+        contact_name: p.name,
+        note: p.note,
+        position: maxPos + 1 + i,
+        status: 'pending',
+      }));
+      const { error } = await supabase.from('powerdial_queue').insert(rows);
+      if (error) throw error;
+      const newTotal = (activeCampaign.total_leads || 0) + rows.length;
+      await supabase.from('powerdial_campaigns').update({ total_leads: newTotal }).eq('id', activeCampaign.id);
+      setActiveCampaign({ ...activeCampaign, total_leads: newTotal });
+      toast.success(`Added ${rows.length} number(s)${phones.length - rows.length > 0 ? ` (${phones.length - rows.length} duplicate skipped)` : ''}`);
+      setAddNumbersInput('');
+      setShowAddNumbers(false);
+      loadCampaigns();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add numbers');
+    } finally {
+      setAddingNumbers(false);
+    }
+  };
+
   const remaining = activeCampaign ? activeCampaign.total_leads - activeCampaign.completed_count : 0;
 
   return (
@@ -385,6 +434,11 @@ export default function PowerDial() {
               <Button variant="ghost" size="icon" onClick={loadCampaigns}>
                 <RefreshCw className="h-4 w-4" />
               </Button>
+              {activeCampaign && (
+                <Button variant="outline" size="sm" onClick={() => setShowAddNumbers(true)} className="border-purple-500/40 text-purple-400 hover:bg-purple-500/10">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Numbers
+                </Button>
+              )}
               {activeCampaign && (activeCampaign.status === 'stopped' || activeCampaign.status === 'completed' || activeCampaign.status === 'idle') && (
                 <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => setDeleteConfirmId(activeCampaign.id)}>
                   <Trash2 className="h-4 w-4" />
@@ -933,7 +987,36 @@ export default function PowerDial() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Numbers Dialog */}
+      <Dialog open={showAddNumbers} onOpenChange={setShowAddNumbers}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Numbers to {activeCampaign?.name}</DialogTitle>
+            <DialogDescription>
+              Append more phone numbers to this campaign's queue. Duplicates already in the queue are skipped automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Phone Numbers (one per line, optionally: number, name, note)</Label>
+            <Textarea
+              value={addNumbersInput}
+              onChange={e => setAddNumbersInput(e.target.value)}
+              placeholder={"7025551234\n7025555678, John Smith\n+18005551111, Jane Doe, follow up"}
+              rows={10}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddNumbers(false)}>Cancel</Button>
+            <Button onClick={handleAddNumbers} disabled={addingNumbers || !addNumbersInput.trim()}>
+              {addingNumbers ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+              Add Numbers
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
+
   );
 }
 
