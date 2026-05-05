@@ -192,6 +192,13 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
           </Button>
         </div>
 
+        {/* Last message of interest from import */}
+        {call.note && (
+          <div className="px-4 py-2 border-b border-amber-500/30 bg-amber-500/10 text-xs text-amber-200">
+            <span className="font-semibold text-amber-400">Last message:</span> "{call.note}"
+          </div>
+        )}
+
         {/* Notes (if any) */}
         {call.notes && (
           <div className="px-4 py-2 border-b border-border bg-muted/20 text-[11px] text-muted-foreground">
