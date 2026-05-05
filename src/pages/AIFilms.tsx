@@ -9,6 +9,7 @@ import MobileSectionMenu from '@/components/landing/MobileSectionMenu';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCellNumber } from '@/hooks/useCellNumber';
 
 import heroBefore from '@/assets/ai-films/hero-before.webp';
 import heroAfter from '@/assets/ai-films/hero-after.png';
@@ -629,10 +630,10 @@ export default function AIFilms() {
           <div className="text-center mb-6">
             <p className="text-[10px] tracking-[0.4em] uppercase text-background/40 mb-2">Or call us</p>
             <a
-              href="tel:+14802200405"
+              href={cell.telHref}
               className="text-2xl sm:text-3xl font-light tracking-wide text-background hover:text-background/70 transition-colors"
             >
-              (480) 220-0405
+              {cell.display}
             </a>
           </div>
 

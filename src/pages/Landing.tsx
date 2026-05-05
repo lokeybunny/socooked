@@ -8,6 +8,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import VideoPlayer from '@/components/landing/VideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
 import FloatingBookNow from '@/components/landing/FloatingBookNow';
+import { useCellNumber } from '@/hooks/useCellNumber';
 
 
 const services = [
@@ -364,8 +365,8 @@ export default function Landing() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <a href="tel:+14802200405" className="text-muted-foreground/40 hover:text-foreground text-[9px] sm:text-[10px] tracking-[0.15em] transition-colors" aria-label="Call (480) 220-0405">
-              (480) 220-0405
+            <a href={cell.telHref} className="text-muted-foreground/40 hover:text-foreground text-[9px] sm:text-[10px] tracking-[0.15em] transition-colors" aria-label={`Call ${cell.display}`}>
+              {cell.display}
             </a>
             <a href="https://x.com/@warrenguru" target="_blank" rel="noopener noreferrer" className="text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors" aria-label="X (Twitter)">
               <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 sm:h-5 sm:w-5"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932 6.064-6.932zm-1.294 19.497h2.039L6.482 2.29H4.294L17.607 20.65z"/></svg>
