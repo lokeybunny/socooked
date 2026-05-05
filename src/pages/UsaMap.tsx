@@ -21,7 +21,8 @@ const GRID: (string | null)[][] = [
   [null, null, null, null, null, null, null, null, "FL", null, null],
 ];
 
-type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null };
+type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null; verified_mobile?: number; audited_count?: number };
+type VerifiedRow = { state: string; verified_mobile: number; landline_count: number; voip_count: number; invalid_count: number; audited_count: number; total_count: number };
 type UploadLog = { id: string; state: string; file_name: string | null; total_rows: number; inserted_count: number; duplicate_count: number; created_at: string };
 
 type AuditSummary = {
@@ -77,13 +78,26 @@ export default function UsaMap() {
   const [exportMobileOnly, setExportMobileOnly] = useState(false);
 
   const loadAll = async () => {
-    const [sumRes, logRes] = await Promise.all([
+    const [sumRes, logRes, verRes] = await Promise.all([
       supabase.from("state_summary").select("*"),
       supabase.from("upload_logs").select("*").order("created_at", { ascending: false }).limit(10),
+      supabase.from("state_verified_summary" as any).select("*"),
     ]);
+    const verMap: Record<string, VerifiedRow> = {};
+    if (verRes.data) for (const r of verRes.data as unknown as VerifiedRow[]) verMap[r.state] = r;
     if (sumRes.data) {
       const map: Record<string, Summary> = {};
-      for (const r of sumRes.data as Summary[]) map[r.state] = r;
+      for (const r of sumRes.data as Summary[]) {
+        const v = verMap[r.state];
+        map[r.state] = { ...r, verified_mobile: v?.verified_mobile ?? 0, audited_count: v?.audited_count ?? 0 };
+      }
+      // include states present only in verified view
+      for (const state of Object.keys(verMap)) {
+        if (!map[state]) {
+          const v = verMap[state];
+          map[state] = { state, total_leads: v.total_count, total_unique_numbers: v.total_count, last_upload_at: null, verified_mobile: v.verified_mobile, audited_count: v.audited_count };
+        }
+      }
       setSummary(map);
     }
     if (logRes.data) setLogs(logRes.data as UploadLog[]);
@@ -93,15 +107,21 @@ export default function UsaMap() {
 
   // Realtime: refresh map summary when audits run or summaries change
   useEffect(() => {
+    let t: any;
+    const debouncedReload = () => { clearTimeout(t); t = setTimeout(() => loadAll(), 1500); };
     const ch = supabase
       .channel("usa-map-sync")
       .on("postgres_changes", { event: "*", schema: "public", table: "state_summary" }, () => loadAll())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "phone_audit_jobs" }, (payload) => {
         const status = (payload.new as { status?: string } | null)?.status;
-        if (status === "completed") loadAll();
+        if (status === "completed" || status === "running") debouncedReload();
       })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "state_leads" }, () => debouncedReload())
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    // also refresh when window regains focus
+    const onFocus = () => loadAll();
+    window.addEventListener("focus", onFocus);
+    return () => { supabase.removeChannel(ch); window.removeEventListener("focus", onFocus); clearTimeout(t); };
   }, []);
 
   const updateJob = (id: string, patch: Partial<UploadJob>) =>
@@ -303,6 +323,8 @@ export default function UsaMap() {
   };
 
   const totalAll = useMemo(() => Object.values(summary).reduce((a, s) => a + s.total_leads, 0), [summary]);
+  const totalVerified = useMemo(() => Object.values(summary).reduce((a, s) => a + (s.verified_mobile ?? 0), 0), [summary]);
+  const totalAudited = useMemo(() => Object.values(summary).reduce((a, s) => a + (s.audited_count ?? 0), 0), [summary]);
   const totalDupes = useMemo(() => logs.reduce((a, l) => a + l.duplicate_count, 0), [logs]);
   const ranked = useMemo(
     () => Object.values(summary).sort((a, b) => b.total_leads - a.total_leads).slice(0, 10),
@@ -332,7 +354,8 @@ export default function UsaMap() {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Stat label="Total Leads" value={totalAll.toLocaleString()} />
-            <Stat label="Unique Numbers" value={totalAll.toLocaleString()} />
+            <Stat label="Verified Mobile" value={totalVerified.toLocaleString()} />
+            <Stat label="Audited" value={totalAudited.toLocaleString()} />
             <Stat label="Duplicates Prevented" value={totalDupes.toLocaleString()} />
           </div>
         </header>
@@ -379,6 +402,12 @@ export default function UsaMap() {
               <div className="font-semibold">{STATE_NAMES[hover.code]}</div>
               <div className="text-muted-foreground">
                 Leads: <span className="text-foreground font-medium">{summary[hover.code]?.total_leads ?? 0}</span>
+              </div>
+              <div className="text-muted-foreground">
+                Verified mobile: <span className="text-foreground font-medium">{(summary[hover.code]?.verified_mobile ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="text-muted-foreground">
+                Audited: <span className="text-foreground font-medium">{(summary[hover.code]?.audited_count ?? 0).toLocaleString()}</span>
               </div>
               {summary[hover.code]?.last_upload_at && (
                 <div className="text-muted-foreground">

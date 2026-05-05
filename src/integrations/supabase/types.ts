@@ -8659,7 +8659,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      state_verified_summary: {
+        Row: {
+          audited_count: number | null
+          invalid_count: number | null
+          landline_count: number | null
+          state: string | null
+          total_count: number | null
+          verified_mobile: number | null
+          voip_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
