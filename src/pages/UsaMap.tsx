@@ -48,6 +48,7 @@ export default function UsaMap() {
   const [openState, setOpenState] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Record<string, UploadJob>>({});
   const channelsRef = useRef<Record<string, ReturnType<typeof supabase.channel>>>({});
+  const [exportPrompt, setExportPrompt] = useState<string | null>(null);
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
