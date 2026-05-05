@@ -146,11 +146,9 @@ Deno.serve(async (req) => {
     let inserted = 0;
     let duplicates = totalRows - candidates.length;
 
-    const chunkSize = 500;
-    let emailBackfilled = 0;
+    const chunkSize = 1000;
     for (let i = 0; i < candidates.length; i += chunkSize) {
       const chunk = candidates.slice(i, i + chunkSize);
-
       const { data: insertedData, error: insErr } = await supabase
         .from("state_leads")
         .upsert(chunk.map(({ last_name: _ln, ...c }) => c), { onConflict: "phone_e164", ignoreDuplicates: true })
@@ -164,46 +162,8 @@ Deno.serve(async (req) => {
       const insertedThis = insertedData?.length ?? 0;
       inserted += insertedThis;
       duplicates += chunk.length - insertedThis;
-
-      // Bulk-fetch existing rows for this chunk in ONE query
-      const phones = chunk.map((c) => c.phone_e164);
-      const { data: existingRows } = await supabase
-        .from("state_leads")
-        .select("id,phone_e164,email,first_name,name,address,city,zip")
-        .in("phone_e164", phones);
-      const existingMap = new Map<string, any>();
-      for (const e of existingRows || []) existingMap.set(e.phone_e164, e);
-
-      const updates: Array<{ id: string; patch: Record<string, unknown>; hasEmail: boolean }> = [];
-      for (const c of chunk) {
-        const existing = existingMap.get(c.phone_e164);
-        if (!existing) continue;
-        const patch: Record<string, unknown> = {};
-        if (c.email && (existing.email == null || existing.email === "")) patch.email = c.email;
-        if (c.first_name && (existing.first_name == null || existing.first_name === "")) patch.first_name = c.first_name;
-        if (c.name && (existing.name == null || existing.name === "")) patch.name = c.name;
-        if (c.address && (existing.address == null || existing.address === "")) {
-          patch.address = c.address;
-          patch.property_address = c.address;
-        }
-        if (c.city && (existing.city == null || existing.city === "")) patch.city = c.city;
-        if (c.zip && (existing.zip == null || existing.zip === "")) patch.zip = c.zip;
-        if (Object.keys(patch).length === 0) continue;
-        updates.push({ id: existing.id, patch, hasEmail: !!patch.email });
-      }
-
-      const UCONC = 20;
-      for (let u = 0; u < updates.length; u += UCONC) {
-        const slice = updates.slice(u, u + UCONC);
-        const results = await Promise.all(slice.map((up) =>
-          supabase.from("state_leads").update(up.patch).eq("id", up.id)
-        ));
-        for (let k = 0; k < slice.length; k++) {
-          if (!results[k].error && slice[k].hasEmail) emailBackfilled += 1;
-        }
-      }
     }
-    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates, "email_backfilled:", emailBackfilled);
+    console.log("[process-state-upload] inserted:", inserted, "duplicates:", duplicates);
 
     await supabase.from("upload_logs").insert({
       state: selectedState,
