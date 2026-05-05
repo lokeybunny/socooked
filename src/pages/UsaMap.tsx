@@ -78,6 +78,8 @@ export default function UsaMap() {
   const channelsRef = useRef<Record<string, ReturnType<typeof supabase.channel>>>({});
   const [exportPrompt, setExportPrompt] = useState<string | null>(null);
   const [exportMobileOnly, setExportMobileOnly] = useState(false);
+  const [exportSource, setExportSource] = useState<"cell" | "office" | "both">("cell");
+  const [exportFormat, setExportFormat] = useState<ExportPhoneFormat>("us10");
 
   const loadAll = async () => {
     const [sumRes, logRes, verRes] = await Promise.all([
