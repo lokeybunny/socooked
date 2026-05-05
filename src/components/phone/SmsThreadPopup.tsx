@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, MessageSquare, StickyNote, Workflow, Voicemail } from "lucide-react";
+import { Loader2, Send, MessageSquare, StickyNote, Workflow, Voicemail, Zap } from "lucide-react";
 import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
@@ -147,6 +147,18 @@ export function SmsThreadPopup({
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-1.5 shrink-0 mr-6">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
+                  onClick={() => {
+                    const snippet = "Hi, I'm Warren. I do AI drone footage and I'd love to do one of your properties free of charge so we can build a network together. If you get an opportunity, call me back so we can discuss more.";
+                    setBody((b) => (b ? b + (b.endsWith(' ') ? '' : ' ') + snippet : snippet));
+                  }}
+                  title="Insert quick pitch shortcut"
+                >
+                  <Zap className="h-3.5 w-3.5" /> Quick Pitch
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
