@@ -206,7 +206,7 @@ function StateModal({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number; lgm_checked?: number; lgm_rejected?: number; lgm_enriched?: number; lgm_enabled?: boolean } | null>(null);
+  const [result, setResult] = useState<{ total_rows: number; inserted_count: number; duplicate_count: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
