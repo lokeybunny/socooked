@@ -348,7 +348,8 @@ export default function UsaMap() {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Stat label="Total Leads" value={totalAll.toLocaleString()} />
-            <Stat label="Unique Numbers" value={totalAll.toLocaleString()} />
+            <Stat label="Verified Mobile" value={totalVerified.toLocaleString()} />
+            <Stat label="Audited" value={totalAudited.toLocaleString()} />
             <Stat label="Duplicates Prevented" value={totalDupes.toLocaleString()} />
           </div>
         </header>
