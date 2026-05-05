@@ -93,18 +93,23 @@ export default function UsaMap() {
   const updateJob = (id: string, patch: Partial<UploadJob>) =>
     setJobs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
 
-  const startUpload = async (file: File, state: string) => {
-    const id = (crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-    setJobs((prev) => ({
-      ...prev,
-      [id]: {
-        id, state, file_name: file.name, file_size: file.size,
-        uploadPct: 0, phase: "uploading", message: "Uploading file…",
-      },
-    }));
+  const startUpload = async (file: File, state: string, confirmed = false, existingId?: string, existingBatch?: string) => {
+    const id = existingId ?? ((crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    const importBatchId = existingBatch ?? ((crypto as any).randomUUID?.() ?? `${Date.now()}`);
 
-    // Subscribe to realtime broadcasts from the edge function
-    const channel = supabase.channel(`upload:${id}`, { config: { broadcast: { self: true } } });
+    if (!existingId) {
+      setJobs((prev) => ({
+        ...prev,
+        [id]: {
+          id, state, file_name: file.name, file_size: file.size, file,
+          uploadPct: 0, phase: "uploading", message: "Uploading file…",
+        },
+      }));
+    } else {
+      updateJob(id, { phase: "saving", message: "Saving approved mobile leads…", uploadPct: 0 });
+    }
+
+    const channel = supabase.channel(`audit:${id}`, { config: { broadcast: { self: true } } });
     channelsRef.current[id] = channel;
     const cleanup = () => {
       const ch = channelsRef.current[id];
@@ -113,27 +118,36 @@ export default function UsaMap() {
     channel
       .on("broadcast", { event: "status" }, ({ payload }) => updateJob(id, payload as any))
       .on("broadcast", { event: "progress" }, ({ payload }) => updateJob(id, payload as any))
+      .on("broadcast", { event: "audit" }, ({ payload }) => {
+        updateJob(id, { audit: (payload as any).audit, phase: "audited" });
+      })
       .on("broadcast", { event: "complete" }, ({ payload }) => {
-        updateJob(id, { ...(payload as any), phase: "complete", finishedAt: Date.now() });
-        toast.success(`${state}: inserted ${(payload as any)?.inserted_count ?? 0}, skipped ${(payload as any)?.duplicate_count ?? 0} duplicates`);
-        loadAll();
-        cleanup();
+        const p = payload as any;
+        if (p.saved) {
+          updateJob(id, { ...p, phase: "complete", finishedAt: Date.now(), inserted: p.inserted });
+          toast.success(`${state}: saved ${p.inserted ?? 0} mobile leads`);
+          loadAll();
+          cleanup();
+        } else {
+          updateJob(id, { audit: p.audit, phase: "audited" });
+        }
       })
       .on("broadcast", { event: "error" }, ({ payload }) => {
         updateJob(id, { phase: "error", message: (payload as any)?.message, finishedAt: Date.now() });
-        toast.error(`${state} upload failed: ${(payload as any)?.message ?? "error"}`);
+        toast.error(`${state} failed: ${(payload as any)?.message ?? "error"}`);
         cleanup();
       });
     await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-state-upload`;
-
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit-uploaded-phone-numbers`;
       const fd = new FormData();
       fd.append("file", file);
       fd.append("selected_state", state);
       fd.append("progress_id", id);
+      fd.append("import_batch_id", importBatchId);
+      fd.append("confirmed", confirmed ? "true" : "false");
 
       await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -157,13 +171,18 @@ export default function UsaMap() {
         xhr.send(fd);
       });
 
-      // Server returns 202 immediately; final completion arrives via realtime "complete".
       updateJob(id, { phase: "parsing", message: "Server processing…", uploadPct: 100 });
     } catch (e: any) {
-      toast.error(`${state} upload failed: ${e.message}`);
+      toast.error(`${state} failed: ${e.message}`);
       updateJob(id, { phase: "error", message: e.message, finishedAt: Date.now() });
       cleanup();
     }
+  };
+
+  const confirmSaveJob = (id: string) => {
+    const j = jobs[id];
+    if (!j?.file || !j.audit) return;
+    startUpload(j.file, j.state, true, id, j.audit.import_batch_id);
   };
 
   const dismissJob = (id: string) =>
