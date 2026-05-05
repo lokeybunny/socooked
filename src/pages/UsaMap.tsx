@@ -397,6 +397,12 @@ export default function UsaMap() {
               <div className="text-muted-foreground">
                 Leads: <span className="text-foreground font-medium">{summary[hover.code]?.total_leads ?? 0}</span>
               </div>
+              <div className="text-muted-foreground">
+                Verified mobile: <span className="text-foreground font-medium">{(summary[hover.code]?.verified_mobile ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="text-muted-foreground">
+                Audited: <span className="text-foreground font-medium">{(summary[hover.code]?.audited_count ?? 0).toLocaleString()}</span>
+              </div>
               {summary[hover.code]?.last_upload_at && (
                 <div className="text-muted-foreground">
                   Last upload: {new Date(summary[hover.code]!.last_upload_at!).toLocaleDateString()}
