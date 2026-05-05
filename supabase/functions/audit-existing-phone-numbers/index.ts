@@ -73,6 +73,9 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const userLimit = Number.isFinite(Number(body.limit)) && Number(body.limit) > 0
+      ? Math.floor(Number(body.limit)) : null;
+
     let job: any = null;
     if (action === "start") {
       const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString();
@@ -81,15 +84,16 @@ Deno.serve(async (req) => {
           .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`),
       );
       const { count: needAudit } = await needQ;
+      const planned = userLimit ? Math.min(userLimit, needAudit ?? 0) : (needAudit ?? 0);
       const { data } = await supabase.from("phone_audit_jobs").insert({
-        status: "running", total: needAudit ?? 0, started_at: new Date().toISOString(),
+        status: "running", total: planned, started_at: new Date().toISOString(),
       }).select("*").single();
-      job = { ...data, _state: stateFilter };
+      job = { ...data, _state: stateFilter, _limit: userLimit };
     } else if (action === "resume" && jobId) {
       const { data } = await supabase.from("phone_audit_jobs").update({
         status: "running", paused_at: null,
       }).eq("id", jobId).select("*").single();
-      job = data;
+      job = { ...data, _state: stateFilter, _limit: userLimit };
     }
 
     if (!job) {
@@ -107,11 +111,21 @@ Deno.serve(async (req) => {
           const { data: current } = await supabase.from("phone_audit_jobs").select("*").eq("id", job.id).single();
           if (!current || current.status !== "running") return;
 
+          // Stop if user-defined limit reached
+          if (job._limit && (current.processed ?? 0) >= job._limit) {
+            await supabase.from("phone_audit_jobs").update({
+              status: "completed", completed_at: new Date().toISOString(),
+            }).eq("id", job.id);
+            return;
+          }
+          const remaining = job._limit ? Math.max(0, job._limit - (current.processed ?? 0)) : BATCH_SIZE;
+          const take = Math.min(BATCH_SIZE, remaining);
+
           // Pull next batch of un-audited leads
           const leadsQ = applyState(
             supabase.from("state_leads").select("id, phone_e164")
               .or(`phone_lookup_checked_at.is.null,phone_lookup_checked_at.lt.${cutoff}`)
-              .limit(BATCH_SIZE),
+              .limit(take),
           );
           const { data: leads, error } = await leadsQ;
           if (error) throw error;
