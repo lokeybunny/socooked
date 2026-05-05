@@ -481,18 +481,11 @@ async function redirectCallToAIAssistTransfer(
       options.callLogId,
     );
 
-    const resolvedGreeting = (greetingText || DEFAULT_AI_ASSIST_GREETING).trim();
-    const greetingUrl = await buildAIGreetingUrl(AI_ASSIST_ELEVENLABS_VOICE_ID, resolvedGreeting);
-    const greetingTwiml = greetingUrl
-      ? `  <Play>${escapeXml(greetingUrl)}</Play>`
-      : `  <Say voice="Polly.Joanna">${escapeXml(resolvedGreeting)}</Say>`;
-
-    // PowerDial-only behavior: say the warm handoff line, then bridge directly.
-    // Do not attach twilio-whisper, so there is no name recording or press-1
-    // requirement in this outbound handoff path.
+    // PowerDial-only behavior: bridge directly with NO greeting, NO whisper,
+    // NO name screening — instant silent handoff to the human agent line.
+    void greetingText;
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-${greetingTwiml}
   <Dial timeout="30" answerOnBridge="false" action="${escapeXml(dialCompleteUrl)}" method="POST"${callerIdAttr}>
     <Number>${escapeXml(humanTransferPhone)}</Number>
   </Dial>
