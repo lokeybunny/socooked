@@ -4,8 +4,8 @@ import { STATE_CODES, STATE_NAMES } from "@/lib/usStates";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 
@@ -24,20 +24,45 @@ const GRID: (string | null)[][] = [
 type Summary = { state: string; total_leads: number; total_unique_numbers: number; last_upload_at: string | null };
 type UploadLog = { id: string; state: string; file_name: string | null; total_rows: number; inserted_count: number; duplicate_count: number; created_at: string };
 
+type AuditSummary = {
+  import_batch_id: string;
+  file_name: string;
+  state: string;
+  total_rows: number;
+  unique_numbers: number;
+  malformed_blank: number;
+  duplicates_in_file: number;
+  duplicates_in_db: number;
+  mobile_approved: number;
+  landlines_rejected: number;
+  voip_rejected: number;
+  invalid_rejected: number;
+  unknown_rejected: number;
+  failed_lookups: number;
+  cache_hits: number;
+  new_lookups: number;
+  estimated_cost_usd: number;
+  rejected_sample?: any[];
+  inserted?: number;
+  rejected_total?: number;
+};
+
 type UploadJob = {
   id: string;
   state: string;
   file_name: string;
   file_size: number;
-  // 0..100 for the file network upload phase
+  file?: File; // kept in memory until user confirms save
   uploadPct: number;
-  phase: "uploading" | "parsing" | "parsed" | "inserting" | "complete" | "error";
+  phase: "uploading" | "parsing" | "parsed" | "normalizing" | "deduping" | "looking_up" | "filtering" | "audited" | "saving" | "complete" | "error";
   message?: string;
   total_rows?: number;
-  candidates?: number;
-  processed?: number;
+  to_lookup?: number;
+  cache_hits?: number;
+  new_lookups?: number;
   inserted?: number;
   duplicates?: number;
+  audit?: AuditSummary;
   finishedAt?: number;
 };
 
@@ -68,18 +93,23 @@ export default function UsaMap() {
   const updateJob = (id: string, patch: Partial<UploadJob>) =>
     setJobs((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
 
-  const startUpload = async (file: File, state: string) => {
-    const id = (crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-    setJobs((prev) => ({
-      ...prev,
-      [id]: {
-        id, state, file_name: file.name, file_size: file.size,
-        uploadPct: 0, phase: "uploading", message: "Uploading file…",
-      },
-    }));
+  const startUpload = async (file: File, state: string, confirmed = false, existingId?: string, existingBatch?: string) => {
+    const id = existingId ?? ((crypto as any).randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    const importBatchId = existingBatch ?? ((crypto as any).randomUUID?.() ?? `${Date.now()}`);
 
-    // Subscribe to realtime broadcasts from the edge function
-    const channel = supabase.channel(`upload:${id}`, { config: { broadcast: { self: true } } });
+    if (!existingId) {
+      setJobs((prev) => ({
+        ...prev,
+        [id]: {
+          id, state, file_name: file.name, file_size: file.size, file,
+          uploadPct: 0, phase: "uploading", message: "Uploading file…",
+        },
+      }));
+    } else {
+      updateJob(id, { phase: "saving", message: "Saving approved mobile leads…", uploadPct: 0 });
+    }
+
+    const channel = supabase.channel(`audit:${id}`, { config: { broadcast: { self: true } } });
     channelsRef.current[id] = channel;
     const cleanup = () => {
       const ch = channelsRef.current[id];
@@ -88,27 +118,36 @@ export default function UsaMap() {
     channel
       .on("broadcast", { event: "status" }, ({ payload }) => updateJob(id, payload as any))
       .on("broadcast", { event: "progress" }, ({ payload }) => updateJob(id, payload as any))
+      .on("broadcast", { event: "audit" }, ({ payload }) => {
+        updateJob(id, { audit: (payload as any).audit, phase: "audited" });
+      })
       .on("broadcast", { event: "complete" }, ({ payload }) => {
-        updateJob(id, { ...(payload as any), phase: "complete", finishedAt: Date.now() });
-        toast.success(`${state}: inserted ${(payload as any)?.inserted_count ?? 0}, skipped ${(payload as any)?.duplicate_count ?? 0} duplicates`);
-        loadAll();
-        cleanup();
+        const p = payload as any;
+        if (p.saved) {
+          updateJob(id, { ...p, phase: "complete", finishedAt: Date.now(), inserted: p.inserted });
+          toast.success(`${state}: saved ${p.inserted ?? 0} mobile leads`);
+          loadAll();
+          cleanup();
+        } else {
+          updateJob(id, { audit: p.audit, phase: "audited" });
+        }
       })
       .on("broadcast", { event: "error" }, ({ payload }) => {
         updateJob(id, { phase: "error", message: (payload as any)?.message, finishedAt: Date.now() });
-        toast.error(`${state} upload failed: ${(payload as any)?.message ?? "error"}`);
+        toast.error(`${state} failed: ${(payload as any)?.message ?? "error"}`);
         cleanup();
       });
     await new Promise<void>((resolve) => channel.subscribe((status) => { if (status === "SUBSCRIBED") resolve(); }));
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-state-upload`;
-
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit-uploaded-phone-numbers`;
       const fd = new FormData();
       fd.append("file", file);
       fd.append("selected_state", state);
       fd.append("progress_id", id);
+      fd.append("import_batch_id", importBatchId);
+      fd.append("confirmed", confirmed ? "true" : "false");
 
       await new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -132,13 +171,18 @@ export default function UsaMap() {
         xhr.send(fd);
       });
 
-      // Server returns 202 immediately; final completion arrives via realtime "complete".
       updateJob(id, { phase: "parsing", message: "Server processing…", uploadPct: 100 });
     } catch (e: any) {
-      toast.error(`${state} upload failed: ${e.message}`);
+      toast.error(`${state} failed: ${e.message}`);
       updateJob(id, { phase: "error", message: e.message, finishedAt: Date.now() });
       cleanup();
     }
+  };
+
+  const confirmSaveJob = (id: string) => {
+    const j = jobs[id];
+    if (!j?.file || !j.audit) return;
+    startUpload(j.file, j.state, true, id, j.audit.import_batch_id);
   };
 
   const dismissJob = (id: string) =>
@@ -430,31 +474,31 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void }) {
+function UploadCard({ job, onDismiss, onConfirmSave, onCancel }: { job: UploadJob; onDismiss: () => void; onConfirmSave?: () => void; onCancel?: () => void }) {
   const isDone = job.phase === "complete";
   const isError = job.phase === "error";
-  const pct = job.candidates
-    ? Math.round(((job.processed ?? 0) / Math.max(1, job.candidates)) * 100)
-    : job.uploadPct ?? 0;
+  const isAudited = job.phase === "audited";
+  const pct = job.uploadPct ?? 0;
 
   return (
-    <div className={`rounded-lg border p-3 shadow-lg backdrop-blur bg-card/95 ${isError ? "border-destructive/40" : isDone ? "border-emerald-500/40" : "border-border"}`}>
+    <div className={`rounded-lg border p-3 shadow-lg backdrop-blur bg-card/95 ${isError ? "border-destructive/40" : isDone ? "border-emerald-500/40" : isAudited ? "border-amber-500/40" : "border-border"}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="text-xs font-semibold flex items-center gap-1.5">
             {isDone ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
               : isError ? <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+              : isAudited ? <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
               : <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
             {job.state} · <span className="truncate">{job.file_name}</span>
           </div>
           <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">
-            {isDone ? "Complete" : isError ? `Error: ${job.message ?? "failed"}` : `${job.phase}${job.message ? ` — ${job.message}` : ""}`}
+            {isDone ? "Complete" : isError ? `Error: ${job.message ?? "failed"}` : `${job.phase.replace(/_/g, " ")}${job.message ? ` — ${job.message}` : ""}`}
           </div>
         </div>
         <button onClick={onDismiss} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
       </div>
 
-      {!isError && (
+      {!isError && !isAudited && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-border">
           <div
             className={`h-full transition-all ${isDone ? "bg-emerald-500" : "bg-primary"}`}
@@ -463,18 +507,33 @@ function UploadCard({ job, onDismiss }: { job: UploadJob; onDismiss: () => void 
         </div>
       )}
 
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-        {job.candidates ? (
-          <span>{(job.processed ?? 0).toLocaleString()} / {job.candidates.toLocaleString()} rows</span>
-        ) : job.phase === "uploading" ? (
-          <span>Uploading {job.uploadPct ?? 0}%</span>
-        ) : job.total_rows ? (
-          <span>{job.total_rows.toLocaleString()} rows parsed</span>
-        ) : <span>&nbsp;</span>}
-        {(isDone || (job.inserted != null)) && (
-          <span>+{(job.inserted ?? 0).toLocaleString()} · {(job.duplicates ?? 0).toLocaleString()} dup</span>
-        )}
-      </div>
+      {isAudited && job.audit && onConfirmSave && (
+        <div className="mt-2 space-y-1.5 text-[11px]">
+          <div className="grid grid-cols-2 gap-1">
+            <div>📱 Mobile: <strong className="text-emerald-500">{job.audit.mobile_approved}</strong></div>
+            <div>☎️ Landline: <strong className="text-amber-500">{job.audit.landlines_rejected}</strong></div>
+            <div>🌐 VoIP: <strong className="text-amber-500">{job.audit.voip_rejected}</strong></div>
+            <div>❌ Invalid: <strong className="text-destructive">{job.audit.invalid_rejected}</strong></div>
+            <div>❓ Unknown: <strong>{job.audit.unknown_rejected}</strong></div>
+            <div>🔁 Dupes: <strong>{job.audit.duplicates_in_file + job.audit.duplicates_in_db}</strong></div>
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            New lookups: {job.audit.new_lookups} · Cache hits: {job.audit.cache_hits} · Cost: ${job.audit.estimated_cost_usd.toFixed(3)}
+          </div>
+          <div className="flex gap-1">
+            <Button size="sm" className="h-6 text-[11px] flex-1" onClick={onConfirmSave}>
+              <ShieldCheck className="h-3 w-3 mr-1" /> Save {job.audit.mobile_approved} Mobile
+            </Button>
+            {onCancel && <Button size="sm" variant="ghost" className="h-6 text-[11px]" onClick={onCancel}>Cancel</Button>}
+          </div>
+        </div>
+      )}
+
+      {(isDone || job.inserted != null) && !isAudited && (
+        <div className="text-[10px] text-muted-foreground mt-1">
+          +{(job.inserted ?? 0).toLocaleString()} mobile saved · {(job.audit?.rejected_total ?? 0).toLocaleString()} rejected
+        </div>
+      )}
     </div>
   );
 }
