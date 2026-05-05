@@ -100,19 +100,22 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags');
     const map: Record<string, string> = {};
     const emails: Record<string, string> = {};
     const starred = new Set<string>();
+    const interested = new Set<string>();
     (data || []).forEach((c: any) => {
       if (!c.phone_last10) return;
       if (c.name) map[c.phone_last10] = c.name;
       if (c.email) emails[c.phone_last10] = c.email;
       if (c.starred) starred.add(c.phone_last10);
+      if (Array.isArray(c.tags) && c.tags.includes('interested')) interested.add(c.phone_last10);
     });
     setContacts(map);
     setContactEmails(emails);
     setStarredSet(starred);
+    setInterestedSet(interested);
   }, []);
 
   const pollVoidFix = useCallback(async () => {
