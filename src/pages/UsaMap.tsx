@@ -226,19 +226,27 @@ export default function UsaMap() {
   const dismissJob = (id: string) =>
     setJobs((prev) => { const next = { ...prev }; delete next[id]; return next; });
 
-  const exportStateCsv = async (state: string, batchSize = 3000, mobileOnly = false) => {
-    const tid = toast.loading(`Exporting ${state}${mobileOnly ? " (mobile only)" : ""}…`);
+  const exportStateCsv = async (
+    state: string,
+    batchSize = 3000,
+    mobileOnly = false,
+    source: "cell" | "office" | "both" = "cell",
+    fmt: ExportPhoneFormat = "us10",
+  ) => {
+    const tid = toast.loading(`Exporting ${state} (${source})${mobileOnly ? " mobile-verified" : ""}…`);
     try {
       const pageSize = 1000;
       let from = 0;
       const rows: any[] = [];
+      // Mobile filter only applies when cell numbers are part of the export
+      const cellInScope = source === "cell" || source === "both";
       while (true) {
         let q = supabase
           .from("state_leads")
           .select("first_name,name,phone_e164,phone_number,office_phone,email,phone_line_type,phone_valid")
           .eq("state", state)
           .range(from, from + pageSize - 1);
-        if (mobileOnly) {
+        if (mobileOnly && cellInScope && source === "cell") {
           q = q.eq("phone_line_type", "mobile").eq("phone_valid", true);
         }
         const { data, error } = await q;
@@ -248,14 +256,46 @@ export default function UsaMap() {
         if (data.length < pageSize) break;
         from += pageSize;
       }
-      if (!rows.length) { toast.dismiss(tid); toast.error(`No ${mobileOnly ? "mobile " : ""}leads for ${state}`); return; }
+      if (!rows.length) { toast.dismiss(tid); toast.error(`No leads for ${state}`); return; }
+
+      // Build per-number entries
+      const entries: Array<{ row: any; rawPhone: string; type: "cell" | "office" }> = [];
+      for (const r of rows) {
+        if (source === "cell" || source === "both") {
+          // For "both" with mobileOnly, only include cell when verified mobile
+          const okMobile = !mobileOnly || (r.phone_line_type === "mobile" && r.phone_valid === true);
+          const cell = r.phone_e164 || r.phone_number || "";
+          if (cell && okMobile) entries.push({ row: r, rawPhone: cell, type: "cell" });
+        }
+        if (source === "office" || source === "both") {
+          if (r.office_phone) entries.push({ row: r, rawPhone: r.office_phone, type: "office" });
+        }
+      }
+
+      const shaped = entries.map((e) => ({
+        phone_e164: e.rawPhone,
+        phone_valid: true,
+        phone_line_type: "mobile",
+        __orig: e,
+      }));
+      const { rows: prepared, summary: sum } = prepareExportRows(shaped as any, {
+        mode: fmt,
+        mobileOnly: false,
+      });
+      if (!prepared.length) { toast.dismiss(tid); toast.error("No exportable numbers after formatting"); return; }
 
       const esc = (v: any) => {
         const s = (v ?? "").toString();
         return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
       };
-      const header = "first_name,last_name,phone_number,email";
-      const toLine = (r: any) => {
+      const includeType = source === "both";
+      const headerCols = ["first_name", "last_name", "phone_number", "email"];
+      if (includeType) headerCols.push("phone_type");
+      const header = headerCols.join(",");
+
+      const toLine = (p: any) => {
+        const e = p.row.__orig as { row: any; type: "cell" | "office" };
+        const r = e.row;
         let first = (r.first_name ?? "").trim();
         let last = "";
         if (!first && r.name) {
@@ -268,45 +308,47 @@ export default function UsaMap() {
             last = parts.slice(1).join(" ");
           }
         }
-        const phone = r.office_phone || "";
-        return [esc(first), esc(last), esc(phone), esc(r.email)].join(",");
+        const cols = [esc(first), esc(last), esc(p.phone_number), esc(r.email)];
+        if (includeType) cols.push(esc(e.type));
+        return cols.join(",");
       };
 
       const today = new Date().toISOString().slice(0, 10);
-      const totalBatches = Math.ceil(rows.length / batchSize);
+      const totalBatches = Math.ceil(prepared.length / batchSize);
 
       if (totalBatches <= 1) {
-        const csv = [header, ...rows.map(toLine)].join("\n");
+        const csv = [header, ...prepared.map(toLine)].join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${state}_leads_${today}.csv`;
+        a.download = `${state}_${source}_${fmt}_${today}.csv`;
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
       } else {
         const { default: JSZip } = await import("jszip");
         const zip = new JSZip();
         for (let i = 0; i < totalBatches; i++) {
-          const slice = rows.slice(i * batchSize, (i + 1) * batchSize);
+          const slice = prepared.slice(i * batchSize, (i + 1) * batchSize);
           const csv = [header, ...slice.map(toLine)].join("\n");
           const dayNum = i + 1;
-          zip.folder(`day_${dayNum}`)!.file(`${state}_day_${dayNum}.csv`, csv);
+          zip.folder(`day_${dayNum}`)!.file(`${state}_${source}_day_${dayNum}.csv`, csv);
         }
         const blob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${state}_leads_${today}_${totalBatches}days.zip`;
+        a.download = `${state}_${source}_${fmt}_${today}_${totalBatches}days.zip`;
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
       }
 
       toast.dismiss(tid);
       toast.success(
-        totalBatches > 1
-          ? `${state}: exported ${rows.length.toLocaleString()} leads across ${totalBatches} day batches`
-          : `${state}: exported ${rows.length.toLocaleString()} leads`,
+        `${state}: exported ${sum.exported.toLocaleString()} numbers` +
+          (sum.duplicates_removed ? ` · ${sum.duplicates_removed} dupes removed` : "") +
+          (sum.excluded_invalid ? ` · ${sum.excluded_invalid} invalid skipped` : "") +
+          (totalBatches > 1 ? ` · ${totalBatches} day batches` : ""),
       );
     } catch (e: any) {
       toast.dismiss(tid);
