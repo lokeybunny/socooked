@@ -40,6 +40,7 @@ export default function CampaignManualDialer() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [doneSet, setDoneSet] = useState<Set<string>>(new Set());
+  const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -57,7 +58,29 @@ export default function CampaignManualDialer() {
       .select('id, phone, contact_name, note, position, status, last_result, customer_id')
       .eq('campaign_id', id)
       .order('position', { ascending: true });
-    setItems((data as any[]) || []);
+    const queue = (data as any[]) || [];
+    setItems(queue);
+
+    // Find which queue phones we've previously texted (outbound SMS in communications)
+    const last10s = Array.from(new Set(queue.map(q => String(q.phone).replace(/\D/g, '').slice(-10)).filter(Boolean)));
+    if (last10s.length) {
+      const ors = last10s.map(d => `phone_number.ilike.%${d}%,to_address.ilike.%${d}%`).join(',');
+      const { data: comms } = await supabase
+        .from('communications')
+        .select('phone_number, to_address')
+        .eq('type', 'sms')
+        .eq('direction', 'outbound')
+        .or(ors)
+        .limit(2000);
+      const contacted = new Set<string>();
+      (comms || []).forEach((c: any) => {
+        const d = String(c.phone_number || c.to_address || '').replace(/\D/g, '').slice(-10);
+        if (d) contacted.add(d);
+      });
+      setContactedSet(contacted);
+    } else {
+      setContactedSet(new Set());
+    }
     setLoading(false);
   }, []);
 
