@@ -153,7 +153,7 @@ export default function UsaMap() {
       while (true) {
         const { data, error } = await supabase
           .from("state_leads")
-          .select("first_name,name,phone_e164,phone_number,email")
+          .select("first_name,name,phone_e164,phone_number,office_phone,email")
           .eq("state", state)
           .range(from, from + pageSize - 1);
         if (error) throw error;
