@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
+import { Loader2, Upload, MapPin, FileSpreadsheet, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/layout/Sidebar";
 
