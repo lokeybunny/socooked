@@ -13,25 +13,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const AUTH_BOOT_TIMEOUT_MS = 3500;
+const AUTH_REQUEST_TIMEOUT_MS = 12000;
+
+const authTimeoutError = () =>
+  new Error('Login is taking too long. Please try again in a moment.');
+
+const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(authTimeoutError()), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    const bootFallback = setTimeout(() => {
+      if (active) setLoading(false);
+    }, AUTH_BOOT_TIMEOUT_MS);
+
+    const applySession = (nextSession: Session | null) => {
+      if (!active) return;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setLoading(false);
+      clearTimeout(bootFallback);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      applySession(session);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    withTimeout(supabase.auth.getSession(), AUTH_BOOT_TIMEOUT_MS)
+      .then(({ data: { session } }) => applySession(session))
+      .catch(() => applySession(null));
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      clearTimeout(bootFallback);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -47,7 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await withTimeout(
+      supabase.auth.signInWithPassword({ email, password }),
+      AUTH_REQUEST_TIMEOUT_MS,
+    );
     return { error };
   };
 
