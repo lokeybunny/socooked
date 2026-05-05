@@ -32,6 +32,7 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
   const [scriptText, setScriptText] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [markingDnd, setMarkingDnd] = useState(false);
+  const [markingInterested, setMarkingInterested] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
 
   // Load editable defaults from app_settings
