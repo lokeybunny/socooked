@@ -48,6 +48,7 @@ export default function UsaMap() {
   const [openState, setOpenState] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Record<string, UploadJob>>({});
   const channelsRef = useRef<Record<string, ReturnType<typeof supabase.channel>>>({});
+  const [exportPrompt, setExportPrompt] = useState<string | null>(null);
 
   const loadAll = async () => {
     const [sumRes, logRes] = await Promise.all([
@@ -378,7 +379,7 @@ export default function UsaMap() {
           onClose={() => setOpenState(null)}
           onStartUpload={(f) => startUpload(f, openState)}
           onDismissJob={dismissJob}
-          onExport={() => exportStateCsv(openState)}
+          onExport={() => setExportPrompt(openState)}
         />
       )}
 
@@ -389,6 +390,32 @@ export default function UsaMap() {
             <UploadCard key={j.id} job={j} onDismiss={() => dismissJob(j.id)} />
           ))}
         </div>
+      )}
+
+      {exportPrompt && (
+        <Dialog open onOpenChange={(o) => !o && setExportPrompt(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Export {STATE_NAMES[exportPrompt] ?? exportPrompt} Leads</DialogTitle>
+              <DialogDescription>
+                Choose how you want to download the CSV. Total leads: {(summary[exportPrompt]?.total_leads ?? 0).toLocaleString()}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-2">
+              <Button
+                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, 3000); }}
+              >
+                <Download className="h-4 w-4 mr-2" /> Split by Day (3,000 / day, ZIP)
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { const s = exportPrompt; setExportPrompt(null); exportStateCsv(s, Infinity); }}
+              >
+                <Download className="h-4 w-4 mr-2" /> Full Batch (single CSV)
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
