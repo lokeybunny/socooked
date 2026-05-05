@@ -307,6 +307,14 @@ export default function LiveCallPopup({ open, onOpenChange, call }: Props) {
               Not Interested
             </Button>
           </div>
+          <Button
+            onClick={handleInterested}
+            disabled={markingInterested}
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+          >
+            {markingInterested ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ThumbsUp className="h-4 w-4 mr-2" />}
+            Mark Interested
+          </Button>
           <a
             href={`tel:${call.phone}`}
             className="flex items-center justify-center gap-2 w-full text-xs text-muted-foreground hover:text-foreground py-1.5 rounded border border-border"
