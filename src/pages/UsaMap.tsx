@@ -84,7 +84,7 @@ export default function UsaMap() {
       supabase.from("state_verified_summary" as any).select("*"),
     ]);
     const verMap: Record<string, VerifiedRow> = {};
-    if (verRes.data) for (const r of verRes.data as VerifiedRow[]) verMap[r.state] = r;
+    if (verRes.data) for (const r of verRes.data as unknown as VerifiedRow[]) verMap[r.state] = r;
     if (sumRes.data) {
       const map: Record<string, Summary> = {};
       for (const r of sumRes.data as Summary[]) {
