@@ -789,6 +789,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             aria-label="Signed proposal — starred client"
                           />
                         )}
+                        {interestedSet.has(key) && (
+                          <span
+                            className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)] shrink-0"
+                            aria-label="Marked interested on Power Dial call"
+                            title="Marked interested on Power Dial call"
+                          />
+                        )}
                         <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
                       </div>
                       <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
