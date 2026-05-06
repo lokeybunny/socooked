@@ -541,13 +541,14 @@ Deno.serve(async (req) => {
       if (v === "failed" || v === "error") return "failed";
       return null;
     };
-    for (const m of messages) {
+    // ---- Outbound delivery-status sync (parallelized) ----
+    await Promise.all(messages.map(async (m) => {
       const vfStatus = String(m.status || "");
-      if (vfStatus === "Received") continue;
+      if (vfStatus === "Received") return;
       const externalId = m.ID ? String(m.ID) : null;
-      if (!externalId) continue;
+      if (!externalId) return;
       const mapped = mapVoidfixStatus(vfStatus);
-      if (!mapped) continue;
+      if (!mapped) return;
       const { data: existing } = await sb
         .from("communications")
         .select("id, status, metadata")
@@ -555,10 +556,10 @@ Deno.serve(async (req) => {
         .eq("direction", "outbound")
         .limit(1);
       const row = existing?.[0];
-      if (!row) continue;
+      if (!row) return;
       const prevMeta = (row.metadata as any) || {};
       const prevStatus = prevMeta?.voidfix_status;
-      if (row.status === mapped && prevStatus === vfStatus) continue; // no change
+      if (row.status === mapped && prevStatus === vfStatus) return;
       await sb.from("communications").update({
         status: mapped,
         metadata: {
@@ -570,25 +571,24 @@ Deno.serve(async (req) => {
         },
       }).eq("id", row.id);
       statusUpdated += 1;
-    }
+    }));
 
-    for (const m of messages) {
-      if (String(m.status) !== "Received") continue;
+    // ---- Inbound import (parallelized; downstream calls fire-and-forget) ----
+    const inboundResults = await Promise.all(messages.map(async (m) => {
+      if (String(m.status) !== "Received") return 0;
       const externalId = String(m.ID);
-      // Skip if user previously deleted this message (blocklist)
       const { data: blocked } = await sb
         .from("sms_deleted_external_ids")
         .select("external_id")
         .eq("external_id", externalId)
         .limit(1);
-      if (blocked && blocked[0]) continue;
-      // dedupe against existing communications
+      if (blocked && blocked[0]) return 0;
       const { data: existing } = await sb
         .from("communications")
         .select("id")
         .eq("external_id", externalId)
         .limit(1);
-      if (existing && existing[0]) continue;
+      if (existing && existing[0]) return 0;
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
       const createdAt = m.deliveredDate || m.sentDate || null;
@@ -606,32 +606,35 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       }).select("id, created_at").single();
-      // First-time texter auto-reply for poll-imported inbound
-      await maybeSendFirstTimeAutoReply(from);
 
-      // Hook Reply classifier — awaited so the fetch survives in edge runtime
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({
-            phone: from,
-            body: String(m.message || ""),
-            message_id: insertedRow?.id || null,
-            message_created_at: insertedRow?.created_at || new Date().toISOString(),
-          }),
-        });
-      } catch (e) { console.error("[powerdial-sms/poll] hook classifier error", e); }
-      // Advance sequences
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
-        });
-      } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
-      imported += 1;
-    }
+      // Fire-and-forget downstream work — don't block the response
+      const downstream = (async () => {
+        try { await maybeSendFirstTimeAutoReply(from); } catch (e) { console.error("[poll] auto-reply error", e); }
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({
+              phone: from,
+              body: String(m.message || ""),
+              message_id: insertedRow?.id || null,
+              message_created_at: insertedRow?.created_at || new Date().toISOString(),
+            }),
+          });
+        } catch (e) { console.error("[powerdial-sms/poll] hook classifier error", e); }
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
+          });
+        } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
+      })();
+      try { (globalThis as any).EdgeRuntime?.waitUntil?.(downstream); } catch { /* noop */ }
+      return 1;
+    }));
+    imported = inboundResults.reduce((a, b) => a + b, 0);
+
     return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length });
   }
 
