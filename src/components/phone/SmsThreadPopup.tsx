@@ -79,8 +79,8 @@ export function SmsThreadPopup({
   useEffect(() => {
     if (!open) return;
     load(false);
-    // Poll VoidFix once on open so we pull any pending inbound for this thread
-    supabase.functions.invoke("powerdial-sms", { body: { action: "poll", limit: 50 } }).catch(() => {});
+    // Note: global VoidFix poller + realtime subscription handle inbound.
+    // Avoid invoking powerdial-sms 'poll' here — it can exceed the 150s edge timeout.
     const ch = supabase
       .channel(`sms-popup-${last10}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "communications", filter: "type=eq.sms" }, () => load(true))
