@@ -15,9 +15,6 @@ export default function ShortLinkRedirect() {
         .eq('slug', slug)
         .maybeSingle();
       if (data?.target_url) {
-        // Fire-and-forget click increment
-        supabase.rpc('increment' as any, {}).catch(() => {});
-        supabase.from('short_links').update({ click_count: (undefined as any) }).eq('slug', slug); // noop fallback
         window.location.replace(data.target_url);
       } else {
         window.location.replace('/');
