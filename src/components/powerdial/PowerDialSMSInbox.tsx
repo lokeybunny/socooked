@@ -1137,10 +1137,22 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1"
-                onClick={() => activeThread && openNotes(null, activeThread)}
-                title="Open notes (shared with Phone)"
+                className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 gap-1"
+                onClick={() => {
+                  if (!activeThread) return;
+                  // Default to 1 hour from now in local time
+                  const d = new Date(Date.now() + 60 * 60 * 1000);
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                  setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                  setScheduleBody(composeBody || '');
+                  setScheduleOpen(true);
+                }}
+                title="Schedule a text to auto-send at a future date/time"
               >
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span className="text-xs">Schedule</span>
+              </Button>
                 <StickyNote className="h-3.5 w-3.5" />
                 <span className="text-xs">Notes</span>
               </Button>
