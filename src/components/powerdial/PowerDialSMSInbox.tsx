@@ -855,16 +855,8 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     </div>
                   </button>
                   <button
-                    onClick={(e) => togglePin(e, key)}
-                    className={`absolute top-2 right-[8.25rem] p-1 rounded transition-opacity hover:bg-emerald-500/20 ${isPinned ? 'opacity-100 text-emerald-400' : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-400'}`}
-                    title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
-                    aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
-                  >
-                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
                     onClick={(e) => openNotes(e, key)}
-                    className="absolute top-2 right-[5.75rem] p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 text-amber-400 transition-opacity"
+                    className="absolute top-2 right-[8.25rem] p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 text-amber-400 transition-opacity"
                     title="Open notes (shared with Phone)"
                     aria-label="Open notes"
                   >
@@ -872,7 +864,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   </button>
                   <button
                     onClick={(e) => openSendProposal(e, key)}
-                    className="absolute top-2 right-16 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 text-blue-400 transition-opacity"
+                    className="absolute top-2 right-[5.75rem] p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 text-blue-400 transition-opacity"
                     title="Send proposal"
                     aria-label="Send proposal"
                   >
@@ -880,7 +872,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   </button>
                   <button
                     onClick={(e) => handleCreateCustomer(e, key)}
-                    className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
+                    className="absolute top-2 right-16 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
                     title="Create customer (add to New Clients)"
                     aria-label="Create customer"
                   >
@@ -888,11 +880,19 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   </button>
                   <button
                     onClick={(e) => handleDeleteThread(e, key)}
-                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
+                    className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
                     title="Delete thread"
                     aria-label="Delete thread"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => togglePin(e, key)}
+                    className={`absolute top-2 right-2 p-1 rounded transition-opacity hover:bg-emerald-500/20 ${isPinned ? 'opacity-100 text-emerald-400' : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-400'}`}
+                    title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
+                    aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
+                  >
+                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               );
