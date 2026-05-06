@@ -65,6 +65,7 @@ export default function PowerDialSMSInbox() {
   const [funneledSet, setFunneledSet] = useState<Set<string>>(new Set());
   const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
