@@ -616,7 +616,7 @@ export default function PowerDialSMSInbox() {
     setProposalStep('choose');
   };
 
-  const sendProposalTemplate = async (kind: '399' | '3000') => {
+  const sendProposalTemplate = async (kind: '399' | '199' | '3000') => {
     if (!proposalPhoneKey) return;
     const email = proposalEmail.trim();
     if (!email) { toast.error('Email required'); return; }
@@ -643,18 +643,21 @@ export default function PowerDialSMSInbox() {
       const expDate = exp.toISOString().slice(0, 10);
 
       let payload: Record<string, any>;
-      if (kind === '399') {
+      if (kind === '399' || kind === '199') {
+        const isHalf = kind === '199';
+        const price = isHalf ? 199 : 399;
+        const titleSuffix = isHalf ? ' (50% OFF — Limited Offer)' : '';
         payload = {
-          title: 'Real Estate Listing Video — $399 Package',
+          title: `Real Estate Listing Video — $${price} Package${titleSuffix}`,
           client_name: clientName,
           client_email: email,
           client_phone: e164,
-          amount: 399,
+          amount: price,
           currency: 'USD',
-          line_items: [{ description: 'Real Estate Listing Video — $399 Package (up to 4 bedrooms)', quantity: 1, unit_price: 399 }],
-          notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
+          line_items: [{ description: `Real Estate Listing Video — $${price} Package (up to 4 bedrooms)${isHalf ? ' — 50% OFF promotional pricing' : ''}`, quantity: 1, unit_price: price }],
+          notes: `Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.${isHalf ? ' This proposal reflects a 50% promotional discount off the standard $399 package.' : ''}`,
           terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
-          proposal_body: `Real Estate Listing Video — $399 Package
+          proposal_body: `Real Estate Listing Video — $${price} Package${isHalf ? '\n\n*** 50% OFF — Limited promotional pricing (regularly $399, now $199) ***' : ''}
 
 What's included:
 • 1 cinematic AI-enhanced listing video
@@ -741,7 +744,8 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
-      toast.success(`${kind === '399' ? '$399' : '$3,000/mo'} proposal sent to ${email}`);
+      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : '$3,000/mo';
+      toast.success(`${label} proposal sent to ${email}`);
       setProposalOpen(false);
       setProposalPhoneKey(null);
       setProposalEmail('');
@@ -1241,6 +1245,18 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             >
               <div className="font-semibold text-sm">$399 Listing Video Package</div>
               <div className="text-xs text-muted-foreground mt-1">Single AI-cinematic real estate listing video — full payment up front via Zelle / Cash App.</div>
+            </button>
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('199')}
+              className="w-full text-left p-4 rounded-lg border border-amber-500/40 bg-amber-500/5 hover:border-amber-500/70 hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm">$199 Listing Video Package</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500">50% OFF</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">Same $399 package — 50% promotional discount. Limited offer to close the deal.</div>
             </button>
             <button
               type="button"
