@@ -152,7 +152,7 @@ export function SmsThreadPopup({
                   variant="outline"
                   className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
                   onClick={() => {
-                    const snippet = "Hi, I'm Warren. I do AI drone footage and I'd love to do one of your properties free of charge so we can build a network together. If you get an opportunity, call me back so we can discuss more.";
+                    const snippet = "Hi, I'm Warren. I do AI drone footage and I'd love to do one of your properties free of charge so we can build a network together. If you get an opportunity, call me back so we can discuss more. https://instagram.com/W4RR3Nguru";
                     setBody((b) => (b ? b + (b.endsWith(' ') ? '' : ' ') + snippet : snippet));
                   }}
                   title="Insert quick pitch shortcut"
