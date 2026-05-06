@@ -83,6 +83,34 @@ export default function PowerDialSMSInbox() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesPhone, setNotesPhone] = useState<string>('');
   const [callPhone, setCallPhone] = useState<string | null>(null);
+  // Per-thread name color (persisted in localStorage)
+  const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
+  const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem(NAME_COLOR_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const setNameColor = (last10: string, color: string | null) => {
+    setNameColors((prev) => {
+      const next = { ...prev };
+      if (!color) delete next[last10]; else next[last10] = color;
+      try { localStorage.setItem(NAME_COLOR_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const NAME_COLOR_OPTIONS: { label: string; value: string }[] = [
+    { label: 'Default', value: '' },
+    { label: 'Red', value: '#f87171' },
+    { label: 'Orange', value: '#fb923c' },
+    { label: 'Amber', value: '#fbbf24' },
+    { label: 'Green', value: '#4ade80' },
+    { label: 'Cyan', value: '#22d3ee' },
+    { label: 'Blue', value: '#60a5fa' },
+    { label: 'Purple', value: '#a78bfa' },
+    { label: 'Pink', value: '#f472b6' },
+  ];
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
