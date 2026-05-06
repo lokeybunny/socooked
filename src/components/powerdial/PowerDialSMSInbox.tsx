@@ -549,11 +549,46 @@ export default function PowerDialSMSInbox() {
     prevActiveCountRef.current = activeMessages.length;
   }, [activeThread, activeMessages.length]);
 
+  const handleAttachFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingAttachment(true);
+    try {
+      const uploads: { url: string; name: string }[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) {
+          toast.error(`${file.name} is not an image`);
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} exceeds 10MB`);
+          continue;
+        }
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const path = `sms-mms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) {
+          toast.error(`Upload failed: ${upErr.message}`);
+          continue;
+        }
+        const { data: pub } = supabase.storage.from('content-uploads').getPublicUrl(path);
+        uploads.push({ url: pub.publicUrl, name: file.name });
+      }
+      if (uploads.length) setPendingAttachments((p) => [...p, ...uploads]);
+    } finally {
+      setUploadingAttachment(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSend = async (toOverride?: string) => {
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
-    const body = composeBody.trim();
+    const text = composeBody.trim();
+    const attachUrls = pendingAttachments.map((a) => a.url).join('\n');
+    const body = [text, attachUrls].filter(Boolean).join(text && attachUrls ? '\n' : '');
     if (!to || !body) {
-      toast.error('Recipient and message required');
+      toast.error('Recipient and message (or image) required');
       return;
     }
     setSending(true);
@@ -584,8 +619,9 @@ export default function PowerDialSMSInbox() {
           toast.error(errCode);
         }
       } else {
-        toast.success('SMS sent');
+        toast.success(pendingAttachments.length ? 'SMS + image link sent' : 'SMS sent');
         setComposeBody('');
+        setPendingAttachments([]);
         if (showCompose) {
           setShowCompose(false);
           setComposeTo('');
