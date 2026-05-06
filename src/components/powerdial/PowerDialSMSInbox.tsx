@@ -62,6 +62,15 @@ export default function PowerDialSMSInbox() {
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(new Set());
+  const PIN_ORDER_KEY = 'powerdial-sms-pin-order-v1';
+  const [pinOrder, setPinOrder] = useState<string[]>(() => {
+    try { const raw = localStorage.getItem(PIN_ORDER_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  });
+  const persistPinOrder = useCallback((arr: string[]) => {
+    setPinOrder(arr);
+    try { localStorage.setItem(PIN_ORDER_KEY, JSON.stringify(arr)); } catch {}
+  }, []);
+  const [dragKey, setDragKey] = useState<string | null>(null);
   const [funneledSet, setFunneledSet] = useState<Set<string>>(new Set());
   const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
@@ -174,6 +183,11 @@ export default function PowerDialSMSInbox() {
     const next = new Set(pinnedSet);
     if (isPinned) next.delete(last10); else next.add(last10);
     setPinnedSet(next);
+    if (isPinned) {
+      persistPinOrder(pinOrder.filter(k => k !== last10));
+    } else if (!pinOrder.includes(last10)) {
+      persistPinOrder([...pinOrder, last10]);
+    }
     try {
       const { error } = await supabase.from('sms_contacts').upsert(
         {
@@ -192,7 +206,21 @@ export default function PowerDialSMSInbox() {
       setPinnedSet(pinnedSet);
       toast.error(err?.message || 'Failed to update pin');
     }
-  }, [pinnedSet, contacts]);
+  }, [pinnedSet, contacts, pinOrder, persistPinOrder]);
+
+  const handlePinDrop = useCallback((targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
+    if (!pinnedSet.has(dragKey) || !pinnedSet.has(targetKey)) { setDragKey(null); return; }
+    const current = pinOrder.filter(k => pinnedSet.has(k));
+    // ensure both keys present
+    const ensure = (k: string, arr: string[]) => arr.includes(k) ? arr : [...arr, k];
+    let arr = ensure(targetKey, ensure(dragKey, current));
+    arr = arr.filter(k => k !== dragKey);
+    const targetIdx = arr.indexOf(targetKey);
+    arr.splice(targetIdx, 0, dragKey);
+    persistPinOrder(arr);
+    setDragKey(null);
+  }, [dragKey, pinnedSet, pinOrder, persistPinOrder]);
 
   const pollVoidFix = useCallback(async () => {
     const timeout = new Promise<never>((_, reject) => {
@@ -370,12 +398,21 @@ export default function PowerDialSMSInbox() {
       }
     }
     return Array.from(map.values()).sort((a, b) => {
-      const aPin = pinnedSet.has(normalizeLast10(a.phone)) ? 1 : 0;
-      const bPin = pinnedSet.has(normalizeLast10(b.phone)) ? 1 : 0;
+      const aKey = normalizeLast10(a.phone);
+      const bKey = normalizeLast10(b.phone);
+      const aPin = pinnedSet.has(aKey) ? 1 : 0;
+      const bPin = pinnedSet.has(bKey) ? 1 : 0;
       if (aPin !== bPin) return bPin - aPin;
+      if (aPin && bPin) {
+        const aIdx = pinOrder.indexOf(aKey);
+        const bIdx = pinOrder.indexOf(bKey);
+        const aOrd = aIdx === -1 ? 9999 : aIdx;
+        const bOrd = bIdx === -1 ? 9999 : bIdx;
+        if (aOrd !== bOrd) return aOrd - bOrd;
+      }
       return new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime();
     });
-  }, [messages, pinnedSet]);
+  }, [messages, pinnedSet, pinOrder]);
 
   const disconnectedSet = useMemo(() => {
     const s = new Set<string>();
@@ -872,7 +909,12 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               return (
                 <div
                   key={key}
-                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5' : ''}`}
+                  draggable={isPinned}
+                  onDragStart={(e) => { if (isPinned) { setDragKey(key); e.dataTransfer.effectAllowed = 'move'; } }}
+                  onDragOver={(e) => { if (isPinned && dragKey && dragKey !== key) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
+                  onDrop={(e) => { if (isPinned) { e.preventDefault(); handlePinDrop(key); } }}
+                  onDragEnd={() => setDragKey(null)}
+                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5 cursor-grab active:cursor-grabbing' : ''} ${dragKey === key ? 'opacity-50' : ''} ${dragKey && dragKey !== key && isPinned ? 'ring-1 ring-emerald-400/40' : ''}`}
                 >
                   <div className="flex items-start gap-2 px-3 py-2.5">
                     <button
