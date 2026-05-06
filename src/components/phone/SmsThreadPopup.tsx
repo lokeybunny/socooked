@@ -121,7 +121,7 @@ export function SmsThreadPopup({
     <>
       <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
         <DialogContent
-          className="max-w-lg p-0 gap-0 overflow-hidden"
+          className="max-w-2xl w-[95vw] p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]"
           onPointerDownOutside={(e) => {
             const target = e.target as HTMLElement | null;
             if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
