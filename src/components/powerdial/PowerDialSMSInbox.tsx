@@ -56,6 +56,18 @@ function formatPhone(raw: string | null | undefined) {
   return `(${last10.slice(0, 3)}) ${last10.slice(3, 6)}-${last10.slice(6)}`;
 }
 
+// Extract image URLs from a message body (Supabase content-uploads bucket or any common image extension)
+const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
+function extractImageUrls(body: string | null | undefined): string[] {
+  if (!body) return [];
+  const matches = body.match(IMAGE_URL_REGEX);
+  return matches ? Array.from(new Set(matches)) : [];
+}
+function stripImageUrls(body: string | null | undefined): string {
+  if (!body) return '';
+  return body.replace(IMAGE_URL_REGEX, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [contacts, setContacts] = useState<Record<string, string>>({});
