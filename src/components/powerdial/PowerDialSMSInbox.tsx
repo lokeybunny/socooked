@@ -389,14 +389,23 @@ export default function PowerDialSMSInbox() {
   }, [messages]);
 
   const visibleThreads = useMemo(() => {
+    let list = threads;
     if (filterMode === 'starred') {
-      return threads.filter(t => starredSet.has(normalizeLast10(t.phone)));
+      list = list.filter(t => starredSet.has(normalizeLast10(t.phone)));
+    } else if (filterMode === 'disconnected') {
+      list = list.filter(t => disconnectedSet.has(normalizeLast10(t.phone)));
     }
-    if (filterMode === 'disconnected') {
-      return threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone)));
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(t => {
+        const last10 = normalizeLast10(t.phone);
+        const name = (contacts[last10] || '').toLowerCase();
+        const phone = (t.phone || '').toLowerCase();
+        return last10.includes(q.replace(/\D/g, '')) || name.includes(q) || phone.includes(q);
+      });
     }
-    return threads;
-  }, [threads, filterMode, starredSet, disconnectedSet]);
+    return list;
+  }, [threads, filterMode, starredSet, disconnectedSet, searchQuery, contacts]);
 
   const activeMessages = useMemo(() => {
     if (!activeThread) return [];
