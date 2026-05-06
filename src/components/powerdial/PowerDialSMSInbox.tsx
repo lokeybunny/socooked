@@ -879,20 +879,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     <UserPlus className="h-3.5 w-3.5" />
                   </button>
                   <button
+                    onClick={(e) => togglePin(e, key)}
+                    className={`absolute top-2 right-9 p-1 rounded transition-colors hover:bg-emerald-500/20 ${isPinned ? 'text-emerald-400 opacity-100' : 'text-muted-foreground opacity-100 hover:text-emerald-400'}`}
+                    title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
+                    aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
+                  >
+                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                  </button>
+                  <button
                     onClick={(e) => handleDeleteThread(e, key)}
-                    className="absolute top-2 right-9 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
+                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
                     title="Delete thread"
                     aria-label="Delete thread"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => togglePin(e, key)}
-                    className={`absolute top-2 right-2 p-1 rounded transition-colors hover:bg-emerald-500/20 ${isPinned ? 'text-emerald-400' : 'text-muted-foreground hover:text-emerald-400'}`}
-                    title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
-                    aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
-                  >
-                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5 rotate-45" />}
                   </button>
                 </div>
               );
