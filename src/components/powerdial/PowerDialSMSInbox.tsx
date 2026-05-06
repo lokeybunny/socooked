@@ -546,7 +546,27 @@ export default function PowerDialSMSInbox() {
         body: { action: 'send', to, body },
       });
       if (error || !(data as any)?.ok) {
-        toast.error((data as any)?.error || error?.message || 'Failed to send');
+        const errCode = (data as any)?.error || error?.message || 'Failed to send';
+        if (errCode === 'dnd') {
+          const reason = (data as any)?.reason || 'opted_out';
+          const last10 = String(to).replace(/\D/g, '').slice(-10);
+          toast.error(`Blocked by DND list (${reason})`, {
+            action: {
+              label: 'Remove from DND',
+              onClick: async () => {
+                const { error: delErr } = await supabase
+                  .from('sms_dnd_list')
+                  .delete()
+                  .eq('phone_last10', last10);
+                if (delErr) toast.error(delErr.message);
+                else toast.success('Removed from DND — try sending again');
+              },
+            },
+            duration: 8000,
+          });
+        } else {
+          toast.error(errCode);
+        }
       } else {
         toast.success('SMS sent');
         setComposeBody('');
