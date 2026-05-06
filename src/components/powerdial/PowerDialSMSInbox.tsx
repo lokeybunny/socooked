@@ -6,7 +6,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone } from 'lucide-react';
+import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import CallNotesPopup from '@/components/phone/CallNotesPopup';
@@ -81,6 +82,7 @@ export default function PowerDialSMSInbox() {
   // Notes popup (shared with Phone via sms_contacts.notes)
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesPhone, setNotesPhone] = useState<string>('');
+  const [callPhone, setCallPhone] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
@@ -1018,6 +1020,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 gap-1"
+                onClick={() => {
+                  if (!activeThread) return;
+                  const last10 = activeThread.replace(/\D/g, '').slice(-10);
+                  if (last10.length === 10) setCallPhone('+1' + last10);
+                }}
+                title="Call this contact via Twilio browser dialer"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                <span className="text-xs">Call</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1"
                 onClick={() => activeThread && openNotes(null, activeThread)}
                 title="Open notes (shared with Phone)"
@@ -1211,6 +1227,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         Backed by sms_contacts.notes (keyed by phone_last10), so notes saved here
         appear on the Phone page for the same contact, and vice versa. */}
     <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={notesPhone} />
+    <Dialog open={!!callPhone} onOpenChange={(o) => { if (!o) setCallPhone(null); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Call Contact</DialogTitle>
+          <DialogDescription>Place a call via the Twilio browser dialer.</DialogDescription>
+        </DialogHeader>
+        {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
