@@ -61,6 +61,7 @@ export default function PowerDialSMSInbox() {
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(new Set());
+  const [funneledSet, setFunneledSet] = useState<Set<string>>(new Set());
   const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
   const [editingName, setEditingName] = useState(false);
