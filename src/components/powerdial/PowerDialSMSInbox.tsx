@@ -1015,9 +1015,6 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   </Button>
                 );
               })()}
-                <Workflow className="h-3.5 w-3.5" />
-                <span className="text-xs">Move to Funnel</span>
-              </Button>
               <Button
                 size="sm"
                 variant="ghost"
