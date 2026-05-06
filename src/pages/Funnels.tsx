@@ -980,21 +980,25 @@ export default function Funnels() {
   const handleStageChange = async (lead: FunnelLead, newStatus: string) => {
     if (lead.status === newStatus) return;
     const autoDead = newStatus === 'dead';
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus, ...(autoDead ? { dead: true, happy: false } : {}) } : l));
+    const now = new Date().toISOString();
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus, ...(autoDead ? { dead: true, happy: false, drafted_at: l.drafted_at || now } : {}) } : l));
     if (lead._table === 'customers') {
       const { error } = await supabase.from('customers').update({ status: newStatus }).eq('id', lead.id);
       if (error) { toast.error(error.message); fetchLeads(); return; }
-      if (autoDead && !lead.dead) {
+      if (autoDead) {
         const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
-        const meta = { ...((existing?.meta as Record<string, unknown>) || {}), dead: true, happy: false };
+        const existingMeta = (existing?.meta as Record<string, unknown>) || {};
+        const meta = { ...existingMeta, dead: true, happy: false, funnel_drafted_at: (existingMeta.funnel_drafted_at as string) || now };
         await supabase.from('customers').update({ meta }).eq('id', lead.id);
       }
     } else {
-      const { error } = await supabase.from('lw_landing_leads').update({ status: newStatus }).eq('id', lead.id);
+      const updates: any = { status: newStatus };
+      if (autoDead && !lead.drafted_at) updates.drafted_at = now;
+      const { error } = await supabase.from('lw_landing_leads').update(updates).eq('id', lead.id);
       if (error) { toast.error(error.message); fetchLeads(); return; }
     }
     const stageLabel = PIPELINE_STAGES[lead.funnel]?.find(s => s.value === newStatus)?.label || newStatus;
-    toast.success(`${lead.full_name} → ${stageLabel}`);
+    toast.success(autoDead ? `☠️ ${lead.full_name} → ${stageLabel} (drafted)` : `${lead.full_name} → ${stageLabel}`);
   };
 
   const handleRemind = async (lead: FunnelLead) => {
