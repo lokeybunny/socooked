@@ -620,8 +620,17 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
                             </span>
                           </div>
                           <div className="flex items-center gap-0.5 shrink-0">
-                            <Button size="sm" variant="ghost" className="h-6 w-6 p-0" asChild>
-                              <a href={`tel:${m.phone_number}`}><PhoneCall className="h-3 w-3" /></a>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              title="Call via browser"
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('twilio:dial', { detail: { phone: m.phone_number } }));
+                                document.querySelector('[data-twilio-keypad]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }}
+                            >
+                              <PhoneCall className="h-3 w-3" />
                             </Button>
                             <Button
                               size="sm"

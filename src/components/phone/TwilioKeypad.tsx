@@ -247,7 +247,7 @@ export default function TwilioKeypad({ prefilledNumber, onCallComplete }: Twilio
   };
 
   return (
-    <div className="glass-card rounded-2xl p-6 flex flex-col items-center gap-5 w-full max-w-sm mx-auto">
+    <div data-twilio-keypad className="glass-card rounded-2xl p-6 flex flex-col items-center gap-5 w-full max-w-sm mx-auto">
       {/* Status bar */}
       <div className="w-full flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
