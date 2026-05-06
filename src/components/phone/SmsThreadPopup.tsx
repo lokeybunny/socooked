@@ -146,7 +146,7 @@ export function SmsThreadPopup({
                   Send and receive SMS via VoidFix. Identical to the SMS page thread.
                 </DialogDescription>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0 mr-6">
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
                 <Button
                   size="sm"
                   variant="outline"
