@@ -988,7 +988,7 @@ export default function Funnels() {
       if (autoDead) {
         const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
         const existingMeta = (existing?.meta as Record<string, unknown>) || {};
-        const meta = { ...existingMeta, dead: true, happy: false, funnel_drafted_at: existingMeta.funnel_drafted_at || now };
+        const meta = { ...existingMeta, dead: true, happy: false, funnel_drafted_at: (existingMeta.funnel_drafted_at as string) || now };
         await supabase.from('customers').update({ meta }).eq('id', lead.id);
       }
     } else {
