@@ -344,6 +344,18 @@ export default function PowerDialSMSInbox() {
     return () => clearInterval(id);
   }, [pollVoidFix]);
 
+  // Load pending scheduled SMS jobs
+  const loadScheduledJobs = useCallback(async () => {
+    const { data } = await supabase
+      .from('scheduled_sms_jobs')
+      .select('id, to_phone, body, send_at, status')
+      .eq('status', 'pending')
+      .order('send_at', { ascending: true });
+    setScheduledJobs((data as ScheduledJob[]) || []);
+  }, []);
+
+  useEffect(() => { loadScheduledJobs(); }, [loadScheduledJobs]);
+
   // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
     const channel = supabase
@@ -357,9 +369,12 @@ export default function PowerDialSMSInbox() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
         loadContacts();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_sms_jobs' }, () => {
+        loadScheduledJobs();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [load, loadContacts]);
+  }, [load, loadContacts, loadScheduledJobs]);
 
   const displayPhone = useCallback((rawPhone: string | null | undefined) => {
     const last10 = normalizeLast10(rawPhone);
