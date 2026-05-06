@@ -888,11 +888,11 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   </button>
                   <button
                     onClick={(e) => togglePin(e, key)}
-                    className={`absolute top-2 right-2 p-1 rounded transition-opacity hover:bg-emerald-500/20 ${isPinned ? 'opacity-100 text-emerald-400' : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-400'}`}
+                    className={`absolute top-2 right-2 p-1 rounded transition-colors hover:bg-emerald-500/20 ${isPinned ? 'text-emerald-400' : 'text-muted-foreground hover:text-emerald-400'}`}
                     title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
                     aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
                   >
-                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5 rotate-45" />}
                   </button>
                 </div>
               );
