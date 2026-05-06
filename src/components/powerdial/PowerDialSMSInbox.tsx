@@ -61,6 +61,7 @@ export default function PowerDialSMSInbox() {
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(new Set());
+  const [funneledSet, setFunneledSet] = useState<Set<string>>(new Set());
   const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
   const [editingName, setEditingName] = useState(false);
@@ -120,6 +121,20 @@ export default function PowerDialSMSInbox() {
     setStarredSet(starred);
     setPinnedSet(pinned);
     setInterestedSet(interested);
+
+    // Load already-funneled contacts (videography-landing source)
+    try {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('source', 'videography-landing');
+      const f = new Set<string>();
+      (cust || []).forEach((c: any) => {
+        const last10 = String(c.phone || '').replace(/\D/g, '').slice(-10);
+        if (last10.length === 10) f.add(last10);
+      });
+      setFunneledSet(f);
+    } catch {}
   }, []);
 
   const togglePin = useCallback(async (e: React.MouseEvent, last10: string) => {
@@ -974,20 +989,32 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 );
               })()}
               <div className="flex-1" />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 gap-1"
-                onClick={() => {
-                  const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
-                  const last10 = normalizeLast10(activePhone);
-                  moveToVideographyFunnel({ phone: activePhone, name: contacts[last10] || null });
-                }}
-                title="Move this contact to the Videography funnel"
-              >
-                <Workflow className="h-3.5 w-3.5" />
-                <span className="text-xs">Move to Funnel</span>
-              </Button>
+              {(() => {
+                const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+                const last10 = normalizeLast10(activePhone);
+                if (funneledSet.has(last10)) return null;
+                return (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 gap-1"
+                    onClick={async () => {
+                      const res = await moveToVideographyFunnel({ phone: activePhone, name: contacts[last10] || null });
+                      if (res?.ok) {
+                        setFunneledSet((prev) => {
+                          const next = new Set(prev);
+                          next.add(last10);
+                          return next;
+                        });
+                      }
+                    }}
+                    title="Move this contact to the Videography funnel"
+                  >
+                    <Workflow className="h-3.5 w-3.5" />
+                    <span className="text-xs">Move to Funnel</span>
+                  </Button>
+                );
+              })()}
               <Button
                 size="sm"
                 variant="ghost"
