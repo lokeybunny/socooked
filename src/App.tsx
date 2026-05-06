@@ -129,6 +129,7 @@ const App = () => (
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
                 <Route path="/" element={<AIFilms />} />
+                <Route path="/i/:slug" element={<ShortLinkRedirect />} />
                 <Route path="/ai-director" element={<AIDirector />} />
                 <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
