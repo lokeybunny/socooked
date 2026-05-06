@@ -45,7 +45,7 @@ async function buildHtml(p: any, amount: string) {
 
           <div style="margin-bottom: 14px;">
             <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Zelle</div>
-            <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">Me@cozyhomestudio.com</div>
+            <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">Warren@stu25.com</div>
           </div>
 
           <div style="margin-bottom: 14px;">
