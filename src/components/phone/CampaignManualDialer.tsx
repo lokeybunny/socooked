@@ -317,6 +317,15 @@ export default function CampaignManualDialer() {
                         {isDone && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Done</Badge>}
                         <Button
                           size="sm"
+                          variant="outline"
+                          className="h-7 px-2"
+                          title="Text"
+                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name })}
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
                           className={`h-7 text-white ${wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                           onClick={() => startCall(item)}
                         >
