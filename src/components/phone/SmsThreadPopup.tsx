@@ -218,7 +218,7 @@ export function SmsThreadPopup({
             )}
           </ScrollArea>
 
-          <div className="border-t p-3 space-y-2 bg-background">
+          <div className="border-t p-3 space-y-2 bg-background shrink-0">
             <div className="flex items-end gap-2">
               <Textarea
                 value={body}
