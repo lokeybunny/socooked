@@ -43,6 +43,7 @@ export default function CampaignManualDialer() {
   const [doneSet, setDoneSet] = useState<Set<string>>(new Set());
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
+  const [callChoice, setCallChoice] = useState<QueueItem | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
