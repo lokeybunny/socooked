@@ -1335,7 +1335,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             LANDLINE REPLY · needs follow-up from VoidFix
                           </Badge>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                        {(() => {
+                          const imgs = extractImageUrls(m.body);
+                          const text = imgs.length ? stripImageUrls(m.body) : m.body;
+                          return (
+                            <>
+                              {text && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
+                              {imgs.map((url) => (
+                                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block mt-1">
+                                  <img src={url} alt="attachment" className="rounded-lg max-h-64 max-w-full object-contain border border-border/40" loading="lazy" />
+                                </a>
+                              ))}
+                            </>
+                          );
+                        })()}
                         <p className="text-[9px] text-muted-foreground mt-1">
                           {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
                         </p>
