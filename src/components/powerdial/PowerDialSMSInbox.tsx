@@ -1020,6 +1020,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 gap-1"
+                onClick={() => {
+                  if (!activeThread) return;
+                  const last10 = activeThread.replace(/\D/g, '').slice(-10);
+                  if (last10.length === 10) setCallPhone('+1' + last10);
+                }}
+                title="Call this contact via Twilio browser dialer"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                <span className="text-xs">Call</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1"
                 onClick={() => activeThread && openNotes(null, activeThread)}
                 title="Open notes (shared with Phone)"
