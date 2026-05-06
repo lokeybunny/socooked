@@ -1079,7 +1079,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 variant="ghost"
                 className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
                 onClick={() => {
-                  const snippet = "Hi, I'm Warren. I do AI drone footage and I'd love to do one of your properties free of charge so we can build a network together. If you get an opportunity, call me back so we can discuss more.";
+                  const snippet = "Hi, I'm Warren. I do AI drone footage and I'd love to do one of your properties free of charge so we can build a network together. If you get an opportunity, call me back so we can discuss more. https://instagram.com/W4RR3Nguru";
                   setComposeBody((b) => (b ? b + (b.endsWith(' ') ? '' : ' ') + snippet : snippet));
                 }}
                 title="Insert quick pitch shortcut into reply"
