@@ -249,10 +249,21 @@ export default function CampaignManualDialer() {
                     {active.contact_name || 'Unknown'} · <span className="font-mono">{active.phone}</span>
                   </p>
                 </div>
-                <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setShowTeleprompter(s => !s)}>
-                  <FileText className="h-3.5 w-3.5 mr-1 text-purple-400" />
-                  {showTeleprompter ? 'Hide' : 'Script'}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-[11px]"
+                    onClick={() => setSmsPopup({ phone: active.phone, name: active.contact_name })}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+                    SMS
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => setShowTeleprompter(s => !s)}>
+                    <FileText className="h-3.5 w-3.5 mr-1 text-purple-400" />
+                    {showTeleprompter ? 'Hide' : 'Script'}
+                  </Button>
+                </div>
               </div>
 
               {active.note && (
