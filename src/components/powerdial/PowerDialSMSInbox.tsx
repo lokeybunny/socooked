@@ -82,6 +82,7 @@ export default function PowerDialSMSInbox() {
   // Notes popup (shared with Phone via sms_contacts.notes)
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesPhone, setNotesPhone] = useState<string>('');
+  const [callPhone, setCallPhone] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
