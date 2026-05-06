@@ -1266,6 +1266,40 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
       </DialogContent>
     </Dialog>
+
+    <Dialog open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+      <DialogContent className="max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Name Color</DialogTitle>
+          <DialogDescription>Color-code this contact's name in the thread header.</DialogDescription>
+        </DialogHeader>
+        {(() => {
+          const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+          const last10 = normalizeLast10(activePhone);
+          const current = nameColors[last10] || '';
+          return (
+            <div className="grid grid-cols-3 gap-2 py-2">
+              {NAME_COLOR_OPTIONS.map(opt => {
+                const selected = current === opt.value;
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => { setNameColor(last10, opt.value || null); setColorPickerOpen(false); }}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs hover:bg-muted transition-colors ${selected ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
+                  >
+                    <span
+                      className="inline-block h-4 w-4 rounded-full border border-border"
+                      style={{ backgroundColor: opt.value || 'transparent' }}
+                    />
+                    <span style={opt.value ? { color: opt.value } : undefined}>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
