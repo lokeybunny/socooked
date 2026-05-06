@@ -135,8 +135,8 @@ export function SmsThreadPopup({
             if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
           }}
         >
-          <DialogHeader className="px-4 py-3 border-b">
-            <div className="flex items-start justify-between gap-2">
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="flex items-center gap-2 text-base">
                   <MessageSquare className="h-4 w-4 text-emerald-400" />
