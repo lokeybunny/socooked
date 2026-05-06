@@ -121,6 +121,20 @@ export default function PowerDialSMSInbox() {
     setStarredSet(starred);
     setPinnedSet(pinned);
     setInterestedSet(interested);
+
+    // Load already-funneled contacts (videography-landing source)
+    try {
+      const { data: cust } = await supabase
+        .from('customers')
+        .select('phone')
+        .eq('source', 'videography-landing');
+      const f = new Set<string>();
+      (cust || []).forEach((c: any) => {
+        const last10 = String(c.phone || '').replace(/\D/g, '').slice(-10);
+        if (last10.length === 10) f.add(last10);
+      });
+      setFunneledSet(f);
+    } catch {}
   }, []);
 
   const togglePin = useCallback(async (e: React.MouseEvent, last10: string) => {
