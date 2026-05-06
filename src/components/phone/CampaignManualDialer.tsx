@@ -45,6 +45,18 @@ export default function CampaignManualDialer() {
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
   const [callChoice, setCallChoice] = useState<QueueItem | null>(null);
+  const DEACTIVATED_KEY = 'manual-dialer-deactivated-v1';
+  const [deactivatedSet, setDeactivatedSet] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(DEACTIVATED_KEY) || '[]')); } catch { return new Set(); }
+  });
+  const toggleDeactivated = (id: string) => {
+    setDeactivatedSet(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem(DEACTIVATED_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
