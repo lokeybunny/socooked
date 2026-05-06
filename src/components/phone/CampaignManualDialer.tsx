@@ -188,10 +188,22 @@ export default function CampaignManualDialer() {
   };
 
   const startCall = (item: QueueItem) => {
+    setCallChoice(item);
+  };
+
+  const callWithTwilio = (item: QueueItem) => {
     setActiveId(item.id);
-    // Dial via the Twilio Voice device already mounted on this page (TwilioKeypad)
+    setCallChoice(null);
     window.dispatchEvent(new CustomEvent('twilio:dial', { detail: { phone: phoneE164(item.phone) } }));
-    toast.success(`Calling ${item.contact_name || item.phone}…`);
+    toast.success(`Calling ${item.contact_name || item.phone} via Twilio…`);
+  };
+
+  const callWithRingCentral = (item: QueueItem) => {
+    setActiveId(item.id);
+    setCallChoice(null);
+    // Open RingCentral's tel: handler — RC desktop app registers as the system dialer.
+    window.location.href = `tel:${phoneE164(item.phone)}`;
+    toast.success(`Dialing ${item.contact_name || item.phone} via RingCentral…`);
   };
 
   return (
