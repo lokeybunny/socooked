@@ -979,10 +979,16 @@ export default function Funnels() {
 
   const handleStageChange = async (lead: FunnelLead, newStatus: string) => {
     if (lead.status === newStatus) return;
-    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
+    const autoDead = newStatus === 'dead';
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus, ...(autoDead ? { dead: true, happy: false } : {}) } : l));
     if (lead._table === 'customers') {
       const { error } = await supabase.from('customers').update({ status: newStatus }).eq('id', lead.id);
       if (error) { toast.error(error.message); fetchLeads(); return; }
+      if (autoDead && !lead.dead) {
+        const { data: existing } = await supabase.from('customers').select('meta').eq('id', lead.id).single();
+        const meta = { ...((existing?.meta as Record<string, unknown>) || {}), dead: true, happy: false };
+        await supabase.from('customers').update({ meta }).eq('id', lead.id);
+      }
     } else {
       const { error } = await supabase.from('lw_landing_leads').update({ status: newStatus }).eq('id', lead.id);
       if (error) { toast.error(error.message); fetchLeads(); return; }
