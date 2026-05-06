@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, CalendarClock } from 'lucide-react';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -93,6 +93,12 @@ export default function PowerDialSMSInbox() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesPhone, setNotesPhone] = useState<string>('');
   const [callPhone, setCallPhone] = useState<string | null>(null);
+  // Schedule SMS modal
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<string>('');
+  const [scheduleTime, setScheduleTime] = useState<string>('');
+  const [scheduleBody, setScheduleBody] = useState('');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
   // Per-thread name color (persisted in localStorage)
   const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
   const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
@@ -1131,6 +1137,25 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 gap-1"
+                onClick={() => {
+                  if (!activeThread) return;
+                  // Default to 1 hour from now in local time
+                  const d = new Date(Date.now() + 60 * 60 * 1000);
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  setScheduleDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+                  setScheduleTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+                  setScheduleBody(composeBody || '');
+                  setScheduleOpen(true);
+                }}
+                title="Schedule a text to auto-send at a future date/time"
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span className="text-xs">Schedule</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1"
                 onClick={() => activeThread && openNotes(null, activeThread)}
                 title="Open notes (shared with Phone)"
@@ -1343,6 +1368,72 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           <DialogDescription>Place a call via the Twilio browser dialer.</DialogDescription>
         </DialogHeader>
         {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-indigo-400" /> Schedule SMS
+          </DialogTitle>
+          <DialogDescription>
+            Auto-send a text at a future date and time. Worker checks every minute.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground">Date</label>
+              <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="h-9 text-sm mt-1" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Time</label>
+              <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="h-9 text-sm mt-1" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Message</label>
+            <textarea
+              value={scheduleBody}
+              onChange={(e) => setScheduleBody(e.target.value)}
+              rows={4}
+              className="w-full mt-1 text-sm rounded-md border border-border bg-background px-3 py-2 resize-none"
+              placeholder="Type the SMS to send…"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setScheduleOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white"
+              disabled={scheduleSaving || !scheduleDate || !scheduleTime || !scheduleBody.trim() || !activeThread}
+              onClick={async () => {
+                if (!activeThread) return;
+                const last10 = activeThread.replace(/\D/g, '').slice(-10);
+                if (last10.length !== 10) { toast.error('Invalid phone'); return; }
+                const sendAt = new Date(`${scheduleDate}T${scheduleTime}`);
+                if (isNaN(sendAt.getTime())) { toast.error('Invalid date/time'); return; }
+                if (sendAt.getTime() < Date.now() - 60_000) { toast.error('Time must be in the future'); return; }
+                setScheduleSaving(true);
+                const { error } = await supabase.from('scheduled_sms_jobs').insert({
+                  to_phone: '+1' + last10,
+                  body: scheduleBody.trim(),
+                  send_at: sendAt.toISOString(),
+                  source: 'sms_inbox_schedule_btn',
+                });
+                setScheduleSaving(false);
+                if (error) { toast.error(error.message); return; }
+                toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
+                setScheduleOpen(false);
+                setScheduleBody('');
+              }}
+            >
+              {scheduleSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarClock className="h-3.5 w-3.5 mr-1" />}
+              Schedule
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
 
