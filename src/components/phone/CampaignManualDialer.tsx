@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Phone, ThumbsUp, Ban, FileText, CheckCircle2, Loader2, RefreshCw, StickyNote, MessageSquare,
+  Phone, ThumbsUp, Ban, FileText, CheckCircle2, Loader2, RefreshCw, StickyNote, MessageSquare, UserX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Teleprompter } from '@/components/phone/Teleprompter';
