@@ -65,6 +65,7 @@ export default function PowerDialSMSInbox() {
   const [funneledSet, setFunneledSet] = useState<Set<string>>(new Set());
   const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [loading, setLoading] = useState(true);
@@ -388,14 +389,23 @@ export default function PowerDialSMSInbox() {
   }, [messages]);
 
   const visibleThreads = useMemo(() => {
+    let list = threads;
     if (filterMode === 'starred') {
-      return threads.filter(t => starredSet.has(normalizeLast10(t.phone)));
+      list = list.filter(t => starredSet.has(normalizeLast10(t.phone)));
+    } else if (filterMode === 'disconnected') {
+      list = list.filter(t => disconnectedSet.has(normalizeLast10(t.phone)));
     }
-    if (filterMode === 'disconnected') {
-      return threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone)));
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(t => {
+        const last10 = normalizeLast10(t.phone);
+        const name = (contacts[last10] || '').toLowerCase();
+        const phone = (t.phone || '').toLowerCase();
+        return last10.includes(q.replace(/\D/g, '')) || name.includes(q) || phone.includes(q);
+      });
     }
-    return threads;
-  }, [threads, filterMode, starredSet, disconnectedSet]);
+    return list;
+  }, [threads, filterMode, starredSet, disconnectedSet, searchQuery, contacts]);
 
   const activeMessages = useMemo(() => {
     if (!activeThread) return [];
@@ -833,6 +843,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <PhoneOff className="h-3 w-3" />
             Disconnected ({threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone))).length})
           </button>
+        </div>
+        <div className="px-3 py-2 border-b border-border">
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name or number…"
+            className="h-7 text-[11px]"
+          />
         </div>
         <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
           {loading ? (
