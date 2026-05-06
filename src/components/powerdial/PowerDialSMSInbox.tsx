@@ -183,6 +183,11 @@ export default function PowerDialSMSInbox() {
     const next = new Set(pinnedSet);
     if (isPinned) next.delete(last10); else next.add(last10);
     setPinnedSet(next);
+    if (isPinned) {
+      persistPinOrder(pinOrder.filter(k => k !== last10));
+    } else if (!pinOrder.includes(last10)) {
+      persistPinOrder([...pinOrder, last10]);
+    }
     try {
       const { error } = await supabase.from('sms_contacts').upsert(
         {
