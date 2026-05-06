@@ -1010,10 +1010,12 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     )}
                     <span
                       className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none truncate"
-                      title="Double-click to add or edit a name"
-                      onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
+                      style={nameColors[last10] ? { color: nameColors[last10] } : undefined}
+                      title="Click to color · Double-click to add or edit a name"
+                      onClick={() => setColorPickerOpen(true)}
+                      onDoubleClick={(e) => { e.stopPropagation(); setNameDraft(currentName); setEditingName(true); }}
                     >
-                      {displayPhone(activePhone)}
+                      {currentName || displayPhone(activePhone)}
                     </span>
                   </div>
                 );
