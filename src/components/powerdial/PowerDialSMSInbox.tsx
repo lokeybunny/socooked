@@ -1386,22 +1386,60 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="p-3 border-t border-border flex items-end gap-2">
-              <Textarea
-                placeholder="Type a reply..."
-                value={composeBody}
-                onChange={(e) => setComposeBody(e.target.value)}
-                className="flex-1 min-h-[44px] max-h-[120px]"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleSend();
-                  }
-                }}
-              />
-              <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="end" />
-              <Button onClick={() => handleSend()} disabled={sending || !composeBody.trim()}>
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
+            <div className="p-3 border-t border-border space-y-2">
+              {pendingAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {pendingAttachments.map((a, i) => (
+                    <div key={a.url} className="relative group">
+                      <img src={a.url} alt={a.name} className="h-16 w-16 object-cover rounded border border-border" />
+                      <button
+                        type="button"
+                        onClick={() => setPendingAttachments((p) => p.filter((_, idx) => idx !== i))}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-90 hover:opacity-100"
+                        title="Remove"
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleAttachFiles(e.target.files)}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAttachment}
+                  title="Attach image"
+                  className="shrink-0"
+                >
+                  {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                </Button>
+                <Textarea
+                  placeholder="Type a reply..."
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  className="flex-1 min-h-[44px] max-h-[120px]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      handleSend();
+                    }
+                  }}
+                />
+                <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="end" />
+                <Button onClick={() => handleSend()} disabled={sending || (!composeBody.trim() && pendingAttachments.length === 0)}>
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </>
         ) : (
