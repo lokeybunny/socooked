@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import CallNotesPopup from '@/components/phone/CallNotesPopup';
@@ -60,6 +60,7 @@ export default function PowerDialSMSInbox() {
   const [contacts, setContacts] = useState<Record<string, string>>({});
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
+  const [pinnedSet, setPinnedSet] = useState<Set<string>>(new Set());
   const [interestedSet, setInterestedSet] = useState<Set<string>>(new Set());
   const [filterMode, setFilterMode] = useState<'all' | 'starred' | 'disconnected'>('all');
   const [editingName, setEditingName] = useState(false);
@@ -100,23 +101,52 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned');
     const map: Record<string, string> = {};
     const emails: Record<string, string> = {};
     const starred = new Set<string>();
+    const pinned = new Set<string>();
     const interested = new Set<string>();
     (data || []).forEach((c: any) => {
       if (!c.phone_last10) return;
       if (c.name) map[c.phone_last10] = c.name;
       if (c.email) emails[c.phone_last10] = c.email;
       if (c.starred) starred.add(c.phone_last10);
+      if (c.pinned) pinned.add(c.phone_last10);
       if (Array.isArray(c.tags) && c.tags.includes('interested')) interested.add(c.phone_last10);
     });
     setContacts(map);
     setContactEmails(emails);
     setStarredSet(starred);
+    setPinnedSet(pinned);
     setInterestedSet(interested);
   }, []);
+
+  const togglePin = useCallback(async (e: React.MouseEvent, last10: string) => {
+    e.stopPropagation();
+    const isPinned = pinnedSet.has(last10);
+    const next = new Set(pinnedSet);
+    if (isPinned) next.delete(last10); else next.add(last10);
+    setPinnedSet(next);
+    try {
+      const { error } = await supabase.from('sms_contacts').upsert(
+        {
+          phone_last10: last10,
+          phone: `+1${last10}`,
+          name: contacts[last10] || `+1${last10}`,
+          pinned: !isPinned,
+          pinned_at: !isPinned ? new Date().toISOString() : null,
+        },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) throw error;
+      toast.success(isPinned ? 'Unpinned' : 'Pinned to top');
+    } catch (err: any) {
+      // revert
+      setPinnedSet(pinnedSet);
+      toast.error(err?.message || 'Failed to update pin');
+    }
+  }, [pinnedSet, contacts]);
 
   const pollVoidFix = useCallback(async () => {
     const timeout = new Promise<never>((_, reject) => {
@@ -293,8 +323,13 @@ export default function PowerDialSMSInbox() {
         if (m.direction === 'inbound') entry.unreadInbound += 1;
       }
     }
-    return Array.from(map.values()).sort((a, b) => new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime());
-  }, [messages]);
+    return Array.from(map.values()).sort((a, b) => {
+      const aPin = pinnedSet.has(normalizeLast10(a.phone)) ? 1 : 0;
+      const bPin = pinnedSet.has(normalizeLast10(b.phone)) ? 1 : 0;
+      if (aPin !== bPin) return bPin - aPin;
+      return new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime();
+    });
+  }, [messages, pinnedSet]);
 
   const disconnectedSet = useMemo(() => {
     const s = new Set<string>();
@@ -766,14 +801,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               const key = normalizeLast10(t.phone);
               const isActive = activeThread === key;
               const isStarred = starredSet.has(key);
+              const isPinned = pinnedSet.has(key);
               return (
                 <div
                   key={key}
-                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
+                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5' : ''}`}
                 >
                   <button
                     onClick={() => setActiveThread(key)}
-                    className="w-full text-left px-3 py-2.5 pr-32"
+                    className="w-full text-left px-3 py-2.5 pr-40"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -781,6 +817,12 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           <span
                             className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
                             aria-label="New message"
+                          />
+                        )}
+                        {isPinned && (
+                          <Pin
+                            className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400 shrink-0 rotate-45"
+                            aria-label="Pinned"
                           />
                         )}
                         {isStarred && (
@@ -811,6 +853,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                       )}
                       <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
                     </div>
+                  </button>
+                  <button
+                    onClick={(e) => togglePin(e, key)}
+                    className={`absolute top-2 right-[8.25rem] p-1 rounded transition-opacity hover:bg-emerald-500/20 ${isPinned ? 'opacity-100 text-emerald-400' : 'opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-emerald-400'}`}
+                    title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
+                    aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
+                  >
+                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
                   </button>
                   <button
                     onClick={(e) => openNotes(e, key)}
