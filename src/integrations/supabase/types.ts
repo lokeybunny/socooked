@@ -7317,6 +7317,8 @@ export type Database = {
           notes: string | null
           phone: string | null
           phone_last10: string
+          pinned: boolean
+          pinned_at: string | null
           starred: boolean
           starred_at: string | null
           tags: string[] | null
@@ -7331,6 +7333,8 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           phone_last10: string
+          pinned?: boolean
+          pinned_at?: string | null
           starred?: boolean
           starred_at?: string | null
           tags?: string[] | null
@@ -7345,6 +7349,8 @@ export type Database = {
           notes?: string | null
           phone?: string | null
           phone_last10?: string
+          pinned?: boolean
+          pinned_at?: string | null
           starred?: boolean
           starred_at?: string | null
           tags?: string[] | null
