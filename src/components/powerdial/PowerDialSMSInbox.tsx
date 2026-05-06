@@ -206,7 +206,21 @@ export default function PowerDialSMSInbox() {
       setPinnedSet(pinnedSet);
       toast.error(err?.message || 'Failed to update pin');
     }
-  }, [pinnedSet, contacts]);
+  }, [pinnedSet, contacts, pinOrder, persistPinOrder]);
+
+  const handlePinDrop = useCallback((targetKey: string) => {
+    if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
+    if (!pinnedSet.has(dragKey) || !pinnedSet.has(targetKey)) { setDragKey(null); return; }
+    const current = pinOrder.filter(k => pinnedSet.has(k));
+    // ensure both keys present
+    const ensure = (k: string, arr: string[]) => arr.includes(k) ? arr : [...arr, k];
+    let arr = ensure(targetKey, ensure(dragKey, current));
+    arr = arr.filter(k => k !== dragKey);
+    const targetIdx = arr.indexOf(targetKey);
+    arr.splice(targetIdx, 0, dragKey);
+    persistPinOrder(arr);
+    setDragKey(null);
+  }, [dragKey, pinnedSet, pinOrder, persistPinOrder]);
 
   const pollVoidFix = useCallback(async () => {
     const timeout = new Promise<never>((_, reject) => {
