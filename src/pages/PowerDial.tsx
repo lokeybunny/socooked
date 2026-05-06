@@ -346,14 +346,21 @@ export default function PowerDial() {
     }
     setAddingNumbers(true);
     try {
-      // Dedup against existing queue
+      // Dedup against existing queue (normalize to last 10 digits to catch +1, formatted, etc.)
+      const last10 = (v: any) => String(v || '').replace(/\D/g, '').slice(-10);
       const { data: existing } = await supabase
         .from('powerdial_queue')
         .select('phone, position')
         .eq('campaign_id', activeCampaign.id);
-      const existingPhones = new Set((existing || []).map((r: any) => r.phone));
+      const existingPhones = new Set((existing || []).map((r: any) => last10(r.phone)).filter(Boolean));
       const maxPos = (existing || []).reduce((m: number, r: any) => Math.max(m, r.position ?? 0), -1);
-      const fresh = phones.filter(p => !existingPhones.has(p.phone));
+      const seenInBatch = new Set<string>();
+      const fresh = phones.filter(p => {
+        const k = last10(p.phone);
+        if (!k || existingPhones.has(k) || seenInBatch.has(k)) return false;
+        seenInBatch.add(k);
+        return true;
+      });
       if (!fresh.length) {
         toast.info('All numbers already in this campaign');
         setAddingNumbers(false);
