@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, CalendarClock } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, CalendarClock, Paperclip, X as XIcon, ImageIcon } from 'lucide-react';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -56,6 +56,18 @@ function formatPhone(raw: string | null | undefined) {
   return `(${last10.slice(0, 3)}) ${last10.slice(3, 6)}-${last10.slice(6)}`;
 }
 
+// Extract image URLs from a message body (Supabase content-uploads bucket or any common image extension)
+const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
+function extractImageUrls(body: string | null | undefined): string[] {
+  if (!body) return [];
+  const matches = body.match(IMAGE_URL_REGEX);
+  return matches ? Array.from(new Set(matches)) : [];
+}
+function stripImageUrls(body: string | null | undefined): string {
+  if (!body) return '';
+  return body.replace(IMAGE_URL_REGEX, '').replace(/\s{2,}/g, ' ').trim();
+}
+
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [contacts, setContacts] = useState<Record<string, string>>({});
@@ -83,6 +95,10 @@ export default function PowerDialSMSInbox() {
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  // Image attachment (uploaded to storage; URL appended to outbound SMS body)
+  const [pendingAttachments, setPendingAttachments] = useState<{ url: string; name: string }[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Send Proposal modal
   const [proposalOpen, setProposalOpen] = useState(false);
   const [proposalPhoneKey, setProposalPhoneKey] = useState<string | null>(null);
@@ -533,11 +549,46 @@ export default function PowerDialSMSInbox() {
     prevActiveCountRef.current = activeMessages.length;
   }, [activeThread, activeMessages.length]);
 
+  const handleAttachFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingAttachment(true);
+    try {
+      const uploads: { url: string; name: string }[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) {
+          toast.error(`${file.name} is not an image`);
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} exceeds 10MB`);
+          continue;
+        }
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const path = `sms-mms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) {
+          toast.error(`Upload failed: ${upErr.message}`);
+          continue;
+        }
+        const { data: pub } = supabase.storage.from('content-uploads').getPublicUrl(path);
+        uploads.push({ url: pub.publicUrl, name: file.name });
+      }
+      if (uploads.length) setPendingAttachments((p) => [...p, ...uploads]);
+    } finally {
+      setUploadingAttachment(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSend = async (toOverride?: string) => {
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
-    const body = composeBody.trim();
+    const text = composeBody.trim();
+    const attachUrls = pendingAttachments.map((a) => a.url).join('\n');
+    const body = [text, attachUrls].filter(Boolean).join(text && attachUrls ? '\n' : '');
     if (!to || !body) {
-      toast.error('Recipient and message required');
+      toast.error('Recipient and message (or image) required');
       return;
     }
     setSending(true);
@@ -568,8 +619,9 @@ export default function PowerDialSMSInbox() {
           toast.error(errCode);
         }
       } else {
-        toast.success('SMS sent');
+        toast.success(pendingAttachments.length ? 'SMS + image link sent' : 'SMS sent');
         setComposeBody('');
+        setPendingAttachments([]);
         if (showCompose) {
           setShowCompose(false);
           setComposeTo('');
@@ -1283,7 +1335,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             LANDLINE REPLY · needs follow-up from VoidFix
                           </Badge>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                        {(() => {
+                          const imgs = extractImageUrls(m.body);
+                          const text = imgs.length ? stripImageUrls(m.body) : m.body;
+                          return (
+                            <>
+                              {text && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
+                              {imgs.map((url) => (
+                                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block mt-1">
+                                  <img src={url} alt="attachment" className="rounded-lg max-h-64 max-w-full object-contain border border-border/40" loading="lazy" />
+                                </a>
+                              ))}
+                            </>
+                          );
+                        })()}
                         <p className="text-[9px] text-muted-foreground mt-1">
                           {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
                         </p>
@@ -1321,22 +1386,60 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="p-3 border-t border-border flex items-end gap-2">
-              <Textarea
-                placeholder="Type a reply..."
-                value={composeBody}
-                onChange={(e) => setComposeBody(e.target.value)}
-                className="flex-1 min-h-[44px] max-h-[120px]"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    handleSend();
-                  }
-                }}
-              />
-              <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="end" />
-              <Button onClick={() => handleSend()} disabled={sending || !composeBody.trim()}>
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
+            <div className="p-3 border-t border-border space-y-2">
+              {pendingAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {pendingAttachments.map((a, i) => (
+                    <div key={a.url} className="relative group">
+                      <img src={a.url} alt={a.name} className="h-16 w-16 object-cover rounded border border-border" />
+                      <button
+                        type="button"
+                        onClick={() => setPendingAttachments((p) => p.filter((_, idx) => idx !== i))}
+                        className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-90 hover:opacity-100"
+                        title="Remove"
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-end gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleAttachFiles(e.target.files)}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAttachment}
+                  title="Attach image"
+                  className="shrink-0"
+                >
+                  {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                </Button>
+                <Textarea
+                  placeholder="Type a reply..."
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  className="flex-1 min-h-[44px] max-h-[120px]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      handleSend();
+                    }
+                  }}
+                />
+                <EmojiButton onSelect={(emoji) => setComposeBody((b) => b + emoji)} side="top" align="end" />
+                <Button onClick={() => handleSend()} disabled={sending || (!composeBody.trim() && pendingAttachments.length === 0)}>
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </>
         ) : (
