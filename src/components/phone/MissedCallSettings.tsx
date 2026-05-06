@@ -256,12 +256,13 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
         campaignId = created.id;
       }
 
-      // Existing phones in this campaign (skip dupes)
+      // Existing phones in this campaign (skip dupes — normalize to last 10 digits)
+      const last10 = (v: any) => String(v || '').replace(/\D/g, '').slice(-10);
       const { data: alreadyIn } = await supabase
         .from("powerdial_queue")
         .select("phone")
         .eq("campaign_id", campaignId);
-      const existingSet = new Set((alreadyIn || []).map((r: any) => r.phone));
+      const existingSet = new Set((alreadyIn || []).map((r: any) => last10(r.phone)).filter(Boolean));
 
       const { data: lastPos } = await supabase
         .from("powerdial_queue")
@@ -272,8 +273,14 @@ export default function MissedCallSettings({ section = 'all' }: { section?: Sect
       let nextPos = (lastPos?.[0]?.position ?? -1) + 1;
 
       const lookup = new Map(missed.map((m) => [m.phone_number, m]));
+      const seenInBatch = new Set<string>();
       const rowsToInsert = numbers
-        .filter((p) => !existingSet.has(p))
+        .filter((p) => {
+          const k = last10(p);
+          if (!k || existingSet.has(k) || seenInBatch.has(k)) return false;
+          seenInBatch.add(k);
+          return true;
+        })
         .map((p) => {
           const m = lookup.get(p);
           return {
