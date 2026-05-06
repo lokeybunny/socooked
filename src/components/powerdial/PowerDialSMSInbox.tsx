@@ -474,6 +474,19 @@ export default function PowerDialSMSInbox() {
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
 
+  const activePendingJobs = useMemo(() => {
+    if (!activeThread) return [] as ScheduledJob[];
+    return scheduledJobs.filter(j => normalizeLast10(j.to_phone) === activeThread);
+  }, [activeThread, scheduledJobs]);
+
+  const cancelScheduledJob = useCallback(async (id: string) => {
+    if (!confirm('Cancel this scheduled message?')) return;
+    const { error } = await supabase.from('scheduled_sms_jobs').delete().eq('id', id).eq('status', 'pending');
+    if (error) { toast.error(error.message); return; }
+    toast.success('Scheduled message cancelled');
+    setScheduledJobs(prev => prev.filter(j => j.id !== id));
+  }, []);
+
   // Reset count tracker whenever active thread changes so "justOpened" detection is correct.
   useLayoutEffect(() => {
     prevActiveCountRef.current = 0;
