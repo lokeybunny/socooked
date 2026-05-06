@@ -101,23 +101,52 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned');
     const map: Record<string, string> = {};
     const emails: Record<string, string> = {};
     const starred = new Set<string>();
+    const pinned = new Set<string>();
     const interested = new Set<string>();
     (data || []).forEach((c: any) => {
       if (!c.phone_last10) return;
       if (c.name) map[c.phone_last10] = c.name;
       if (c.email) emails[c.phone_last10] = c.email;
       if (c.starred) starred.add(c.phone_last10);
+      if (c.pinned) pinned.add(c.phone_last10);
       if (Array.isArray(c.tags) && c.tags.includes('interested')) interested.add(c.phone_last10);
     });
     setContacts(map);
     setContactEmails(emails);
     setStarredSet(starred);
+    setPinnedSet(pinned);
     setInterestedSet(interested);
   }, []);
+
+  const togglePin = useCallback(async (e: React.MouseEvent, last10: string) => {
+    e.stopPropagation();
+    const isPinned = pinnedSet.has(last10);
+    const next = new Set(pinnedSet);
+    if (isPinned) next.delete(last10); else next.add(last10);
+    setPinnedSet(next);
+    try {
+      const { error } = await supabase.from('sms_contacts').upsert(
+        {
+          phone_last10: last10,
+          phone: `+1${last10}`,
+          name: contacts[last10] || `+1${last10}`,
+          pinned: !isPinned,
+          pinned_at: !isPinned ? new Date().toISOString() : null,
+        },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) throw error;
+      toast.success(isPinned ? 'Unpinned' : 'Pinned to top');
+    } catch (err: any) {
+      // revert
+      setPinnedSet(pinnedSet);
+      toast.error(err?.message || 'Failed to update pin');
+    }
+  }, [pinnedSet, contacts]);
 
   const pollVoidFix = useCallback(async () => {
     const timeout = new Promise<never>((_, reject) => {
