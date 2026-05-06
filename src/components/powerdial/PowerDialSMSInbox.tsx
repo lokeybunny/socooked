@@ -379,12 +379,21 @@ export default function PowerDialSMSInbox() {
       }
     }
     return Array.from(map.values()).sort((a, b) => {
-      const aPin = pinnedSet.has(normalizeLast10(a.phone)) ? 1 : 0;
-      const bPin = pinnedSet.has(normalizeLast10(b.phone)) ? 1 : 0;
+      const aKey = normalizeLast10(a.phone);
+      const bKey = normalizeLast10(b.phone);
+      const aPin = pinnedSet.has(aKey) ? 1 : 0;
+      const bPin = pinnedSet.has(bKey) ? 1 : 0;
       if (aPin !== bPin) return bPin - aPin;
+      if (aPin && bPin) {
+        const aIdx = pinOrder.indexOf(aKey);
+        const bIdx = pinOrder.indexOf(bKey);
+        const aOrd = aIdx === -1 ? 9999 : aIdx;
+        const bOrd = bIdx === -1 ? 9999 : bIdx;
+        if (aOrd !== bOrd) return aOrd - bOrd;
+      }
       return new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime();
     });
-  }, [messages, pinnedSet]);
+  }, [messages, pinnedSet, pinOrder]);
 
   const disconnectedSet = useMemo(() => {
     const s = new Set<string>();
