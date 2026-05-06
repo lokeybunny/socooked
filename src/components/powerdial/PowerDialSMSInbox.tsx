@@ -1270,31 +1270,61 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     <Dialog open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
       <DialogContent className="max-w-xs">
         <DialogHeader>
-          <DialogTitle>Name Color</DialogTitle>
-          <DialogDescription>Color-code this contact's name in the thread header.</DialogDescription>
+          <DialogTitle>Contact Name & Color</DialogTitle>
+          <DialogDescription>Add or edit the contact's name and pick a color for the thread header.</DialogDescription>
         </DialogHeader>
         {(() => {
           const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
           const last10 = normalizeLast10(activePhone);
           const current = nameColors[last10] || '';
+          const currentName = contacts[last10] || '';
           return (
-            <div className="grid grid-cols-3 gap-2 py-2">
-              {NAME_COLOR_OPTIONS.map(opt => {
-                const selected = current === opt.value;
-                return (
-                  <button
-                    key={opt.label}
-                    onClick={() => { setNameColor(last10, opt.value || null); setColorPickerOpen(false); }}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs hover:bg-muted transition-colors ${selected ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Name</label>
+                <div className="flex gap-2">
+                  <Input
+                    defaultValue={currentName}
+                    placeholder="Add name (leave blank to remove)"
+                    className="h-8 text-sm flex-1"
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveContactName(activePhone, (e.target as HTMLInputElement).value);
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8"
+                    onClick={() => saveContactName(activePhone, nameDraft || currentName)}
                   >
-                    <span
-                      className="inline-block h-4 w-4 rounded-full border border-border"
-                      style={{ backgroundColor: opt.value || 'transparent' }}
-                    />
-                    <span style={opt.value ? { color: opt.value } : undefined}>{opt.label}</span>
-                  </button>
-                );
-              })}
+                    Save
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Color</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {NAME_COLOR_OPTIONS.map(opt => {
+                    const selected = current === opt.value;
+                    return (
+                      <button
+                        key={opt.label}
+                        onClick={() => { setNameColor(last10, opt.value || null); }}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs hover:bg-muted transition-colors ${selected ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
+                      >
+                        <span
+                          className="inline-block h-4 w-4 rounded-full border border-border"
+                          style={{ backgroundColor: opt.value || 'transparent' }}
+                        />
+                        <span style={opt.value ? { color: opt.value } : undefined}>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           );
         })()}
