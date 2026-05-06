@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Phone, ThumbsUp, Ban, FileText, CheckCircle2, Loader2, RefreshCw, StickyNote, MessageSquare,
+  Phone, ThumbsUp, Ban, FileText, CheckCircle2, Loader2, RefreshCw, StickyNote, MessageSquare, UserX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Teleprompter } from '@/components/phone/Teleprompter';
@@ -45,6 +45,18 @@ export default function CampaignManualDialer() {
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
   const [callChoice, setCallChoice] = useState<QueueItem | null>(null);
+  const DEACTIVATED_KEY = 'manual-dialer-deactivated-v1';
+  const [deactivatedSet, setDeactivatedSet] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(DEACTIVATED_KEY) || '[]')); } catch { return new Set(); }
+  });
+  const toggleDeactivated = (id: string) => {
+    setDeactivatedSet(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { localStorage.setItem(DEACTIVATED_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -328,16 +340,18 @@ export default function CampaignManualDialer() {
                   const isDone = doneSet.has(item.id);
                   const last10 = String(item.phone).replace(/\D/g, '').slice(-10);
                   const wasContacted = contactedSet.has(last10);
+                  const isDeactivated = deactivatedSet.has(item.id);
                   return (
-                    <div key={item.id} className={`px-3 py-2 ${isActive ? 'bg-primary/5' : ''} ${isDone ? 'opacity-60' : ''} ${wasContacted ? 'bg-red-500/10' : ''}`}>
+                    <div key={item.id} className={`px-3 py-2 ${isActive ? 'bg-primary/5' : ''} ${isDone ? 'opacity-60' : ''} ${isDeactivated ? 'bg-red-500/20' : wasContacted ? 'bg-red-500/10' : ''}`}>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] text-muted-foreground w-5 text-right">{idx + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium truncate ${wasContacted ? 'text-red-400' : 'text-foreground'}`}>
+                          <p className={`text-sm font-medium truncate ${isDeactivated ? 'text-red-400 line-through' : wasContacted ? 'text-red-400' : 'text-foreground'}`}>
                             {item.contact_name || <span className="text-muted-foreground italic">No name</span>}
-                            {wasContacted && <span className="ml-2 text-[9px] uppercase tracking-wider text-red-400">· Texted</span>}
+                            {isDeactivated && <span className="ml-2 text-[9px] uppercase tracking-wider text-red-400">· Deactivated</span>}
+                            {!isDeactivated && wasContacted && <span className="ml-2 text-[9px] uppercase tracking-wider text-red-400">· Texted</span>}
                           </p>
-                          <p className={`text-[11px] font-mono ${wasContacted ? 'text-red-400/70' : 'text-muted-foreground'}`}>{item.phone}</p>
+                          <p className={`text-[11px] font-mono ${isDeactivated || wasContacted ? 'text-red-400/70' : 'text-muted-foreground'}`}>{item.phone}</p>
                         </div>
                         {isDone && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Done</Badge>}
                         <Button
@@ -351,8 +365,18 @@ export default function CampaignManualDialer() {
                         </Button>
                         <Button
                           size="sm"
-                          className={`h-7 text-white ${wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                          variant="outline"
+                          className={`h-7 px-2 ${isDeactivated ? 'border-red-500/60 bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'border-red-500/30 text-red-400 hover:bg-red-500/10'}`}
+                          title={isDeactivated ? 'Re-activate' : 'De-activate'}
+                          onClick={() => toggleDeactivated(item.id)}
+                        >
+                          <UserX className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          className={`h-7 text-white ${isDeactivated ? 'bg-zinc-600 hover:bg-zinc-700' : wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                           onClick={() => startCall(item)}
+                          disabled={isDeactivated}
                         >
                           <Phone className="h-3 w-3 mr-1" /> Call
                         </Button>
