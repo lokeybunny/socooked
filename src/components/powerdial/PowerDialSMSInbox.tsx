@@ -99,6 +99,8 @@ export default function PowerDialSMSInbox() {
   const [scheduleTime, setScheduleTime] = useState<string>('');
   const [scheduleBody, setScheduleBody] = useState('');
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  type ScheduledJob = { id: string; to_phone: string; body: string; send_at: string; status: string };
+  const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
   // Per-thread name color (persisted in localStorage)
   const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
   const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
@@ -342,6 +344,18 @@ export default function PowerDialSMSInbox() {
     return () => clearInterval(id);
   }, [pollVoidFix]);
 
+  // Load pending scheduled SMS jobs
+  const loadScheduledJobs = useCallback(async () => {
+    const { data } = await supabase
+      .from('scheduled_sms_jobs')
+      .select('id, to_phone, body, send_at, status')
+      .eq('status', 'pending')
+      .order('send_at', { ascending: true });
+    setScheduledJobs((data as ScheduledJob[]) || []);
+  }, []);
+
+  useEffect(() => { loadScheduledJobs(); }, [loadScheduledJobs]);
+
   // Realtime — refresh on any new SMS row (silent, no flash)
   useEffect(() => {
     const channel = supabase
@@ -355,9 +369,12 @@ export default function PowerDialSMSInbox() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
         loadContacts();
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_sms_jobs' }, () => {
+        loadScheduledJobs();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [load, loadContacts]);
+  }, [load, loadContacts, loadScheduledJobs]);
 
   const displayPhone = useCallback((rawPhone: string | null | undefined) => {
     const last10 = normalizeLast10(rawPhone);
@@ -456,6 +473,19 @@ export default function PowerDialSMSInbox() {
     if (!t) return [];
     return [...t.messages].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [activeThread, threads]);
+
+  const activePendingJobs = useMemo(() => {
+    if (!activeThread) return [] as ScheduledJob[];
+    return scheduledJobs.filter(j => normalizeLast10(j.to_phone) === activeThread);
+  }, [activeThread, scheduledJobs]);
+
+  const cancelScheduledJob = useCallback(async (id: string) => {
+    if (!confirm('Cancel this scheduled message?')) return;
+    const { error } = await supabase.from('scheduled_sms_jobs').delete().eq('id', id).eq('status', 'pending');
+    if (error) { toast.error(error.message); return; }
+    toast.success('Scheduled message cancelled');
+    setScheduledJobs(prev => prev.filter(j => j.id !== id));
+  }, []);
 
   // Reset count tracker whenever active thread changes so "justOpened" detection is correct.
   useLayoutEffect(() => {
@@ -1245,6 +1275,29 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     </div>
                   );
                 })}
+                {activePendingJobs.map(job => (
+                  <div key={`pending-${job.id}`} className="flex justify-end">
+                    <div className="max-w-[75%] rounded-2xl px-3 py-2 bg-[#0A84FF] text-white shadow-sm relative">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <CalendarClock className="h-3 w-3 opacity-90" />
+                        <span className="text-[9px] uppercase tracking-wide opacity-90 font-semibold">Scheduled</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap break-words">{job.body}</p>
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <p className="text-[9px] opacity-80">
+                          Sends {format(new Date(job.send_at), 'MMM d, h:mm a')}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => cancelScheduledJob(job.id)}
+                          className="text-[10px] font-semibold underline underline-offset-2 hover:opacity-80"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
