@@ -819,6 +819,12 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             aria-label="New message"
                           />
                         )}
+                        {isPinned && (
+                          <Pin
+                            className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400 shrink-0 rotate-45"
+                            aria-label="Pinned"
+                          />
+                        )}
                         {isStarred && (
                           <Star
                             className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0"
