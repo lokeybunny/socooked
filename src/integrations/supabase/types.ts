@@ -6647,27 +6647,6 @@ export type Database = {
         }
         Relationships: []
       }
-      short_links: {
-        Row: {
-          click_count: number
-          created_at: string
-          slug: string
-          target_url: string
-        }
-        Insert: {
-          click_count?: number
-          created_at?: string
-          slug: string
-          target_url: string
-        }
-        Update: {
-          click_count?: number
-          created_at?: string
-          slug?: string
-          target_url?: string
-        }
-        Relationships: []
-      }
       signature_usage: {
         Row: {
           created_at: string

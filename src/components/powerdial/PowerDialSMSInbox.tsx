@@ -573,16 +573,7 @@ export default function PowerDialSMSInbox() {
           continue;
         }
         const { data: pub } = supabase.storage.from('content-uploads').getPublicUrl(path);
-        // Create a short link so the SMS shows stu25.com/i/<slug> instead of the long URL
-        let shortUrl = pub.publicUrl;
-        try {
-          const slug = Math.random().toString(36).slice(2, 8);
-          const { error: slErr } = await supabase
-            .from('short_links')
-            .insert({ slug, target_url: pub.publicUrl });
-          if (!slErr) shortUrl = `https://stu25.com/i/${slug}`;
-        } catch { /* fallback to long URL */ }
-        uploads.push({ url: shortUrl, name: file.name });
+        uploads.push({ url: pub.publicUrl, name: file.name });
       }
       if (uploads.length) setPendingAttachments((p) => [...p, ...uploads]);
     } finally {

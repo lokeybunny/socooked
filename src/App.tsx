@@ -39,7 +39,6 @@ const Calendly = lazyWithRetry(() => import("./pages/Calendly"), "page-calendly"
 const LetsMeet = lazyWithRetry(() => import("./pages/LetsMeet"), "page-lets-meet");
 const ManageBooking = lazyWithRetry(() => import("./pages/ManageBooking"), "page-manage-booking");
 const SharedContent = lazyWithRetry(() => import("./pages/SharedContent"), "page-shared-content");
-const ShortLinkRedirect = lazyWithRetry(() => import("./pages/ShortLinkRedirect"), "page-short-link");
 const ResearchRoute = lazyWithRetry(() => import("./pages/ResearchRoute"), "page-research-route");
 const ThankYou = lazyWithRetry(() => import("./pages/ThankYou"), "page-thank-you");
 const ThankYouVideography = lazyWithRetry(() => import("./pages/ThankYouVideography"), "page-thank-you-videography");
@@ -129,7 +128,6 @@ const App = () => (
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
                 <Route path="/" element={<AIFilms />} />
-                <Route path="/i/:slug" element={<ShortLinkRedirect />} />
                 <Route path="/ai-director" element={<AIDirector />} />
                 <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
