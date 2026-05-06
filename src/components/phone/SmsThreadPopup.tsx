@@ -121,7 +121,7 @@ export function SmsThreadPopup({
     <>
       <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
         <DialogContent
-          className="max-w-lg p-0 gap-0 overflow-hidden"
+          className="max-w-2xl w-[95vw] p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh]"
           onPointerDownOutside={(e) => {
             const target = e.target as HTMLElement | null;
             if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
@@ -135,8 +135,8 @@ export function SmsThreadPopup({
             if (target?.closest('[aria-label="Contact Notes"]')) e.preventDefault();
           }}
         >
-          <DialogHeader className="px-4 py-3 border-b">
-            <div className="flex items-start justify-between gap-2">
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="flex items-center gap-2 text-base">
                   <MessageSquare className="h-4 w-4 text-emerald-400" />
@@ -146,7 +146,7 @@ export function SmsThreadPopup({
                   Send and receive SMS via VoidFix. Identical to the SMS page thread.
                 </DialogDescription>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0 mr-6">
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
                 <Button
                   size="sm"
                   variant="outline"
@@ -189,7 +189,7 @@ export function SmsThreadPopup({
             </div>
           </DialogHeader>
 
-          <ScrollArea ref={scrollRef as any} className="h-[420px] px-4 py-3 bg-muted/10">
+          <ScrollArea ref={scrollRef as any} className="flex-1 min-h-[300px] px-4 py-3 bg-muted/10">
             {loading ? (
               <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
             ) : messages.length === 0 ? (
@@ -218,7 +218,7 @@ export function SmsThreadPopup({
             )}
           </ScrollArea>
 
-          <div className="border-t p-3 space-y-2 bg-background">
+          <div className="border-t p-3 space-y-2 bg-background shrink-0">
             <div className="flex items-end gap-2">
               <Textarea
                 value={body}
