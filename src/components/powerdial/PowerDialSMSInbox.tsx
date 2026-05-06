@@ -83,6 +83,34 @@ export default function PowerDialSMSInbox() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesPhone, setNotesPhone] = useState<string>('');
   const [callPhone, setCallPhone] = useState<string | null>(null);
+  // Per-thread name color (persisted in localStorage)
+  const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
+  const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem(NAME_COLOR_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const setNameColor = (last10: string, color: string | null) => {
+    setNameColors((prev) => {
+      const next = { ...prev };
+      if (!color) delete next[last10]; else next[last10] = color;
+      try { localStorage.setItem(NAME_COLOR_STORAGE_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+  const NAME_COLOR_OPTIONS: { label: string; value: string }[] = [
+    { label: 'Default', value: '' },
+    { label: 'Red', value: '#f87171' },
+    { label: 'Orange', value: '#fb923c' },
+    { label: 'Amber', value: '#fbbf24' },
+    { label: 'Green', value: '#4ade80' },
+    { label: 'Cyan', value: '#22d3ee' },
+    { label: 'Blue', value: '#60a5fa' },
+    { label: 'Purple', value: '#a78bfa' },
+    { label: 'Pink', value: '#f472b6' },
+  ];
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedRef = useRef(false);
@@ -982,8 +1010,10 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     )}
                     <span
                       className="text-sm font-semibold font-mono cursor-pointer hover:text-primary transition-colors select-none truncate"
-                      title="Double-click to add or edit a name"
-                      onDoubleClick={() => { setNameDraft(currentName); setEditingName(true); }}
+                      style={nameColors[last10] ? { color: nameColors[last10] } : undefined}
+                      title="Click to color · Double-click to add or edit a name"
+                      onClick={() => setColorPickerOpen(true)}
+                      onDoubleClick={(e) => { e.stopPropagation(); setNameDraft(currentName); setEditingName(true); }}
                     >
                       {displayPhone(activePhone)}
                     </span>
@@ -1234,6 +1264,40 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           <DialogDescription>Place a call via the Twilio browser dialer.</DialogDescription>
         </DialogHeader>
         {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+      <DialogContent className="max-w-xs">
+        <DialogHeader>
+          <DialogTitle>Name Color</DialogTitle>
+          <DialogDescription>Color-code this contact's name in the thread header.</DialogDescription>
+        </DialogHeader>
+        {(() => {
+          const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+          const last10 = normalizeLast10(activePhone);
+          const current = nameColors[last10] || '';
+          return (
+            <div className="grid grid-cols-3 gap-2 py-2">
+              {NAME_COLOR_OPTIONS.map(opt => {
+                const selected = current === opt.value;
+                return (
+                  <button
+                    key={opt.label}
+                    onClick={() => { setNameColor(last10, opt.value || null); setColorPickerOpen(false); }}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-md border text-xs hover:bg-muted transition-colors ${selected ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
+                  >
+                    <span
+                      className="inline-block h-4 w-4 rounded-full border border-border"
+                      style={{ backgroundColor: opt.value || 'transparent' }}
+                    />
+                    <span style={opt.value ? { color: opt.value } : undefined}>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </DialogContent>
     </Dialog>
     </>
