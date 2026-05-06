@@ -1436,6 +1436,8 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         </div>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
       <DialogContent className="max-w-xs">
         <DialogHeader>
           <DialogTitle>Contact Name & Color</DialogTitle>
