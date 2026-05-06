@@ -189,7 +189,7 @@ export function SmsThreadPopup({
             </div>
           </DialogHeader>
 
-          <ScrollArea ref={scrollRef as any} className="h-[420px] px-4 py-3 bg-muted/10">
+          <ScrollArea ref={scrollRef as any} className="flex-1 min-h-[300px] px-4 py-3 bg-muted/10">
             {loading ? (
               <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
             ) : messages.length === 0 ? (
