@@ -989,17 +989,32 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 );
               })()}
               <div className="flex-1" />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 gap-1"
-                onClick={() => {
-                  const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
-                  const last10 = normalizeLast10(activePhone);
-                  moveToVideographyFunnel({ phone: activePhone, name: contacts[last10] || null });
-                }}
-                title="Move this contact to the Videography funnel"
-              >
+              {(() => {
+                const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
+                const last10 = normalizeLast10(activePhone);
+                if (funneledSet.has(last10)) return null;
+                return (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 gap-1"
+                    onClick={async () => {
+                      const res = await moveToVideographyFunnel({ phone: activePhone, name: contacts[last10] || null });
+                      if (res?.ok) {
+                        setFunneledSet((prev) => {
+                          const next = new Set(prev);
+                          next.add(last10);
+                          return next;
+                        });
+                      }
+                    }}
+                    title="Move this contact to the Videography funnel"
+                  >
+                    <Workflow className="h-3.5 w-3.5" />
+                    <span className="text-xs">Move to Funnel</span>
+                  </Button>
+                );
+              })()}
                 <Workflow className="h-3.5 w-3.5" />
                 <span className="text-xs">Move to Funnel</span>
               </Button>
