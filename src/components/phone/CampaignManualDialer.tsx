@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Teleprompter } from '@/components/phone/Teleprompter';
 import { SmsThreadPopup } from '@/components/phone/SmsThreadPopup';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 type Campaign = { id: string; name: string; status: string; total_leads: number };
 type QueueItem = {
