@@ -12,10 +12,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Phone, ThumbsUp, Ban, FileText, CheckCircle2, Loader2, RefreshCw, StickyNote,
+  Phone, ThumbsUp, Ban, FileText, CheckCircle2, Loader2, RefreshCw, StickyNote, MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Teleprompter } from '@/components/phone/Teleprompter';
+import { SmsThreadPopup } from '@/components/phone/SmsThreadPopup';
 
 type Campaign = { id: string; name: string; status: string; total_leads: number };
 type QueueItem = {
@@ -41,6 +42,7 @@ export default function CampaignManualDialer() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [doneSet, setDoneSet] = useState<Set<string>>(new Set());
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
+  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     const { data } = await supabase
@@ -315,6 +317,15 @@ export default function CampaignManualDialer() {
                         {isDone && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Done</Badge>}
                         <Button
                           size="sm"
+                          variant="outline"
+                          className="h-7 px-2"
+                          title="Text"
+                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name })}
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
                           className={`h-7 text-white ${wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                           onClick={() => startCall(item)}
                         >
@@ -340,6 +351,15 @@ export default function CampaignManualDialer() {
         onOpenChange={setShowTeleprompter}
         lead={active ? { full_name: active.contact_name, phone: active.phone, id: active.customer_id } : null}
       />
+
+      {smsPopup && (
+        <SmsThreadPopup
+          open={!!smsPopup}
+          onOpenChange={(v) => { if (!v) setSmsPopup(null); }}
+          phone={smsPopup.phone}
+          contactName={smsPopup.name}
+        />
+      )}
     </div>
   );
 }
