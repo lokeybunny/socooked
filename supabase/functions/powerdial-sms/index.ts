@@ -53,11 +53,23 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
 
   const t0 = performance.now();
   console.log(`[powerdial-sms][TIMING] → POST VoidFix send.php to=${toNum} bytes=${body.length}`);
-  const resp = await fetch(VOIDFIX_SEND_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: formBody,
-  });
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), 20000); // 20s hard cap
+  let resp: Response;
+  try {
+    resp = await fetch(VOIDFIX_SEND_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formBody,
+      signal: ac.signal,
+    });
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    const isAbort = e?.name === "AbortError";
+    console.error(`[powerdial-sms][TIMING] VoidFix fetch ${isAbort ? "TIMEOUT" : "FAIL"} after ${Math.round(performance.now() - t0)}ms`);
+    return { ok: false, error: isAbort ? "voidfix_timeout_20s" : (e?.message || "voidfix_fetch_failed") };
+  }
+  clearTimeout(timeoutId);
   const tHeaders = performance.now();
 
   const text = await resp.text();
