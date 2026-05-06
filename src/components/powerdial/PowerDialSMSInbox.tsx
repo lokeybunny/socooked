@@ -844,6 +844,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             Disconnected ({threads.filter(t => disconnectedSet.has(normalizeLast10(t.phone))).length})
           </button>
         </div>
+        <div className="px-3 py-2 border-b border-border">
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name or number…"
+            className="h-7 text-[11px]"
+          />
+        </div>
         <ScrollArea className="h-[calc(100vh-340px)] min-h-[400px]">
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
