@@ -93,6 +93,12 @@ export default function PowerDialSMSInbox() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesPhone, setNotesPhone] = useState<string>('');
   const [callPhone, setCallPhone] = useState<string | null>(null);
+  // Schedule SMS modal
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<string>('');
+  const [scheduleTime, setScheduleTime] = useState<string>('');
+  const [scheduleBody, setScheduleBody] = useState('');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
   // Per-thread name color (persisted in localStorage)
   const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
   const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
