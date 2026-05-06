@@ -323,8 +323,13 @@ export default function PowerDialSMSInbox() {
         if (m.direction === 'inbound') entry.unreadInbound += 1;
       }
     }
-    return Array.from(map.values()).sort((a, b) => new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime());
-  }, [messages]);
+    return Array.from(map.values()).sort((a, b) => {
+      const aPin = pinnedSet.has(normalizeLast10(a.phone)) ? 1 : 0;
+      const bPin = pinnedSet.has(normalizeLast10(b.phone)) ? 1 : 0;
+      if (aPin !== bPin) return bPin - aPin;
+      return new Date(b.last.created_at).getTime() - new Date(a.last.created_at).getTime();
+    });
+  }, [messages, pinnedSet]);
 
   const disconnectedSet = useMemo(() => {
     const s = new Set<string>();
