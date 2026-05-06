@@ -1015,7 +1015,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                       onClick={() => setColorPickerOpen(true)}
                       onDoubleClick={(e) => { e.stopPropagation(); setNameDraft(currentName); setEditingName(true); }}
                     >
-                      {currentName || displayPhone(activePhone)}
+                      {displayPhone(activePhone)}
                     </span>
                   </div>
                 );
