@@ -909,7 +909,12 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               return (
                 <div
                   key={key}
-                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5' : ''}`}
+                  draggable={isPinned}
+                  onDragStart={(e) => { if (isPinned) { setDragKey(key); e.dataTransfer.effectAllowed = 'move'; } }}
+                  onDragOver={(e) => { if (isPinned && dragKey && dragKey !== key) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
+                  onDrop={(e) => { if (isPinned) { e.preventDefault(); handlePinDrop(key); } }}
+                  onDragEnd={() => setDragKey(null)}
+                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5 cursor-grab active:cursor-grabbing' : ''} ${dragKey === key ? 'opacity-50' : ''} ${dragKey && dragKey !== key && isPinned ? 'ring-1 ring-emerald-400/40' : ''}`}
                 >
                   <div className="flex items-start gap-2 px-3 py-2.5">
                     <button
