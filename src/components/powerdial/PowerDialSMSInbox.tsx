@@ -99,6 +99,8 @@ export default function PowerDialSMSInbox() {
   const [scheduleTime, setScheduleTime] = useState<string>('');
   const [scheduleBody, setScheduleBody] = useState('');
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  type ScheduledJob = { id: string; to_phone: string; body: string; send_at: string; status: string };
+  const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
   // Per-thread name color (persisted in localStorage)
   const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
   const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
