@@ -1227,6 +1227,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         Backed by sms_contacts.notes (keyed by phone_last10), so notes saved here
         appear on the Phone page for the same contact, and vice versa. */}
     <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={notesPhone} />
+    <Dialog open={!!callPhone} onOpenChange={(o) => { if (!o) setCallPhone(null); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Call Contact</DialogTitle>
+          <DialogDescription>Place a call via the Twilio browser dialer.</DialogDescription>
+        </DialogHeader>
+        {callPhone && <TwilioKeypad prefilledNumber={callPhone} />}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
