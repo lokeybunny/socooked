@@ -884,7 +884,10 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                               title="Marked interested on Power Dial call"
                             />
                           )}
-                          <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                          <span
+                            className="text-sm font-medium font-mono truncate"
+                            style={nameColors[key] ? { color: nameColors[key] } : undefined}
+                          >{displayPhone(t.phone)}</span>
                         </div>
                         <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
                       </div>
