@@ -643,18 +643,21 @@ export default function PowerDialSMSInbox() {
       const expDate = exp.toISOString().slice(0, 10);
 
       let payload: Record<string, any>;
-      if (kind === '399') {
+      if (kind === '399' || kind === '199') {
+        const isHalf = kind === '199';
+        const price = isHalf ? 199 : 399;
+        const titleSuffix = isHalf ? ' (50% OFF — Limited Offer)' : '';
         payload = {
-          title: 'Real Estate Listing Video — $399 Package',
+          title: `Real Estate Listing Video — $${price} Package${titleSuffix}`,
           client_name: clientName,
           client_email: email,
           client_phone: e164,
-          amount: 399,
+          amount: price,
           currency: 'USD',
-          line_items: [{ description: 'Real Estate Listing Video — $399 Package (up to 4 bedrooms)', quantity: 1, unit_price: 399 }],
-          notes: 'Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.',
+          line_items: [{ description: `Real Estate Listing Video — $${price} Package (up to 4 bedrooms)${isHalf ? ' — 50% OFF promotional pricing' : ''}`, quantity: 1, unit_price: price }],
+          notes: `Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.${isHalf ? ' This proposal reflects a 50% promotional discount off the standard $399 package.' : ''}`,
           terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
-          proposal_body: `Real Estate Listing Video — $399 Package
+          proposal_body: `Real Estate Listing Video — $${price} Package${isHalf ? '\n\n*** 50% OFF — Limited promotional pricing (regularly $399, now $199) ***' : ''}
 
 What's included:
 • 1 cinematic AI-enhanced listing video
