@@ -801,14 +801,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               const key = normalizeLast10(t.phone);
               const isActive = activeThread === key;
               const isStarred = starredSet.has(key);
+              const isPinned = pinnedSet.has(key);
               return (
                 <div
                   key={key}
-                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''}`}
+                  className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5' : ''}`}
                 >
                   <button
                     onClick={() => setActiveThread(key)}
-                    className="w-full text-left px-3 py-2.5 pr-32"
+                    className="w-full text-left px-3 py-2.5 pr-40"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
