@@ -351,6 +351,15 @@ export default function CampaignManualDialer() {
         onOpenChange={setShowTeleprompter}
         lead={active ? { full_name: active.contact_name, phone: active.phone, id: active.customer_id } : null}
       />
+
+      {smsPopup && (
+        <SmsThreadPopup
+          open={!!smsPopup}
+          onOpenChange={(v) => { if (!v) setSmsPopup(null); }}
+          phone={smsPopup.phone}
+          contactName={smsPopup.name}
+        />
+      )}
     </div>
   );
 }
