@@ -374,6 +374,34 @@ export default function CampaignManualDialer() {
           contactName={smsPopup.name}
         />
       )}
+
+      <Dialog open={!!callChoice} onOpenChange={(v) => { if (!v) setCallChoice(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Choose how to call</DialogTitle>
+            <DialogDescription>
+              {callChoice?.contact_name || 'Unknown'} · <span className="font-mono">{callChoice?.phone}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-2 pt-2">
+            <Button
+              className="bg-emerald-500 hover:bg-emerald-600 text-white h-11"
+              onClick={() => callChoice && callWithTwilio(callChoice)}
+            >
+              <Phone className="h-4 w-4 mr-2" /> Call with Twilio
+              <span className="ml-auto text-[10px] opacity-80">In-browser</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 border-orange-500/40 text-orange-300 hover:bg-orange-500/10"
+              onClick={() => callChoice && callWithRingCentral(callChoice)}
+            >
+              <Phone className="h-4 w-4 mr-2" /> Call with RingCentral
+              <span className="ml-auto text-[10px] opacity-70">tel: handler</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
