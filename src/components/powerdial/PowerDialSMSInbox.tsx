@@ -809,7 +809,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 >
                   <button
                     onClick={() => setActiveThread(key)}
-                    className="w-full text-left px-3 py-2.5 pr-40"
+                    className="w-full text-left px-3 py-2.5 pr-48"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
