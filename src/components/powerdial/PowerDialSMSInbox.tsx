@@ -807,93 +807,89 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   key={key}
                   className={`group relative w-full border-b border-border/50 hover:bg-muted/30 ${isActive ? 'bg-muted/50' : ''} ${isPinned ? 'bg-emerald-500/5' : ''}`}
                 >
-                  <button
-                    onClick={() => setActiveThread(key)}
-                    className="w-full text-left px-3 py-2.5 pr-48"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {unreadThreads.has(key) && (
-                          <span
-                            className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
-                            aria-label="New message"
-                          />
-                        )}
-                        {isPinned && (
-                          <Pin
-                            className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400 shrink-0 rotate-45"
-                            aria-label="Pinned"
-                          />
-                        )}
-                        {isStarred && (
-                          <Star
-                            className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0"
-                            aria-label="Signed proposal — starred client"
-                          />
-                        )}
-                        {interestedSet.has(key) && (
-                          <span
-                            className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)] shrink-0"
-                            aria-label="Marked interested on Power Dial call"
-                            title="Marked interested on Power Dial call"
-                          />
-                        )}
-                        <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                  <div className="flex items-start gap-2 px-3 py-2.5">
+                    <button
+                      onClick={() => setActiveThread(key)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {unreadThreads.has(key) && (
+                            <span
+                              className="inline-block h-2 w-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)] animate-pulse shrink-0"
+                              aria-label="New message"
+                            />
+                          )}
+                          {isPinned && (
+                            <Pin
+                              className="h-3.5 w-3.5 text-emerald-400 fill-emerald-400 shrink-0 rotate-45"
+                              aria-label="Pinned"
+                            />
+                          )}
+                          {isStarred && (
+                            <Star
+                              className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0"
+                              aria-label="Signed proposal — starred client"
+                            />
+                          )}
+                          {interestedSet.has(key) && (
+                            <span
+                              className="inline-block h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.9)] shrink-0"
+                              aria-label="Marked interested on Power Dial call"
+                              title="Marked interested on Power Dial call"
+                            />
+                          )}
+                          <span className="text-sm font-medium font-mono truncate">{displayPhone(t.phone)}</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(t.last.created_at), 'MMM d')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                        {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
-                      </Badge>
-                      {isLandlineReply(t.last) && (
-                        <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
-                          LANDLINE REPLY
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <Badge variant="outline" className={`text-[9px] px-1.5 ${t.last.direction === 'inbound' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                          {t.last.direction === 'inbound' ? 'IN' : 'OUT'}
                         </Badge>
-                      )}
-                      <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
+                        {isLandlineReply(t.last) && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                            LANDLINE REPLY
+                          </Badge>
+                        )}
+                        <p className="text-xs text-muted-foreground truncate flex-1">{t.last.body}</p>
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                      <button
+                        onClick={(e) => openNotes(e, key)}
+                        className="p-1 rounded hover:bg-amber-500/20 text-amber-400 transition-colors"
+                        title="Open notes (shared with Phone)"
+                        aria-label="Open notes"
+                      >
+                        <StickyNote className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => openSendProposal(e, key)}
+                        className="p-1 rounded hover:bg-blue-500/20 text-blue-400 transition-colors"
+                        title="Send proposal"
+                        aria-label="Send proposal"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => togglePin(e, key)}
+                        className={`p-1 rounded transition-colors hover:bg-emerald-500/20 ${isPinned ? 'text-emerald-400' : 'text-muted-foreground hover:text-emerald-400'}`}
+                        title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
+                        aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
+                      >
+                        <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-emerald-400 rotate-45' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteThread(e, key)}
+                        className="p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+                        title="Delete thread"
+                        aria-label="Delete thread"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  </button>
-                  <button
-                    onClick={(e) => openNotes(e, key)}
-                    className="absolute top-2 right-[8.25rem] p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-amber-500/20 text-amber-400 transition-opacity"
-                    title="Open notes (shared with Phone)"
-                    aria-label="Open notes"
-                  >
-                    <StickyNote className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => openSendProposal(e, key)}
-                    className="absolute top-2 right-[5.75rem] p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-blue-500/20 text-blue-400 transition-opacity"
-                    title="Send proposal"
-                    aria-label="Send proposal"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => handleCreateCustomer(e, key)}
-                    className="absolute top-2 right-16 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-emerald-500/20 text-emerald-400 transition-opacity"
-                    title="Create customer (add to New Clients)"
-                    aria-label="Create customer"
-                  >
-                    <UserPlus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => togglePin(e, key)}
-                    className={`absolute top-2 right-9 p-1 rounded transition-colors hover:bg-emerald-500/20 ${isPinned ? 'text-emerald-400 opacity-100' : 'text-muted-foreground opacity-100 hover:text-emerald-400'}`}
-                    title={isPinned ? 'Unpin thread' : 'Pin thread to top'}
-                    aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
-                  >
-                    {isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-                  </button>
-                  <button
-                    onClick={(e) => handleDeleteThread(e, key)}
-                    className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 text-red-400 transition-opacity"
-                    title="Delete thread"
-                    aria-label="Delete thread"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  </div>
                 </div>
               );
             })
