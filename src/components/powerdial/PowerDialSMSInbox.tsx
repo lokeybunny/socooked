@@ -1371,7 +1371,71 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       </DialogContent>
     </Dialog>
 
-    <Dialog open={colorPickerOpen} onOpenChange={setColorPickerOpen}>
+    <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-indigo-400" /> Schedule SMS
+          </DialogTitle>
+          <DialogDescription>
+            Auto-send a text at a future date and time. Worker checks every minute.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground">Date</label>
+              <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="h-9 text-sm mt-1" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Time</label>
+              <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="h-9 text-sm mt-1" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Message</label>
+            <textarea
+              value={scheduleBody}
+              onChange={(e) => setScheduleBody(e.target.value)}
+              rows={4}
+              className="w-full mt-1 text-sm rounded-md border border-border bg-background px-3 py-2 resize-none"
+              placeholder="Type the SMS to send…"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => setScheduleOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white"
+              disabled={scheduleSaving || !scheduleDate || !scheduleTime || !scheduleBody.trim() || !activeThread}
+              onClick={async () => {
+                if (!activeThread) return;
+                const last10 = activeThread.replace(/\D/g, '').slice(-10);
+                if (last10.length !== 10) { toast.error('Invalid phone'); return; }
+                const sendAt = new Date(`${scheduleDate}T${scheduleTime}`);
+                if (isNaN(sendAt.getTime())) { toast.error('Invalid date/time'); return; }
+                if (sendAt.getTime() < Date.now() - 60_000) { toast.error('Time must be in the future'); return; }
+                setScheduleSaving(true);
+                const { error } = await supabase.from('scheduled_sms_jobs').insert({
+                  to_phone: '+1' + last10,
+                  body: scheduleBody.trim(),
+                  send_at: sendAt.toISOString(),
+                  source: 'sms_inbox_schedule_btn',
+                });
+                setScheduleSaving(false);
+                if (error) { toast.error(error.message); return; }
+                toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
+                setScheduleOpen(false);
+                setScheduleBody('');
+              }}
+            >
+              {scheduleSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarClock className="h-3.5 w-3.5 mr-1" />}
+              Schedule
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
       <DialogContent className="max-w-xs">
         <DialogHeader>
           <DialogTitle>Contact Name & Color</DialogTitle>
