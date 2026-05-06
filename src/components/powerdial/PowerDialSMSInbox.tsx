@@ -1034,6 +1034,20 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 gap-1"
+                onClick={(e) => activeThread && togglePin(e, activeThread)}
+                title={activeThread && pinnedSet.has(activeThread) ? 'Unpin thread' : 'Pin thread to top'}
+              >
+                {activeThread && pinnedSet.has(activeThread) ? (
+                  <PinOff className="h-3.5 w-3.5" />
+                ) : (
+                  <Pin className="h-3.5 w-3.5 rotate-45" />
+                )}
+                <span className="text-xs">{activeThread && pinnedSet.has(activeThread) ? 'Unpin' : 'Pin'}</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 onClick={(e) => activeThread && handleDeleteThread(e, activeThread)}
                 title="Delete thread"
