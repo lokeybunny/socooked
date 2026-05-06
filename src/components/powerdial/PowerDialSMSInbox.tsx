@@ -1495,12 +1495,13 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   send_at: sendAt.toISOString(),
                   source: 'sms_inbox_schedule_btn',
                 });
-                setScheduleSaving(false);
-                if (error) { toast.error(error.message); return; }
-                toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
-                setScheduleOpen(false);
-                setScheduleBody('');
-              }}
+                 setScheduleSaving(false);
+                 if (error) { toast.error(error.message); return; }
+                 toast.success(`Scheduled for ${sendAt.toLocaleString()}`);
+                 setScheduleOpen(false);
+                 setScheduleBody('');
+                 loadScheduledJobs();
+               }}
             >
               {scheduleSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CalendarClock className="h-3.5 w-3.5 mr-1" />}
               Schedule
