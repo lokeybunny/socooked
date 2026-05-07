@@ -147,8 +147,7 @@ const App = () => (
                 <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
                 <Route path="/powerdial/voicemails" element={<WarrenOnlyGate><PowerDialVoicemails /></WarrenOnlyGate>} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
-                
-                <Route path="/leadsrain-analytics" element={<WarrenOnlyGate><AuthLayoutGate><LeadsRainAnalytics /></AuthLayoutGate></WarrenOnlyGate>} />
+
                 <Route path="/calltest" element={<WarrenOnlyGate><CallTest /></WarrenOnlyGate>} />
                 <Route path="/funnels" element={<WarrenOnlyGate><Funnels /></WarrenOnlyGate>} />
                 <Route path="/portal/sign/:threadId" element={<PortalSign />} />
