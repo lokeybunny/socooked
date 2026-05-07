@@ -188,7 +188,12 @@ export default function PowerDial() {
     const lines = raw.split('\n');
 
     for (const rawLine of lines) {
-      const line = rawLine.trim();
+      // Normalize em-dash / en-dash / pipe / tab separators to commas so
+      // "Nancy — 6153471592 — Prices" parses the same as "Nancy,6153471592,Prices"
+      const line = rawLine
+        .replace(/\s+[—–|]\s+/g, ',')
+        .replace(/\t/g, ',')
+        .trim();
       if (!line) continue;
 
       // Try CSV-style: Name,Phone,Message  (message may contain commas)
