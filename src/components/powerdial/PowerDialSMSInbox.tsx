@@ -222,6 +222,8 @@ export default function PowerDialSMSInbox() {
   const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
   const activeThreadRef = useRef<string | null>(null);
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
+  const contactsRef = useRef<Record<string, string>>({});
+  useEffect(() => { contactsRef.current = contacts; }, [contacts]);
 
   const loadContacts = useCallback(async () => {
     const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned');
