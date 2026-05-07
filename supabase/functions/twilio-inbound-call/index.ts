@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
         to_number: to,
         customer_id: customerId,
         source: "twilio_forwarded_voidfix",
-        meta: { inbound: true },
+        meta: { inbound: true, vip_signed_agreement: vipForward, forwarded_to: forwardTo },
       }).select("id").single();
       insertedLog = res.data as any;
       insertError = res.error as any;
@@ -154,11 +154,11 @@ Deno.serve(async (req) => {
       callSid,
       from,
       to,
-      forwardedTo: cfg.forward_to,
+      forwardedTo: forwardTo,
       callLogId: insertedLog?.id || null,
       callLogCreated: Boolean(insertedLog?.id),
       error: insertError?.message,
-      rawPayload: formToPayload(form),
+      rawPayload: { ...formToPayload(form), _vip_signed: String(vipForward) },
     });
 
     const actionUrl = `${SUPABASE_URL}/functions/v1/twilio-dial-complete`;
@@ -167,10 +167,14 @@ Deno.serve(async (req) => {
 
     // Whisper on the Verizon leg ("Press 1 to accept") prevents Verizon voicemail from
     // auto-answering and falsely marking the call as completed.
+    // VIP signed-agreement callers skip whisper and route straight to the dedicated line.
+    const dialInner = vipForward
+      ? `<Number>${escapeXml(forwardTo)}</Number>`
+      : `<Number url="${escapeXml(whisperUrl)}" method="POST">${escapeXml(forwardTo)}</Number>`;
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial timeout="${cfg.timeout_seconds}" action="${escapeXml(actionUrl)}" method="POST" callerId="${escapeXml(callerId)}" answerOnBridge="true">
-    <Number url="${escapeXml(whisperUrl)}" method="POST">${escapeXml(cfg.forward_to)}</Number>
+    ${dialInner}
   </Dial>
 </Response>`;
 
