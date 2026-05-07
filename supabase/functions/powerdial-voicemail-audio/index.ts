@@ -33,6 +33,7 @@ const CORS = {
 
 import { VOICEMAIL_WARREN_BYTES_BASE64 } from "./voicemail-warren-data.ts";
 import { VOICEMAIL_GURU_BYTES_BASE64 } from "./voicemail-guru-data.ts";
+import { VVM_INCOMING_BYTES_BASE64 } from "./vvm-incoming-data.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const SUPABASE_URL_ENV = Deno.env.get("SUPABASE_URL") || "";
@@ -77,6 +78,11 @@ const FILES: Record<string, { mime: string; bytes: Uint8Array; format: string }>
   guru: {
     mime: "audio/wav",
     bytes: decodeBase64(VOICEMAIL_GURU_BYTES_BASE64),
+    format: "WAV / pcm_mulaw / 8000Hz / mono",
+  },
+  "vvm-incoming": {
+    mime: "audio/wav",
+    bytes: decodeBase64(VVM_INCOMING_BYTES_BASE64),
     format: "WAV / pcm_mulaw / 8000Hz / mono",
   },
 };
