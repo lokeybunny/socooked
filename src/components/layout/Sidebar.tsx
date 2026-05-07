@@ -62,7 +62,6 @@ const navEntries: NavEntry[] = [
   { to: '/phone-audit', icon: Phone, label: 'Phone Audit', green: true },
   { to: '/campaign-leader', icon: Megaphone, label: 'Campaign Leader', green: true },
   { to: '/zillow', icon: Building2, label: 'Zillow', green: true },
-  { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
   { to: '/', icon: Home, label: 'HOME' },
   { to: '/arbitrage', icon: ShoppingBag, label: 'Arbitrage', divider: 'Services', green: true },
