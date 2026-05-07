@@ -79,6 +79,20 @@ async function loadCfg() {
   };
 }
 
+const VIP_SIGNED_FORWARD = "+17028322317";
+
+async function isSignedAgreementCaller(phone: string): Promise<boolean> {
+  const last10 = phone.replace(/\D/g, "").slice(-10);
+  if (!last10 || last10.length !== 10) return false;
+  const { data } = await sb
+    .from("proposals")
+    .select("id")
+    .eq("status", "signed")
+    .ilike("client_phone", `%${last10}%`)
+    .limit(1);
+  return Array.isArray(data) && data.length > 0;
+}
+
 async function findCustomerByPhone(phone: string): Promise<string | null> {
   const last10 = phone.replace(/\D/g, "").slice(-10);
   if (!last10 || last10.length !== 10) return null;
