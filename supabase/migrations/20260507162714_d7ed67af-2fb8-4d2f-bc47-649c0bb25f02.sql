@@ -1,0 +1,1 @@
+update storage.objects set metadata = jsonb_set(coalesce(metadata,'{}'::jsonb), '{mimetype}', '"audio/mpeg"') where bucket_id='site-assets' and name='audio/vvm-incoming.mp3';
