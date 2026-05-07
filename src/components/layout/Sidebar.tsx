@@ -55,6 +55,7 @@ const navEntries: NavEntry[] = [
       { to: '/sms', icon: MessageSquare, label: 'SMS', botIcon: true },
       { to: '/powerdial', icon: Sparkles, label: 'PowerD', purple: true },
       { to: '/leadsrain-analytics', icon: Activity, label: 'LeadsRain', green: true },
+      { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
     ],
   },
   { to: '/usa-map', icon: Crosshair, label: 'USA Map', green: true },
