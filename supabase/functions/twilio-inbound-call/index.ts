@@ -115,6 +115,10 @@ Deno.serve(async (req) => {
     const to = normalizePhone(String(form.get("To") || ""));
     const callSid = String(form.get("CallSid") || "");
 
+    // VIP routing: if caller has a signed agreement, forward directly to dedicated line.
+    const vipForward = from ? await isSignedAgreementCaller(from) : false;
+    const forwardTo = vipForward ? VIP_SIGNED_FORWARD : cfg.forward_to;
+
     const cfg = await loadCfg();
     const customerId = await findCustomerByPhone(from);
 
