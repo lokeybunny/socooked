@@ -344,7 +344,7 @@ export default function CampaignManualDialer() {
                   return (
                     <div key={item.id} className={`px-3 py-2 ${isActive ? 'bg-primary/5' : ''} ${isDone ? 'opacity-60' : ''} ${isDeactivated ? 'bg-red-500/20' : wasContacted ? 'bg-red-500/10' : ''}`}>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground w-5 text-right">{idx + 1}</span>
+                        <span className="text-[10px] text-muted-foreground w-5 text-right shrink-0">{idx + 1}</span>
                         <div className="min-w-0 flex-1">
                           <p className={`text-sm font-medium truncate ${isDeactivated ? 'text-red-400 line-through' : wasContacted ? 'text-red-400' : 'text-foreground'}`}>
                             {item.contact_name || <span className="text-muted-foreground italic">No name</span>}
@@ -353,33 +353,35 @@ export default function CampaignManualDialer() {
                           </p>
                           <p className={`text-[11px] font-mono ${isDeactivated || wasContacted ? 'text-red-400/70' : 'text-muted-foreground'}`}>{item.phone}</p>
                         </div>
-                        {isDone && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Done</Badge>}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2"
-                          title="Text"
-                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name })}
-                        >
-                          <MessageSquare className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={`h-7 px-2 ${isDeactivated ? 'border-red-500/60 bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'border-red-500/30 text-red-400 hover:bg-red-500/10'}`}
-                          title={isDeactivated ? 'Re-activate' : 'De-activate'}
-                          onClick={() => toggleDeactivated(item.id)}
-                        >
-                          <UserX className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          className={`h-7 text-white ${isDeactivated ? 'bg-zinc-600 hover:bg-zinc-700' : wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
-                          onClick={() => startCall(item)}
-                          disabled={isDeactivated}
-                        >
-                          <Phone className="h-3 w-3 mr-1" /> Call
-                        </Button>
+                        <div className="flex items-center gap-1 shrink-0 ml-auto">
+                          {isDone && <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">Done</Badge>}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2"
+                            title="Text"
+                            onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name })}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`h-7 px-2 ${isDeactivated ? 'border-red-500/60 bg-red-500/15 text-red-300 hover:bg-red-500/25' : 'border-red-500/30 text-red-400 hover:bg-red-500/10'}`}
+                            title={isDeactivated ? 'Re-activate' : 'De-activate'}
+                            onClick={() => toggleDeactivated(item.id)}
+                          >
+                            <UserX className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            className={`h-7 text-white ${isDeactivated ? 'bg-zinc-600 hover:bg-zinc-700' : wasContacted ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                            onClick={() => startCall(item)}
+                            disabled={isDeactivated}
+                          >
+                            <Phone className="h-3 w-3 mr-1" /> Call
+                          </Button>
+                        </div>
                       </div>
                       {item.note && (
                         <p className="text-[11px] italic text-amber-400 mt-1 pl-7 truncate" title={item.note}>
