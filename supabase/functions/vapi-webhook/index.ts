@@ -860,7 +860,7 @@ serve(async (req) => {
               .select("key, value")
               .in("key", ["powerdial_dropped_call_sms_enabled", "powerdial_dropped_call_sms_body"]);
             let enabled = true;
-            let body = "Hi, Just got disconnected, Im Warren, AI videographer. Would you mind if I made a free marketing video on one of your listings for you to use to shop the house? Check my IG! https://instagram.com/W4RR3NGuru";
+            let body = "Hi, you just disconnected with my AI assistant. I'm going to call you back directly when I get an opportunity. In the meanwhile, send me a property listing you'd like me to do an AI drone video for. Reminder: no money down whatsoever — no harm, no foul. You only pay $200 (50% off my usual rate) after you like the video. In the meanwhile, check out my Instagram and send me the property address, and I'll call you back with good news after I've created the video for you. https://instagram.com/W4RR3NGuru";
             for (const r of settingRow || []) {
               if (r.key === "powerdial_dropped_call_sms_enabled" && (r.value as any)?.enabled === false) enabled = false;
               if (r.key === "powerdial_dropped_call_sms_body") {
