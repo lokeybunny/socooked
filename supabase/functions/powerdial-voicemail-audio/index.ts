@@ -80,6 +80,11 @@ const FILES: Record<string, { mime: string; bytes: Uint8Array; format: string }>
     bytes: decodeBase64(VOICEMAIL_GURU_BYTES_BASE64),
     format: "WAV / pcm_mulaw / 8000Hz / mono",
   },
+  "vvm-incoming": {
+    mime: "audio/wav",
+    bytes: decodeBase64(VVM_INCOMING_BYTES_BASE64),
+    format: "WAV / pcm_mulaw / 8000Hz / mono",
+  },
 };
 
 function loadFile(key: string): { bytes: Uint8Array; mime: string; format: string } | null {
