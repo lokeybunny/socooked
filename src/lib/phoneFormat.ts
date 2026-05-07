@@ -3,7 +3,7 @@
  *
  * Rules:
  *  - Storage stays in E.164 (+17025247096). Never mutate DB values from here.
- *  - Default export format: clean US 10-digit (7025247096) for LeadsRain etc.
+ *  - Default export format: clean US 10-digit (7025247096)
  *  - E.164 mode available for Twilio-only workflows.
  *  - Anything that can't be normalized to 10 digits is excluded.
  */
