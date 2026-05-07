@@ -22,7 +22,7 @@ const demos = [
   },
   {
     title: 'AI Video Furniture Removal',
-    src: '/videos/hero-ai-films.mp4',
+    src: '/videos/demo-rojo-roma.mp4',
   },
 ];
 
