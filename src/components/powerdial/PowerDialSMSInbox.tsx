@@ -117,7 +117,7 @@ export default function PowerDialSMSInbox() {
   const [scheduleSaving, setScheduleSaving] = useState(false);
   type ScheduledJob = { id: string; to_phone: string; body: string; send_at: string; status: string };
   const [scheduledJobs, setScheduledJobs] = useState<ScheduledJob[]>([]);
-  // Per-thread name color (persisted in localStorage)
+  // Per-thread name color (persisted remotely in sms_contacts.name_color, with localStorage cache for instant paint)
   const NAME_COLOR_STORAGE_KEY = 'powerdial-sms-name-colors-v1';
   const [nameColors, setNameColors] = useState<Record<string, string>>(() => {
     try {
@@ -126,13 +126,71 @@ export default function PowerDialSMSInbox() {
     } catch { return {}; }
   });
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const setNameColor = (last10: string, color: string | null) => {
+
+  // Hydrate from remote on mount so colors follow the user across browsers
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await supabase
+        .from('sms_contacts')
+        .select('phone_last10, name_color')
+        .not('name_color', 'is', null);
+      if (error || !data) return;
+      const remote: Record<string, string> = {};
+      for (const r of data as any[]) {
+        if (r.phone_last10 && r.name_color) remote[r.phone_last10] = r.name_color;
+      }
+      setNameColors((prev) => {
+        const merged = { ...prev, ...remote };
+        try { localStorage.setItem(NAME_COLOR_STORAGE_KEY, JSON.stringify(merged)); } catch {}
+        return merged;
+      });
+    })();
+
+    // Realtime sync: if another browser changes a color, reflect it here
+    const ch = supabase
+      .channel('sms-name-colors')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, (payload: any) => {
+        const row = payload.new || payload.old;
+        if (!row?.phone_last10) return;
+        setNameColors((prev) => {
+          const next = { ...prev };
+          if (payload.new?.name_color) next[row.phone_last10] = payload.new.name_color;
+          else delete next[row.phone_last10];
+          try { localStorage.setItem(NAME_COLOR_STORAGE_KEY, JSON.stringify(next)); } catch {}
+          return next;
+        });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
+  const setNameColor = async (last10: string, color: string | null) => {
     setNameColors((prev) => {
       const next = { ...prev };
       if (!color) delete next[last10]; else next[last10] = color;
       try { localStorage.setItem(NAME_COLOR_STORAGE_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
+    // Persist remotely
+    try {
+      const { data: existing } = await supabase
+        .from('sms_contacts')
+        .select('id, name')
+        .eq('phone_last10', last10)
+        .maybeSingle();
+      if (existing?.id) {
+        await supabase.from('sms_contacts').update({ name_color: color }).eq('id', existing.id);
+      } else {
+        await supabase.from('sms_contacts').insert({
+          phone_last10: last10,
+          phone: '+1' + last10,
+          name: last10,
+          name_color: color,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to persist name color', e);
+    }
   };
   const NAME_COLOR_OPTIONS: { label: string; value: string }[] = [
     { label: 'Default', value: '' },

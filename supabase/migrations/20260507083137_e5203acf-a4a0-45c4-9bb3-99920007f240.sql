@@ -1,0 +1,1 @@
+ALTER TABLE public.sms_contacts ADD COLUMN IF NOT EXISTS name_color text;

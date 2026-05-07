@@ -7335,6 +7335,7 @@ export type Database = {
           id: string
           instagram: string | null
           name: string
+          name_color: string | null
           notes: string | null
           phone: string | null
           phone_last10: string
@@ -7351,6 +7352,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           name: string
+          name_color?: string | null
           notes?: string | null
           phone?: string | null
           phone_last10: string
@@ -7367,6 +7369,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           name?: string
+          name_color?: string | null
           notes?: string | null
           phone?: string | null
           phone_last10?: string
