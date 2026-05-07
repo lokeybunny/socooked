@@ -576,7 +576,7 @@ export default function UsaMap() {
                   <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as ExportPhoneFormat)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="us10">US 10-digit (LeadsRain)</SelectItem>
+                      <SelectItem value="us10">US 10-digit</SelectItem>
                       <SelectItem value="e164">E.164 (+1XXXXXXXXXX)</SelectItem>
                     </SelectContent>
                   </Select>
