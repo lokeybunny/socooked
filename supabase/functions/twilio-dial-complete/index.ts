@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
     // Acknowledge XML — empty when answered, forward to Vapi AI agent when missed
     const ackXml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
     const VAPI_FORWARD_NUMBER = "+17474949386"; // Vapi AI agent (29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38)
-    const PRE_VAPI_AUDIO_URL = "https://warren.guru/audio/vvm-incoming.mp3";
+    const PRE_VAPI_AUDIO_URL = "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/audio/vvm-incoming.mp3";
     const vapiXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Play>${PRE_VAPI_AUDIO_URL}</Play><Dial answerOnBridge="true" timeout="30">${VAPI_FORWARD_NUMBER}</Dial></Response>`;
     const ackResp = new Response(ackXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
     const voicemailResp = () => new Response(vapiXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
