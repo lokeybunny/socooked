@@ -4,12 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, MessageSquare, StickyNote, Workflow, Voicemail, Zap } from "lucide-react";
+import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap } from "lucide-react";
 import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
 import { moveToVideographyFunnel } from "@/lib/moveToVideographyFunnel";
-import SendVoiceDropModal from "@/components/voicedrops/SendVoiceDropModal";
 
 type SMSMessage = {
   id: string;
@@ -48,7 +47,7 @@ export function SmsThreadPopup({
   const [sending, setSending] = useState(false);
   const [body, setBody] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
-  const [vdOpen, setVdOpen] = useState(false);
+  
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -162,15 +161,6 @@ export function SmsThreadPopup({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 gap-1 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
-                  onClick={() => setVdOpen(true)}
-                  title="Send a ringless voicemail via LeadsRain"
-                >
-                  <Voicemail className="h-3.5 w-3.5" /> Drop VM
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
                   className="h-7 gap-1 text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
                   onClick={() => moveToVideographyFunnel({ phone, name: contactName || null })}
                   title="Create a videography funnel lead from this contact"
@@ -243,7 +233,7 @@ export function SmsThreadPopup({
       </Dialog>
       {/* Rendered OUTSIDE the Dialog so Radix's pointer-events lock doesn't block dragging */}
       <CallNotesPopup open={notesOpen} onOpenChange={setNotesOpen} phone={phone} />
-      <SendVoiceDropModal open={vdOpen} onOpenChange={setVdOpen} defaultPhone={phone} contactName={contactName} />
+      
     </>
   );
 }

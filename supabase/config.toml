@@ -1,11 +1,5 @@
 project_id = "mziuxsfxevjnmdwnrqjs"
 
-[functions.leadsrain-webhook]
-verify_jwt = false
-
-[functions.voicedrop-twilio-callback]
-verify_jwt = false
-
 [functions.agentflow-generate-csv]
 verify_jwt = false
 
