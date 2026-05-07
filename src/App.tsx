@@ -79,7 +79,7 @@ const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
 const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
 const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
 
-const LeadsRainAnalytics = lazyWithRetry(() => import("./pages/LeadsRainAnalytics"), "page-leadsrain-analytics");
+
 const SMSPage = lazyWithRetry(() => import("./pages/SMS"), "page-sms");
 const CallTest = lazyWithRetry(() => import("./pages/CallTest"), "page-call-test");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
