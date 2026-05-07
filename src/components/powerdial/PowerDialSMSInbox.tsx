@@ -222,6 +222,8 @@ export default function PowerDialSMSInbox() {
   const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
   const activeThreadRef = useRef<string | null>(null);
   useEffect(() => { activeThreadRef.current = activeThread; }, [activeThread]);
+  const contactsRef = useRef<Record<string, string>>({});
+  useEffect(() => { contactsRef.current = contacts; }, [contacts]);
 
   const loadContacts = useCallback(async () => {
     const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned');
@@ -443,8 +445,36 @@ export default function PowerDialSMSInbox() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sms_contacts' }, () => {
         loadContacts();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_sms_jobs' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'scheduled_sms_jobs' }, (payload: any) => {
         loadScheduledJobs();
+        // Notify when a scheduled SMS transitions to 'sent'
+        const newRow = payload.new;
+        const oldRow = payload.old;
+        if (
+          payload.eventType === 'UPDATE' &&
+          newRow?.status === 'sent' &&
+          oldRow?.status !== 'sent'
+        ) {
+          const last10 = normalizeLast10(newRow.to_phone);
+          const phoneDisplay = formatPhone(newRow.to_phone) || newRow.to_phone;
+          const name = contactsRef.current[last10];
+          const who = name ? `${name} (${phoneDisplay})` : phoneDisplay;
+          const preview = (newRow.body || '').length > 90
+            ? (newRow.body || '').slice(0, 90) + '…'
+            : (newRow.body || '');
+          toast.success(`Scheduled SMS sent to ${who}`, {
+            description: preview,
+            duration: 12000,
+            action: last10 ? {
+              label: 'Open thread',
+              onClick: () => {
+                setShowCompose(false);
+                setActiveThread(last10);
+                load({ silent: true });
+              },
+            } : undefined,
+          });
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
