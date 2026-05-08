@@ -73,7 +73,7 @@ export function MediaImage({ url, className, alt = "attachment" }: Props) {
           // fall through with original blob
         }
       }
-      // @ts-expect-error - ClipboardItem is available in modern browsers
+      // ClipboardItem is available in modern browsers
       await navigator.clipboard.write([new ClipboardItem({ [toWrite.type || "image/png"]: toWrite })]);
       toast.success("Image copied to clipboard");
     } catch {

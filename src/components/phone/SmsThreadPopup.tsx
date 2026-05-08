@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
 import { moveToVideographyFunnel } from "@/lib/moveToVideographyFunnel";
+import { MediaImage } from "@/components/sms/MediaImage";
 
 type SMSMessage = {
   id: string;
