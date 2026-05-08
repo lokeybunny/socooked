@@ -18,7 +18,7 @@ const VOIDFIX_API_KEY = Deno.env.get("VOIDFIX_API_KEY") || "";
 const VOIDFIX_DEVICE_ID = Deno.env.get("VOIDFIX_DEVICE_ID") || "";
 const VOIDFIX_SEND_URL = "https://sms.voidfix.com/services/send.php";
 const VOIDFIX_READ_URL = "https://sms.voidfix.com/services/read-messages.php";
-const MMS_RESEND_NUMBER = "+17028298105";
+const MMS_RESEND_NUMBER = "+17028322317";
 const MMS_RESEND_MESSAGE = `I got your message, but this line cannot receive picture attachments. Please resend the photo to ${MMS_RESEND_NUMBER} so it comes through on my end.`;
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
