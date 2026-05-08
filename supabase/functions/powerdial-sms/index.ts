@@ -643,10 +643,13 @@ Deno.serve(async (req) => {
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
       const createdAt = m.deliveredDate || m.sentDate || null;
+      const body = String(m.message || "");
+      const mediaUrls = extractVoidfixMediaUrls(m);
+      const strippedMms = isVoidfixStrippedMms(body, mediaUrls);
       const { data: insertedRow } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
-        body: String(m.message || ""),
+        body,
         from_address: from,
         to_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
         phone_number: from,
@@ -654,9 +657,27 @@ Deno.serve(async (req) => {
         external_id: externalId,
         status: "received",
         customer_id: customerId,
-        metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
+        media_urls: mediaUrls,
+        metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status, ...(strippedMms ? { voidfix_mms_stripped: true } : {}) },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       }).select("id, created_at").single();
+
+      if (strippedMms) {
+        const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
+        await sb.from("communications").insert({
+          type: "sms",
+          direction: "outbound",
+          body: MMS_RESEND_MESSAGE,
+          from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+          to_address: from,
+          phone_number: from,
+          provider: "voidfix",
+          external_id: result.id || null,
+          status: result.ok ? "sent" : "failed",
+          customer_id: customerId,
+          metadata: { source: "voidfix-mms-resend-instruction", device_id: VOIDFIX_DEVICE_ID, triggered_by: externalId, ...(result.error ? { error: result.error } : {}) },
+        });
+      }
 
       // Fire-and-forget downstream work — don't block the response
       const downstream = (async () => {
@@ -667,7 +688,7 @@ Deno.serve(async (req) => {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
             body: JSON.stringify({
               phone: from,
-              body: String(m.message || ""),
+              body,
               message_id: insertedRow?.id || null,
               message_created_at: insertedRow?.created_at || new Date().toISOString(),
             }),
@@ -677,7 +698,7 @@ Deno.serve(async (req) => {
           await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-            body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
+            body: JSON.stringify({ action: "process_inbound", phone: from, body }),
           });
         } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
       })();
