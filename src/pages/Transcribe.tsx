@@ -282,6 +282,7 @@ export default function Transcribe() {
                 {saved ? "Saved" : "Save to CRM"}
               </Button>
             </div>
+          </Card>
 
           <Tabs defaultValue="analysis">
             <TabsList>
