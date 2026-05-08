@@ -231,6 +231,82 @@ export default function Transcribe() {
                     <p className="mt-3 text-sm leading-relaxed">{result.analysis.summary}</p>
                   </Card>
 
+                  {result.analysis.client_wants && result.analysis.client_wants.length > 0 && (
+                    <Card className="p-5 border-primary/40 bg-primary/5">
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-primary" />
+                          What the Client Wants
+                        </h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
+                            await navigator.clipboard.writeText(text);
+                            setCopiedWants(true);
+                            setTimeout(() => setCopiedWants(false), 1500);
+                            toast({ title: "Copied bullet list to clipboard" });
+                          }}
+                        >
+                          {copiedWants ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                          Copy bullets
+                        </Button>
+                      </div>
+                      <ul className="space-y-2 text-sm">
+                        {result.analysis.client_wants.map((w, i) => (
+                          <li key={i} className="flex gap-2">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span className="leading-relaxed">{w}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  )}
+
+                  {result.analysis.chatgpt_prompt && (
+                    <Card className="p-5 border-emerald-500/40 bg-emerald-500/5">
+                      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <div>
+                          <h3 className="font-semibold text-lg flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-emerald-500" />
+                            ChatGPT Prompt — Real-time Video Edit Generator
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Paste this into ChatGPT to generate concrete edit prompts from the client's vision.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                              setCopiedPrompt(true);
+                              setTimeout(() => setCopiedPrompt(false), 1500);
+                              toast({ title: "Copied prompt to clipboard" });
+                            }}
+                          >
+                            {copiedPrompt ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
+                            Copy prompt
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                              window.open("https://chat.openai.com/", "_blank");
+                            }}
+                          >
+                            Open ChatGPT
+                          </Button>
+                        </div>
+                      </div>
+                      <pre className="text-xs whitespace-pre-wrap font-mono bg-background/60 p-3 rounded-md border max-h-72 overflow-auto">
+{result.analysis.chatgpt_prompt}
+                      </pre>
+                    </Card>
+                  )}
+
                   <div className="grid md:grid-cols-2 gap-4">
                     {result.analysis.voices.map((v, i) => (
                       <Card key={i} className={`p-4 border ${VOICE_COLORS[i % VOICE_COLORS.length]}`}>
