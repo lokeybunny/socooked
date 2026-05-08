@@ -1425,8 +1425,10 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           </Badge>
                         )}
                         {(() => {
-                          const imgs = extractImageUrls(m.body);
-                          const text = imgs.length ? stripImageUrls(m.body) : m.body;
+                          const bodyImgs = extractImageUrls(m.body);
+                          const colImgs = Array.isArray(m.media_urls) ? m.media_urls.filter(Boolean) : [];
+                          const imgs = Array.from(new Set([...colImgs, ...bodyImgs]));
+                          const text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
                           return (
                             <>
                               {text && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
