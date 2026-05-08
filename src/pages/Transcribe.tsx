@@ -76,8 +76,50 @@ export default function Transcribe() {
   const [copied, setCopied] = useState(false);
   const [copiedWants, setCopiedWants] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [savePhone, setSavePhone] = useState("");
+  const [saveTitle, setSaveTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const saveToCRM = async () => {
+    const p10 = last10(savePhone);
+    if (p10.length !== 10) {
+      toast({ title: "Enter a valid 10-digit phone", variant: "destructive" });
+      return;
+    }
+    if (!result) return;
+    setSaving(true);
+    try {
+      await supabase.from("sms_contacts").upsert(
+        { phone_last10: p10, phone: "+1" + p10, name: "" } as any,
+        { onConflict: "phone_last10", ignoreDuplicates: true } as any,
+      );
+      const { error } = await supabase.from("contact_transcripts").insert({
+        phone_last10: p10,
+        title: saveTitle || result.filename,
+        filename: result.filename,
+        duration_seconds: result.duration_seconds,
+        voice_count: result.voice_count,
+        summary: result.analysis?.summary || null,
+        conversation_type: result.analysis?.conversation_type || null,
+        sentiment: result.analysis?.sentiment || null,
+        client_wants: result.analysis?.client_wants || null,
+        chatgpt_prompt: result.analysis?.chatgpt_prompt || null,
+        transcript: result.transcript,
+        analysis: result.analysis as any,
+      } as any);
+      if (error) throw error;
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      toast({ title: "Saved to CRM", description: `Tagged to (${p10.slice(0,3)}) ${p10.slice(3,6)}-${p10.slice(6)} — visible in SMS notes.` });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("audio/") && !file.name.match(/\.(mp3|wav|m4a|ogg|webm|flac)$/i)) {
