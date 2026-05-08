@@ -43,7 +43,7 @@ export default function CampaignManualDialer() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [doneSet, setDoneSet] = useState<Set<string>>(new Set());
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
-  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
+  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
   const [callChoice, setCallChoice] = useState<QueueItem | null>(null);
   const DEACTIVATED_KEY = 'manual-dialer-deactivated-v1';
   const [deactivatedSet, setDeactivatedSet] = useState<Set<string>>(() => {
