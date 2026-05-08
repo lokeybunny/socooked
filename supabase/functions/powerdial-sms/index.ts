@@ -222,11 +222,12 @@ async function maybeSendFirstTimeAutoReply(fromPhone: string) {
   }
 }
 
-async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string }) {
+async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string; raw?: any }) {
   const from = String(payload.from || "");
   const body = String(payload.body || "");
   const externalId = payload.id ? String(payload.id) : null;
   const inboundSource = payload.source || "voidfix-webhook";
+  const mediaUrls = extractVoidfixMediaUrls(payload.raw || payload);
 
   // Idempotency: skip if external_id already stored
   if (externalId) {
@@ -240,6 +241,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
 
   const customerId = await findCustomerByPhone(from);
 
+  const metadata: Record<string, unknown> = { source: inboundSource, device_id: payload.device_id || null };
+  if (isVoidfixStrippedMms(body, mediaUrls)) metadata.voidfix_mms_stripped = true;
+
   const { data: insertedRow } = await sb.from("communications").insert({
     type: "sms",
     direction: "inbound",
@@ -251,8 +255,26 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     external_id: externalId,
     status: "received",
     customer_id: customerId,
-    metadata: { source: inboundSource, device_id: payload.device_id || null },
+    media_urls: mediaUrls,
+    metadata,
   }).select("id, created_at").single();
+
+  if (isVoidfixStrippedMms(body, mediaUrls)) {
+    const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
+    await sb.from("communications").insert({
+      type: "sms",
+      direction: "outbound",
+      body: MMS_RESEND_MESSAGE,
+      from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+      to_address: normalizePhone(from),
+      phone_number: normalizePhone(from),
+      provider: "voidfix",
+      external_id: result.id || null,
+      status: result.ok ? "sent" : "failed",
+      customer_id: customerId,
+      metadata: { source: "voidfix-mms-resend-instruction", device_id: VOIDFIX_DEVICE_ID, triggered_by: externalId, ...(result.error ? { error: result.error } : {}) },
+    });
+  }
 
   // NOTE: No "this is my cell" auto-reply here — that fires only for the
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
