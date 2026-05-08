@@ -258,6 +258,31 @@ export default function Transcribe() {
             {audioUrl && <audio controls src={audioUrl} className="w-full mt-3" />}
           </Card>
 
+          <Card className="p-4 border-blue-500/40 bg-blue-500/5">
+            <div className="flex items-center gap-2 mb-3">
+              <UserPlus className="h-5 w-5 text-blue-400" />
+              <h3 className="font-semibold">Save to CRM — tag to an SMS contact</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Save this analysis to a phone number. It will show up in the contact's notes inside the SMS thread, so you can reference past meetings any time.
+            </p>
+            <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
+              <Input
+                placeholder="Phone (e.g. 7025551234)"
+                value={savePhone}
+                onChange={(e) => setSavePhone(e.target.value)}
+              />
+              <Input
+                placeholder="Title (optional)"
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+              />
+              <Button onClick={saveToCRM} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : saved ? <Check className="h-4 w-4 mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                {saved ? "Saved" : "Save to CRM"}
+              </Button>
+            </div>
+
           <Tabs defaultValue="analysis">
             <TabsList>
               <TabsTrigger value="analysis"><Sparkles className="h-4 w-4 mr-1" />AI Analysis</TabsTrigger>
