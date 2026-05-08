@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Upload, FileAudio, Loader2, Users, Sparkles, Download, Copy, Check, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -297,6 +298,7 @@ export default function Transcribe() {
   };
 
   return (
+    <AppLayout>
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -633,5 +635,6 @@ export default function Transcribe() {
         </>
       )}
     </div>
+    </AppLayout>
   );
 }
