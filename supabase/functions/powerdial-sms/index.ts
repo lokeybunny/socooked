@@ -62,8 +62,26 @@ function extractVoidfixMediaUrls(value: unknown): string[] {
   return Array.from(urls);
 }
 
-function isVoidfixStrippedMms(body: string, mediaUrls: string[]): boolean {
-  return mediaUrls.length === 0 && /^(image|photo|picture|video|media|attachment)\s*\d*$/i.test((body || "").trim());
+function hasVoidfixMmsSignal(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const obj = value as Record<string, unknown>;
+  const typeKeys = ["type", "message_type", "messageType", "content_type", "contentType", "mime_type", "mimeType"];
+  if (typeKeys.some((key) => /\b(mms|image|photo|picture|video)\b/i.test(String(obj[key] || "")))) return true;
+
+  const countKeys = ["num_media", "NumMedia", "media_count", "mediaCount", "attachments_count", "attachment_count"];
+  if (countKeys.some((key) => Number(obj[key] || 0) > 0)) return true;
+
+  return ["attachments", "attachment", "files", "media", "images"].some((key) => {
+    const item = obj[key];
+    if (Array.isArray(item)) return item.length > 0;
+    return !!item && typeof item === "object" && Object.keys(item as Record<string, unknown>).length > 0;
+  });
+}
+
+function isVoidfixStrippedMms(body: string, mediaUrls: string[], raw?: unknown): boolean {
+  if (mediaUrls.length > 0) return false;
+  const placeholderBody = /^(image|photo|picture|video|media|attachment)\s*\d*$/i.test((body || "").trim());
+  return placeholderBody || hasVoidfixMmsSignal(raw);
 }
 
 async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any; timing?: Record<string, number> }> {
@@ -242,7 +260,7 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
   const customerId = await findCustomerByPhone(from);
 
   const metadata: Record<string, unknown> = { source: inboundSource, device_id: payload.device_id || null };
-  if (isVoidfixStrippedMms(body, mediaUrls)) metadata.voidfix_mms_stripped = true;
+  if (isVoidfixStrippedMms(body, mediaUrls, payload.raw || payload)) metadata.voidfix_mms_stripped = true;
 
   const { data: insertedRow } = await sb.from("communications").insert({
     type: "sms",
@@ -259,7 +277,7 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     metadata,
   }).select("id, created_at").single();
 
-  if (isVoidfixStrippedMms(body, mediaUrls)) {
+  if (isVoidfixStrippedMms(body, mediaUrls, payload.raw || payload)) {
     const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
     await sb.from("communications").insert({
       type: "sms",
