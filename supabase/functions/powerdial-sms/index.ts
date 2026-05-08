@@ -18,6 +18,8 @@ const VOIDFIX_API_KEY = Deno.env.get("VOIDFIX_API_KEY") || "";
 const VOIDFIX_DEVICE_ID = Deno.env.get("VOIDFIX_DEVICE_ID") || "";
 const VOIDFIX_SEND_URL = "https://sms.voidfix.com/services/send.php";
 const VOIDFIX_READ_URL = "https://sms.voidfix.com/services/read-messages.php";
+const MMS_RESEND_NUMBER = "+17028298105";
+const MMS_RESEND_MESSAGE = `I got your message, but this line cannot receive picture attachments. Please resend the photo to ${MMS_RESEND_NUMBER} so it comes through on my end.`;
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -36,6 +38,32 @@ function normalizePhone(raw: string | null | undefined): string {
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (String(raw).startsWith("+")) return `+${digits}`;
   return `+${digits}`;
+}
+
+function extractVoidfixMediaUrls(value: unknown): string[] {
+  const urls = new Set<string>();
+  const walk = (item: unknown) => {
+    if (!item) return;
+    if (typeof item === "string") {
+      if (/^https?:\/\//i.test(item)) urls.add(item);
+      return;
+    }
+    if (Array.isArray(item)) {
+      item.forEach(walk);
+      return;
+    }
+    if (typeof item === "object") {
+      const obj = item as Record<string, unknown>;
+      ["url", "media_url", "download_url", "link", "path"].forEach((key) => walk(obj[key]));
+      ["attachments", "attachment", "files", "media", "images"].forEach((key) => walk(obj[key]));
+    }
+  };
+  walk(value);
+  return Array.from(urls);
+}
+
+function isVoidfixStrippedMms(body: string, mediaUrls: string[]): boolean {
+  return mediaUrls.length === 0 && /^(image|photo|picture|video|media|attachment)\s*\d*$/i.test((body || "").trim());
 }
 
 async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any; timing?: Record<string, number> }> {
