@@ -61,7 +61,7 @@ export default function CampaignManualDialer() {
     if (response) parts.push(`💬 "${response}"`);
     parts.push('-------------------------');
     parts.push(
-      `Hey, this is Warren — just left you a quick voicemail. I wanted to follow up so I can do video for your property. Shoot me the address (or listing link) .`
+      `Hey, this is Warren — just left you a quick voicemail. I wanted to follow up so I can do video for your property. Shoot me the address (or listing link) .\n\nhttps://instagram.com/W4RR3NGuru`
     );
     return parts.join('\n');
   };
