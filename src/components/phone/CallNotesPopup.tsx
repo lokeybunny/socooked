@@ -24,8 +24,8 @@ function formatPhone(p: string): string {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
-const PANEL_WIDTH = 420;
-const PANEL_HEIGHT_ESTIMATE = 520;
+const PANEL_WIDTH = 480;
+const PANEL_HEIGHT_ESTIMATE = 620;
 
 export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesPopupProps) {
   const phoneKey = last10(phone);
