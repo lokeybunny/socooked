@@ -74,6 +74,7 @@ export default function Transcribe() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedWants, setCopiedWants] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
