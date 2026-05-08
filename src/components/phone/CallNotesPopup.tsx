@@ -35,6 +35,8 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
   const [email, setEmail] = useState("");
   const [instagram, setInstagram] = useState("");
   const [notes, setNotes] = useState("");
+  const [transcripts, setTranscripts] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Draggable position (top-left in viewport coords). null = not yet positioned.
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
