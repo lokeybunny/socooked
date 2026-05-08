@@ -21,7 +21,7 @@ const demos = [
     src: '/videos/demo-shady-rim.mp4',
   },
   {
-    title: 'AI Video Furniture Removal',
+    title: 'Builder AI Videos',
     src: '/videos/demo-rojo-roma.mp4',
   },
 ];
