@@ -1719,6 +1719,7 @@ export type Database = {
       contact_transcripts: {
         Row: {
           analysis: Json | null
+          audio_url: string | null
           chatgpt_prompt: string | null
           client_wants: string[] | null
           conversation_type: string | null
@@ -1736,6 +1737,7 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
+          audio_url?: string | null
           chatgpt_prompt?: string | null
           client_wants?: string[] | null
           conversation_type?: string | null
@@ -1753,6 +1755,7 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
+          audio_url?: string | null
           chatgpt_prompt?: string | null
           client_wants?: string[] | null
           conversation_type?: string | null
