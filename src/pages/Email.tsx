@@ -11,8 +11,9 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Filter, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, User, BookOpen, Trash2, Gift,
+  ChevronsUpDown, Check, User, BookOpen, Trash2, Gift, Search, Sparkles,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -121,6 +122,72 @@ export default function EmailPage() {
   const [trashId, setTrashId] = useState<string | null>(null);
   const [trashing, setTrashing] = useState(false);
   const [downloadingAtt, setDownloadingAtt] = useState<string | null>(null);
+
+  // ── Email Search → Transcribe state ─────────────────
+  const navigate = useNavigate();
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchCustomer, setSearchCustomer] = useState<string>(''); // customer email
+  const [searchCustomerOpen, setSearchCustomerOpen] = useState(false);
+  const [searchCustomerQuery, setSearchCustomerQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GmailEmail[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchSelected, setSearchSelected] = useState<Set<string>>(new Set());
+  const [sendingToTranscribe, setSendingToTranscribe] = useState(false);
+
+  const runEmailSearch = async () => {
+    if (!searchKeyword.trim() && !searchCustomer) {
+      toast.error('Enter a property/keyword or pick a client');
+      return;
+    }
+    setSearching(true);
+    setSearchSelected(new Set());
+    try {
+      const params = new URLSearchParams();
+      if (searchKeyword.trim()) params.set('q', searchKeyword.trim());
+      if (searchCustomer) params.set('customer', searchCustomer);
+      params.set('max', '50');
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `https://${projectId}.supabase.co/functions/v1/${GMAIL_FN}?action=search&${params.toString()}`;
+      const res = await fetch(url, { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed');
+      setSearchResults(data.emails || []);
+      if ((data.emails || []).length === 0) toast.info('No matching emails');
+    } catch (e: any) {
+      toast.error(e.message || 'Search failed');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const toggleSearchSelected = (id: string) => {
+    setSearchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const sendSelectedToTranscribe = () => {
+    const picked = searchResults.filter((e) => searchSelected.has(e.id));
+    if (picked.length === 0) { toast.error('Select at least one email'); return; }
+    setSendingToTranscribe(true);
+    try {
+      const payload = {
+        keyword: searchKeyword.trim(),
+        customer: searchCustomer,
+        emails: picked.map((e) => ({
+          from: e.from, to: e.to, subject: e.subject, date: e.date,
+          body: e.body, snippet: e.snippet,
+        })),
+      };
+      sessionStorage.setItem('transcribe_emails_payload', JSON.stringify(payload));
+      navigate('/transcribe?source=emails');
+    } finally {
+      setSendingToTranscribe(false);
+    }
+  };
 
   // Load persisted read IDs from database on mount
   useEffect(() => {
@@ -660,6 +727,7 @@ export default function EmailPage() {
               <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
               <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
               <TabsTrigger value="read" className="gap-1.5"><BookOpen className="h-3.5 w-3.5" /> Read</TabsTrigger>
+              <TabsTrigger value="search" className="gap-1.5"><Search className="h-3.5 w-3.5" /> Search → AI</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -770,6 +838,129 @@ export default function EmailPage() {
             {readEmails.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No read emails yet.</p>
             ) : renderEmailList(readEmails)}
+          </TabsContent>
+          <TabsContent value="search">
+            <div className="glass-card p-4 space-y-3">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-[220px] space-y-1">
+                  <Label className="text-xs">Property / keyword</Label>
+                  <Input
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') runEmailSearch(); }}
+                    placeholder="e.g. 1234 Oak St, Las Vegas"
+                  />
+                </div>
+                <div className="min-w-[240px] space-y-1">
+                  <Label className="text-xs">Client (scopes search)</Label>
+                  <Popover open={searchCustomerOpen} onOpenChange={setSearchCustomerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-[260px] justify-between font-normal">
+                        {searchCustomer
+                          ? customerEmailOptions.find((c) => c.email === searchCustomer)?.full_name || searchCustomer
+                          : 'Any client'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <div className="border-b p-2">
+                        <Input
+                          value={searchCustomerQuery}
+                          onChange={(e) => setSearchCustomerQuery(e.target.value)}
+                          placeholder="Search clients..."
+                        />
+                      </div>
+                      <div className="max-h-[280px] overflow-y-auto p-1">
+                        <button
+                          type="button"
+                          onClick={() => { setSearchCustomer(''); setSearchCustomerOpen(false); }}
+                          className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', !searchCustomer ? 'opacity-100' : 'opacity-0')} /> Any client
+                        </button>
+                        {customerEmailOptions
+                          .filter((c) => {
+                            const q = searchCustomerQuery.trim().toLowerCase();
+                            if (!q) return true;
+                            return [c.full_name, c.email, c.phone].filter(Boolean).join(' ').toLowerCase().includes(q);
+                          })
+                          .map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { setSearchCustomer(c.email); setSearchCustomerOpen(false); }}
+                              className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                            >
+                              <Check className={cn('mr-2 h-4 w-4 shrink-0', searchCustomer === c.email ? 'opacity-100' : 'opacity-0')} />
+                              <span className="truncate">{c.full_name} ({c.email})</span>
+                            </button>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button onClick={runEmailSearch} disabled={searching} className="gap-1.5">
+                  {searching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Search
+                </Button>
+                {searchResults.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (searchSelected.size === searchResults.length) setSearchSelected(new Set());
+                      else setSearchSelected(new Set(searchResults.map((e) => e.id)));
+                    }}
+                  >
+                    {searchSelected.size === searchResults.length ? 'Clear all' : 'Select all'}
+                  </Button>
+                )}
+                <Button
+                  onClick={sendSelectedToTranscribe}
+                  disabled={sendingToTranscribe || searchSelected.size === 0}
+                  className="gap-1.5"
+                >
+                  <Sparkles className="h-4 w-4" /> Send {searchSelected.size > 0 ? `${searchSelected.size} ` : ''}to Transcribe
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Searches your full Gmail history. Pick a client + keyword (property address, etc.), check the emails you want, then push them to Transcribe for instant AI analysis.
+              </p>
+            </div>
+
+            <div className="mt-4">
+              {searching ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Searching Gmail...</span>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No results yet — run a search above.</p>
+              ) : (
+                <div className="space-y-2">
+                  {searchResults.map((email) => {
+                    const checked = searchSelected.has(email.id);
+                    return (
+                      <div
+                        key={email.id}
+                        className={`w-full text-left glass-card p-3 flex items-start gap-3 hover:bg-accent/40 transition-colors ${checked ? 'border-l-2 border-l-primary' : ''}`}
+                      >
+                        <div className="pt-0.5">
+                          <Checkbox checked={checked} onCheckedChange={() => toggleSearchSelected(email.id)} />
+                        </div>
+                        <button onClick={() => handleOpenEmail(email)} className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium truncate text-foreground">
+                            {email.subject || '(no subject)'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">From: {email.from} → {email.to}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

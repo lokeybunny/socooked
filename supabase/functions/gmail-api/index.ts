@@ -381,6 +381,20 @@ serve(async (req) => {
       });
     }
 
+    if (action === "search") {
+      const q = (url.searchParams.get("q") || "").trim();
+      const customer = (url.searchParams.get("customer") || "").trim().toLowerCase();
+      const max = Math.min(Number(url.searchParams.get("max") || "50"), 100);
+      const parts: string[] = [];
+      if (customer) parts.push(`(from:${customer} OR to:${customer})`);
+      if (q) parts.push(q);
+      const query = parts.join(" ").trim() || "in:inbox";
+      const emails = await getMessages(token, query, max);
+      return new Response(JSON.stringify({ emails, query }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "drafts") {
       const draftsUrl = `${GMAIL_API}/users/me/drafts?maxResults=30`;
       const draftsRes = await fetch(draftsUrl, {

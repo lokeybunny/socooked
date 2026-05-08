@@ -139,6 +139,34 @@ export default function Transcribe() {
       .then(({ data }) => setContacts((data as any) || []));
   }, []);
 
+  // Load emails-to-analyze payload pushed from the Email page
+  useEffect(() => {
+    if (searchParams.get("source") !== "emails") return;
+    const raw = sessionStorage.getItem("transcribe_emails_payload");
+    if (!raw) return;
+    sessionStorage.removeItem("transcribe_emails_payload");
+    let payload: any;
+    try { payload = JSON.parse(raw); } catch { return; }
+    if (!payload?.emails?.length) return;
+    setLoading(true);
+    setResult(null);
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("email-analyze", { body: payload });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        setResult(data as Result);
+        setSaveTitle((data as any).filename || "Email thread analysis");
+        toast({ title: "Email analysis complete", description: `Analyzed ${payload.emails.length} email(s)` });
+      } catch (e: any) {
+        toast({ title: "Analysis failed", description: e?.message || "Unknown error", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const filteredContacts = (() => {
     const q = contactQuery.trim().toLowerCase();
     if (!q) return contacts.slice(0, 8);
