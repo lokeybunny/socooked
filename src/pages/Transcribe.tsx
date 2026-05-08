@@ -80,8 +80,33 @@ export default function Transcribe() {
   const [saveTitle, setSaveTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [contacts, setContacts] = useState<Array<{ phone_last10: string; name: string | null; phone: string | null }>>([]);
+  const [contactQuery, setContactQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    supabase
+      .from("sms_contacts")
+      .select("phone_last10, name, phone")
+      .order("starred", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(500)
+      .then(({ data }) => setContacts((data as any) || []));
+  }, []);
+
+  const filteredContacts = (() => {
+    const q = contactQuery.trim().toLowerCase();
+    if (!q) return contacts.slice(0, 8);
+    const digits = q.replace(/\D/g, "");
+    return contacts
+      .filter((c) =>
+        (c.name || "").toLowerCase().includes(q) ||
+        (digits && c.phone_last10.includes(digits))
+      )
+      .slice(0, 8);
+  })();
 
   const saveToCRM = async () => {
     const p10 = last10(savePhone);
