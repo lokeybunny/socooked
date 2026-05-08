@@ -51,7 +51,7 @@ export default function CampaignManualDialer() {
     if (note && note.trim()) parts.push(`💬 "${note.trim()}"`);
     parts.push('-------------------------');
     parts.push(
-      `Hey, this is Warren — just left you a quick voicemail. Saw you reached out about the property and wanted to follow up so we could get you a fast cash quote. Shoot me the address (or listing link) and I'll get you a number today. — (480) 220-0405`
+      `Hey, this is Warren — just left you a quick voicemail. I wanted to follow up so I can do video for your property. Shoot me the address (or listing link) .`
     );
     return parts.join('\n');
   };
