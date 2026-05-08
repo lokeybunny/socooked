@@ -257,10 +257,24 @@ Deno.serve(async (req) => {
         source: is8105LandlineWebhook ? "twilio-landline-reply" : "twilio-inbound-non-8105",
         landline_reply: is8105LandlineWebhook,
         twilio_number: normalizedTo,
+        num_media: numMedia,
       },
     });
     tStamp("inbound communication logged");
-    void logEvent('inbound:persisted', { from: normalizedFrom, to: normalizedTo, sid, body });
+    void logEvent('inbound:persisted', { from: normalizedFrom, to: normalizedTo, sid, body, metadata: { num_media: numMedia } });
+
+    // If this MMS has media, fetch & store the images out-of-band so the SMS UI can render them.
+    if (numMedia > 0 && sid) {
+      runAfterResponse(
+        "twilio-mms-fetch",
+        fetch(`${SUPABASE_URL}/functions/v1/twilio-mms-fetch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ action: "fetch_one", sid }),
+        }).then((r) => r.text()),
+        { from: normalizedFrom, to: normalizedTo, sid },
+      );
+    }
 
     const fromLast10 = normalizedFrom.replace(/\D/g, "").slice(-10);
 
