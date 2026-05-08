@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, StickyNote, X, GripHorizontal } from "lucide-react";
+import { Loader2, Save, StickyNote, X, GripHorizontal, FileAudio, Copy, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface CallNotesPopupProps {
