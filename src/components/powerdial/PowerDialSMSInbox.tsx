@@ -27,6 +27,7 @@ type SMSMessage = {
   customer_id: string | null;
   metadata: any;
   provider?: string | null;
+  media_urls?: string[] | null;
 };
 
 function isLandlineReply(m: SMSMessage) {
@@ -321,7 +322,7 @@ export default function PowerDialSMSInbox() {
     if (!silent) setLoading(true);
     const { data } = await supabase
       .from('communications')
-      .select('id, direction, body, from_address, to_address, phone_number, external_id, status, created_at, customer_id, metadata, type, provider')
+      .select('id, direction, body, from_address, to_address, phone_number, external_id, status, created_at, customer_id, metadata, type, provider, media_urls')
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
       .limit(300);
@@ -1424,8 +1425,10 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           </Badge>
                         )}
                         {(() => {
-                          const imgs = extractImageUrls(m.body);
-                          const text = imgs.length ? stripImageUrls(m.body) : m.body;
+                          const bodyImgs = extractImageUrls(m.body);
+                          const colImgs = Array.isArray(m.media_urls) ? m.media_urls.filter(Boolean) : [];
+                          const imgs = Array.from(new Set([...colImgs, ...bodyImgs]));
+                          const text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
                           return (
                             <>
                               {text && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
