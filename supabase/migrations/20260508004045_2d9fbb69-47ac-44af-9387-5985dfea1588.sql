@@ -1,0 +1,1 @@
+ALTER TABLE public.contact_transcripts ADD COLUMN IF NOT EXISTS audio_url text;
