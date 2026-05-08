@@ -123,6 +123,72 @@ export default function EmailPage() {
   const [trashing, setTrashing] = useState(false);
   const [downloadingAtt, setDownloadingAtt] = useState<string | null>(null);
 
+  // ── Email Search → Transcribe state ─────────────────
+  const navigate = useNavigate();
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchCustomer, setSearchCustomer] = useState<string>(''); // customer email
+  const [searchCustomerOpen, setSearchCustomerOpen] = useState(false);
+  const [searchCustomerQuery, setSearchCustomerQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GmailEmail[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchSelected, setSearchSelected] = useState<Set<string>>(new Set());
+  const [sendingToTranscribe, setSendingToTranscribe] = useState(false);
+
+  const runEmailSearch = async () => {
+    if (!searchKeyword.trim() && !searchCustomer) {
+      toast.error('Enter a property/keyword or pick a client');
+      return;
+    }
+    setSearching(true);
+    setSearchSelected(new Set());
+    try {
+      const params = new URLSearchParams();
+      if (searchKeyword.trim()) params.set('q', searchKeyword.trim());
+      if (searchCustomer) params.set('customer', searchCustomer);
+      params.set('max', '50');
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `https://${projectId}.supabase.co/functions/v1/${GMAIL_FN}?action=search&${params.toString()}`;
+      const res = await fetch(url, { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed');
+      setSearchResults(data.emails || []);
+      if ((data.emails || []).length === 0) toast.info('No matching emails');
+    } catch (e: any) {
+      toast.error(e.message || 'Search failed');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const toggleSearchSelected = (id: string) => {
+    setSearchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const sendSelectedToTranscribe = () => {
+    const picked = searchResults.filter((e) => searchSelected.has(e.id));
+    if (picked.length === 0) { toast.error('Select at least one email'); return; }
+    setSendingToTranscribe(true);
+    try {
+      const payload = {
+        keyword: searchKeyword.trim(),
+        customer: searchCustomer,
+        emails: picked.map((e) => ({
+          from: e.from, to: e.to, subject: e.subject, date: e.date,
+          body: e.body, snippet: e.snippet,
+        })),
+      };
+      sessionStorage.setItem('transcribe_emails_payload', JSON.stringify(payload));
+      navigate('/transcribe?source=emails');
+    } finally {
+      setSendingToTranscribe(false);
+    }
+  };
+
   // Load persisted read IDs from database on mount
   useEffect(() => {
     (async () => {
