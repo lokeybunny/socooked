@@ -144,6 +144,15 @@ serve(async (req) => {
                     items: { type: "string" },
                     description: "Notable quotes or moments",
                   },
+                  client_wants: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Exhaustive top-to-bottom bullet list of EVERYTHING the client wants for their video — vision, style, references, mood, colors, music, pacing, edits, shots, deliverables, deadlines, must-haves, must-avoids. Be specific and granular.",
+                  },
+                  chatgpt_prompt: {
+                    type: "string",
+                    description: "A complete, ready-to-paste prompt for ChatGPT that includes the client's full vision and instructs ChatGPT to generate concrete, production-ready video edit prompts (shot lists, transitions, effects, text overlays, pacing) in real time based on those wants.",
+                  },
                 },
                 required: [
                   "summary",
@@ -152,6 +161,8 @@ serve(async (req) => {
                   "sentiment",
                   "key_topics",
                   "action_items",
+                  "client_wants",
+                  "chatgpt_prompt",
                 ],
                 additionalProperties: false,
               },
