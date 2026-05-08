@@ -839,6 +839,129 @@ export default function EmailPage() {
               <p className="text-sm text-muted-foreground py-8 text-center">No read emails yet.</p>
             ) : renderEmailList(readEmails)}
           </TabsContent>
+          <TabsContent value="search">
+            <div className="glass-card p-4 space-y-3">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-[220px] space-y-1">
+                  <Label className="text-xs">Property / keyword</Label>
+                  <Input
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') runEmailSearch(); }}
+                    placeholder="e.g. 1234 Oak St, Las Vegas"
+                  />
+                </div>
+                <div className="min-w-[240px] space-y-1">
+                  <Label className="text-xs">Client (scopes search)</Label>
+                  <Popover open={searchCustomerOpen} onOpenChange={setSearchCustomerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-[260px] justify-between font-normal">
+                        {searchCustomer
+                          ? customerEmailOptions.find((c) => c.email === searchCustomer)?.full_name || searchCustomer
+                          : 'Any client'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0" align="start">
+                      <div className="border-b p-2">
+                        <Input
+                          value={searchCustomerQuery}
+                          onChange={(e) => setSearchCustomerQuery(e.target.value)}
+                          placeholder="Search clients..."
+                        />
+                      </div>
+                      <div className="max-h-[280px] overflow-y-auto p-1">
+                        <button
+                          type="button"
+                          onClick={() => { setSearchCustomer(''); setSearchCustomerOpen(false); }}
+                          className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', !searchCustomer ? 'opacity-100' : 'opacity-0')} /> Any client
+                        </button>
+                        {customerEmailOptions
+                          .filter((c) => {
+                            const q = searchCustomerQuery.trim().toLowerCase();
+                            if (!q) return true;
+                            return [c.full_name, c.email, c.phone].filter(Boolean).join(' ').toLowerCase().includes(q);
+                          })
+                          .map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { setSearchCustomer(c.email); setSearchCustomerOpen(false); }}
+                              className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                            >
+                              <Check className={cn('mr-2 h-4 w-4 shrink-0', searchCustomer === c.email ? 'opacity-100' : 'opacity-0')} />
+                              <span className="truncate">{c.full_name} ({c.email})</span>
+                            </button>
+                          ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Button onClick={runEmailSearch} disabled={searching} className="gap-1.5">
+                  {searching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  Search
+                </Button>
+                {searchResults.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (searchSelected.size === searchResults.length) setSearchSelected(new Set());
+                      else setSearchSelected(new Set(searchResults.map((e) => e.id)));
+                    }}
+                  >
+                    {searchSelected.size === searchResults.length ? 'Clear all' : 'Select all'}
+                  </Button>
+                )}
+                <Button
+                  onClick={sendSelectedToTranscribe}
+                  disabled={sendingToTranscribe || searchSelected.size === 0}
+                  className="gap-1.5"
+                >
+                  <Sparkles className="h-4 w-4" /> Send {searchSelected.size > 0 ? `${searchSelected.size} ` : ''}to Transcribe
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Searches your full Gmail history. Pick a client + keyword (property address, etc.), check the emails you want, then push them to Transcribe for instant AI analysis.
+              </p>
+            </div>
+
+            <div className="mt-4">
+              {searching ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Searching Gmail...</span>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No results yet — run a search above.</p>
+              ) : (
+                <div className="space-y-2">
+                  {searchResults.map((email) => {
+                    const checked = searchSelected.has(email.id);
+                    return (
+                      <div
+                        key={email.id}
+                        className={`w-full text-left glass-card p-3 flex items-start gap-3 hover:bg-accent/40 transition-colors ${checked ? 'border-l-2 border-l-primary' : ''}`}
+                      >
+                        <div className="pt-0.5">
+                          <Checkbox checked={checked} onCheckedChange={() => toggleSearchSelected(email.id)} />
+                        </div>
+                        <button onClick={() => handleOpenEmail(email)} className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-medium truncate text-foreground">
+                            {email.subject || '(no subject)'}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">From: {email.from} → {email.to}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
