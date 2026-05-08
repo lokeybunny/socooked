@@ -43,7 +43,18 @@ export default function CampaignManualDialer() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [doneSet, setDoneSet] = useState<Set<string>>(new Set());
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
-  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null } | null>(null);
+  const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
+
+  const buildSmsPrefill = (phone: string, note: string | null | undefined) => {
+    const parts: string[] = [];
+    parts.push(phone || '');
+    if (note && note.trim()) parts.push(`💬 "${note.trim()}"`);
+    parts.push('-------------------------');
+    parts.push(
+      `Hey, this is Warren — just left you a quick voicemail. Saw you reached out about the property and wanted to follow up so we could get you a fast cash quote. Shoot me the address (or listing link) and I'll get you a number today. — (480) 220-0405`
+    );
+    return parts.join('\n');
+  };
   const [callChoice, setCallChoice] = useState<QueueItem | null>(null);
   const DEACTIVATED_KEY = 'manual-dialer-deactivated-v1';
   const [deactivatedSet, setDeactivatedSet] = useState<Set<string>>(() => {
@@ -266,7 +277,7 @@ export default function CampaignManualDialer() {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-[11px]"
-                    onClick={() => setSmsPopup({ phone: active.phone, name: active.contact_name })}
+                    onClick={() => setSmsPopup({ phone: active.phone, name: active.contact_name, initialBody: buildSmsPrefill(active.phone, active.note) })}
                   >
                     <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-400" />
                     SMS
@@ -366,7 +377,7 @@ export default function CampaignManualDialer() {
                           variant="outline"
                           className="h-8 w-full min-w-0 px-2 text-[11px]"
                           title="Text"
-                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name })}
+                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name, initialBody: buildSmsPrefill(item.phone, item.note) })}
                         >
                           <MessageSquare className="h-3 w-3" />
                           <span>Text</span>
@@ -412,6 +423,7 @@ export default function CampaignManualDialer() {
           onOpenChange={(v) => { if (!v) setSmsPopup(null); }}
           phone={smsPopup.phone}
           contactName={smsPopup.name}
+          initialBody={smsPopup.initialBody}
         />
       )}
 
