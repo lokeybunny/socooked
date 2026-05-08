@@ -81,6 +81,7 @@ const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicema
 
 
 const SMSPage = lazyWithRetry(() => import("./pages/SMS"), "page-sms");
+const Transcribe = lazyWithRetry(() => import("./pages/Transcribe"), "page-transcribe");
 const CallTest = lazyWithRetry(() => import("./pages/CallTest"), "page-call-test");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
