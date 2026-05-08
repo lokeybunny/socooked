@@ -81,6 +81,7 @@ const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicema
 
 
 const SMSPage = lazyWithRetry(() => import("./pages/SMS"), "page-sms");
+const Transcribe = lazyWithRetry(() => import("./pages/Transcribe"), "page-transcribe");
 const CallTest = lazyWithRetry(() => import("./pages/CallTest"), "page-call-test");
 const Proposals = lazyWithRetry(() => import("./pages/Proposals"), "page-proposals");
 const Analytics = lazyWithRetry(() => import("./pages/Analytics"), "page-analytics");
@@ -147,6 +148,7 @@ const App = () => (
                 <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
                 <Route path="/powerdial/voicemails" element={<WarrenOnlyGate><PowerDialVoicemails /></WarrenOnlyGate>} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
+                <Route path="/transcribe" element={<WarrenOnlyGate><Transcribe /></WarrenOnlyGate>} />
 
                 <Route path="/calltest" element={<WarrenOnlyGate><CallTest /></WarrenOnlyGate>} />
                 <Route path="/funnels" element={<WarrenOnlyGate><Funnels /></WarrenOnlyGate>} />
