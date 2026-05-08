@@ -286,6 +286,13 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
                                 <Copy className="h-3 w-3" /> Copy ChatGPT prompt
                               </button>
                             )}
+                            <Link
+                              to={`/transcribe?id=${t.id}`}
+                              onClick={() => onOpenChange(false)}
+                              className="text-[10px] flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" /> View full analysis & conversation
+                            </Link>
                             <div className="flex justify-between pt-1">
                               <button
                                 className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
