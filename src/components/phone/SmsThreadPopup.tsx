@@ -18,7 +18,19 @@ type SMSMessage = {
   to_address: string | null;
   status: string;
   created_at: string;
+  media_urls?: string[] | null;
 };
+
+const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
+function extractImageUrls(body: string | null | undefined): string[] {
+  if (!body) return [];
+  const matches = body.match(IMAGE_URL_REGEX);
+  return matches ? Array.from(new Set(matches)) : [];
+}
+function stripImageUrls(body: string | null | undefined): string {
+  if (!body) return "";
+  return body.replace(IMAGE_URL_REGEX, "").replace(/\s{2,}/g, " ").trim();
+}
 
 function normalizeLast10(raw: string | null | undefined) {
   if (!raw) return "";
