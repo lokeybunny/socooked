@@ -18,7 +18,19 @@ type SMSMessage = {
   to_address: string | null;
   status: string;
   created_at: string;
+  media_urls?: string[] | null;
 };
+
+const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
+function extractImageUrls(body: string | null | undefined): string[] {
+  if (!body) return [];
+  const matches = body.match(IMAGE_URL_REGEX);
+  return matches ? Array.from(new Set(matches)) : [];
+}
+function stripImageUrls(body: string | null | undefined): string {
+  if (!body) return "";
+  return body.replace(IMAGE_URL_REGEX, "").replace(/\s{2,}/g, " ").trim();
+}
 
 function normalizeLast10(raw: string | null | undefined) {
   if (!raw) return "";
@@ -60,7 +72,7 @@ export function SmsThreadPopup({
     try {
       const { data } = await supabase
         .from("communications")
-        .select("id, direction, body, from_address, to_address, status, created_at")
+        .select("id, direction, body, from_address, to_address, status, created_at, media_urls")
         .eq("type", "sms")
         .or(`from_address.ilike.%${last10},to_address.ilike.%${last10}`)
         .order("created_at", { ascending: true })
@@ -190,12 +202,30 @@ export function SmsThreadPopup({
               <div className="space-y-2">
                 {messages.map((m) => {
                   const out = m.direction === "outbound";
+                  const explicitMedia = Array.isArray(m.media_urls) ? m.media_urls : [];
+                  const bodyMedia = extractImageUrls(m.body);
+                  const allMedia = Array.from(new Set([...(explicitMedia || []), ...bodyMedia]));
+                  const textOnly = stripImageUrls(m.body);
                   return (
                     <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
                         out ? "bg-emerald-500 text-white rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
                       }`}>
-                        <div>{m.body || ""}</div>
+                        {allMedia.length > 0 && (
+                          <div className={`grid gap-1.5 mb-1.5 ${allMedia.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                            {allMedia.map((url) => (
+                              <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img
+                                  src={url}
+                                  alt="MMS attachment"
+                                  loading="lazy"
+                                  className="rounded-lg max-h-64 w-full object-cover bg-black/10"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        {textOnly && <div>{textOnly}</div>}
                         <div className={`text-[10px] mt-1 ${out ? "text-white/70" : "text-muted-foreground"}`}>
                           {new Date(m.created_at).toLocaleString()}
                         </div>

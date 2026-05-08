@@ -1,0 +1,1 @@
+ALTER TABLE public.communications ADD COLUMN IF NOT EXISTS media_urls jsonb DEFAULT '[]'::jsonb;

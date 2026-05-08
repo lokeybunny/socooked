@@ -196,8 +196,18 @@ Deno.serve(async (req) => {
             source: "twilio-rest-poll",
             landline_reply: m.to === TWILIO_LANDLINE,
             twilio_number: m.to,
+            num_media: Number(m.num_media || "0") || 0,
           },
         });
+
+        // Fetch MMS media (out-of-band) so images appear in the SMS thread
+        if (Number(m.num_media || "0") > 0) {
+          fetch(`${SUPABASE_URL}/functions/v1/twilio-mms-fetch`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({ action: "fetch_one", sid: m.sid }),
+          }).catch(() => {});
+        }
       }
 
       newCount++;

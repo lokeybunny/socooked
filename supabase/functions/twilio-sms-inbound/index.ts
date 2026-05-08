@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
   try {
     const contentType = req.headers.get("content-type") || "";
     let from = "", to = "", body = "", sid = "";
+    let numMedia = 0;
 
     if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -201,6 +202,7 @@ Deno.serve(async (req) => {
       to = String(form.get("To") || "");
       body = String(form.get("Body") || "");
       sid = String(form.get("MessageSid") || form.get("SmsSid") || "");
+      numMedia = Number(form.get("NumMedia") || "0") || 0;
     } else {
       // Fallback: JSON
       const j = await req.json().catch(() => ({}));
@@ -208,12 +210,14 @@ Deno.serve(async (req) => {
       to = String(j.To || j.to || "");
       body = String(j.Body || j.body || "");
       sid = String(j.MessageSid || j.sid || "");
+      numMedia = Number(j.NumMedia || j.num_media || "0") || 0;
     }
 
-    tStamp(`parsed payload from=${from} to=${to} sid=${sid}`);
+    tStamp(`parsed payload from=${from} to=${to} sid=${sid} numMedia=${numMedia}`);
 
-    if (!from || !body) {
-      void logEvent('webhook:ignored:missing-fields', { level: 'warn', from, to, sid, body, metadata: { content_type: contentType } });
+    // Allow image-only messages (empty body but has media)
+    if (!from || (!body && numMedia === 0)) {
+      void logEvent('webhook:ignored:missing-fields', { level: 'warn', from, to, sid, body, metadata: { content_type: contentType, num_media: numMedia } });
       return twimlAck();
     }
 
@@ -253,10 +257,24 @@ Deno.serve(async (req) => {
         source: is8105LandlineWebhook ? "twilio-landline-reply" : "twilio-inbound-non-8105",
         landline_reply: is8105LandlineWebhook,
         twilio_number: normalizedTo,
+        num_media: numMedia,
       },
     });
     tStamp("inbound communication logged");
-    void logEvent('inbound:persisted', { from: normalizedFrom, to: normalizedTo, sid, body });
+    void logEvent('inbound:persisted', { from: normalizedFrom, to: normalizedTo, sid, body, metadata: { num_media: numMedia } });
+
+    // If this MMS has media, fetch & store the images out-of-band so the SMS UI can render them.
+    if (numMedia > 0 && sid) {
+      runAfterResponse(
+        "twilio-mms-fetch",
+        fetch(`${SUPABASE_URL}/functions/v1/twilio-mms-fetch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+          body: JSON.stringify({ action: "fetch_one", sid }),
+        }).then((r) => r.text()),
+        { from: normalizedFrom, to: normalizedTo, sid },
+      );
+    }
 
     const fromLast10 = normalizedFrom.replace(/\D/g, "").slice(-10);
 
