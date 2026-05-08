@@ -195,6 +195,7 @@ export default function Transcribe() {
     }
     setLoading(true);
     setResult(null);
+    setAudioFile(file);
     setAudioUrl(URL.createObjectURL(file));
 
     try {
