@@ -163,6 +163,24 @@ export default function Transcribe() {
         { phone_last10: p10, phone: "+1" + p10, name: "" } as any,
         { onConflict: "phone_last10", ignoreDuplicates: true } as any,
       );
+
+      // Upload audio to public storage so it can be replayed later
+      let publicAudioUrl: string | null = null;
+      if (audioFile) {
+        const ext = (audioFile.name.split(".").pop() || "mp3").toLowerCase();
+        const path = `transcripts/${p10}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const up = await supabase.storage.from("content-uploads").upload(path, audioFile, {
+          contentType: audioFile.type || "audio/mpeg",
+          upsert: false,
+        });
+        if (!up.error) {
+          const { data: pub } = supabase.storage.from("content-uploads").getPublicUrl(path);
+          publicAudioUrl = pub?.publicUrl || null;
+        } else {
+          console.warn("Audio upload failed:", up.error.message);
+        }
+      }
+
       const { error } = await supabase.from("contact_transcripts").insert({
         phone_last10: p10,
         title: saveTitle || result.filename,
@@ -176,6 +194,7 @@ export default function Transcribe() {
         chatgpt_prompt: result.analysis?.chatgpt_prompt || null,
         transcript: result.transcript,
         analysis: result.analysis as any,
+        audio_url: publicAudioUrl,
       } as any);
       if (error) throw error;
       setSaved(true);
