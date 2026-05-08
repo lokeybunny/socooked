@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
 import { moveToVideographyFunnel } from "@/lib/moveToVideographyFunnel";
+import { MediaImage } from "@/components/sms/MediaImage";
 
 type SMSMessage = {
   id: string;
@@ -214,14 +215,12 @@ export function SmsThreadPopup({
                         {allMedia.length > 0 && (
                           <div className={`grid gap-1.5 mb-1.5 ${allMedia.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
                             {allMedia.map((url) => (
-                              <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                                <img
-                                  src={url}
-                                  alt="MMS attachment"
-                                  loading="lazy"
-                                  className="rounded-lg max-h-64 w-full object-cover bg-black/10"
-                                />
-                              </a>
+                              <MediaImage
+                                key={url}
+                                url={url}
+                                alt="MMS attachment"
+                                className="rounded-lg max-h-64 w-full object-cover bg-black/10"
+                              />
                             ))}
                           </div>
                         )}
