@@ -34,6 +34,8 @@ interface Analysis {
   objections_or_concerns?: string[];
   next_steps?: string[];
   highlights?: string[];
+  client_wants?: string[];
+  chatgpt_prompt?: string;
 }
 
 interface Result {
