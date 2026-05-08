@@ -72,7 +72,7 @@ export function SmsThreadPopup({
     try {
       const { data } = await supabase
         .from("communications")
-        .select("id, direction, body, from_address, to_address, status, created_at")
+        .select("id, direction, body, from_address, to_address, status, created_at, media_urls")
         .eq("type", "sms")
         .or(`from_address.ilike.%${last10},to_address.ilike.%${last10}`)
         .order("created_at", { ascending: true })
