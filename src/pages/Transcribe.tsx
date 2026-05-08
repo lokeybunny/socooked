@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Upload, FileAudio, Loader2, Users, Sparkles, Download, Copy, Check, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -80,8 +80,33 @@ export default function Transcribe() {
   const [saveTitle, setSaveTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [contacts, setContacts] = useState<Array<{ phone_last10: string; name: string | null; phone: string | null }>>([]);
+  const [contactQuery, setContactQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    supabase
+      .from("sms_contacts")
+      .select("phone_last10, name, phone")
+      .order("starred", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(500)
+      .then(({ data }) => setContacts((data as any) || []));
+  }, []);
+
+  const filteredContacts = (() => {
+    const q = contactQuery.trim().toLowerCase();
+    if (!q) return contacts.slice(0, 8);
+    const digits = q.replace(/\D/g, "");
+    return contacts
+      .filter((c) =>
+        (c.name || "").toLowerCase().includes(q) ||
+        (digits && c.phone_last10.includes(digits))
+      )
+      .slice(0, 8);
+  })();
 
   const saveToCRM = async () => {
     const p10 = last10(savePhone);
@@ -267,11 +292,41 @@ export default function Transcribe() {
               Save this analysis to a phone number. It will show up in the contact's notes inside the SMS thread, so you can reference past meetings any time.
             </p>
             <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
-              <Input
-                placeholder="Phone (e.g. 7025551234)"
-                value={savePhone}
-                onChange={(e) => setSavePhone(e.target.value)}
-              />
+              <div className="relative">
+                <Input
+                  placeholder="Search contact name or phone…"
+                  value={contactQuery || savePhone}
+                  onChange={(e) => {
+                    setContactQuery(e.target.value);
+                    setSavePhone(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                />
+                {showSuggestions && filteredContacts.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover shadow-lg">
+                    {filteredContacts.map((c) => (
+                      <button
+                        key={c.phone_last10}
+                        type="button"
+                        className="w-full text-left px-3 py-2 hover:bg-accent text-sm flex justify-between gap-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSavePhone(c.phone_last10);
+                          setContactQuery(c.name ? `${c.name} (${c.phone_last10})` : c.phone_last10);
+                          setShowSuggestions(false);
+                        }}
+                      >
+                        <span className="font-medium truncate">{c.name || "(no name)"}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          ({c.phone_last10.slice(0,3)}) {c.phone_last10.slice(3,6)}-{c.phone_last10.slice(6)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Input
                 placeholder="Title (optional)"
                 value={saveTitle}

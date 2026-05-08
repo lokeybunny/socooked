@@ -1,0 +1,1 @@
+UPDATE public.contact_transcripts SET phone_last10 = '7022745430' WHERE phone_last10 = '7022745438';
