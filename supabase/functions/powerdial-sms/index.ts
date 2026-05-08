@@ -18,6 +18,8 @@ const VOIDFIX_API_KEY = Deno.env.get("VOIDFIX_API_KEY") || "";
 const VOIDFIX_DEVICE_ID = Deno.env.get("VOIDFIX_DEVICE_ID") || "";
 const VOIDFIX_SEND_URL = "https://sms.voidfix.com/services/send.php";
 const VOIDFIX_READ_URL = "https://sms.voidfix.com/services/read-messages.php";
+const MMS_RESEND_NUMBER = "+17028298105";
+const MMS_RESEND_MESSAGE = `I got your message, but this line cannot receive picture attachments. Please resend the photo to ${MMS_RESEND_NUMBER} so it comes through on my end.`;
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -36,6 +38,32 @@ function normalizePhone(raw: string | null | undefined): string {
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (String(raw).startsWith("+")) return `+${digits}`;
   return `+${digits}`;
+}
+
+function extractVoidfixMediaUrls(value: unknown): string[] {
+  const urls = new Set<string>();
+  const walk = (item: unknown) => {
+    if (!item) return;
+    if (typeof item === "string") {
+      if (/^https?:\/\//i.test(item)) urls.add(item);
+      return;
+    }
+    if (Array.isArray(item)) {
+      item.forEach(walk);
+      return;
+    }
+    if (typeof item === "object") {
+      const obj = item as Record<string, unknown>;
+      ["url", "media_url", "download_url", "link", "path"].forEach((key) => walk(obj[key]));
+      ["attachments", "attachment", "files", "media", "images"].forEach((key) => walk(obj[key]));
+    }
+  };
+  walk(value);
+  return Array.from(urls);
+}
+
+function isVoidfixStrippedMms(body: string, mediaUrls: string[]): boolean {
+  return mediaUrls.length === 0 && /^(image|photo|picture|video|media|attachment)\s*\d*$/i.test((body || "").trim());
 }
 
 async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any; timing?: Record<string, number> }> {
@@ -194,11 +222,12 @@ async function maybeSendFirstTimeAutoReply(fromPhone: string) {
   }
 }
 
-async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string }) {
+async function handleInbound(payload: { from?: string; to?: string; body?: string; id?: string; device_id?: string; source?: string; raw?: any }) {
   const from = String(payload.from || "");
   const body = String(payload.body || "");
   const externalId = payload.id ? String(payload.id) : null;
   const inboundSource = payload.source || "voidfix-webhook";
+  const mediaUrls = extractVoidfixMediaUrls(payload.raw || payload);
 
   // Idempotency: skip if external_id already stored
   if (externalId) {
@@ -212,6 +241,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
 
   const customerId = await findCustomerByPhone(from);
 
+  const metadata: Record<string, unknown> = { source: inboundSource, device_id: payload.device_id || null };
+  if (isVoidfixStrippedMms(body, mediaUrls)) metadata.voidfix_mms_stripped = true;
+
   const { data: insertedRow } = await sb.from("communications").insert({
     type: "sms",
     direction: "inbound",
@@ -223,8 +255,26 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     external_id: externalId,
     status: "received",
     customer_id: customerId,
-    metadata: { source: inboundSource, device_id: payload.device_id || null },
+    media_urls: mediaUrls,
+    metadata,
   }).select("id, created_at").single();
+
+  if (isVoidfixStrippedMms(body, mediaUrls)) {
+    const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
+    await sb.from("communications").insert({
+      type: "sms",
+      direction: "outbound",
+      body: MMS_RESEND_MESSAGE,
+      from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+      to_address: normalizePhone(from),
+      phone_number: normalizePhone(from),
+      provider: "voidfix",
+      external_id: result.id || null,
+      status: result.ok ? "sent" : "failed",
+      customer_id: customerId,
+      metadata: { source: "voidfix-mms-resend-instruction", device_id: VOIDFIX_DEVICE_ID, triggered_by: externalId, ...(result.error ? { error: result.error } : {}) },
+    });
+  }
 
   // NOTE: No "this is my cell" auto-reply here — that fires only for the
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
@@ -282,7 +332,7 @@ Deno.serve(async (req) => {
       const deviceId = String(form.get("device_id") || form.get("devices") || "");
 
       if (from && body) {
-        await handleInbound({ from, to, body, id: id || undefined, device_id: deviceId || undefined });
+        await handleInbound({ from, to, body, id: id || undefined, device_id: deviceId || undefined, raw: Object.fromEntries(form.entries()) });
       }
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -311,6 +361,7 @@ Deno.serve(async (req) => {
         body: payload.message || payload.body,
         id: payload.ID || payload.id,
         device_id: payload.device_id || payload.devices,
+        raw: payload,
       });
       return json({ success: true });
     } catch (err) {
@@ -592,10 +643,13 @@ Deno.serve(async (req) => {
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
       const createdAt = m.deliveredDate || m.sentDate || null;
+      const body = String(m.message || "");
+      const mediaUrls = extractVoidfixMediaUrls(m);
+      const strippedMms = isVoidfixStrippedMms(body, mediaUrls);
       const { data: insertedRow } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
-        body: String(m.message || ""),
+        body,
         from_address: from,
         to_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
         phone_number: from,
@@ -603,9 +657,27 @@ Deno.serve(async (req) => {
         external_id: externalId,
         status: "received",
         customer_id: customerId,
-        metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status },
+        media_urls: mediaUrls,
+        metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status, ...(strippedMms ? { voidfix_mms_stripped: true } : {}) },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       }).select("id, created_at").single();
+
+      if (strippedMms) {
+        const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
+        await sb.from("communications").insert({
+          type: "sms",
+          direction: "outbound",
+          body: MMS_RESEND_MESSAGE,
+          from_address: VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null,
+          to_address: from,
+          phone_number: from,
+          provider: "voidfix",
+          external_id: result.id || null,
+          status: result.ok ? "sent" : "failed",
+          customer_id: customerId,
+          metadata: { source: "voidfix-mms-resend-instruction", device_id: VOIDFIX_DEVICE_ID, triggered_by: externalId, ...(result.error ? { error: result.error } : {}) },
+        });
+      }
 
       // Fire-and-forget downstream work — don't block the response
       const downstream = (async () => {
@@ -616,7 +688,7 @@ Deno.serve(async (req) => {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
             body: JSON.stringify({
               phone: from,
-              body: String(m.message || ""),
+              body,
               message_id: insertedRow?.id || null,
               message_created_at: insertedRow?.created_at || new Date().toISOString(),
             }),
@@ -626,7 +698,7 @@ Deno.serve(async (req) => {
           await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-            body: JSON.stringify({ action: "process_inbound", phone: from, body: String(m.message || "") }),
+            body: JSON.stringify({ action: "process_inbound", phone: from, body }),
           });
         } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
       })();
