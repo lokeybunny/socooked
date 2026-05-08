@@ -1433,9 +1433,9 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             <>
                               {text && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
                               {imgs.map((url) => (
-                                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block mt-1">
-                                  <img src={url} alt="attachment" className="rounded-lg max-h-64 max-w-full object-contain border border-border/40" loading="lazy" />
-                                </a>
+                                <div key={url} className="mt-1">
+                                  <MediaImage url={url} />
+                                </div>
                               ))}
                             </>
                           );
