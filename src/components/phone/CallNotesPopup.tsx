@@ -67,6 +67,12 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
       setEmail((data as any)?.email || "");
       setInstagram((data as any)?.instagram || "");
       setNotes((data as any)?.notes || "");
+      const { data: tx } = await supabase
+        .from("contact_transcripts")
+        .select("id,title,filename,summary,client_wants,chatgpt_prompt,transcript,created_at,duration_seconds,sentiment,conversation_type")
+        .eq("phone_last10", phoneKey)
+        .order("created_at", { ascending: false });
+      setTranscripts(tx || []);
       setLoading(false);
     })();
     return () => { cancelled = true; };
