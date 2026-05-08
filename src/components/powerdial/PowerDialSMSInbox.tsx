@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import CallNotesPopup from '@/components/phone/CallNotesPopup';
 import EmojiButton from '@/components/sms/EmojiButton';
 import { moveToVideographyFunnel } from '@/lib/moveToVideographyFunnel';
+import { MediaImage } from '@/components/sms/MediaImage';
 
 type SMSMessage = {
   id: string;
