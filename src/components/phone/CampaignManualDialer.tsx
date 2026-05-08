@@ -377,7 +377,7 @@ export default function CampaignManualDialer() {
                           variant="outline"
                           className="h-8 w-full min-w-0 px-2 text-[11px]"
                           title="Text"
-                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name })}
+                          onClick={() => setSmsPopup({ phone: item.phone, name: item.contact_name, initialBody: buildSmsPrefill(item.phone, item.note) })}
                         >
                           <MessageSquare className="h-3 w-3" />
                           <span>Text</span>
