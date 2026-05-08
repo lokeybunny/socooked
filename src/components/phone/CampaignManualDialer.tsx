@@ -44,6 +44,17 @@ export default function CampaignManualDialer() {
   const [doneSet, setDoneSet] = useState<Set<string>>(new Set());
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
+
+  const buildSmsPrefill = (phone: string, note: string | null | undefined) => {
+    const parts: string[] = [];
+    parts.push(phone || '');
+    if (note && note.trim()) parts.push(`💬 "${note.trim()}"`);
+    parts.push('-------------------------');
+    parts.push(
+      `Hey, this is Warren — just left you a quick voicemail. Saw you reached out about the property and wanted to follow up so we could get you a fast cash quote. Shoot me the address (or listing link) and I'll get you a number today. — (480) 220-0405`
+    );
+    return parts.join('\n');
+  };
   const [callChoice, setCallChoice] = useState<QueueItem | null>(null);
   const DEACTIVATED_KEY = 'manual-dialer-deactivated-v1';
   const [deactivatedSet, setDeactivatedSet] = useState<Set<string>>(() => {
