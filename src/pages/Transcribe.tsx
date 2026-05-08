@@ -1,12 +1,17 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileAudio, Loader2, Users, Sparkles, Download, Copy, Check } from "lucide-react";
+import { Upload, FileAudio, Loader2, Users, Sparkles, Download, Copy, Check, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+function last10(p: string): string {
+  return (p || "").replace(/\D/g, "").slice(-10);
+}
 
 interface Segment {
   speaker: number;
