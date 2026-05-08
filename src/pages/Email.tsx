@@ -727,6 +727,7 @@ export default function EmailPage() {
               <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
               <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
               <TabsTrigger value="read" className="gap-1.5"><BookOpen className="h-3.5 w-3.5" /> Read</TabsTrigger>
+              <TabsTrigger value="search" className="gap-1.5"><Search className="h-3.5 w-3.5" /> Search → AI</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
