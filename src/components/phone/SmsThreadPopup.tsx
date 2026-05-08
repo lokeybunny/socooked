@@ -92,6 +92,7 @@ export function SmsThreadPopup({
 
   useEffect(() => {
     if (!open) return;
+    if (initialBody) setBody(initialBody);
     load(false);
     // Note: global VoidFix poller + realtime subscription handle inbound.
     // Avoid invoking powerdial-sms 'poll' here — it can exceed the 150s edge timeout.
