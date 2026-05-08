@@ -202,12 +202,30 @@ export function SmsThreadPopup({
               <div className="space-y-2">
                 {messages.map((m) => {
                   const out = m.direction === "outbound";
+                  const explicitMedia = Array.isArray(m.media_urls) ? m.media_urls : [];
+                  const bodyMedia = extractImageUrls(m.body);
+                  const allMedia = Array.from(new Set([...(explicitMedia || []), ...bodyMedia]));
+                  const textOnly = stripImageUrls(m.body);
                   return (
                     <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
                         out ? "bg-emerald-500 text-white rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
                       }`}>
-                        <div>{m.body || ""}</div>
+                        {allMedia.length > 0 && (
+                          <div className={`grid gap-1.5 mb-1.5 ${allMedia.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+                            {allMedia.map((url) => (
+                              <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img
+                                  src={url}
+                                  alt="MMS attachment"
+                                  loading="lazy"
+                                  className="rounded-lg max-h-64 w-full object-cover bg-black/10"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        {textOnly && <div>{textOnly}</div>}
                         <div className={`text-[10px] mt-1 ${out ? "text-white/70" : "text-muted-foreground"}`}>
                           {new Date(m.created_at).toLocaleString()}
                         </div>
