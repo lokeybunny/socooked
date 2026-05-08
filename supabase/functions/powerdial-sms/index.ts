@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
       const deviceId = String(form.get("device_id") || form.get("devices") || "");
 
       if (from && body) {
-        await handleInbound({ from, to, body, id: id || undefined, device_id: deviceId || undefined });
+        await handleInbound({ from, to, body, id: id || undefined, device_id: deviceId || undefined, raw: Object.fromEntries(form.entries()) });
       }
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
@@ -361,6 +361,7 @@ Deno.serve(async (req) => {
         body: payload.message || payload.body,
         id: payload.ID || payload.id,
         device_id: payload.device_id || payload.devices,
+        raw: payload,
       });
       return json({ success: true });
     } catch (err) {
