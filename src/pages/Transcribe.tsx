@@ -86,6 +86,46 @@ export default function Transcribe() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+
+  // Load saved transcript when ?id= is present
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("contact_transcripts")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error || !data) {
+        if (error) toast({ title: "Could not load transcript", description: error.message, variant: "destructive" });
+        return;
+      }
+      setResult({
+        filename: data.filename || data.title || "Saved transcript",
+        duration_seconds: data.duration_seconds,
+        detected_language: (data.analysis as any)?.detected_language || "en",
+        voice_count: data.voice_count || 0,
+        transcript: data.transcript || "",
+        raw_transcript: data.transcript || "",
+        segments: ((data.analysis as any)?.segments) || [],
+        analysis: (data.analysis as any) || {
+          summary: data.summary || "",
+          conversation_type: data.conversation_type || "",
+          voices: [],
+          sentiment: data.sentiment || "",
+          key_topics: [],
+          action_items: [],
+          client_wants: data.client_wants || [],
+          chatgpt_prompt: data.chatgpt_prompt || "",
+        },
+      });
+      setSavePhone(data.phone_last10);
+      setSaveTitle(data.title || "");
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     supabase
