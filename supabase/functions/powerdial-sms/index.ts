@@ -663,7 +663,7 @@ Deno.serve(async (req) => {
       const createdAt = m.deliveredDate || m.sentDate || null;
       const body = String(m.message || "");
       const mediaUrls = extractVoidfixMediaUrls(m);
-      const strippedMms = isVoidfixStrippedMms(body, mediaUrls);
+      const strippedMms = isVoidfixStrippedMms(body, mediaUrls, m);
       const { data: insertedRow } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
