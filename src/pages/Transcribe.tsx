@@ -124,6 +124,7 @@ export default function Transcribe() {
       });
       setSavePhone(data.phone_last10);
       setSaveTitle(data.title || "");
+      if ((data as any).audio_url) setAudioUrl((data as any).audio_url);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
