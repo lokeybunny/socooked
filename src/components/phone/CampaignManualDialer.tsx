@@ -423,6 +423,7 @@ export default function CampaignManualDialer() {
           onOpenChange={(v) => { if (!v) setSmsPopup(null); }}
           phone={smsPopup.phone}
           contactName={smsPopup.name}
+          initialBody={smsPopup.initialBody}
         />
       )}
 
