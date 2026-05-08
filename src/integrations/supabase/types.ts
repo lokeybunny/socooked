@@ -1651,6 +1651,7 @@ export type Database = {
           external_id: string | null
           from_address: string | null
           id: string
+          media_urls: Json | null
           metadata: Json
           phone_number: string | null
           provider: string | null
@@ -1670,6 +1671,7 @@ export type Database = {
           external_id?: string | null
           from_address?: string | null
           id?: string
+          media_urls?: Json | null
           metadata?: Json
           phone_number?: string | null
           provider?: string | null
@@ -1689,6 +1691,7 @@ export type Database = {
           external_id?: string | null
           from_address?: string | null
           id?: string
+          media_urls?: Json | null
           metadata?: Json
           phone_number?: string | null
           provider?: string | null
