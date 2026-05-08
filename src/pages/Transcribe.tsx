@@ -635,5 +635,6 @@ export default function Transcribe() {
         </>
       )}
     </div>
+    </AppLayout>
   );
 }
