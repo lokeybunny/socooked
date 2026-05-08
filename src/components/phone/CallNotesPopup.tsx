@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, StickyNote, X, GripHorizontal } from "lucide-react";
+import { Loader2, Save, StickyNote, X, GripHorizontal, FileAudio, Copy, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface CallNotesPopupProps {
@@ -24,8 +24,8 @@ function formatPhone(p: string): string {
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 }
 
-const PANEL_WIDTH = 420;
-const PANEL_HEIGHT_ESTIMATE = 520;
+const PANEL_WIDTH = 480;
+const PANEL_HEIGHT_ESTIMATE = 620;
 
 export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesPopupProps) {
   const phoneKey = last10(phone);
@@ -35,6 +35,8 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
   const [email, setEmail] = useState("");
   const [instagram, setInstagram] = useState("");
   const [notes, setNotes] = useState("");
+  const [transcripts, setTranscripts] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Draggable position (top-left in viewport coords). null = not yet positioned.
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -65,6 +67,12 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
       setEmail((data as any)?.email || "");
       setInstagram((data as any)?.instagram || "");
       setNotes((data as any)?.notes || "");
+      const { data: tx } = await supabase
+        .from("contact_transcripts")
+        .select("id,title,filename,summary,client_wants,chatgpt_prompt,transcript,created_at,duration_seconds,sentiment,conversation_type")
+        .eq("phone_last10", phoneKey)
+        .order("created_at", { ascending: false });
+      setTranscripts(tx || []);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -220,6 +228,96 @@ export default function CallNotesPopup({ open, onOpenChange, phone }: CallNotesP
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
               Save Notes
             </Button>
+
+            {transcripts.length > 0 && (
+              <div className="mt-2 border-t border-border pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileAudio className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">Saved Transcripts ({transcripts.length})</span>
+                </div>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {transcripts.map((t) => {
+                    const isOpen = expandedId === t.id;
+                    return (
+                      <div key={t.id} className="border border-border rounded-lg bg-muted/30">
+                        <button
+                          onClick={() => setExpandedId(isOpen ? null : t.id)}
+                          className="w-full flex items-start gap-2 p-2 text-left hover:bg-muted/50 rounded-lg"
+                        >
+                          {isOpen ? <ChevronDown className="h-4 w-4 mt-0.5 shrink-0" /> : <ChevronRight className="h-4 w-4 mt-0.5 shrink-0" />}
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium truncate">{t.title || t.filename}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {new Date(t.created_at).toLocaleDateString()} · {t.conversation_type || "conversation"}{t.sentiment ? ` · ${t.sentiment}` : ""}
+                            </div>
+                          </div>
+                        </button>
+                        {isOpen && (
+                          <div className="px-3 pb-3 space-y-2 text-xs">
+                            {t.summary && <p className="leading-relaxed">{t.summary}</p>}
+                            {Array.isArray(t.client_wants) && t.client_wants.length > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-semibold">What client wants</span>
+                                  <button
+                                    className="text-[10px] flex items-center gap-1 text-primary hover:underline"
+                                    onClick={async () => {
+                                      await navigator.clipboard.writeText(t.client_wants.map((w: string) => `• ${w}`).join("\n"));
+                                      toast.success("Bullets copied");
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" /> Copy
+                                  </button>
+                                </div>
+                                <ul className="space-y-0.5 list-disc list-inside">
+                                  {t.client_wants.slice(0, 8).map((w: string, i: number) => <li key={i}>{w}</li>)}
+                                </ul>
+                              </div>
+                            )}
+                            {t.chatgpt_prompt && (
+                              <button
+                                className="text-[10px] flex items-center gap-1 text-emerald-500 hover:underline"
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(t.chatgpt_prompt);
+                                  toast.success("ChatGPT prompt copied");
+                                }}
+                              >
+                                <Copy className="h-3 w-3" /> Copy ChatGPT prompt
+                              </button>
+                            )}
+                            <div className="flex justify-between pt-1">
+                              <button
+                                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                                onClick={async () => {
+                                  await navigator.clipboard.writeText(t.transcript || "");
+                                  toast.success("Transcript copied");
+                                }}
+                              >
+                                <Copy className="h-3 w-3" /> Full transcript
+                              </button>
+                              <button
+                                className="text-[10px] text-destructive hover:underline flex items-center gap-1"
+                                onClick={async () => {
+                                  if (!confirm("Delete this saved transcript?")) return;
+                                  const { error } = await supabase.from("contact_transcripts").delete().eq("id", t.id);
+                                  if (error) toast.error(error.message);
+                                  else {
+                                    setTranscripts((prev) => prev.filter((x) => x.id !== t.id));
+                                    toast.success("Deleted");
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" /> Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -1716,6 +1716,60 @@ export type Database = {
           },
         ]
       }
+      contact_transcripts: {
+        Row: {
+          analysis: Json | null
+          chatgpt_prompt: string | null
+          client_wants: string[] | null
+          conversation_type: string | null
+          created_at: string
+          duration_seconds: number | null
+          filename: string | null
+          id: string
+          phone_last10: string
+          sentiment: string | null
+          summary: string | null
+          title: string | null
+          transcript: string | null
+          updated_at: string
+          voice_count: number | null
+        }
+        Insert: {
+          analysis?: Json | null
+          chatgpt_prompt?: string | null
+          client_wants?: string[] | null
+          conversation_type?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          filename?: string | null
+          id?: string
+          phone_last10: string
+          sentiment?: string | null
+          summary?: string | null
+          title?: string | null
+          transcript?: string | null
+          updated_at?: string
+          voice_count?: number | null
+        }
+        Update: {
+          analysis?: Json | null
+          chatgpt_prompt?: string | null
+          client_wants?: string[] | null
+          conversation_type?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          filename?: string | null
+          id?: string
+          phone_last10?: string
+          sentiment?: string | null
+          summary?: string | null
+          title?: string | null
+          transcript?: string | null
+          updated_at?: string
+          voice_count?: number | null
+        }
+        Relationships: []
+      }
       content_assets: {
         Row: {
           body: string | null

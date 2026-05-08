@@ -1,12 +1,17 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, FileAudio, Loader2, Users, Sparkles, Download, Copy, Check } from "lucide-react";
+import { Upload, FileAudio, Loader2, Users, Sparkles, Download, Copy, Check, Save, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+
+function last10(p: string): string {
+  return (p || "").replace(/\D/g, "").slice(-10);
+}
 
 interface Segment {
   speaker: number;
@@ -71,8 +76,50 @@ export default function Transcribe() {
   const [copied, setCopied] = useState(false);
   const [copiedWants, setCopiedWants] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [savePhone, setSavePhone] = useState("");
+  const [saveTitle, setSaveTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const saveToCRM = async () => {
+    const p10 = last10(savePhone);
+    if (p10.length !== 10) {
+      toast({ title: "Enter a valid 10-digit phone", variant: "destructive" });
+      return;
+    }
+    if (!result) return;
+    setSaving(true);
+    try {
+      await supabase.from("sms_contacts").upsert(
+        { phone_last10: p10, phone: "+1" + p10, name: "" } as any,
+        { onConflict: "phone_last10", ignoreDuplicates: true } as any,
+      );
+      const { error } = await supabase.from("contact_transcripts").insert({
+        phone_last10: p10,
+        title: saveTitle || result.filename,
+        filename: result.filename,
+        duration_seconds: result.duration_seconds,
+        voice_count: result.voice_count,
+        summary: result.analysis?.summary || null,
+        conversation_type: result.analysis?.conversation_type || null,
+        sentiment: result.analysis?.sentiment || null,
+        client_wants: result.analysis?.client_wants || null,
+        chatgpt_prompt: result.analysis?.chatgpt_prompt || null,
+        transcript: result.transcript,
+        analysis: result.analysis as any,
+      } as any);
+      if (error) throw error;
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      toast({ title: "Saved to CRM", description: `Tagged to (${p10.slice(0,3)}) ${p10.slice(3,6)}-${p10.slice(6)} — visible in SMS notes.` });
+    } catch (e: any) {
+      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("audio/") && !file.name.match(/\.(mp3|wav|m4a|ogg|webm|flac)$/i)) {
@@ -209,6 +256,32 @@ export default function Transcribe() {
               </div>
             </div>
             {audioUrl && <audio controls src={audioUrl} className="w-full mt-3" />}
+          </Card>
+
+          <Card className="p-4 border-blue-500/40 bg-blue-500/5">
+            <div className="flex items-center gap-2 mb-3">
+              <UserPlus className="h-5 w-5 text-blue-400" />
+              <h3 className="font-semibold">Save to CRM — tag to an SMS contact</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Save this analysis to a phone number. It will show up in the contact's notes inside the SMS thread, so you can reference past meetings any time.
+            </p>
+            <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
+              <Input
+                placeholder="Phone (e.g. 7025551234)"
+                value={savePhone}
+                onChange={(e) => setSavePhone(e.target.value)}
+              />
+              <Input
+                placeholder="Title (optional)"
+                value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+              />
+              <Button onClick={saveToCRM} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : saved ? <Check className="h-4 w-4 mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                {saved ? "Saved" : "Save to CRM"}
+              </Button>
+            </div>
           </Card>
 
           <Tabs defaultValue="analysis">
