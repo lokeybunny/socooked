@@ -27,6 +27,7 @@ type SMSMessage = {
   customer_id: string | null;
   metadata: any;
   provider?: string | null;
+  media_urls?: string[] | null;
 };
 
 function isLandlineReply(m: SMSMessage) {
