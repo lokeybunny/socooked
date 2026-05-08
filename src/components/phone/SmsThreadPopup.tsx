@@ -49,16 +49,18 @@ export function SmsThreadPopup({
   onOpenChange,
   phone,
   contactName,
+  initialBody,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   phone: string;
   contactName?: string | null;
+  initialBody?: string;
 }) {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(initialBody || "");
   const [notesOpen, setNotesOpen] = useState(false);
   
   const endRef = useRef<HTMLDivElement | null>(null);
