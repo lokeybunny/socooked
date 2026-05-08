@@ -45,10 +45,20 @@ export default function CampaignManualDialer() {
   const [contactedSet, setContactedSet] = useState<Set<string>>(new Set());
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
 
+  const extractUserResponse = (note: string | null | undefined): string => {
+    if (!note) return '';
+    // Prefer the first quoted segment (smart or straight quotes) — that's the user's actual reply.
+    const m = note.match(/[“"]([^”"]+)[”"]/);
+    if (m && m[1]) return m[1].trim();
+    // Fallback: take only text before the first comma (strip AI tags like "🔥 HOT, Immediate callback…").
+    return note.split(',')[0].replace(/[“”"]/g, '').trim();
+  };
+
   const buildSmsPrefill = (phone: string, note: string | null | undefined) => {
     const parts: string[] = [];
     parts.push(phone || '');
-    if (note && note.trim()) parts.push(`💬 "${note.trim()}"`);
+    const response = extractUserResponse(note);
+    if (response) parts.push(`💬 "${response}"`);
     parts.push('-------------------------');
     parts.push(
       `Hey, this is Warren — just left you a quick voicemail. I wanted to follow up so I can do video for your property. Shoot me the address (or listing link) .`
