@@ -277,7 +277,7 @@ export default function CampaignManualDialer() {
                     size="sm"
                     variant="ghost"
                     className="h-7 text-[11px]"
-                    onClick={() => setSmsPopup({ phone: active.phone, name: active.contact_name })}
+                    onClick={() => setSmsPopup({ phone: active.phone, name: active.contact_name, initialBody: buildSmsPrefill(active.phone, active.note) })}
                   >
                     <MessageSquare className="h-3.5 w-3.5 mr-1 text-emerald-400" />
                     SMS
