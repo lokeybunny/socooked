@@ -83,7 +83,7 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "You are an expert conversation analyst. Analyze the diarized transcript and return structured insights. Identify the most likely role of each voice (e.g., Agent/Sales Rep, Customer/Prospect, Interviewer, Interviewee, Host, Guest) based on speech content. Be concise and actionable.",
+              "You are an expert conversation analyst for a video production agency. Analyze the diarized transcript and return structured insights. Identify the most likely role of each voice. Pay special attention to extracting EVERYTHING the client wants for their video — vision, style, references, mood, edits, colors, music, pacing, must-haves, must-avoids, deliverables, deadlines. Be exhaustive and specific. Then craft a ready-to-paste ChatGPT prompt that another AI can use to generate concrete video edit prompts in real time.",
           },
           {
             role: "user",
