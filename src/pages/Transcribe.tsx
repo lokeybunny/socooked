@@ -70,6 +70,34 @@ function fmtTime(s: number) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+async function safeCopyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the textarea fallback when iframe permissions block Clipboard API.
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
 export default function Transcribe() {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -292,11 +320,11 @@ export default function Transcribe() {
 
   const copyTranscript = async () => {
     if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.transcript);
+    const ok = await safeCopyText(result.transcript);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
+    } else {
       toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access. Try selecting and copying manually.", variant: "destructive" });
     }
   };
