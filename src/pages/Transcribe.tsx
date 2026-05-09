@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -111,12 +113,22 @@ export default function Transcribe() {
   const [saveTitle, setSaveTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [manualCopy, setManualCopy] = useState<{ title: string; text: string } | null>(null);
   const [contacts, setContacts] = useState<Array<{ phone_last10: string; name: string | null; phone: string | null }>>([]);
   const [contactQuery, setContactQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const manualCopyRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (!manualCopy) return;
+    requestAnimationFrame(() => {
+      manualCopyRef.current?.focus();
+      manualCopyRef.current?.select();
+    });
+  }, [manualCopy]);
 
   // Load saved transcript when ?id= is present
   useEffect(() => {
