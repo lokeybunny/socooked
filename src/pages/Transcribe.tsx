@@ -467,11 +467,15 @@ export default function Transcribe() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
-                            await navigator.clipboard.writeText(text);
-                            setCopiedWants(true);
-                            setTimeout(() => setCopiedWants(false), 1500);
-                            toast({ title: "Copied bullet list to clipboard" });
+                            try {
+                              const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
+                              await navigator.clipboard.writeText(text);
+                              setCopiedWants(true);
+                              setTimeout(() => setCopiedWants(false), 1500);
+                              toast({ title: "Copied bullet list to clipboard" });
+                            } catch {
+                              toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                            }
                           }}
                         >
                           {copiedWants ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
