@@ -337,12 +337,26 @@ export default function Transcribe() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } else {
-      toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access. Try selecting and copying manually.", variant: "destructive" });
+      setManualCopy({ title: "Copy transcript", text: result.transcript });
     }
   };
 
   return (
     <AppLayout>
+      <Dialog open={!!manualCopy} onOpenChange={(open) => !open && setManualCopy(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{manualCopy?.title || "Copy text"}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            ref={manualCopyRef}
+            value={manualCopy?.text || ""}
+            readOnly
+            className="min-h-[320px] font-mono text-xs"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </DialogContent>
+      </Dialog>
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
