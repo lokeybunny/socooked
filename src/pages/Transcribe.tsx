@@ -292,9 +292,13 @@ export default function Transcribe() {
 
   const copyTranscript = async () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result.transcript);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(result.transcript);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access. Try selecting and copying manually.", variant: "destructive" });
+    }
   };
 
   return (
@@ -463,11 +467,15 @@ export default function Transcribe() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
-                            await navigator.clipboard.writeText(text);
-                            setCopiedWants(true);
-                            setTimeout(() => setCopiedWants(false), 1500);
-                            toast({ title: "Copied bullet list to clipboard" });
+                            try {
+                              const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
+                              await navigator.clipboard.writeText(text);
+                              setCopiedWants(true);
+                              setTimeout(() => setCopiedWants(false), 1500);
+                              toast({ title: "Copied bullet list to clipboard" });
+                            } catch {
+                              toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                            }
                           }}
                         >
                           {copiedWants ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
@@ -502,10 +510,14 @@ export default function Transcribe() {
                             variant="outline"
                             size="sm"
                             onClick={async () => {
-                              await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
-                              setCopiedPrompt(true);
-                              setTimeout(() => setCopiedPrompt(false), 1500);
-                              toast({ title: "Copied prompt to clipboard" });
+                              try {
+                                await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                                setCopiedPrompt(true);
+                                setTimeout(() => setCopiedPrompt(false), 1500);
+                                toast({ title: "Copied prompt to clipboard" });
+                              } catch {
+                                toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                              }
                             }}
                           >
                             {copiedPrompt ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
@@ -514,7 +526,9 @@ export default function Transcribe() {
                           <Button
                             size="sm"
                             onClick={async () => {
-                              await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                              try {
+                                await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                              } catch { /* ignore */ }
                               window.open("https://chat.openai.com/", "_blank");
                             }}
                           >
