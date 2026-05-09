@@ -528,7 +528,7 @@ export default function Transcribe() {
                               setTimeout(() => setCopiedWants(false), 1500);
                               toast({ title: "Copied bullet list to clipboard" });
                             } else {
-                              toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                              setManualCopy({ title: "Copy bullets", text });
                             }
                           }}
                         >
@@ -570,7 +570,7 @@ export default function Transcribe() {
                                 setTimeout(() => setCopiedPrompt(false), 1500);
                                 toast({ title: "Copied prompt to clipboard" });
                               } else {
-                                toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                                setManualCopy({ title: "Copy prompt", text: result.analysis!.chatgpt_prompt! });
                               }
                             }}
                           >
@@ -580,7 +580,9 @@ export default function Transcribe() {
                           <Button
                             size="sm"
                             onClick={async () => {
-                              await safeCopyText(result.analysis!.chatgpt_prompt!);
+                              const prompt = result.analysis!.chatgpt_prompt!;
+                              const ok = await safeCopyText(prompt);
+                              if (!ok) setManualCopy({ title: "Copy prompt", text: prompt });
                               window.open("https://chat.openai.com/", "_blank");
                             }}
                           >
