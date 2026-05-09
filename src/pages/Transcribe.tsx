@@ -495,13 +495,13 @@ export default function Transcribe() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            try {
-                              const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
-                              await navigator.clipboard.writeText(text);
+                            const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
+                            const ok = await safeCopyText(text);
+                            if (ok) {
                               setCopiedWants(true);
                               setTimeout(() => setCopiedWants(false), 1500);
                               toast({ title: "Copied bullet list to clipboard" });
-                            } catch {
+                            } else {
                               toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
                             }
                           }}
@@ -538,12 +538,12 @@ export default function Transcribe() {
                             variant="outline"
                             size="sm"
                             onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                              const ok = await safeCopyText(result.analysis!.chatgpt_prompt!);
+                              if (ok) {
                                 setCopiedPrompt(true);
                                 setTimeout(() => setCopiedPrompt(false), 1500);
                                 toast({ title: "Copied prompt to clipboard" });
-                              } catch {
+                              } else {
                                 toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
                               }
                             }}
@@ -554,9 +554,7 @@ export default function Transcribe() {
                           <Button
                             size="sm"
                             onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
-                              } catch { /* ignore */ }
+                              await safeCopyText(result.analysis!.chatgpt_prompt!);
                               window.open("https://chat.openai.com/", "_blank");
                             }}
                           >
