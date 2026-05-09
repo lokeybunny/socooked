@@ -292,9 +292,13 @@ export default function Transcribe() {
 
   const copyTranscript = async () => {
     if (!result) return;
-    await navigator.clipboard.writeText(result.transcript);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(result.transcript);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access. Try selecting and copying manually.", variant: "destructive" });
+    }
   };
 
   return (
