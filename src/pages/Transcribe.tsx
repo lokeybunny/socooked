@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -111,12 +113,22 @@ export default function Transcribe() {
   const [saveTitle, setSaveTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [manualCopy, setManualCopy] = useState<{ title: string; text: string } | null>(null);
   const [contacts, setContacts] = useState<Array<{ phone_last10: string; name: string | null; phone: string | null }>>([]);
   const [contactQuery, setContactQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const manualCopyRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (!manualCopy) return;
+    requestAnimationFrame(() => {
+      manualCopyRef.current?.focus();
+      manualCopyRef.current?.select();
+    });
+  }, [manualCopy]);
 
   // Load saved transcript when ?id= is present
   useEffect(() => {
@@ -325,12 +337,26 @@ export default function Transcribe() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } else {
-      toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access. Try selecting and copying manually.", variant: "destructive" });
+      setManualCopy({ title: "Copy transcript", text: result.transcript });
     }
   };
 
   return (
     <AppLayout>
+      <Dialog open={!!manualCopy} onOpenChange={(open) => !open && setManualCopy(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{manualCopy?.title || "Copy text"}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            ref={manualCopyRef}
+            value={manualCopy?.text || ""}
+            readOnly
+            className="min-h-[320px] font-mono text-xs"
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </DialogContent>
+      </Dialog>
     <div className="container mx-auto p-6 max-w-6xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -502,7 +528,7 @@ export default function Transcribe() {
                               setTimeout(() => setCopiedWants(false), 1500);
                               toast({ title: "Copied bullet list to clipboard" });
                             } else {
-                              toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                              setManualCopy({ title: "Copy bullets", text });
                             }
                           }}
                         >
@@ -544,7 +570,7 @@ export default function Transcribe() {
                                 setTimeout(() => setCopiedPrompt(false), 1500);
                                 toast({ title: "Copied prompt to clipboard" });
                               } else {
-                                toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
+                                setManualCopy({ title: "Copy prompt", text: result.analysis!.chatgpt_prompt! });
                               }
                             }}
                           >
@@ -554,7 +580,9 @@ export default function Transcribe() {
                           <Button
                             size="sm"
                             onClick={async () => {
-                              await safeCopyText(result.analysis!.chatgpt_prompt!);
+                              const prompt = result.analysis!.chatgpt_prompt!;
+                              const ok = await safeCopyText(prompt);
+                              if (!ok) setManualCopy({ title: "Copy prompt", text: prompt });
                               window.open("https://chat.openai.com/", "_blank");
                             }}
                           >
