@@ -70,6 +70,34 @@ function fmtTime(s: number) {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+async function safeCopyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the textarea fallback when iframe permissions block Clipboard API.
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    textarea.style.top = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
 export default function Transcribe() {
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -292,11 +320,11 @@ export default function Transcribe() {
 
   const copyTranscript = async () => {
     if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.transcript);
+    const ok = await safeCopyText(result.transcript);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
+    } else {
       toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access. Try selecting and copying manually.", variant: "destructive" });
     }
   };
@@ -467,13 +495,13 @@ export default function Transcribe() {
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            try {
-                              const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
-                              await navigator.clipboard.writeText(text);
+                            const text = result.analysis!.client_wants!.map((w) => `• ${w}`).join("\n");
+                            const ok = await safeCopyText(text);
+                            if (ok) {
                               setCopiedWants(true);
                               setTimeout(() => setCopiedWants(false), 1500);
                               toast({ title: "Copied bullet list to clipboard" });
-                            } catch {
+                            } else {
                               toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
                             }
                           }}
@@ -510,12 +538,12 @@ export default function Transcribe() {
                             variant="outline"
                             size="sm"
                             onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
+                              const ok = await safeCopyText(result.analysis!.chatgpt_prompt!);
+                              if (ok) {
                                 setCopiedPrompt(true);
                                 setTimeout(() => setCopiedPrompt(false), 1500);
                                 toast({ title: "Copied prompt to clipboard" });
-                              } catch {
+                              } else {
                                 toast({ title: "Clipboard blocked", description: "Your browser blocked clipboard access.", variant: "destructive" });
                               }
                             }}
@@ -526,9 +554,7 @@ export default function Transcribe() {
                           <Button
                             size="sm"
                             onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(result.analysis!.chatgpt_prompt!);
-                              } catch { /* ignore */ }
+                              await safeCopyText(result.analysis!.chatgpt_prompt!);
                               window.open("https://chat.openai.com/", "_blank");
                             }}
                           >
