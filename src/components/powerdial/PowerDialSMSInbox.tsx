@@ -1044,7 +1044,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     <>
     <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
-      <div className={`md:w-[300px] md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
+      <div className={`md:w-[300px] md:shrink-0 md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
         <div className="p-3 border-b border-border flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-purple-400" />
           <span className="text-sm font-semibold flex-1">SMS Inbox</span>
