@@ -1238,7 +1238,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           </div>
         ) : activeThread ? (
           <>
-            <div className="p-3 border-b border-border flex items-center gap-2">
+            <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
               <Button size="sm" variant="ghost" className="md:hidden" onClick={() => setActiveThread(null)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
