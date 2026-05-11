@@ -1044,7 +1044,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     <>
     <div className="glass-card flex flex-col md:flex-row min-h-[500px] max-h-[calc(100vh-260px)] overflow-hidden">
       {/* Threads list */}
-      <div className={`md:w-[300px] md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
+      <div className={`md:w-[300px] md:shrink-0 md:border-r border-border ${activeThread ? 'hidden md:block' : 'block'}`}>
         <div className="p-3 border-b border-border flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-purple-400" />
           <span className="text-sm font-semibold flex-1">SMS Inbox</span>
@@ -1208,7 +1208,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       </div>
 
       {/* Conversation / compose */}
-      <div className={`flex-1 flex flex-col ${activeThread || showCompose ? 'flex' : 'hidden md:flex'}`}>
+      <div className={`flex-1 min-w-0 flex flex-col ${activeThread || showCompose ? 'flex' : 'hidden md:flex'}`}>
         {showCompose ? (
           <div className="p-4 space-y-3 flex-1 flex flex-col">
             <div className="flex items-center gap-2">
@@ -1238,7 +1238,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           </div>
         ) : activeThread ? (
           <>
-            <div className="p-3 border-b border-border flex items-center gap-2">
+            <div className="p-3 border-b border-border flex flex-wrap items-center gap-2">
               <Button size="sm" variant="ghost" className="md:hidden" onClick={() => setActiveThread(null)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
