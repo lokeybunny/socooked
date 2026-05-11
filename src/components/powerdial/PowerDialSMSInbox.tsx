@@ -1208,7 +1208,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       </div>
 
       {/* Conversation / compose */}
-      <div className={`flex-1 flex flex-col ${activeThread || showCompose ? 'flex' : 'hidden md:flex'}`}>
+      <div className={`flex-1 min-w-0 flex flex-col ${activeThread || showCompose ? 'flex' : 'hidden md:flex'}`}>
         {showCompose ? (
           <div className="p-4 space-y-3 flex-1 flex flex-col">
             <div className="flex items-center gap-2">
