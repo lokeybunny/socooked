@@ -469,15 +469,14 @@ function GlobalAppSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const AUTO_REPLY = "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from('app_settings')
         .select('key, value')
-        .in('key', [
-          'teleprompter_default_script',
-          'sms_quick_text',
-        ]);
+        .in('key', ['teleprompter_default_script', 'sms_quick_text']);
       for (const row of data || []) {
         if (row.key === 'teleprompter_default_script') setScript(String((row.value as any)?.body || ''));
         if (row.key === 'sms_quick_text') setQuickText(String((row.value as any)?.body || ''));
@@ -521,6 +520,19 @@ function GlobalAppSettings() {
           value={quickText}
           onChange={(e) => setQuickText(e.target.value)}
         />
+      </div>
+
+      <div className="border-t border-border pt-4 space-y-2">
+        <Label className="text-foreground">Auto-Reply Message (Dropped Call / Vapi Hangup)</Label>
+        <p className="text-[10px] text-muted-foreground">
+          Sent automatically when a lead hangs up after speaking with a human or AI.
+        </p>
+        <div className="rounded border border-border bg-muted/30 p-3 text-xs text-foreground/90">
+          {AUTO_REPLY}
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          To change this message, update the First-Time Texter Auto-Reply in SMS Settings.
+        </p>
       </div>
 
       <Button onClick={save} disabled={saving} size="sm">
