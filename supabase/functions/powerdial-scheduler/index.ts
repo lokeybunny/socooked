@@ -176,6 +176,18 @@ Deno.serve(async (req) => {
       // This means a stale dialing row exists between stallThresholdMs and stuckThresholdMs.
       // Surface it so the user knows the queue is wedged before the 5-min auto-recovery kicks in.
       if ((tickResult as any)?.reason === "already_dialing") {
+        // Rate-limit: only alert once per 10 minutes per campaign to avoid spam
+        const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+        const { count: recentAlerts } = await sb
+          .from("activity_log")
+          .select("id", { count: "exact", head: true })
+          .eq("entity_type", "powerdial_stuck_queue")
+          .eq("entity_id", camp.id)
+          .eq("action", "stuck_alert")
+          .gte("created_at", tenMinAgo);
+
+        if ((recentAlerts ?? 0) > 0) continue;
+
         const { data: stale } = await sb
           .from("powerdial_queue")
           .select("id, phone, updated_at")
