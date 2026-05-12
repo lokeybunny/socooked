@@ -135,10 +135,10 @@ export default function HotReplies() {
 
   const stats = useMemo(() => {
     const total = rows.length;
-    const hot = rows.filter(r => r.is_hot && !r.is_opt_out).length;
-    const pricing = rows.filter(r => r.ai_classification === "PRICING_QUESTION").length;
-    const callback = rows.filter(r => r.ai_classification === "CALLBACK_REQUEST").length;
-    const optOut = rows.filter(r => r.is_opt_out).length;
+    const hot = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called").length;
+    const pricing = rows.filter(r => r.ai_classification === "PRICING_QUESTION" && r.call_status === "not_called").length;
+    const callback = rows.filter(r => r.ai_classification === "CALLBACK_REQUEST" && r.call_status === "not_called").length;
+    const optOut = rows.filter(r => r.is_opt_out && r.call_status === "not_called").length;
     const notCalled = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called").length;
     const today = new Date().toISOString().slice(0, 10);
     const calledToday = rows.filter(r => r.call_status !== "not_called" && r.imported_at?.slice(0, 10) === today).length;
@@ -152,13 +152,17 @@ export default function HotReplies() {
 
   const filtered = useMemo(() => {
     let list = rows;
-    if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out);
-    else if (filter === "needs_review") list = list.filter(r => r.ai_classification === "NEEDS_REVIEW");
-    else if (filter === "pricing") list = list.filter(r => r.ai_classification === "PRICING_QUESTION");
-    else if (filter === "callback") list = list.filter(r => r.ai_classification === "CALLBACK_REQUEST");
-    else if (filter === "not_called") list = list.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called");
-    else if (filter === "called") list = list.filter(r => r.call_status !== "not_called");
-    else if (filter === "opt_outs") list = list.filter(r => r.is_opt_out);
+    if (filter === "called") {
+      list = list.filter(r => r.call_status !== "not_called");
+    } else {
+      list = list.filter(r => r.call_status === "not_called");
+      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out);
+      else if (filter === "needs_review") list = list.filter(r => r.ai_classification === "NEEDS_REVIEW");
+      else if (filter === "pricing") list = list.filter(r => r.ai_classification === "PRICING_QUESTION");
+      else if (filter === "callback") list = list.filter(r => r.ai_classification === "CALLBACK_REQUEST");
+      else if (filter === "not_called") list = list.filter(r => r.is_hot && !r.is_opt_out);
+      else if (filter === "opt_outs") list = list.filter(r => r.is_opt_out);
+    }
     if (campaignFilter !== "all") list = list.filter(r => r.campaign_name === campaignFilter);
     if (search) {
       const q = search.toLowerCase();
