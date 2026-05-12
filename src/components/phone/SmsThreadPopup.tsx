@@ -407,15 +407,29 @@ export function SmsThreadPopup({
                   size="sm"
                   onClick={send}
                   disabled={sending || (!body.trim() && attachments.filter((a) => !a.uploading && a.url).length === 0)}
-                  className={
-                    attachments.filter((a) => !a.uploading && a.url).length > 0
+                  className={`gap-1.5 ${
+                    hasMedia
                       ? "bg-emerald-500 hover:bg-emerald-600"
-                      : routeImessage
+                      : effectiveImessage
                         ? "bg-[#007AFF] hover:bg-[#0066DD]"
                         : "bg-emerald-500 hover:bg-emerald-600"
+                  }`}
+                  title={
+                    hasMedia
+                      ? (routeImessage ? "iMessage disabled — sending as MMS (media attached)" : "Send MMS")
+                      : effectiveImessage ? "Send iMessage" : "Send SMS"
                   }
                 >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span className="text-[11px] font-semibold">
+                        {hasMedia ? "MMS" : effectiveImessage ? "iMessage" : "SMS"}
+                      </span>
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
