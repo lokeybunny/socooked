@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, CalendarClock, Paperclip, X as XIcon, ImageIcon } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, PhoneForwarded, CalendarClock, Paperclip, X as XIcon, ImageIcon } from 'lucide-react';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -76,6 +76,7 @@ export default function PowerDialSMSInbox() {
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(new Set());
+  const [vipRouteSet, setVipRouteSet] = useState<Set<string>>(new Set());
   const PIN_ORDER_KEY = 'powerdial-sms-pin-order-v1';
   const [pinOrder, setPinOrder] = useState<string[]>(() => {
     try { const raw = localStorage.getItem(PIN_ORDER_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
@@ -228,11 +229,12 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { contactsRef.current = contacts; }, [contacts]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned, vip_route');
     const map: Record<string, string> = {};
     const emails: Record<string, string> = {};
     const starred = new Set<string>();
     const pinned = new Set<string>();
+    const vip = new Set<string>();
     const interested = new Set<string>();
     (data || []).forEach((c: any) => {
       if (!c.phone_last10) return;
@@ -240,12 +242,14 @@ export default function PowerDialSMSInbox() {
       if (c.email) emails[c.phone_last10] = c.email;
       if (c.starred) starred.add(c.phone_last10);
       if (c.pinned) pinned.add(c.phone_last10);
+      if (c.vip_route) vip.add(c.phone_last10);
       if (Array.isArray(c.tags) && c.tags.includes('interested')) interested.add(c.phone_last10);
     });
     setContacts(map);
     setContactEmails(emails);
     setStarredSet(starred);
     setPinnedSet(pinned);
+    setVipRouteSet(vip);
     setInterestedSet(interested);
 
     // Load already-funneled contacts (videography-landing source)
@@ -293,6 +297,31 @@ export default function PowerDialSMSInbox() {
       toast.error(err?.message || 'Failed to update pin');
     }
   }, [pinnedSet, contacts, pinOrder, persistPinOrder]);
+
+  const toggleVipRoute = useCallback(async (e: React.MouseEvent, last10: string) => {
+    e.stopPropagation();
+    const enabled = vipRouteSet.has(last10);
+    const next = new Set(vipRouteSet);
+    if (enabled) next.delete(last10); else next.add(last10);
+    setVipRouteSet(next);
+    try {
+      const { error } = await supabase.from('sms_contacts').upsert(
+        {
+          phone_last10: last10,
+          phone: `+1${last10}`,
+          name: contacts[last10] || `+1${last10}`,
+          vip_route: !enabled,
+        },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) throw error;
+      toast.success(enabled ? 'VIP routing off' : 'VIP routing on → (702) 832-2317');
+    } catch (err: any) {
+      setVipRouteSet(vipRouteSet);
+      toast.error(err?.message || 'Failed to update VIP routing');
+    }
+  }, [vipRouteSet, contacts]);
+
 
   const handlePinDrop = useCallback((targetKey: string) => {
     if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
@@ -1199,6 +1228,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                         aria-label={isPinned ? 'Unpin thread' : 'Pin thread'}
                       >
                         <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-emerald-400 rotate-45' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => toggleVipRoute(e, key)}
+                        className={`p-1 rounded transition-colors hover:bg-cyan-500/20 ${vipRouteSet.has(key) ? 'text-cyan-400 bg-cyan-500/10' : 'text-muted-foreground hover:text-cyan-400'}`}
+                        title={vipRouteSet.has(key) ? 'VIP routing ON → calls forward to (702) 832-2317. Click to disable.' : 'Enable VIP call routing → forward this caller to (702) 832-2317'}
+                        aria-label={vipRouteSet.has(key) ? 'Disable VIP routing' : 'Enable VIP routing'}
+                      >
+                        <PhoneForwarded className={`h-3.5 w-3.5 ${vipRouteSet.has(key) ? 'fill-cyan-400/30' : ''}`} />
                       </button>
                       <button
                         onClick={(e) => handleDeleteThread(e, key)}

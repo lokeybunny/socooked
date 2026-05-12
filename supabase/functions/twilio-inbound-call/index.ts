@@ -90,7 +90,16 @@ async function isSignedAgreementCaller(phone: string): Promise<boolean> {
     .eq("status", "signed")
     .ilike("client_phone", `%${last10}%`)
     .limit(1);
-  return Array.isArray(data) && data.length > 0;
+  if (Array.isArray(data) && data.length > 0) return true;
+
+  // Manual VIP routing toggle from SMS dashboard
+  const { data: vip } = await sb
+    .from("sms_contacts")
+    .select("phone_last10")
+    .eq("phone_last10", last10)
+    .eq("vip_route", true)
+    .limit(1);
+  return Array.isArray(vip) && vip.length > 0;
 }
 
 async function findCustomerByPhone(phone: string): Promise<string | null> {
