@@ -183,11 +183,16 @@ export function SmsThreadPopup({
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="flex items-center gap-2 text-base">
-                  <MessageSquare className="h-4 w-4 text-emerald-400" />
+                  <MessageSquare className={`h-4 w-4 ${routeImessage ? "text-[#007AFF]" : "text-emerald-400"}`} />
                   {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
+                  {routeImessage && (
+                    <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#007AFF]/15 text-[#007AFF] text-[10px] font-semibold px-2 py-0.5">
+                      iMessage{routeReason ? ` · ${routeReason}` : ""}
+                    </span>
+                  )}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Send and receive SMS via VoidFix. Identical to the SMS page thread.
+                  {routeImessage ? "Routing via VoidFix iMessage (auto SMS fallback)." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
@@ -235,15 +240,28 @@ export function SmsThreadPopup({
               <div className="space-y-2">
                 {messages.map((m) => {
                   const out = m.direction === "outbound";
+                  const isImsg = isImessageProvider(m.provider);
                   const explicitMedia = Array.isArray(m.media_urls) ? m.media_urls : [];
                   const bodyMedia = extractImageUrls(m.body);
                   const allMedia = Array.from(new Set([...(explicitMedia || []), ...bodyMedia]));
                   const textOnly = stripImageUrls(m.body);
+                  // Bubble palette: iMessage outbound = blue (#007AFF) white text; iMessage inbound = white bg, black text.
+                  // SMS (Android/Twilio): keep emerald outbound / dark card inbound.
+                  const bubble = out
+                    ? isImsg
+                      ? "bg-[#007AFF] text-white rounded-br-sm"
+                      : "bg-emerald-500 text-white rounded-br-sm"
+                    : isImsg
+                      ? "bg-white text-black border border-gray-200 rounded-bl-sm"
+                      : "bg-card border border-border rounded-bl-sm";
+                  const meta = out
+                    ? "text-white/70"
+                    : isImsg
+                      ? "text-gray-500"
+                      : "text-muted-foreground";
                   return (
                     <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                        out ? "bg-emerald-500 text-white rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
-                      }`}>
+                      <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${bubble}`}>
                         {allMedia.length > 0 && (
                           <div className={`grid gap-1.5 mb-1.5 ${allMedia.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
                             {allMedia.map((url) => (
@@ -257,8 +275,9 @@ export function SmsThreadPopup({
                           </div>
                         )}
                         {textOnly && <div>{textOnly}</div>}
-                        <div className={`text-[10px] mt-1 ${out ? "text-white/70" : "text-muted-foreground"}`}>
-                          {new Date(m.created_at).toLocaleString()}
+                        <div className={`text-[10px] mt-1 flex items-center gap-1 ${meta}`}>
+                          {isImsg && <span className="font-semibold">iMessage</span>}
+                          <span>{new Date(m.created_at).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
