@@ -76,6 +76,45 @@ Deno.serve(async (req) => {
       results.push({ campaign_id: campaign.id, name: campaign.name, action: "auto_started", ...result });
     }
 
+    // ── 3. HEARTBEAT TICK: keep running campaigns moving even when no UI is open ──
+    // The webhook chains the next dial when each Twilio callback fires, but if a
+    // callback is dropped/delayed the campaign can stall. This tick re-advances any
+    // running campaign that has no in-flight `dialing` rows so the queue keeps
+    // processing server-side regardless of whether the user has the page open.
+    // The user's manual `stop` action still wins — stopped/paused campaigns are skipped.
+    const stallThresholdMs = 90_000; // 90s with no dial activity = stalled
+    const stallCutoff = new Date(Date.now() - stallThresholdMs).toISOString();
+
+    const { data: runningCampaigns } = await sb
+      .from("powerdial_campaigns")
+      .select("id, name")
+      .eq("status", "running");
+
+    for (const camp of runningCampaigns || []) {
+      // Skip if there is still an in-flight dialing row updated recently
+      const { count: inFlight } = await sb
+        .from("powerdial_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", camp.id)
+        .eq("status", "dialing")
+        .gte("updated_at", stallCutoff);
+
+      if ((inFlight ?? 0) > 0) continue;
+
+      // Make sure there is still pending work; otherwise let the webhook close it out
+      const { count: pending } = await sb
+        .from("powerdial_queue")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", camp.id)
+        .eq("status", "pending");
+
+      if ((pending ?? 0) === 0) continue;
+
+      console.log(`[powerdial-scheduler] Heartbeat advance for stalled campaign ${camp.name} (${camp.id})`);
+      const tickResult = await advanceCampaign(camp.id, "[powerdial-scheduler:tick]");
+      results.push({ campaign_id: camp.id, name: camp.name, action: "heartbeat_advance", ...tickResult });
+    }
+
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
