@@ -69,13 +69,15 @@ export default function HotRepliesPinnedQueue() {
 
   useEffect(() => { localStorage.setItem(FILTER_KEY, filter); }, [filter]);
 
-  const toggleDeactivated = (id: string) => {
+  const toggleDeactivated = async (id: string) => {
     setDeactivated(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       try { localStorage.setItem(DEACTIVATED_KEY, JSON.stringify(Array.from(next))); } catch {}
       return next;
     });
+    // Persist deactivation as "called" so it's also captured in Already Called
+    await supabase.from('hot_reply_imports').update({ call_status: 'called' }).eq('id', id);
   };
 
   const buildSmsPrefill = (phone: string, reply: string) => {
