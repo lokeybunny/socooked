@@ -229,11 +229,12 @@ export default function PowerDialSMSInbox() {
   useEffect(() => { contactsRef.current = contacts; }, [contacts]);
 
   const loadContacts = useCallback(async () => {
-    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned');
+    const { data } = await supabase.from('sms_contacts').select('phone_last10, name, email, starred, tags, pinned, vip_route');
     const map: Record<string, string> = {};
     const emails: Record<string, string> = {};
     const starred = new Set<string>();
     const pinned = new Set<string>();
+    const vip = new Set<string>();
     const interested = new Set<string>();
     (data || []).forEach((c: any) => {
       if (!c.phone_last10) return;
@@ -241,12 +242,14 @@ export default function PowerDialSMSInbox() {
       if (c.email) emails[c.phone_last10] = c.email;
       if (c.starred) starred.add(c.phone_last10);
       if (c.pinned) pinned.add(c.phone_last10);
+      if (c.vip_route) vip.add(c.phone_last10);
       if (Array.isArray(c.tags) && c.tags.includes('interested')) interested.add(c.phone_last10);
     });
     setContacts(map);
     setContactEmails(emails);
     setStarredSet(starred);
     setPinnedSet(pinned);
+    setVipRouteSet(vip);
     setInterestedSet(interested);
 
     // Load already-funneled contacts (videography-landing source)
