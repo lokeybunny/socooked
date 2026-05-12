@@ -1,4 +1,5 @@
 import {
+  advanceCampaign,
   dialNext,
   dialNextBatch,
   sb,
