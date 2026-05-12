@@ -298,6 +298,31 @@ export default function PowerDialSMSInbox() {
     }
   }, [pinnedSet, contacts, pinOrder, persistPinOrder]);
 
+  const toggleVipRoute = useCallback(async (e: React.MouseEvent, last10: string) => {
+    e.stopPropagation();
+    const enabled = vipRouteSet.has(last10);
+    const next = new Set(vipRouteSet);
+    if (enabled) next.delete(last10); else next.add(last10);
+    setVipRouteSet(next);
+    try {
+      const { error } = await supabase.from('sms_contacts').upsert(
+        {
+          phone_last10: last10,
+          phone: `+1${last10}`,
+          name: contacts[last10] || `+1${last10}`,
+          vip_route: !enabled,
+        },
+        { onConflict: 'phone_last10' },
+      );
+      if (error) throw error;
+      toast.success(enabled ? 'VIP routing off' : 'VIP routing on → (702) 832-2317');
+    } catch (err: any) {
+      setVipRouteSet(vipRouteSet);
+      toast.error(err?.message || 'Failed to update VIP routing');
+    }
+  }, [vipRouteSet, contacts]);
+
+
   const handlePinDrop = useCallback((targetKey: string) => {
     if (!dragKey || dragKey === targetKey) { setDragKey(null); return; }
     if (!pinnedSet.has(dragKey) || !pinnedSet.has(targetKey)) { setDragKey(null); return; }
