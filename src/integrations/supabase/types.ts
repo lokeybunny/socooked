@@ -5622,6 +5622,7 @@ export type Database = {
           contact_name: string | null
           created_at: string
           customer_id: string | null
+          human_pickup_count: number
           id: string
           last_dialed_at: string | null
           last_result: string | null
@@ -5638,6 +5639,7 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           customer_id?: string | null
+          human_pickup_count?: number
           id?: string
           last_dialed_at?: string | null
           last_result?: string | null
@@ -5654,6 +5656,7 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           customer_id?: string | null
+          human_pickup_count?: number
           id?: string
           last_dialed_at?: string | null
           last_result?: string | null

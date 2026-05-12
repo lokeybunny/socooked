@@ -1,0 +1,1 @@
+ALTER TABLE public.powerdial_queue ADD COLUMN IF NOT EXISTS human_pickup_count integer NOT NULL DEFAULT 0;
