@@ -1502,7 +1502,7 @@ Deno.serve(async (req) => {
 
       // VOICEMAIL DROP TEXT — send the configured SMS from VoidFix to the same recipient
       if (vmDropped && leadPhone) {
-        const vmSmsEnabled = settingsObj.voicemail_drop_sms_enabled !== false; // default ON
+        const vmSmsEnabled = settingsObj.voicemail_drop_sms_enabled === true; // default OFF (auto-text removed)
         const vmSmsText = (typeof settingsObj.voicemail_drop_sms_text === "string" && settingsObj.voicemail_drop_sms_text.trim())
           ? settingsObj.voicemail_drop_sms_text.trim()
           : DEFAULT_VOICEMAIL_DROP_SMS;
