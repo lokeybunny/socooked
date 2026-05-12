@@ -37,8 +37,7 @@ interface MissingRow {
   retry?: { attempts: number; next_at: string | null; last_error?: string | null };
 }
 
-const DEFAULT_TEXT =
-  "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192.";
+const DEFAULT_TEXT = "";
 
 async function notifyRecovery(
   supa: ReturnType<typeof createClient>,
