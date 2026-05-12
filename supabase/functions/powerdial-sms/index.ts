@@ -23,6 +23,40 @@ const MMS_RESEND_MESSAGE = `I got your message, but this line cannot receive pic
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
+const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_PRIMARY_AUTH_TOKEN") || Deno.env.get("TWILIO_AUTH_TOKEN") || "";
+const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+
+async function sendTwilioMms(to: string, body: string, mediaUrls: string[]): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any }> {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+    return { ok: false, error: "missing_twilio_credentials" };
+  }
+  const toNum = normalizePhone(to);
+  if (!toNum) return { ok: false, error: "invalid_to" };
+
+  const form = new URLSearchParams();
+  form.set("To", toNum);
+  form.set("From", normalizePhone(TWILIO_FROM_NUMBER));
+  if (body) form.set("Body", body);
+  for (const u of mediaUrls.slice(0, 10)) form.append("MediaUrl", u);
+
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { ok: false, status: resp.status, error: data?.message || `twilio_${resp.status}`, raw: data };
+    return { ok: true, id: data?.sid || null, raw: data };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "twilio_fetch_failed" };
+  }
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
