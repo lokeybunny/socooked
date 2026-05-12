@@ -233,7 +233,7 @@ export function SmsThreadPopup({
                   )}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  {routeImessage ? "Routing via VoidFix iMessage (auto SMS fallback)." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
+                  {routeImessage ? "iMessage for text · attachments auto-route as MMS." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
