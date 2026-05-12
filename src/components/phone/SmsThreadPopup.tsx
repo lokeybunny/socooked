@@ -316,8 +316,14 @@ export function SmsThreadPopup({
                           </div>
                         )}
                         {textOnly && <div>{textOnly}</div>}
-                        <div className={`text-[10px] mt-1 flex items-center gap-1 ${meta}`}>
+                        <div className={`text-[10px] mt-1 flex items-center gap-1 flex-wrap ${meta}`}>
                           {isImsg && <span className="font-semibold">iMessage</span>}
+                          {out && !isImsg && allMedia.length > 0 && m.metadata?.hybrid_imessage_thread && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-200 px-1.5 py-0.5 font-semibold">sent as MMS</span>
+                          )}
+                          {out && !isImsg && allMedia.length > 0 && !m.metadata?.hybrid_imessage_thread && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-200 px-1.5 py-0.5 font-semibold">MMS</span>
+                          )}
                           <span>{new Date(m.created_at).toLocaleString()}</span>
                         </div>
                       </div>
