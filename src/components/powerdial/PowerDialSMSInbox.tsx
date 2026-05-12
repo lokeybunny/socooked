@@ -559,7 +559,13 @@ export default function PowerDialSMSInbox() {
     // the recipient has actually replied. These are noise otherwise.
     const isAfkAutoReply = (m: SMSMessage) =>
       m.direction === 'outbound' && /currently in a meeting/i.test(m.body || '');
+    // Hide opt-out threads where any inbound message is just STOP/UNSUBSCRIBE
+    // (or similar single-keyword opt-out). These are auto-DND'd and shouldn't clutter the inbox.
+    const OPT_OUT_RE = /^\s*(stop|stopall|unsubscribe|cancel|end|quit)[\s.!]*$/i;
+    const isOptOutThread = (t: { messages: SMSMessage[] }) =>
+      t.messages.some(m => m.direction === 'inbound' && OPT_OUT_RE.test(m.body || ''));
     const filtered = Array.from(map.values()).filter(t => {
+      if (isOptOutThread(t)) return false;
       const hasInbound = t.messages.some(m => m.direction === 'inbound');
       if (hasInbound) return true;
       const allAfk = t.messages.every(isAfkAutoReply);
