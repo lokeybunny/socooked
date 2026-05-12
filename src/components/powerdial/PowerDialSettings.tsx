@@ -466,12 +466,8 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
 function GlobalAppSettings() {
   const [script, setScript] = useState('');
   const [quickText, setQuickText] = useState('');
-  const [droppedEnabled, setDroppedEnabled] = useState(true);
-  const [droppedBody, setDroppedBody] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  const DEFAULT_DROPPED = "Hi, you just disconnected with my AI assistant. I'm going to call you back directly when I get an opportunity. In the meanwhile, send me a property listing you'd like me to do an AI drone video for. Reminder: no money down whatsoever — no harm, no foul. You only pay $200 (50% off my usual rate) after you like the video. In the meanwhile, check out my Instagram and send me the property address, and I'll call you back with good news after I've created the video for you. https://instagram.com/W4RR3NGuru";
 
   useEffect(() => {
     (async () => {
@@ -481,24 +477,11 @@ function GlobalAppSettings() {
         .in('key', [
           'teleprompter_default_script',
           'sms_quick_text',
-          'powerdial_dropped_call_sms_enabled',
-          'powerdial_dropped_call_sms_body',
         ]);
-      let bodyLoaded = false;
       for (const row of data || []) {
         if (row.key === 'teleprompter_default_script') setScript(String((row.value as any)?.body || ''));
         if (row.key === 'sms_quick_text') setQuickText(String((row.value as any)?.body || ''));
-        if (row.key === 'powerdial_dropped_call_sms_enabled') {
-          const v = (row.value as any)?.enabled;
-          setDroppedEnabled(v !== false);
-        }
-        if (row.key === 'powerdial_dropped_call_sms_body') {
-          const v = String((row.value as any)?.body || '');
-          setDroppedBody(v);
-          if (v) bodyLoaded = true;
-        }
       }
-      if (!bodyLoaded) setDroppedBody(DEFAULT_DROPPED);
       setLoading(false);
     })();
   }, []);
@@ -508,8 +491,6 @@ function GlobalAppSettings() {
     const rows = [
       { key: 'teleprompter_default_script', value: { body: script } },
       { key: 'sms_quick_text', value: { body: quickText } },
-      { key: 'powerdial_dropped_call_sms_enabled', value: { enabled: droppedEnabled } },
-      { key: 'powerdial_dropped_call_sms_body', value: { body: droppedBody } },
     ];
     const { error } = await supabase.from('app_settings').upsert(rows, { onConflict: 'key' });
     setSaving(false);
@@ -540,36 +521,6 @@ function GlobalAppSettings() {
           value={quickText}
           onChange={(e) => setQuickText(e.target.value)}
         />
-      </div>
-
-      <div className="border-t border-border pt-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label className="text-foreground">Dropped Live-Call Auto SMS</Label>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Automatically text the lead if they hang up after a live human picks up — unless you already manually sent a text from the Live Transfer popup.
-            </p>
-          </div>
-          <label className="inline-flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={droppedEnabled}
-              onChange={(e) => setDroppedEnabled(e.target.checked)}
-              className="h-4 w-4"
-            />
-            <span>{droppedEnabled ? 'Enabled' : 'Disabled'}</span>
-          </label>
-        </div>
-        <textarea
-          className="flex min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          placeholder={DEFAULT_DROPPED}
-          value={droppedBody}
-          onChange={(e) => setDroppedBody(e.target.value)}
-          disabled={!droppedEnabled}
-        />
-        <p className="text-[10px] text-muted-foreground">
-          Replies to this message (other than STOP) automatically enter the Hook Reply campaign.
-        </p>
       </div>
 
       <Button onClick={save} disabled={saving} size="sm">

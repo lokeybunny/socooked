@@ -1,39 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// ─── Disconnected SMS gate (pure, exported for tests) ───
-// Send the "got disconnected" SMS ONLY when:
-//   1. The Vapi event is end-of-call-report (call truly ended — never mid-call)
-//   2. The customer hung up (not the assistant / system)
-//   3. No proposal was sent during this call (proposal flow has its own SMS)
-//   4. We haven't already sent a disconnected SMS for this call
-//   5. We have a destination phone
-export const CUSTOMER_HANGUP_REASONS = [
-  "customer-ended-call",
-  "customer-hung-up",
-  "user-ended-call",
-] as const;
-
-export interface DisconnectGateInput {
-  messageType: string;
-  endedReason: string;
-  proposalSentAtMs: number; // 0 if none
-  callStartedAtMs: number;
-  alreadySent: boolean;
-  toPhone: string | null | undefined;
-}
-
-export function shouldSendDisconnectedSms(i: DisconnectGateInput): boolean {
-  if (i.messageType !== "end-of-call-report") return false;
-  if (!i.toPhone) return false;
-  if (i.alreadySent) return false;
-  if (!CUSTOMER_HANGUP_REASONS.includes(i.endedReason as any)) return false;
-  const proposalSentThisCall =
-    i.proposalSentAtMs > 0 && i.proposalSentAtMs >= i.callStartedAtMs - 60_000;
-  if (proposalSentThisCall) return false;
-  return true;
-}
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -807,94 +774,6 @@ serve(async (req) => {
         }
 
         // ─── Customer hung up on AI mid-call → fire "got disconnected" SMS ───
-        // Only fires when a proposal was already sent on this call (so we have
-        // a real conversation worth recovering), and only once per call.
-        try {
-          const refreshed = await sb.from("customers").select("meta").eq("id", customerLead.id).maybeSingle();
-          const refreshedMeta = (refreshed.data?.meta as any) || {};
-          let proposalSentAt = refreshedMeta?.proposal_sent_at ? new Date(refreshedMeta.proposal_sent_at).getTime() : 0;
-          const callStartedAt = message.call?.startedAt ? new Date(message.call.startedAt).getTime() : (Date.now() - duration * 1000);
-          const toPhone = normalizePhone(customerLead.phone || customerPhone);
-
-          // Cross-check the proposals table directly. The proposal sender may
-          // attach to a different customer record (matched by email) than the
-          // one the webhook resolves (matched by phone/call_id). Without this,
-          // the disconnect SMS fires even though a proposal was just sent.
-          try {
-            const phoneDigits = (toPhone || "").replace(/\D/g, "").slice(-10);
-            const sinceIso = new Date(callStartedAt - 60_000).toISOString();
-            let q = sb.from("proposals").select("sent_at,client_phone,client_email,customer_id")
-              .gte("sent_at", sinceIso).not("sent_at", "is", null)
-              .order("sent_at", { ascending: false }).limit(5);
-            const { data: recentProps } = await q;
-            for (const p of recentProps || []) {
-              const pPhone = String(p.client_phone || "").replace(/\D/g, "").slice(-10);
-              const matchPhone = phoneDigits && pPhone && pPhone === phoneDigits;
-              const matchCust = p.customer_id && p.customer_id === customerLead.id;
-              if (matchPhone || matchCust) {
-                const t = new Date(p.sent_at as string).getTime();
-                if (t > proposalSentAt) proposalSentAt = t;
-              }
-            }
-          } catch (xErr) {
-            console.error("[end-of-call] proposals cross-check error", xErr);
-          }
-
-          const proposalSentThisCall = proposalSentAt > 0 && proposalSentAt >= callStartedAt - 60_000;
-          const customerHungUp = CUSTOMER_HANGUP_REASONS.includes(endedReason as any);
-          // Scope "already sent" to THIS call so a sticky flag from a prior call
-          // doesn't permanently suppress future disconnect texts.
-          const alreadySent = refreshedMeta?.vapi_disconnected_sms_call_id === callId;
-          const shouldSend = shouldSendDisconnectedSms({
-            messageType,
-            endedReason,
-            proposalSentAtMs: proposalSentAt,
-            callStartedAtMs: callStartedAt,
-            alreadySent,
-            toPhone,
-          });
-
-          if (shouldSend) {
-            // Reuse same configurable body as powerdial dropped-call SMS
-            const { data: settingRow } = await sb.from("app_settings")
-              .select("key, value")
-              .in("key", ["powerdial_dropped_call_sms_enabled", "powerdial_dropped_call_sms_body"]);
-            let enabled = true;
-            let body = "Hi, you just disconnected with my AI assistant. I'm going to call you back directly when I get an opportunity. In the meanwhile, send me a property listing you'd like me to do an AI drone video for. Reminder: no money down whatsoever — no harm, no foul. You only pay $200 (50% off my usual rate) after you like the video. In the meanwhile, check out my Instagram and send me the property address, and I'll call you back with good news after I've created the video for you. https://instagram.com/W4RR3NGuru";
-            for (const r of settingRow || []) {
-              if (r.key === "powerdial_dropped_call_sms_enabled" && (r.value as any)?.enabled === false) enabled = false;
-              if (r.key === "powerdial_dropped_call_sms_body") {
-                const v = (r.value as any)?.body;
-                if (typeof v === "string" && v.trim()) body = v.trim();
-              }
-            }
-
-            if (enabled && body && toPhone) {
-              await sb.from("customers").update({
-                meta: { ...refreshedMeta, vapi_disconnected_sms_sent: true, vapi_disconnected_sms_at: new Date().toISOString(), vapi_disconnected_sms_call_id: callId },
-              }).eq("id", customerLead.id);
-
-              const smsResp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
-                body: JSON.stringify({
-                  action: "send",
-                  to: toPhone,
-                  body,
-                  customer_id: customerLead.id,
-                  source: "powerdial-dropped-call-sms",
-                  metadata: { source: "vapi-disconnected-sms", call_id: callId, ended_reason: endedReason },
-                }),
-              }).catch((e) => { console.error("[end-of-call] disconnected SMS error", e); return null; });
-              console.log(`[end-of-call] Vapi-disconnected SMS dispatched to ${toPhone} (status=${smsResp?.status})`);
-            }
-          } else {
-            console.log(`[end-of-call] Disconnected SMS gated: hungUp=${customerHungUp} proposalThisCall=${proposalSentThisCall} alreadySent=${alreadySent} reason=${endedReason}`);
-          }
-        } catch (discErr) {
-          console.error("[end-of-call] Disconnected SMS handler error:", discErr);
-        }
-
         // Log to communications table for audit trail
         await sb.from("communications").insert({
           customer_id: customerLead.id,
