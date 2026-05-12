@@ -317,8 +317,8 @@ export default function HotReplies() {
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
                           <div className="flex justify-end gap-1">
-                            <Button size="sm" variant="default" asChild>
-                              <a href={`tel:${r.phone}`} onClick={() => openLead(r)}><Phone className="h-3 w-3" /> Call</a>
+                            <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
+                              <Phone className="h-3 w-3" /> Call
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
                           </div>
