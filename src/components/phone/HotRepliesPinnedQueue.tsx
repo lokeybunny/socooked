@@ -1,11 +1,12 @@
 // Pinned Hot Replies queue — sits at the top of the Manual Campaign Dialer.
 // Auto-rotates as new hot replies are imported. Mirrors the campaign queue
 // row UI: name, phone, reply text, and Text / Call / Deactivate buttons.
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, MessageSquare, UserX, Flame, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { SmsThreadPopup } from '@/components/phone/SmsThreadPopup';
@@ -19,30 +20,40 @@ type HotRow = {
   campaign_name: string | null;
   ai_classification: string | null;
   is_opt_out: boolean;
+  is_hot: boolean;
   call_status: string;
 };
 
 const DEACTIVATED_KEY = 'hot-replies-pinned-deactivated-v1';
+const FILTER_KEY = 'hot-replies-pinned-filter-v1';
+
+const CLASS_BADGE: Record<string, string> = {
+  HOT_POSITIVE: 'bg-red-500/15 text-red-400 border-red-500/30',
+  WARM_INTERESTED: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  PRICING_QUESTION: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  CALLBACK_REQUEST: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  NEEDS_REVIEW: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+};
 
 export default function HotRepliesPinnedQueue() {
   const [rows, setRows] = useState<HotRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
+  const [filter, setFilter] = useState<string>(() => localStorage.getItem(FILTER_KEY) || 'hot');
   const [deactivated, setDeactivated] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(DEACTIVATED_KEY) || '[]')); } catch { return new Set(); }
   });
 
   const load = useCallback(async () => {
     setLoading(true);
+    // Pull a wide net (any non-opt-out reply with a classification) so we can
+    // filter client-side the same way the Hot Replies page does.
     const { data } = await supabase
       .from('hot_reply_imports')
-      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, call_status')
-      .eq('is_hot', true)
+      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status')
       .eq('is_opt_out', false)
-      .neq('call_status', 'not_interested')
-      .neq('call_status', 'opt_out')
       .order('imported_at', { ascending: false })
-      .limit(100);
+      .limit(300);
     setRows((data as HotRow[]) || []);
     setLoading(false);
   }, []);
@@ -55,6 +66,8 @@ export default function HotRepliesPinnedQueue() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
+
+  useEffect(() => { localStorage.setItem(FILTER_KEY, filter); }, [filter]);
 
   const toggleDeactivated = (id: string) => {
     setDeactivated(prev => {
@@ -76,16 +89,42 @@ export default function HotRepliesPinnedQueue() {
 
   const callViaTwilio = async (row: HotRow) => {
     window.dispatchEvent(new CustomEvent('twilio:dial', { detail: { phone: row.phone } }));
-    // Best-effort mark as called
     await supabase.from('hot_reply_imports').update({ call_status: 'called' }).eq('id', row.id);
     toast.success(`Calling ${row.first_name || row.phone} via Twilio…`);
   };
 
-  const visible = rows.filter(r => !deactivated.has(r.id));
+  // Match HotReplies page filter semantics
+  const filtered = useMemo(() => {
+    let list = rows.filter(r => !r.is_opt_out && r.call_status !== 'not_interested' && r.call_status !== 'opt_out');
+    if (filter === 'hot') list = list.filter(r => r.is_hot);
+    else if (filter === 'warm') list = list.filter(r => r.ai_classification === 'WARM_INTERESTED');
+    else if (filter === 'positive') list = list.filter(r => r.ai_classification === 'HOT_POSITIVE');
+    else if (filter === 'pricing') list = list.filter(r => r.ai_classification === 'PRICING_QUESTION');
+    else if (filter === 'callback') list = list.filter(r => r.ai_classification === 'CALLBACK_REQUEST');
+    else if (filter === 'needs_review') list = list.filter(r => r.ai_classification === 'NEEDS_REVIEW');
+    else if (filter === 'not_called') list = list.filter(r => r.is_hot && r.call_status === 'not_called');
+    // 'all' = everything not filtered above
+    return list;
+  }, [rows, filter]);
+
+  const counts = useMemo(() => {
+    const base = rows.filter(r => !r.is_opt_out);
+    return {
+      hot: base.filter(r => r.is_hot).length,
+      warm: base.filter(r => r.ai_classification === 'WARM_INTERESTED').length,
+      positive: base.filter(r => r.ai_classification === 'HOT_POSITIVE').length,
+      pricing: base.filter(r => r.ai_classification === 'PRICING_QUESTION').length,
+      callback: base.filter(r => r.ai_classification === 'CALLBACK_REQUEST').length,
+      needs_review: base.filter(r => r.ai_classification === 'NEEDS_REVIEW').length,
+      not_called: base.filter(r => r.is_hot && r.call_status === 'not_called').length,
+    };
+  }, [rows]);
+
+  const visible = filtered.filter(r => !deactivated.has(r.id));
 
   return (
     <div className="rounded-xl border-2 border-orange-500/40 bg-gradient-to-br from-orange-500/5 to-red-500/5 p-3 space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Flame className="h-4 w-4 text-orange-400" />
           <h3 className="text-sm font-semibold text-foreground">Hot Replies Queue</h3>
@@ -93,20 +132,38 @@ export default function HotRepliesPinnedQueue() {
             {visible.length} live
           </Badge>
         </div>
-        <Button variant="ghost" size="sm" onClick={load} className="h-7">
-          <RefreshCw className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="h-7 w-[180px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hot">🔥 Hot Only ({counts.hot})</SelectItem>
+              <SelectItem value="positive">Hot Positive ({counts.positive})</SelectItem>
+              <SelectItem value="warm">Warm Interested ({counts.warm})</SelectItem>
+              <SelectItem value="pricing">Pricing Questions ({counts.pricing})</SelectItem>
+              <SelectItem value="callback">Callback Requests ({counts.callback})</SelectItem>
+              <SelectItem value="needs_review">Needs Review ({counts.needs_review})</SelectItem>
+              <SelectItem value="not_called">Not Called Yet ({counts.not_called})</SelectItem>
+              <SelectItem value="all">All (non opt-out)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" size="sm" onClick={load} className="h-7">
+            <RefreshCw className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       <ScrollArea className="h-[260px] rounded-lg border border-border bg-background/30">
         {loading ? (
           <div className="p-6 text-center text-xs text-muted-foreground">Loading hot replies…</div>
         ) : visible.length === 0 ? (
-          <div className="p-6 text-center text-xs text-muted-foreground">No hot replies in queue</div>
+          <div className="p-6 text-center text-xs text-muted-foreground">No replies match this filter</div>
         ) : (
           <div className="divide-y divide-border">
             {visible.map((r, idx) => {
               const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unknown';
+              const cls = r.ai_classification || '';
               return (
                 <div key={r.id} className="px-3 py-2.5">
                   <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-2">
@@ -114,8 +171,10 @@ export default function HotRepliesPinnedQueue() {
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
                         {name}
-                        {r.ai_classification && (
-                          <span className="ml-2 text-[9px] uppercase tracking-wider text-orange-300">· {r.ai_classification}</span>
+                        {cls && (
+                          <Badge variant="outline" className={`ml-2 text-[9px] ${CLASS_BADGE[cls] || ''}`}>
+                            {cls}
+                          </Badge>
                         )}
                       </p>
                       <p className="text-[11px] font-mono text-muted-foreground">{r.phone}</p>
