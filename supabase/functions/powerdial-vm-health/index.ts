@@ -37,8 +37,7 @@ interface MissingRow {
   retry?: { attempts: number; next_at: string | null; last_error?: string | null };
 }
 
-const DEFAULT_TEXT =
-  "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192.";
+const DEFAULT_TEXT = "";
 
 async function notifyRecovery(
   supa: ReturnType<typeof createClient>,
@@ -202,7 +201,7 @@ Deno.serve(async (req) => {
       const priorAttempts = Number(priorRetry.attempts ?? 0);
       const wasFailing = priorAttempts > 0;
 
-      if (settings?.voicemail_drop_sms_enabled === false) {
+      if (settings?.voicemail_drop_sms_enabled !== true) {
         repairs.push({ call_log_id: m.call_log_id, ok: false, error: "sms disabled in campaign", attempts: priorAttempts });
         continue;
       }
@@ -210,6 +209,10 @@ Deno.serve(async (req) => {
       const text =
         (typeof settings?.voicemail_drop_sms_text === "string" && settings.voicemail_drop_sms_text.trim()) ||
         DEFAULT_TEXT;
+      if (!text) {
+        repairs.push({ call_log_id: m.call_log_id, ok: false, error: "sms text empty", attempts: priorAttempts });
+        continue;
+      }
 
       let ok = false;
       let errMsg: string | null = null;

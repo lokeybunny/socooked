@@ -55,11 +55,8 @@ function getSettingsFormState(settings: any) {
     smsSequenceId: String(nextSettings.sms_sequence_id || 'none'),
     voicemailDropEnabled: nextSettings.voicemail_drop_enabled !== false,
     voicemailDropUrl: String(nextSettings.voicemail_drop_url || ''),
-    voicemailDropSmsEnabled: nextSettings.voicemail_drop_sms_enabled !== false,
-    voicemailDropSmsText: String(
-      nextSettings.voicemail_drop_sms_text ||
-        "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192."
-    ),
+    voicemailDropSmsEnabled: nextSettings.voicemail_drop_sms_enabled === true,
+    voicemailDropSmsText: String(nextSettings.voicemail_drop_sms_text || ''),
   };
 }
 
@@ -414,7 +411,7 @@ export default function PowerDialSettings({ campaign, onUpdate }: Props) {
             onChange={(e) => setVoicemailDropSmsText(e.target.value)}
             disabled={!voicemailDropEnabled || !voicemailDropSmsEnabled}
             rows={4}
-            placeholder="Hi this is Warren Guru. Just left you a voice mail…"
+            placeholder="(empty — no auto-text will be sent)"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs disabled:opacity-50"
           />
           <p className="text-[10px] text-muted-foreground">

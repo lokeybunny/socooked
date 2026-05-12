@@ -10,8 +10,7 @@ import { Save, Voicemail, Loader2, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import VoicemailHealthCheck from './VoicemailHealthCheck';
 
-const DEFAULT_VM_SMS_TEXT =
-  "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192.";
+const DEFAULT_VM_SMS_TEXT = "";
 
 type Campaign = { id: string; name: string; settings: any };
 type RecentDrop = {
@@ -27,7 +26,7 @@ type RecentDrop = {
 export default function VoicemailFollowupSettings() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activeId, setActiveId] = useState<string>('');
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [text, setText] = useState(DEFAULT_VM_SMS_TEXT);
   const [saving, setSaving] = useState(false);
   const [recent, setRecent] = useState<RecentDrop[]>([]);
