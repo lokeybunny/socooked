@@ -110,6 +110,26 @@ export function SmsThreadPopup({
     return () => { supabase.removeChannel(ch); };
   }, [open, last10, load]);
 
+  // Detect iMessage routing: VIP route, existing customer, or prior iMessage thread
+  useEffect(() => {
+    if (!open || last10.length !== 10) { setRouteImessage(false); setRouteReason(""); return; }
+    let cancelled = false;
+    (async () => {
+      const [vipRes, custRes] = await Promise.all([
+        supabase.from("sms_contacts").select("vip_route").eq("phone_last10", last10).maybeSingle(),
+        supabase.from("customers").select("id").ilike("phone", `%${last10}`).limit(1).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      if (vipRes.data?.vip_route) { setRouteImessage(true); setRouteReason("VIP route"); return; }
+      if (custRes.data?.id) { setRouteImessage(true); setRouteReason("Customer"); return; }
+      // Prior iMessage thread heuristic
+      const hadImsg = messages.some((m) => isImessageProvider(m.provider));
+      if (hadImsg) { setRouteImessage(true); setRouteReason("Prior iMessage"); return; }
+      setRouteImessage(false); setRouteReason("");
+    })();
+    return () => { cancelled = true; };
+  }, [open, last10, messages]);
+
   // Auto-scroll to bottom whenever messages change while open
   useEffect(() => {
     if (!open) return;
@@ -124,13 +144,15 @@ export function SmsThreadPopup({
     if (last10.length !== 10) { toast.error("Invalid phone"); return; }
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("powerdial-sms", {
+      const fn = routeImessage ? "voidfix-imessage" : "powerdial-sms";
+      const { data, error } = await supabase.functions.invoke(fn, {
         body: { action: "send", to: e164, body: text },
       });
       if (error || !(data as any)?.ok) {
         toast.error((data as any)?.error || error?.message || "Failed to send");
       } else {
-        toast.success("SMS sent via VoidFix");
+        const channel = (data as any)?.channel;
+        toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
         setBody("");
         load(true);
       }
