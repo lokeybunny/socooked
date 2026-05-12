@@ -143,22 +143,58 @@ export function SmsThreadPopup({
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages, open]);
 
+  const uploadFiles = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    const items = Array.from(files).slice(0, 10 - attachments.length);
+    for (const f of items) {
+      const id = crypto.randomUUID();
+      setAttachments((prev) => [...prev, { id, url: "", name: f.name, uploading: true }]);
+      try {
+        const ext = (f.name.split(".").pop() || "bin").toLowerCase();
+        const path = `sms-attachments/${last10 || "thread"}/${id}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("content-uploads")
+          .upload(path, f, { contentType: f.type || "application/octet-stream", upsert: false });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from("content-uploads").getPublicUrl(path);
+        setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, url: pub.publicUrl, uploading: false } : a)));
+      } catch (e: any) {
+        toast.error(`Upload failed: ${e?.message || "unknown"}`);
+        setAttachments((prev) => prev.filter((a) => a.id !== id));
+      }
+    }
+  };
+
+  const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
+
   const send = async () => {
     const text = body.trim();
-    if (!text) { toast.error("Type a message first"); return; }
+    const ready = attachments.filter((a) => !a.uploading && a.url);
+    if (!text && ready.length === 0) { toast.error("Type a message or attach a file"); return; }
+    if (attachments.some((a) => a.uploading)) { toast.error("Wait for uploads to finish"); return; }
     if (last10.length !== 10) { toast.error("Invalid phone"); return; }
     setSending(true);
     try {
-      const fn = routeImessage ? "voidfix-imessage" : "powerdial-sms";
-      const { data, error } = await supabase.functions.invoke(fn, {
-        body: { action: "send", to: e164, body: text },
-      });
+      // Hybrid: attachments always route through SMS/MMS provider — VoidFix iMessage is text-only.
+      const useMms = ready.length > 0;
+      const fn = useMms ? "powerdial-sms" : (routeImessage ? "voidfix-imessage" : "powerdial-sms");
+      const invokeBody: Record<string, any> = { action: "send", to: e164, body: text };
+      if (useMms) {
+        invokeBody.mediaUrls = ready.map((a) => a.url);
+        invokeBody.hybridImessageThread = routeImessage;
+      }
+      const { data, error } = await supabase.functions.invoke(fn, { body: invokeBody });
       if (error || !(data as any)?.ok) {
         toast.error((data as any)?.error || error?.message || "Failed to send");
       } else {
         const channel = (data as any)?.channel;
-        toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
+        if (useMms) {
+          toast.success(routeImessage ? "Sent as MMS (attachment) 📎" : "MMS sent");
+        } else {
+          toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
+        }
         setBody("");
+        setAttachments([]);
         load(true);
       }
     } finally {
