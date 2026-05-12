@@ -401,13 +401,13 @@ export default function PowerDial() {
     <AppLayout>
       <div className="space-y-5 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-purple-400/20">
               <Sparkles className="h-5 w-5 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">PowerD</h1>
+              <h1 className="text-xl font-bold text-foreground">VM drop</h1>
               <p className="text-xs text-muted-foreground">Automated outbound calling system</p>
             </div>
           </div>
@@ -812,7 +812,7 @@ export default function PowerDial() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New PowerD Campaign</DialogTitle>
+            <DialogTitle>New VM drop Campaign</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
