@@ -13,6 +13,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
+
+function dialViaTwilio(phone: string, navigate: (p: string) => void) {
+  // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
+  navigate("/phone");
+  // Give the page a tick to mount the keypad before dispatching the dial event
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("twilio:dial", { detail: { phone } }));
+  }, 400);
+}
 
 type Reply = {
   id: string;
@@ -60,6 +70,7 @@ const CLASS_COLORS: Record<string, string> = {
 };
 
 export default function HotReplies() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Reply[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -306,8 +317,8 @@ export default function HotReplies() {
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
                           <div className="flex justify-end gap-1">
-                            <Button size="sm" variant="default" asChild>
-                              <a href={`tel:${r.phone}`} onClick={() => openLead(r)}><Phone className="h-3 w-3" /> Call</a>
+                            <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
+                              <Phone className="h-3 w-3" /> Call
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
                           </div>
@@ -384,8 +395,8 @@ export default function HotReplies() {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button asChild disabled={selected.is_opt_out}>
-                    <a href={`tel:${selected.phone}`}><Phone /> Call Now</a>
+                  <Button disabled={selected.is_opt_out} onClick={() => dialViaTwilio(selected.phone, navigate)}>
+                    <Phone /> Call Now
                   </Button>
                   <Select value={selected.call_status} onValueChange={(v) => updateStatus(selected.id, v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>

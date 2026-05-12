@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Teleprompter } from '@/components/phone/Teleprompter';
 import { SmsThreadPopup } from '@/components/phone/SmsThreadPopup';
+import HotRepliesPinnedQueue from '@/components/phone/HotRepliesPinnedQueue';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 type Campaign = { id: string; name: string; status: string; total_leads: number };
@@ -242,6 +243,9 @@ export default function CampaignManualDialer() {
 
   return (
     <div className="glass-card border border-border rounded-xl p-4 space-y-3">
+      {/* Pinned hot-replies queue — always visible at top, auto-rotates as new replies come in */}
+      <HotRepliesPinnedQueue />
+
       <div className="flex items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
