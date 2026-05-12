@@ -70,6 +70,7 @@ const CLASS_COLORS: Record<string, string> = {
 };
 
 export default function HotReplies() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Reply[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
