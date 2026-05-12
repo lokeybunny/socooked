@@ -901,12 +901,13 @@ Deno.serve(async (req) => {
         .eq("id", campaignId)
         .single();
       const aiEnabledForAmd = (campSettingsForAmd?.settings as any)?.ai_enabled !== false;
+      const vmDropOnlyForAmd = (campSettingsForAmd?.settings as any)?.voicemail_drop_only === true;
 
       let amdResult = "unknown";
       let connectVapi = false;
       let intendedAction = "";
 
-      if (!aiEnabledForAmd) {
+      if (!aiEnabledForAmd && !vmDropOnlyForAmd) {
         amdResult = "human";
         connectVapi = true;
         intendedAction = "redirect_to_human_transfer (AI disabled — bypass AMD)";
@@ -914,7 +915,9 @@ Deno.serve(async (req) => {
       } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
+        intendedAction = vmDropOnlyForAmd
+          ? `vm_drop_only_human_hangup (sustained human speech)`
+          : `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
