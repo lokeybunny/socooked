@@ -849,11 +849,15 @@ Deno.serve(async (req) => {
       const humanTransferPhone = normalizePhone(typeof settingsObj.human_transfer_phone === "string" ? settingsObj.human_transfer_phone : "");
       const aiEnabled = settingsObj.ai_enabled !== false;
       const aiAssistEnabled = settingsObj.ai_assist !== false;
+      const vmDropOnlyMode = (settingsObj as any).voicemail_drop_only === true;
 
       let mode = "hold_for_amd";
       let xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="30"/><Hangup/></Response>`;
 
-      if (!aiEnabled && humanTransferPhone) {
+      // In voicemail-drop-only mode, never bridge to a human up-front. Always
+      // wait for AMD so we can detect voicemail (drop the recording) or human
+      // (hang up + requeue).
+      if (!vmDropOnlyMode && !aiEnabled && humanTransferPhone) {
         mode = "live_human_transfer_immediate";
         xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -897,12 +901,13 @@ Deno.serve(async (req) => {
         .eq("id", campaignId)
         .single();
       const aiEnabledForAmd = (campSettingsForAmd?.settings as any)?.ai_enabled !== false;
+      const vmDropOnlyForAmd = (campSettingsForAmd?.settings as any)?.voicemail_drop_only === true;
 
       let amdResult = "unknown";
       let connectVapi = false;
       let intendedAction = "";
 
-      if (!aiEnabledForAmd) {
+      if (!aiEnabledForAmd && !vmDropOnlyForAmd) {
         amdResult = "human";
         connectVapi = true;
         intendedAction = "redirect_to_human_transfer (AI disabled — bypass AMD)";
@@ -910,7 +915,9 @@ Deno.serve(async (req) => {
       } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
+        intendedAction = vmDropOnlyForAmd
+          ? `vm_drop_only_human_hangup (sustained human speech)`
+          : `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
@@ -970,6 +977,70 @@ Deno.serve(async (req) => {
       (existingMeta as any).amd_debug = amdDebug;
 
       if (connectVapi) {
+        // ===== VOICEMAIL-DROP-ONLY MODE =====
+        // Sole goal of this campaign is to drop voicemails. When a human
+        // answers, we hang up immediately and bump a per-lead human_pickup
+        // counter. After 2 human pickups, the lead is removed from the queue;
+        // otherwise it is requeued (status="pending") so the next dial cycle
+        // can try again — hopefully landing in their voicemail box next time.
+        const vmDropOnly = (settingsObj as any).voicemail_drop_only === true;
+        if (vmDropOnly) {
+          // Force-hang the live call so the human doesn't stay on the line.
+          try {
+            await fetch(
+              `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({ Status: "completed" }).toString(),
+              },
+            );
+          } catch (err) {
+            console.error("[powerdial-webhook] vm-drop-only hangup failed:", err);
+          }
+
+          // Increment per-lead human-pickup counter atomically.
+          let pickupCount = 1;
+          try {
+            const { data: q } = await sb
+              .from("powerdial_queue")
+              .select("human_pickup_count")
+              .eq("id", queueItemId)
+              .single();
+            pickupCount = Number((q as any)?.human_pickup_count || 0) + 1;
+            await sb.from("powerdial_queue").update({ human_pickup_count: pickupCount }).eq("id", queueItemId);
+          } catch (err) {
+            console.error("[powerdial-webhook] vm-drop-only counter update failed:", err);
+          }
+
+          const removed = pickupCount >= 2;
+          await updateQueueStatusOnce(queueItemId, removed
+            ? { status: "completed", last_result: "vm_drop_only_removed_after_2_pickups" }
+            : { status: "pending", last_result: "vm_drop_only_human_requeued" });
+
+          await sb.from("powerdial_call_logs").update({
+            connected_to_vapi: false,
+            disposition: removed ? "vm_drop_only_removed" : "vm_drop_only_requeued",
+            meta: {
+              ...existingMeta,
+              vm_drop_only: true,
+              human_pickup_count: pickupCount,
+              removed_from_queue: removed,
+            },
+          }).eq("id", callLogId);
+
+          await advanceCampaign(campaignId, "[powerdial-webhook]");
+          return json({
+            ok: true,
+            mode: "voicemail_drop_only",
+            human_pickup_count: pickupCount,
+            removed_from_queue: removed,
+          });
+        }
+
         const queueProcessed = await updateQueueStatusOnce(queueItemId, {
           status: "completed",
           last_result: "human_connected",

@@ -582,59 +582,30 @@ export default function PowerDial() {
                 />
               </div>
 
-              {/* AI Enabled Toggle */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-xs font-medium text-emerald-300">AI</span>
+              {/* Voicemail Drop Mode Toggle — sole goal is dropping voicemails. Human pickups
+                  are hung up immediately and the lead is requeued. After 2 human pickups the
+                  lead is removed from the queue. */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10">
+                <Voicemail className="h-3.5 w-3.5 text-purple-400" />
+                <span className="text-xs font-medium text-purple-300">Voicemail Drop</span>
                 <Switch
-                  checked={activeCampaign.settings?.ai_enabled !== false}
+                  checked={Boolean(activeCampaign.settings?.voicemail_drop_only)}
                   onCheckedChange={async (checked) => {
-                    const DEFAULT_TRANSFER = '+17027016192';
-                    const existingTransfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
-                    const transfer = existingTransfer || (!checked ? DEFAULT_TRANSFER : '');
                     const newSettings = {
                       ...(activeCampaign.settings || {}),
-                      ai_enabled: checked,
-                      human_transfer_phone: transfer || existingTransfer,
+                      voicemail_drop_only: checked,
+                      // VM-Drop mode requires the voicemail-drop pipeline to be enabled.
+                      ...(checked ? { voicemail_drop_enabled: true } : {}),
                     };
                     await supabase.from('powerdial_campaigns').update({ settings: newSettings }).eq('id', activeCampaign.id);
                     setActiveCampaign({ ...activeCampaign, settings: newSettings });
-                    if (!checked && !existingTransfer) {
-                      toast.success(`AI disabled — calls will ring ${DEFAULT_TRANSFER} (change in Settings)`);
-                    } else {
-                      toast.success(checked ? 'AI enabled — Vapi will handle answered calls' : 'AI disabled — answered calls will ring your phone');
-                    }
+                    toast.success(
+                      checked
+                        ? 'Voicemail Drop mode on — humans hang up & requeue, voicemails get the drop'
+                        : 'Voicemail Drop mode off'
+                    );
                   }}
-                  className="data-[state=checked]:bg-emerald-500"
-                />
-              </div>
-
-              {/* AI Assist Toggle — warm handoff: AI greets, silently bridge to human */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10">
-                <Sparkles className="h-3.5 w-3.5 text-sky-400" />
-                <span className="text-xs font-medium text-sky-300">AI Assist</span>
-                <Switch
-                  checked={Boolean(activeCampaign.settings?.ai_assist)}
-                  onCheckedChange={async (checked) => {
-                    const DEFAULT_TRANSFER = '+17027016192';
-                    const existingTransfer = String(activeCampaign.settings?.human_transfer_phone || '').trim();
-                    const transfer = existingTransfer || (checked ? DEFAULT_TRANSFER : '');
-                    const newSettings = {
-                      ...(activeCampaign.settings || {}),
-                      ai_assist: checked,
-                      // AI Assist requires AI Enabled to remain ON (it runs inside the AI-enabled branch)
-                      ai_enabled: checked ? true : (activeCampaign.settings?.ai_enabled !== false),
-                      human_transfer_phone: transfer || existingTransfer,
-                    };
-                    await supabase.from('powerdial_campaigns').update({ settings: newSettings }).eq('id', activeCampaign.id);
-                    setActiveCampaign({ ...activeCampaign, settings: newSettings });
-                    if (checked) {
-                      toast.success(`AI Assist on — answered calls silently bridge to ${transfer || existingTransfer || 'your transfer line'}`);
-                    } else {
-                      toast.success('AI Assist off — answered calls follow normal AI flow');
-                    }
-                  }}
-                  className="data-[state=checked]:bg-sky-500"
+                  className="data-[state=checked]:bg-purple-500"
                 />
               </div>
 
