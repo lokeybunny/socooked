@@ -76,6 +76,7 @@ export default function PowerDialSMSInbox() {
   const [contactEmails, setContactEmails] = useState<Record<string, string>>({});
   const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
   const [pinnedSet, setPinnedSet] = useState<Set<string>>(new Set());
+  const [vipRouteSet, setVipRouteSet] = useState<Set<string>>(new Set());
   const PIN_ORDER_KEY = 'powerdial-sms-pin-order-v1';
   const [pinOrder, setPinOrder] = useState<string[]>(() => {
     try { const raw = localStorage.getItem(PIN_ORDER_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
