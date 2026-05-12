@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       const priorAttempts = Number(priorRetry.attempts ?? 0);
       const wasFailing = priorAttempts > 0;
 
-      if (settings?.voicemail_drop_sms_enabled === false) {
+      if (settings?.voicemail_drop_sms_enabled !== true) {
         repairs.push({ call_log_id: m.call_log_id, ok: false, error: "sms disabled in campaign", attempts: priorAttempts });
         continue;
       }
@@ -209,6 +209,10 @@ Deno.serve(async (req) => {
       const text =
         (typeof settings?.voicemail_drop_sms_text === "string" && settings.voicemail_drop_sms_text.trim()) ||
         DEFAULT_TEXT;
+      if (!text) {
+        repairs.push({ call_log_id: m.call_log_id, ok: false, error: "sms text empty", attempts: priorAttempts });
+        continue;
+      }
 
       let ok = false;
       let errMsg: string | null = null;
