@@ -207,6 +207,7 @@ export default function SMS() {
           </TabsList>
 
           <TabsContent value="disconnected"><DisconnectedTab /></TabsContent>
+          <TabsContent value="log"><AutoSmsLogTab /></TabsContent>
 
           <TabsContent value="inbox"><PowerDialSMSInbox /></TabsContent>
           <TabsContent value="twilio-inbound"><TwilioInboundFeed /></TabsContent>
