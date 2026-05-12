@@ -289,6 +289,30 @@ Deno.serve(async (req) => {
       isDnd = !!(dndRow && dndRow[0]);
     }
 
+    // Universal opt-out: any inbound matching stop/unsubscribe/no auto-adds to DND,
+    // regardless of whether a hook_reply_thread exists for this number.
+    const lowered = (body || "").toLowerCase().trim();
+    const OPT_OUT_RE = /(^|[^a-z])(stop|stopall|unsubscribe|cancel|end|quit|no)([^a-z]|$)/i;
+    const matchedOptOut = lowered && OPT_OUT_RE.test(lowered);
+    if (matchedOptOut && fromLast10 && !isDnd) {
+      try {
+        await sb.from("sms_dnd_list").upsert(
+          {
+            phone: normalizedFrom,
+            phone_last10: fromLast10,
+            reason: `keyword:${lowered.match(OPT_OUT_RE)?.[2] || "opt_out"}`,
+            source: "twilio_inbound",
+            original_message_body: body,
+          },
+          { onConflict: "phone_last10" },
+        );
+        isDnd = true;
+        void logEvent('dnd:auto-added', { from: normalizedFrom, to: normalizedTo, sid, body, metadata: { keyword: lowered.match(OPT_OUT_RE)?.[2] } });
+      } catch (e) {
+        console.error("[twilio-sms-inbound] DND upsert failed:", e);
+      }
+    }
+
     const cfg = await loadConfig();
     tStamp("config loaded");
 
