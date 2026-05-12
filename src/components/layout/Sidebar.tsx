@@ -56,6 +56,7 @@ const navEntries: NavEntry[] = [
       { to: '/powerdial', icon: Sparkles, label: 'VMD', purple: true },
       { to: '/funnels', icon: Layers, label: 'Funnels', yellow: true, botIcon: true },
       { to: '/transcribe', icon: FileText, label: 'Transcribe', green: true },
+      { to: '/hot-replies', icon: Sparkles, label: 'Hot Replies', green: true },
     ],
   },
   { to: '/usa-map', icon: Crosshair, label: 'USA Map', green: true },
