@@ -26,7 +26,7 @@ type RecentDrop = {
 export default function VoicemailFollowupSettings() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [activeId, setActiveId] = useState<string>('');
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [text, setText] = useState(DEFAULT_VM_SMS_TEXT);
   const [saving, setSaving] = useState(false);
   const [recent, setRecent] = useState<RecentDrop[]>([]);
