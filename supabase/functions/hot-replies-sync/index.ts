@@ -165,18 +165,18 @@ serve(async (req) => {
 
     const headers = rows[0];
     const idx = {
-      date: pickColumn(headers, ["date"]),
-      time: pickColumn(headers, ["time"]),
-      first: pickColumn(headers, ["first name", "first"]),
-      last: pickColumn(headers, ["last name", "last"]),
-      phone: pickColumn(headers, ["phone number", "phone"]),
-      reply: pickColumn(headers, ["reply text", "reply", "message"]),
-      campaign: pickColumn(headers, ["campaign name", "campaign"]),
+      date: pickColumn(headers, ["date", "sent date", "timestamp"]),
+      time: pickColumn(headers, ["time", "sent time"]),
+      first: pickColumn(headers, ["first name", "first", "fname"]),
+      last: pickColumn(headers, ["last name", "last", "lname"]),
+      phone: pickColumn(headers, ["phone number", "phone", "mobile", "cell", "number", "to", "from"]),
+      reply: pickColumn(headers, ["reply text", "reply", "message", "response", "body", "text", "sms"]),
+      campaign: pickColumn(headers, ["campaign name", "campaign", "list"]),
       source: pickColumn(headers, ["source"]),
       status: pickColumn(headers, ["status"]),
     };
     if (idx.phone < 0 || idx.reply < 0) {
-      throw new Error("Sheet must have Phone Number and Reply Text columns");
+      throw new Error(`Sheet must have a phone column (Phone/Phone Number/Mobile) and a reply column (Reply/Reply Text/Message/Response). Detected headers: [${headers.join(" | ")}]`);
     }
 
     const dataRows = rows.slice(1, 1 + limit);
