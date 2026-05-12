@@ -526,7 +526,17 @@ export default function PowerDialSMSInbox() {
         if (m.direction === 'inbound') entry.unreadInbound += 1;
       }
     }
-    return Array.from(map.values()).sort((a, b) => {
+    // Hide AFK voicemail auto-reply threads ("Currently in a meeting...") until
+    // the recipient has actually replied. These are noise otherwise.
+    const isAfkAutoReply = (m: SMSMessage) =>
+      m.direction === 'outbound' && /currently in a meeting/i.test(m.body || '');
+    const filtered = Array.from(map.values()).filter(t => {
+      const hasInbound = t.messages.some(m => m.direction === 'inbound');
+      if (hasInbound) return true;
+      const allAfk = t.messages.every(isAfkAutoReply);
+      return !allAfk;
+    });
+    return filtered.sort((a, b) => {
       const aKey = normalizeLast10(a.phone);
       const bKey = normalizeLast10(b.phone);
       const aPin = pinnedSet.has(aKey) ? 1 : 0;
