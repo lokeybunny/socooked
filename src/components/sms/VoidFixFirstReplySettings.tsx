@@ -14,7 +14,7 @@ type Config = {
 };
 
 const DEFAULT_MESSAGE =
-  'Currently in a meeting, Talk with you soon. In mean while check my work on IG: https://instagram.com/W4RR3Nguru';
+  'Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?';
 
 const DEFAULTS: Config = {
   enabled: true,
