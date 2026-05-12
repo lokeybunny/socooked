@@ -1230,6 +1230,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                         <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-emerald-400 rotate-45' : ''}`} />
                       </button>
                       <button
+                        onClick={(e) => toggleVipRoute(e, key)}
+                        className={`p-1 rounded transition-colors hover:bg-cyan-500/20 ${vipRouteSet.has(key) ? 'text-cyan-400 bg-cyan-500/10' : 'text-muted-foreground hover:text-cyan-400'}`}
+                        title={vipRouteSet.has(key) ? 'VIP routing ON → calls forward to (702) 832-2317. Click to disable.' : 'Enable VIP call routing → forward this caller to (702) 832-2317'}
+                        aria-label={vipRouteSet.has(key) ? 'Disable VIP routing' : 'Enable VIP routing'}
+                      >
+                        <PhoneForwarded className={`h-3.5 w-3.5 ${vipRouteSet.has(key) ? 'fill-cyan-400/30' : ''}`} />
+                      </button>
+                      <button
                         onClick={(e) => handleDeleteThread(e, key)}
                         className="p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors"
                         title="Delete thread"
