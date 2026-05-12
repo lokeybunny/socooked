@@ -906,8 +906,30 @@ Deno.serve(async (req) => {
       let amdResult = "unknown";
       let connectVapi = false;
       let intendedAction = "";
+      // VM-drop-only signal: when true, the AMD branch will route this call
+      // through the vm-drop-only hangup-and-requeue path (not the Vapi/human
+      // bridge path). This catches AMD mis-classifications too — anything
+      // that isn't a CONFIDENT voicemail-ready state (beep / end-silence)
+      // gets treated as a human pickup and hung up immediately.
+      let vmDropOnlyHumanHangup = false;
 
-      if (!aiEnabledForAmd && !vmDropOnlyForAmd) {
+      if (vmDropOnlyForAmd) {
+        // Only the most confident "machine has finished greeting, ready to
+        // record" states actually drop a voicemail. Everything else hangs up.
+        const isConfidentVoicemailReady =
+          answeredBy === "machine_end_beep" || answeredBy === "machine_end_silence";
+        if (isConfidentVoicemailReady) {
+          amdResult = "voicemail";
+          intendedAction = `vm_drop_only_voicemail_drop (AMD=${answeredBy})`;
+        } else {
+          amdResult = answeredBy === "human" || hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)
+            ? "human"
+            : "unknown";
+          connectVapi = true; // route into the connectVapi block, which will detect vm_drop_only and hang up + requeue
+          vmDropOnlyHumanHangup = true;
+          intendedAction = `vm_drop_only_hangup_and_requeue (AMD=${answeredBy || "empty"}, not a confident voicemail-ready state)`;
+        }
+      } else if (!aiEnabledForAmd) {
         amdResult = "human";
         connectVapi = true;
         intendedAction = "redirect_to_human_transfer (AI disabled — bypass AMD)";
@@ -915,9 +937,7 @@ Deno.serve(async (req) => {
       } else if (hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)) {
         amdResult = "human";
         connectVapi = true;
-        intendedAction = vmDropOnlyForAmd
-          ? `vm_drop_only_human_hangup (sustained human speech)`
-          : `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
+        intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
       } else if (answeredBy.includes("machine") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
