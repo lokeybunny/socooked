@@ -849,11 +849,15 @@ Deno.serve(async (req) => {
       const humanTransferPhone = normalizePhone(typeof settingsObj.human_transfer_phone === "string" ? settingsObj.human_transfer_phone : "");
       const aiEnabled = settingsObj.ai_enabled !== false;
       const aiAssistEnabled = settingsObj.ai_assist !== false;
+      const vmDropOnlyMode = (settingsObj as any).voicemail_drop_only === true;
 
       let mode = "hold_for_amd";
       let xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="30"/><Hangup/></Response>`;
 
-      if (!aiEnabled && humanTransferPhone) {
+      // In voicemail-drop-only mode, never bridge to a human up-front. Always
+      // wait for AMD so we can detect voicemail (drop the recording) or human
+      // (hang up + requeue).
+      if (!vmDropOnlyMode && !aiEnabled && humanTransferPhone) {
         mode = "live_human_transfer_immediate";
         xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
