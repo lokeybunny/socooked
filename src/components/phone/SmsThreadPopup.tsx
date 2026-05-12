@@ -20,7 +20,12 @@ type SMSMessage = {
   status: string;
   created_at: string;
   media_urls?: string[] | null;
+  provider?: string | null;
 };
+
+function isImessageProvider(p?: string | null) {
+  return !!p && p.toLowerCase().includes("voidfix-imessage") && !p.toLowerCase().includes("-sms");
+}
 
 const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
 function extractImageUrls(body: string | null | undefined): string[] {
@@ -62,7 +67,9 @@ export function SmsThreadPopup({
   const [sending, setSending] = useState(false);
   const [body, setBody] = useState(initialBody || "");
   const [notesOpen, setNotesOpen] = useState(false);
-  
+  const [routeImessage, setRouteImessage] = useState(false);
+  const [routeReason, setRouteReason] = useState<string>("");
+
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,7 +82,7 @@ export function SmsThreadPopup({
     try {
       const { data } = await supabase
         .from("communications")
-        .select("id, direction, body, from_address, to_address, status, created_at, media_urls")
+        .select("id, direction, body, from_address, to_address, status, created_at, media_urls, provider")
         .eq("type", "sms")
         .or(`from_address.ilike.%${last10},to_address.ilike.%${last10}`)
         .order("created_at", { ascending: true })
