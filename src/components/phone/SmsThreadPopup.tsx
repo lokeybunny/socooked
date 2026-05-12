@@ -21,7 +21,10 @@ type SMSMessage = {
   created_at: string;
   media_urls?: string[] | null;
   provider?: string | null;
+  metadata?: Record<string, any> | null;
 };
+
+type PendingAttachment = { id: string; url: string; name: string; uploading?: boolean };
 
 function isImessageProvider(p?: string | null) {
   return !!p && p.toLowerCase().includes("voidfix-imessage") && !p.toLowerCase().includes("-sms");
