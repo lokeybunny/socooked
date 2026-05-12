@@ -7408,6 +7408,7 @@ export type Database = {
           starred_at: string | null
           tags: string[] | null
           updated_at: string
+          vip_route: boolean
         }
         Insert: {
           created_at?: string
@@ -7425,6 +7426,7 @@ export type Database = {
           starred_at?: string | null
           tags?: string[] | null
           updated_at?: string
+          vip_route?: boolean
         }
         Update: {
           created_at?: string
@@ -7442,6 +7444,7 @@ export type Database = {
           starred_at?: string | null
           tags?: string[] | null
           updated_at?: string
+          vip_route?: boolean
         }
         Relationships: []
       }

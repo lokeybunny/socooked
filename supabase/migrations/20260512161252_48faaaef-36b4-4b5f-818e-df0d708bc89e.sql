@@ -1,0 +1,2 @@
+ALTER TABLE public.sms_contacts ADD COLUMN IF NOT EXISTS vip_route boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_sms_contacts_vip_route ON public.sms_contacts (phone_last10) WHERE vip_route = true;
