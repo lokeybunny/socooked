@@ -228,16 +228,25 @@ export function SmsThreadPopup({
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="flex items-center gap-2 text-base">
-                  <MessageSquare className={`h-4 w-4 ${routeImessage ? "text-[#007AFF]" : "text-emerald-400"}`} />
+                  <MessageSquare className={`h-4 w-4 ${effectiveImessage ? "text-[#007AFF]" : "text-emerald-400"}`} />
                   {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
-                  {routeImessage && (
+                  {effectiveImessage && (
                     <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#007AFF]/15 text-[#007AFF] text-[10px] font-semibold px-2 py-0.5">
                       iMessage{routeReason ? ` · ${routeReason}` : ""}
                     </span>
                   )}
+                  {routeImessage && hasMedia && (
+                    <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+                      SMS/MMS · media attached
+                    </span>
+                  )}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  {routeImessage ? "iMessage for text · attachments auto-route as MMS." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
+                  {effectiveImessage
+                    ? "iMessage is text-only. Add media to fall back to SMS/MMS for the next send."
+                    : routeImessage && hasMedia
+                      ? "Thread temporarily on SMS/MMS — remove media to return to iMessage."
+                      : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
