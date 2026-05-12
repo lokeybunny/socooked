@@ -31,8 +31,15 @@ export default function PowerDialQueue({ campaignId }: { campaignId: string }) {
       .select('*')
       .eq('campaign_id', campaignId)
       .order('position', { ascending: true });
-    setItems((data as QueueItem[]) || []);
+    const rows = (data as QueueItem[]) || [];
+    setItems(rows);
     setLoading(false);
+    // Auto-jump to the page containing the currently-dialing item so the
+    // user always sees where the queue is, regardless of pagination.
+    const dialingIdx = rows.findIndex((r) => r.status === 'dialing');
+    if (dialingIdx >= 0) {
+      setPage(Math.floor(dialingIdx / ITEMS_PER_PAGE) + 1);
+    }
   };
 
   useEffect(() => { load(); setPage(1); }, [campaignId]);
