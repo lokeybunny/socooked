@@ -302,7 +302,7 @@ export function SmsThreadPopup({
               />
               <div className="flex flex-col gap-1">
                 <EmojiButton onSelect={(emoji) => setBody((b) => b + emoji)} />
-                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className="bg-emerald-500 hover:bg-emerald-600">
+                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className={routeImessage ? "bg-[#007AFF] hover:bg-[#0066DD]" : "bg-emerald-500 hover:bg-emerald-600"}>
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
