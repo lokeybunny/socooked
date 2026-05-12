@@ -395,8 +395,8 @@ export default function HotReplies() {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button asChild disabled={selected.is_opt_out}>
-                    <a href={`tel:${selected.phone}`}><Phone /> Call Now</a>
+                  <Button disabled={selected.is_opt_out} onClick={() => dialViaTwilio(selected.phone, navigate)}>
+                    <Phone /> Call Now
                   </Button>
                   <Select value={selected.call_status} onValueChange={(v) => updateStatus(selected.id, v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
