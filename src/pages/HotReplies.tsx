@@ -1,0 +1,433 @@
+import { useEffect, useMemo, useState } from "react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+
+type Reply = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string;
+  reply_text: string;
+  campaign_name: string | null;
+  source: string | null;
+  original_date: string | null;
+  original_time: string | null;
+  imported_at: string;
+  ai_classification: string | null;
+  ai_confidence: number | null;
+  ai_reason: string | null;
+  is_hot: boolean;
+  is_opt_out: boolean;
+  call_status: string;
+  notes: string | null;
+};
+
+const HOT_CLASSES = ["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST", "NEEDS_REVIEW"];
+
+const CALL_STATUSES = [
+  { value: "not_called", label: "Not Called" },
+  { value: "no_answer", label: "Called - No Answer" },
+  { value: "interested", label: "Called - Interested" },
+  { value: "follow_up", label: "Called - Needs Follow-Up" },
+  { value: "not_interested", label: "Called - Not Interested" },
+  { value: "appointment", label: "Booked Appointment" },
+  { value: "proposal", label: "Proposal Sent" },
+  { value: "closed", label: "Closed" },
+];
+
+const CLASS_COLORS: Record<string, string> = {
+  HOT_POSITIVE: "bg-red-500/15 text-red-500 border-red-500/30",
+  WARM_INTERESTED: "bg-orange-500/15 text-orange-500 border-orange-500/30",
+  PRICING_QUESTION: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+  CALLBACK_REQUEST: "bg-blue-500/15 text-blue-500 border-blue-500/30",
+  NEEDS_REVIEW: "bg-purple-500/15 text-purple-500 border-purple-500/30",
+  NEGATIVE: "bg-zinc-500/15 text-zinc-500 border-zinc-500/30",
+  OPT_OUT: "bg-red-700/20 text-red-700 border-red-700/30",
+  WRONG_NUMBER: "bg-zinc-500/15 text-zinc-500 border-zinc-500/30",
+  AUTO_REPLY: "bg-zinc-500/15 text-zinc-500 border-zinc-500/30",
+};
+
+export default function HotReplies() {
+  const [rows, setRows] = useState<Reply[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetName, setSheetName] = useState("Sheet1");
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>("hot");
+  const [campaignFilter, setCampaignFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Reply | null>(null);
+  const [noteInput, setNoteInput] = useState("");
+  const [noteList, setNoteList] = useState<any[]>([]);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("hot_reply_imports").select("*").order("imported_at", { ascending: false }).limit(1000);
+    setRows((data as Reply[]) || []);
+    const { data: s } = await supabase.from("hot_reply_sync_settings").select("*").limit(1).maybeSingle();
+    if (s) {
+      setSheetUrl(s.google_sheet_url || "");
+      setSheetName(s.sheet_name || "Sheet1");
+      setLastSync(s.last_sync_at);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const sync = async () => {
+    if (!sheetUrl) { toast.error("Add a Google Sheet URL first"); setSettingsOpen(true); return; }
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("hot-replies-sync", {
+        body: { sheet_url: sheetUrl, sheet_name: sheetName },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Synced — ${data.imported} imported, ${data.skipped} skipped`);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "Sync failed");
+    } finally { setSyncing(false); }
+  };
+
+  const saveSettings = async () => {
+    const { data: existing } = await supabase.from("hot_reply_sync_settings").select("id").limit(1).maybeSingle();
+    if (existing) {
+      await supabase.from("hot_reply_sync_settings").update({ google_sheet_url: sheetUrl, sheet_name: sheetName }).eq("id", existing.id);
+    } else {
+      await supabase.from("hot_reply_sync_settings").insert({ google_sheet_url: sheetUrl, sheet_name: sheetName });
+    }
+    toast.success("Settings saved");
+    setSettingsOpen(false);
+  };
+
+  // Auto-sync on load if a URL is configured
+  useEffect(() => {
+    if (sheetUrl && !lastSync) { sync(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetUrl]);
+
+  const stats = useMemo(() => {
+    const total = rows.length;
+    const hot = rows.filter(r => r.is_hot && !r.is_opt_out).length;
+    const pricing = rows.filter(r => r.ai_classification === "PRICING_QUESTION").length;
+    const callback = rows.filter(r => r.ai_classification === "CALLBACK_REQUEST").length;
+    const optOut = rows.filter(r => r.is_opt_out).length;
+    const notCalled = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called").length;
+    const today = new Date().toISOString().slice(0, 10);
+    const calledToday = rows.filter(r => r.call_status !== "not_called" && r.imported_at?.slice(0, 10) === today).length;
+    return { total, hot, pricing, callback, optOut, notCalled, calledToday };
+  }, [rows]);
+
+  const campaigns = useMemo(() => {
+    const set = new Set(rows.map(r => r.campaign_name).filter(Boolean) as string[]);
+    return ["all", ...Array.from(set)];
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out);
+    else if (filter === "needs_review") list = list.filter(r => r.ai_classification === "NEEDS_REVIEW");
+    else if (filter === "pricing") list = list.filter(r => r.ai_classification === "PRICING_QUESTION");
+    else if (filter === "callback") list = list.filter(r => r.ai_classification === "CALLBACK_REQUEST");
+    else if (filter === "not_called") list = list.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called");
+    else if (filter === "called") list = list.filter(r => r.call_status !== "not_called");
+    else if (filter === "opt_outs") list = list.filter(r => r.is_opt_out);
+    if (campaignFilter !== "all") list = list.filter(r => r.campaign_name === campaignFilter);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(r =>
+        (r.phone || "").toLowerCase().includes(q) ||
+        (r.reply_text || "").toLowerCase().includes(q) ||
+        (`${r.first_name || ""} ${r.last_name || ""}`).toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [rows, filter, campaignFilter, search]);
+
+  const openLead = async (r: Reply) => {
+    setSelected(r);
+    setNoteInput("");
+    const { data } = await supabase.from("hot_reply_notes").select("*").eq("hot_reply_id", r.id).order("created_at", { ascending: false });
+    setNoteList(data || []);
+  };
+
+  const updateStatus = async (id: string, status: string) => {
+    await supabase.from("hot_reply_imports").update({ call_status: status }).eq("id", id);
+    setRows(prev => prev.map(r => r.id === id ? { ...r, call_status: status } : r));
+    if (selected?.id === id) setSelected({ ...selected, call_status: status });
+    toast.success("Status updated");
+  };
+
+  const removeFromHot = async (id: string) => {
+    await supabase.from("hot_reply_imports").update({ is_hot: false }).eq("id", id);
+    setRows(prev => prev.map(r => r.id === id ? { ...r, is_hot: false } : r));
+    toast.success("Removed from Hot Replies");
+  };
+
+  const addNote = async () => {
+    if (!selected || !noteInput.trim()) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: n } = await supabase.from("hot_reply_notes").insert({
+      hot_reply_id: selected.id, note: noteInput.trim(), created_by: user?.id ?? null,
+    }).select().single();
+    if (n) setNoteList(prev => [n, ...prev]);
+    setNoteInput("");
+  };
+
+  const fmtPhone = (p: string) => {
+    const d = String(p || "").replace(/\D/g, "").replace(/^1/, "");
+    return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p;
+  };
+
+  const callableList = useMemo(
+    () => rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called"),
+    [rows]
+  );
+
+  return (
+    <AppLayout>
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2"><Flame className="text-orange-500" /> Hot Replies</h1>
+            <p className="text-sm text-muted-foreground">
+              AI-classified replies from your campaigns. {lastSync && <>Last sync: {format(new Date(lastSync), "PPp")}</>}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={sync} disabled={syncing}>
+              {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync Now
+            </Button>
+            <Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings /> Settings</Button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
+          <StatCard icon={<Phone />} label="Total" value={stats.total} />
+          <StatCard icon={<Flame className="text-red-500" />} label="Hot" value={stats.hot} accent />
+          <StatCard icon={<DollarSign />} label="Pricing" value={stats.pricing} />
+          <StatCard icon={<PhoneCall />} label="Callback" value={stats.callback} />
+          <StatCard icon={<Ban className="text-red-700" />} label="Opt-Outs" value={stats.optOut} />
+          <StatCard icon={<PhoneOff />} label="Not Called" value={stats.notCalled} />
+          <StatCard icon={<Clock />} label="Today" value={stats.calledToday} />
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4 flex flex-wrap items-center gap-3">
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hot">🔥 Hot Only ({stats.hot})</SelectItem>
+                <SelectItem value="needs_review">Needs Review</SelectItem>
+                <SelectItem value="pricing">Pricing Questions</SelectItem>
+                <SelectItem value="callback">Callback Requests</SelectItem>
+                <SelectItem value="not_called">Not Called Yet</SelectItem>
+                <SelectItem value="called">Already Called</SelectItem>
+                <SelectItem value="opt_outs">Opt-Outs (do not call)</SelectItem>
+                <SelectItem value="all">All Replies</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+              <SelectTrigger className="w-56"><SelectValue placeholder="Campaign" /></SelectTrigger>
+              <SelectContent>
+                {campaigns.map(c => <SelectItem key={c} value={c}>{c === "all" ? "All Campaigns" : c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Input className="w-64" placeholder="Search name, phone, or text…" value={search} onChange={e => setSearch(e.target.value)} />
+            <div className="ml-auto text-sm text-muted-foreground">
+              Callable list: <span className="font-semibold text-foreground">{callableList.length}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card>
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-12 text-center text-muted-foreground"><Loader2 className="animate-spin mx-auto" /></div>
+            ) : filtered.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground">
+                No replies match your filter. {!sheetUrl && <Button variant="link" onClick={() => setSettingsOpen(true)}>Connect a Google Sheet</Button>}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lead</TableHead>
+                    <TableHead>Reply</TableHead>
+                    <TableHead>Class</TableHead>
+                    <TableHead>Conf</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>When</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map(r => (
+                    <TableRow key={r.id} className={r.is_opt_out ? "bg-red-500/5" : ""}>
+                      <TableCell>
+                        <div className="font-medium">{[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}</div>
+                        <div className="text-xs text-muted-foreground">{fmtPhone(r.phone)}</div>
+                      </TableCell>
+                      <TableCell className="max-w-xs"><div className="truncate text-sm">{r.reply_text}</div></TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={CLASS_COLORS[r.ai_classification || ""] || ""}>
+                          {r.ai_classification || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{r.ai_confidence != null ? `${Math.round(r.ai_confidence * 100)}%` : "—"}</TableCell>
+                      <TableCell className="text-xs">{r.campaign_name || "—"}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {r.original_date || format(new Date(r.imported_at), "MMM d")}
+                        {r.original_time && <span className="text-muted-foreground"> {r.original_time}</span>}
+                      </TableCell>
+                      <TableCell className="text-xs">{CALL_STATUSES.find(s => s.value === r.call_status)?.label || r.call_status}</TableCell>
+                      <TableCell className="text-right">
+                        {r.is_opt_out ? (
+                          <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
+                        ) : (
+                          <div className="flex justify-end gap-1">
+                            <Button size="sm" variant="default" asChild>
+                              <a href={`tel:${r.phone}`} onClick={() => openLead(r)}><Phone className="h-3 w-3" /> Call</a>
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Settings drawer */}
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Hot Replies Settings</SheetTitle>
+            <SheetDescription>Connect a Google Sheet to auto-import replies. The sheet must be shared as "Anyone with the link can view".</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-4 mt-6">
+            <div>
+              <Label>Google Sheet URL</Label>
+              <Input value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." />
+            </div>
+            <div>
+              <Label>Sheet/Tab name</Label>
+              <Input value={sheetName} onChange={e => setSheetName(e.target.value)} placeholder="Sheet1" />
+            </div>
+            <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded">
+              Expected columns: Date, Time, First Name, Last Name, Phone Number, Reply Text, Campaign Name, Source, Status.
+              Phone Number and Reply Text are required.
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={saveSettings} className="flex-1">Save</Button>
+              <Button variant="outline" onClick={sync} disabled={syncing || !sheetUrl}>
+                {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync Now
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Lead detail drawer */}
+      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          {selected && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{[selected.first_name, selected.last_name].filter(Boolean).join(" ") || fmtPhone(selected.phone)}</SheetTitle>
+                <SheetDescription>{fmtPhone(selected.phone)} • {selected.campaign_name || "No campaign"}</SheetDescription>
+              </SheetHeader>
+              <div className="space-y-5 mt-6">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Reply</Label>
+                  <div className="mt-1 p-3 bg-muted/30 rounded text-sm">{selected.reply_text}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={CLASS_COLORS[selected.ai_classification || ""] || ""}>
+                    {selected.ai_classification || "—"}
+                  </Badge>
+                  {selected.ai_confidence != null && <span className="text-xs text-muted-foreground">{Math.round(selected.ai_confidence * 100)}% confidence</span>}
+                </div>
+                {selected.ai_reason && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">AI reason</Label>
+                    <div className="mt-1 text-sm">{selected.ai_reason}</div>
+                  </div>
+                )}
+                {selected.is_opt_out && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-600 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" /> This contact opted out. Do not call or message.
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button asChild disabled={selected.is_opt_out}>
+                    <a href={`tel:${selected.phone}`}><Phone /> Call Now</a>
+                  </Button>
+                  <Select value={selected.call_status} onValueChange={(v) => updateStatus(selected.id, v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CALL_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => updateStatus(selected.id, "follow_up")}>Move to Follow-Up</Button>
+                  <Button variant="outline" onClick={() => updateStatus(selected.id, "not_interested")}>Mark Not Interested</Button>
+                  <Button variant="outline" onClick={() => removeFromHot(selected.id)} className="col-span-2">Remove from Hot Replies</Button>
+                </div>
+                <div>
+                  <Label>Add note</Label>
+                  <Textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="What happened on the call…" />
+                  <Button size="sm" onClick={addNote} className="mt-2">Save note</Button>
+                </div>
+                <div className="space-y-2">
+                  {noteList.map(n => (
+                    <div key={n.id} className="text-sm p-2 bg-muted/30 rounded">
+                      <div>{n.note}</div>
+                      <div className="text-xs text-muted-foreground">{format(new Date(n.created_at), "PPp")}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </AppLayout>
+  );
+}
+
+function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: number; accent?: boolean }) {
+  return (
+    <Card className={accent ? "border-red-500/30" : ""}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">{icon} {label}</div>
+        <div className="text-2xl font-bold">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}

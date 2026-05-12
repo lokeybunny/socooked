@@ -22,6 +22,7 @@ const Threads = lazyWithRetry(() => import("./pages/Threads"), "page-threads");
 const Invoices = lazyWithRetry(() => import("./pages/Invoices"), "page-invoices");
 const EmailPage = lazyWithRetry(() => import("./pages/Email"), "page-email");
 const PhonePage = lazyWithRetry(() => import("./pages/Phone"), "page-phone");
+const HotReplies = lazyWithRetry(() => import("./pages/HotReplies"), "page-hot-replies");
 const PortalSign = lazyWithRetry(() => import("./pages/portal/PortalSign"), "page-portal-sign");
 const AgreementSign = lazyWithRetry(() => import("./pages/portal/AgreementSign"), "page-agreement-sign");
 const Notifications = lazyWithRetry(() => import("./pages/Notifications"), "page-notifications");
@@ -145,6 +146,7 @@ const App = () => (
                 <Route path="/proposals" element={<RestrictedGate><Proposals /></RestrictedGate>} />
                 <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
                 <Route path="/phone" element={<PhonePage />} />
+                <Route path="/hot-replies" element={<HotReplies />} />
                 <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
                 <Route path="/powerdial/voicemails" element={<WarrenOnlyGate><PowerDialVoicemails /></WarrenOnlyGate>} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
