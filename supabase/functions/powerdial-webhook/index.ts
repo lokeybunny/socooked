@@ -35,7 +35,7 @@ const HUMAN_SPEECH_MIN_AUDIO_MS = 1200;
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
 const DEFAULT_SMS_AFTER_TRANSFER = "";
-const DEFAULT_VOICEMAIL_DROP_SMS = "Hi this is Warren Guru. Just left you a voice mail, Im calling to see if you wouldn't mind having me make a video for one of your listings for free? Im a AI Videographer, Call me back at 702 701 6192.";
+const DEFAULT_VOICEMAIL_DROP_SMS = "";
 
 /**
  * Fires a one-shot SMS to the lead the moment we hand them off to a live agent.
