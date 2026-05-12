@@ -72,6 +72,8 @@ export function SmsThreadPopup({
   const [notesOpen, setNotesOpen] = useState(false);
   const [routeImessage, setRouteImessage] = useState(false);
   const [routeReason, setRouteReason] = useState<string>("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
