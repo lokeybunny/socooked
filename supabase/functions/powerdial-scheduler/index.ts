@@ -83,7 +83,9 @@ Deno.serve(async (req) => {
     // processing server-side regardless of whether the user has the page open.
     // The user's manual `stop` action still wins — stopped/paused campaigns are skipped.
     const stallThresholdMs = 90_000; // 90s with no dial activity = stalled
+    const stuckThresholdMs = 5 * 60_000; // 5min still "dialing" = definitively stuck, auto-recover
     const stallCutoff = new Date(Date.now() - stallThresholdMs).toISOString();
+    const stuckCutoff = new Date(Date.now() - stuckThresholdMs).toISOString();
 
     const { data: runningCampaigns } = await sb
       .from("powerdial_campaigns")
@@ -91,6 +93,62 @@ Deno.serve(async (req) => {
       .eq("status", "running");
 
     for (const camp of runningCampaigns || []) {
+      // ── AUTO-RECOVER stuck "dialing" queue rows ──
+      // If a queue row has been sitting in `dialing` longer than stuckThresholdMs,
+      // the Twilio callback was almost certainly dropped. Reset it to `pending`
+      // so dialNext/dialNextBatch can re-pick it up, and emit an activity_log
+      // alert so it surfaces in notifications + Telegram.
+      const { data: stuckRows } = await sb
+        .from("powerdial_queue")
+        .select("id, phone, last_result, updated_at")
+        .eq("campaign_id", camp.id)
+        .eq("status", "dialing")
+        .lt("updated_at", stuckCutoff)
+        .limit(50);
+
+      if (stuckRows?.length) {
+        const stuckIds = stuckRows.map((r: any) => r.id);
+        const { data: recovered } = await sb
+          .from("powerdial_queue")
+          .update({
+            status: "pending",
+            last_result: "auto_recovered_stuck_dialing",
+          })
+          .in("id", stuckIds)
+          .eq("status", "dialing")
+          .select("id, phone");
+
+        const recoveredCount = recovered?.length ?? 0;
+        if (recoveredCount > 0) {
+          console.warn(`[powerdial-scheduler] Auto-recovered ${recoveredCount} stuck "dialing" rows in campaign ${camp.name} (${camp.id})`);
+
+          await sb.from("activity_log").insert({
+            entity_type: "powerdial_stuck_queue",
+            entity_id: camp.id,
+            action: "auto_recovered",
+            meta: {
+              message:
+                `⚠️ *PowerDial stuck queue auto-recovered*\n` +
+                `📋 Campaign: ${camp.name}\n` +
+                `🔄 Reset ${recoveredCount} row(s) stuck in "dialing" >5min back to "pending".\n` +
+                `Phones: ${(recovered ?? []).slice(0, 10).map((r: any) => r.phone).join(", ")}`,
+              campaign_id: camp.id,
+              campaign_name: camp.name,
+              recovered_count: recoveredCount,
+              phones: (recovered ?? []).map((r: any) => r.phone),
+              reason: "stuck_dialing_over_5min",
+            },
+          });
+
+          results.push({
+            campaign_id: camp.id,
+            name: camp.name,
+            action: "auto_recovered_stuck",
+            recovered: recoveredCount,
+          });
+        }
+      }
+
       // Skip if there is still an in-flight dialing row updated recently
       const { count: inFlight } = await sb
         .from("powerdial_queue")
@@ -113,6 +171,35 @@ Deno.serve(async (req) => {
       console.log(`[powerdial-scheduler] Heartbeat advance for stalled campaign ${camp.name} (${camp.id})`);
       const tickResult = await advanceCampaign(camp.id, "[powerdial-scheduler:tick]");
       results.push({ campaign_id: camp.id, name: camp.name, action: "heartbeat_advance", ...tickResult });
+
+      // ── ALERT: heartbeat keeps reporting "already_dialing" despite no fresh in-flight rows ──
+      // This means a stale dialing row exists between stallThresholdMs and stuckThresholdMs.
+      // Surface it so the user knows the queue is wedged before the 5-min auto-recovery kicks in.
+      if ((tickResult as any)?.reason === "already_dialing") {
+        const { data: stale } = await sb
+          .from("powerdial_queue")
+          .select("id, phone, updated_at")
+          .eq("campaign_id", camp.id)
+          .eq("status", "dialing")
+          .order("updated_at", { ascending: true })
+          .limit(5);
+
+        await sb.from("activity_log").insert({
+          entity_type: "powerdial_stuck_queue",
+          entity_id: camp.id,
+          action: "stuck_alert",
+          meta: {
+            message:
+              `🚨 *PowerDial queue wedged*\n` +
+              `📋 Campaign: ${camp.name}\n` +
+              `Heartbeat blocked by "already_dialing" — ${stale?.length ?? 0} stale row(s).\n` +
+              `Will auto-recover after 5 minutes.`,
+            campaign_id: camp.id,
+            campaign_name: camp.name,
+            stale_rows: stale ?? [],
+          },
+        });
+      }
     }
 
     return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
