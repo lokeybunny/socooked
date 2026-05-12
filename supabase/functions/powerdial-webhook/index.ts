@@ -531,6 +531,15 @@ async function handleCallCompletion(
     connected_to_vapi: false,
   }).eq("id", callLogId);
 
+  // CRITICAL: also flip the queue item out of "dialing" so dialNextBatch() doesn't
+  // get blocked by an "already_dialing" guard on a finished human call. Without
+  // this, after a human call wraps up the campaign sits on remaining "pending"
+  // items forever even though the line is free.
+  await updateQueueStatusOnce(queueItemId, {
+    status: "completed",
+    last_result: "human_completed",
+  });
+
   const { data: qItem } = await sb.from("powerdial_queue").select("phone, contact_name").eq("id", queueItemId).single();
 
   if (qItem?.phone) {
