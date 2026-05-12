@@ -558,7 +558,7 @@ export default function PowerDialSMSInbox() {
     // Hide AFK voicemail auto-reply threads ("Currently in a meeting...") until
     // the recipient has actually replied. These are noise otherwise.
     const isAfkAutoReply = (m: SMSMessage) =>
-      m.direction === 'outbound' && /currently in a meeting/i.test(m.body || '');
+      m.direction === 'outbound' && /(currently in a meeting|busy in a meeting|can i send you my ig reel)/i.test(m.body || '');
     // Hide opt-out threads where any inbound message is just STOP/UNSUBSCRIBE
     // (or similar single-keyword opt-out). These are auto-DND'd and shouldn't clutter the inbox.
     const OPT_OUT_RE = /^\s*(stop|stopall|unsubscribe|cancel|end|quit)[\s.!]*$/i;
