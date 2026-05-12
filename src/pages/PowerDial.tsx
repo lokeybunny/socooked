@@ -432,7 +432,7 @@ export default function PowerDial() {
                   setActiveCampaign(c || null);
                 }}
               >
-                <SelectTrigger className="w-[300px]">
+                <SelectTrigger className="w-full sm:w-[300px]">
                   <SelectValue placeholder="Select a campaign" />
                 </SelectTrigger>
                 <SelectContent>
