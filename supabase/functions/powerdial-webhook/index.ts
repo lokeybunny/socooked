@@ -1534,6 +1534,44 @@ Deno.serve(async (req) => {
         twilio_status: dialCallStatus,
       }).eq("id", callLogId);
 
+      // Auto-reply SMS for human-connected dropped calls
+      if (dialCallStatus === "completed" || dialCallStatus === "no-answer") {
+        try {
+          const { data: qItem } = await sb
+            .from("powerdial_queue")
+            .select("phone, customer_id")
+            .eq("id", queueItemId)
+            .single();
+          const leadPhone = qItem?.phone || params.get("To") || "";
+          if (leadPhone && SUPABASE_SERVICE_ROLE_KEY) {
+            const AUTO_REPLY_BODY = "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
+            await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              },
+              body: JSON.stringify({
+                action: "send",
+                to: normalizePhone(leadPhone),
+                body: AUTO_REPLY_BODY,
+                customer_id: qItem?.customer_id || null,
+                source: "powerdial-dropped-call-sms",
+                metadata: {
+                  source: "powerdial-dropped-call-sms",
+                  campaign_id: campaignId,
+                  call_log_id: callLogId,
+                  dial_call_status: dialCallStatus,
+                  trigger: "human_call_dropped",
+                },
+              }),
+            }).catch((err) => console.error("[powerdial-webhook] dropped-call auto-reply failed:", err));
+          }
+        } catch (err) {
+          console.error("[powerdial-webhook] dropped-call auto-reply exception:", err);
+        }
+      }
+
       const advanceResult = await handleCallCompletion(campaignId, queueItemId, callLogId, "dial-complete");
       return json({ ok: true, source: "dial-complete", dial_call_status: dialCallStatus, advanced: advanceResult });
     }
