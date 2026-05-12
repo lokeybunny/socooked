@@ -1,0 +1,1 @@
+UPDATE app_settings SET value = jsonb_set(value, '{message}', '"Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?"'::jsonb) WHERE key IN ('voidfix_missed_call','voidfix_first_reply');

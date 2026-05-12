@@ -182,7 +182,7 @@ async function maybeSendFirstTimeAutoReply(fromPhone: string) {
     const setting = (settingRow?.value as { enabled?: boolean; message?: string }) || {};
     if (setting.enabled === false) return;
     const message = (setting.message || "").trim() ||
-      "Currently in a meeting, Talk with you soon. In mean while check my work on IG: https://instagram.com/W4RR3Nguru";
+      "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
 
     // Has this number ever received our first-time auto-reply before?
     const { data: priorReply } = await sb

@@ -17,7 +17,7 @@ const FORWARDED_TO_NUMBER = "+17027016192";
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const DEFAULT_MISSED_MESSAGE =
-  "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
+  "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
 
 const MISSED_STATES = new Set(["no-answer", "busy", "failed", "canceled"]);
 // Window for collapsing duplicate missed_call_event rows (avoids row spam from Twilio retries)
