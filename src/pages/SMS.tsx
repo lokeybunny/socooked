@@ -170,8 +170,8 @@ export default function SMS() {
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-emerald-400/20"><MessageSquare className="h-5 w-5 text-emerald-400" /></div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">SMS</h1>
-            <p className="text-xs text-muted-foreground">Inbox · Blasts · Templates (VoidFix gateway)</p>
+            <h1 className="text-xl font-bold text-foreground">iMessage + SMS</h1>
+            <p className="text-xs text-muted-foreground">Inbox · Blasts · Templates (VoidFix iMessage + SMS gateway)</p>
           </div>
         </div>
 
