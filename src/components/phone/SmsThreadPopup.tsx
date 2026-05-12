@@ -20,7 +20,12 @@ type SMSMessage = {
   status: string;
   created_at: string;
   media_urls?: string[] | null;
+  provider?: string | null;
 };
+
+function isImessageProvider(p?: string | null) {
+  return !!p && p.toLowerCase().includes("voidfix-imessage") && !p.toLowerCase().includes("-sms");
+}
 
 const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
 function extractImageUrls(body: string | null | undefined): string[] {
@@ -62,7 +67,9 @@ export function SmsThreadPopup({
   const [sending, setSending] = useState(false);
   const [body, setBody] = useState(initialBody || "");
   const [notesOpen, setNotesOpen] = useState(false);
-  
+  const [routeImessage, setRouteImessage] = useState(false);
+  const [routeReason, setRouteReason] = useState<string>("");
+
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -75,7 +82,7 @@ export function SmsThreadPopup({
     try {
       const { data } = await supabase
         .from("communications")
-        .select("id, direction, body, from_address, to_address, status, created_at, media_urls")
+        .select("id, direction, body, from_address, to_address, status, created_at, media_urls, provider")
         .eq("type", "sms")
         .or(`from_address.ilike.%${last10},to_address.ilike.%${last10}`)
         .order("created_at", { ascending: true })
@@ -103,6 +110,26 @@ export function SmsThreadPopup({
     return () => { supabase.removeChannel(ch); };
   }, [open, last10, load]);
 
+  // Detect iMessage routing: VIP route, existing customer, or prior iMessage thread
+  useEffect(() => {
+    if (!open || last10.length !== 10) { setRouteImessage(false); setRouteReason(""); return; }
+    let cancelled = false;
+    (async () => {
+      const [vipRes, custRes] = await Promise.all([
+        supabase.from("sms_contacts").select("vip_route").eq("phone_last10", last10).maybeSingle(),
+        supabase.from("customers").select("id").ilike("phone", `%${last10}`).limit(1).maybeSingle(),
+      ]);
+      if (cancelled) return;
+      if (vipRes.data?.vip_route) { setRouteImessage(true); setRouteReason("VIP route"); return; }
+      if (custRes.data?.id) { setRouteImessage(true); setRouteReason("Customer"); return; }
+      // Prior iMessage thread heuristic
+      const hadImsg = messages.some((m) => isImessageProvider(m.provider));
+      if (hadImsg) { setRouteImessage(true); setRouteReason("Prior iMessage"); return; }
+      setRouteImessage(false); setRouteReason("");
+    })();
+    return () => { cancelled = true; };
+  }, [open, last10, messages]);
+
   // Auto-scroll to bottom whenever messages change while open
   useEffect(() => {
     if (!open) return;
@@ -117,13 +144,15 @@ export function SmsThreadPopup({
     if (last10.length !== 10) { toast.error("Invalid phone"); return; }
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("powerdial-sms", {
+      const fn = routeImessage ? "voidfix-imessage" : "powerdial-sms";
+      const { data, error } = await supabase.functions.invoke(fn, {
         body: { action: "send", to: e164, body: text },
       });
       if (error || !(data as any)?.ok) {
         toast.error((data as any)?.error || error?.message || "Failed to send");
       } else {
-        toast.success("SMS sent via VoidFix");
+        const channel = (data as any)?.channel;
+        toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
         setBody("");
         load(true);
       }
@@ -154,11 +183,16 @@ export function SmsThreadPopup({
             <div className="flex items-start justify-between gap-2 flex-wrap">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="flex items-center gap-2 text-base">
-                  <MessageSquare className="h-4 w-4 text-emerald-400" />
+                  <MessageSquare className={`h-4 w-4 ${routeImessage ? "text-[#007AFF]" : "text-emerald-400"}`} />
                   {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
+                  {routeImessage && (
+                    <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#007AFF]/15 text-[#007AFF] text-[10px] font-semibold px-2 py-0.5">
+                      iMessage{routeReason ? ` · ${routeReason}` : ""}
+                    </span>
+                  )}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  Send and receive SMS via VoidFix. Identical to the SMS page thread.
+                  {routeImessage ? "Routing via VoidFix iMessage (auto SMS fallback)." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
@@ -206,15 +240,28 @@ export function SmsThreadPopup({
               <div className="space-y-2">
                 {messages.map((m) => {
                   const out = m.direction === "outbound";
+                  const isImsg = isImessageProvider(m.provider);
                   const explicitMedia = Array.isArray(m.media_urls) ? m.media_urls : [];
                   const bodyMedia = extractImageUrls(m.body);
                   const allMedia = Array.from(new Set([...(explicitMedia || []), ...bodyMedia]));
                   const textOnly = stripImageUrls(m.body);
+                  // Bubble palette: iMessage outbound = blue (#007AFF) white text; iMessage inbound = white bg, black text.
+                  // SMS (Android/Twilio): keep emerald outbound / dark card inbound.
+                  const bubble = out
+                    ? isImsg
+                      ? "bg-[#007AFF] text-white rounded-br-sm"
+                      : "bg-emerald-500 text-white rounded-br-sm"
+                    : isImsg
+                      ? "bg-white text-black border border-gray-200 rounded-bl-sm"
+                      : "bg-card border border-border rounded-bl-sm";
+                  const meta = out
+                    ? "text-white/70"
+                    : isImsg
+                      ? "text-gray-500"
+                      : "text-muted-foreground";
                   return (
                     <div key={m.id} className={`flex ${out ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                        out ? "bg-emerald-500 text-white rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
-                      }`}>
+                      <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${bubble}`}>
                         {allMedia.length > 0 && (
                           <div className={`grid gap-1.5 mb-1.5 ${allMedia.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
                             {allMedia.map((url) => (
@@ -228,8 +275,9 @@ export function SmsThreadPopup({
                           </div>
                         )}
                         {textOnly && <div>{textOnly}</div>}
-                        <div className={`text-[10px] mt-1 ${out ? "text-white/70" : "text-muted-foreground"}`}>
-                          {new Date(m.created_at).toLocaleString()}
+                        <div className={`text-[10px] mt-1 flex items-center gap-1 ${meta}`}>
+                          {isImsg && <span className="font-semibold">iMessage</span>}
+                          <span>{new Date(m.created_at).toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
@@ -254,7 +302,7 @@ export function SmsThreadPopup({
               />
               <div className="flex flex-col gap-1">
                 <EmojiButton onSelect={(emoji) => setBody((b) => b + emoji)} />
-                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className="bg-emerald-500 hover:bg-emerald-600">
+                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className={routeImessage ? "bg-[#007AFF] hover:bg-[#0066DD]" : "bg-emerald-500 hover:bg-emerald-600"}>
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
