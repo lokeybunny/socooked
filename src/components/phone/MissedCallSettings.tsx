@@ -13,7 +13,7 @@ import { SaveToCampaignButton } from "./SaveToCampaignButton";
 import { SmsThreadPopup } from "./SmsThreadPopup";
 
 const DEFAULT_MESSAGE =
-  "Currently in a meeting, talk with you soon. In the meanwhile, check my work out on IG: https://instagram.com/w4rr3nGURU";
+  "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
 
 type Cfg = {
   enabled: boolean;
