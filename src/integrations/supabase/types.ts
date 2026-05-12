@@ -2599,6 +2599,143 @@ export type Database = {
         }
         Relationships: []
       }
+      hot_reply_imports: {
+        Row: {
+          ai_classification: string | null
+          ai_confidence: number | null
+          ai_reason: string | null
+          assigned_to: string | null
+          call_status: string
+          campaign_name: string | null
+          created_at: string
+          dedupe_key: string | null
+          first_name: string | null
+          id: string
+          imported_at: string
+          is_hot: boolean
+          is_opt_out: boolean
+          last_name: string | null
+          notes: string | null
+          original_date: string | null
+          original_time: string | null
+          phone: string
+          reply_text: string
+          sheet_row_id: string | null
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_classification?: string | null
+          ai_confidence?: number | null
+          ai_reason?: string | null
+          assigned_to?: string | null
+          call_status?: string
+          campaign_name?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          first_name?: string | null
+          id?: string
+          imported_at?: string
+          is_hot?: boolean
+          is_opt_out?: boolean
+          last_name?: string | null
+          notes?: string | null
+          original_date?: string | null
+          original_time?: string | null
+          phone: string
+          reply_text: string
+          sheet_row_id?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_classification?: string | null
+          ai_confidence?: number | null
+          ai_reason?: string | null
+          assigned_to?: string | null
+          call_status?: string
+          campaign_name?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          first_name?: string | null
+          id?: string
+          imported_at?: string
+          is_hot?: boolean
+          is_opt_out?: boolean
+          last_name?: string | null
+          notes?: string | null
+          original_date?: string | null
+          original_time?: string | null
+          phone?: string
+          reply_text?: string
+          sheet_row_id?: string | null
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      hot_reply_notes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          hot_reply_id: string
+          id: string
+          note: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          hot_reply_id: string
+          id?: string
+          note: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          hot_reply_id?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hot_reply_notes_hot_reply_id_fkey"
+            columns: ["hot_reply_id"]
+            isOneToOne: false
+            referencedRelation: "hot_reply_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hot_reply_sync_settings: {
+        Row: {
+          created_at: string
+          google_sheet_url: string | null
+          id: string
+          last_sync_at: string | null
+          sheet_name: string | null
+          sync_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          google_sheet_url?: string | null
+          id?: string
+          last_sync_at?: string | null
+          sheet_name?: string | null
+          sync_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          google_sheet_url?: string | null
+          id?: string
+          last_sync_at?: string | null
+          sheet_name?: string | null
+          sync_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hourly_meta_summary: {
         Row: {
           bullish_score: number
