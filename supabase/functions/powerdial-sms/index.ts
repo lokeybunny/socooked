@@ -469,30 +469,45 @@ Deno.serve(async (req) => {
       if (existing?.[0]) return json({ ok: true, duplicate: true, id: existing[0].id });
     }
 
-    const result = await sendVoidfixSms(to, message);
-    tStamp(`VoidFix API call complete ok=${result.ok} totalMs=${result.timing?.totalMs ?? "?"}`);
+    const mediaUrlsIn: string[] = Array.isArray(payload?.mediaUrls)
+      ? payload.mediaUrls.filter((u: unknown) => typeof u === "string" && /^https?:\/\//i.test(u))
+      : [];
+    const hybridImessageThread = !!payload?.hybridImessageThread;
+
+    const result = mediaUrlsIn.length > 0
+      ? await sendTwilioMms(to, message, mediaUrlsIn)
+      : await sendVoidfixSms(to, message);
+    tStamp(`send complete provider=${mediaUrlsIn.length > 0 ? "twilio-mms" : "voidfix"} ok=${result.ok}`);
 
     const customerId = payload?.customer_id || (await findCustomerByPhone(to));
     tStamp("customer lookup done");
+
+    const providerName = mediaUrlsIn.length > 0 ? "twilio" : "voidfix";
+    const fromAddr = mediaUrlsIn.length > 0
+      ? (TWILIO_FROM_NUMBER ? normalizePhone(TWILIO_FROM_NUMBER) : null)
+      : (payload?.from_address || (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null));
 
     const insertPromise = sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
       body: message,
-      from_address: payload?.from_address || (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null),
+      from_address: fromAddr,
       to_address: normalizePhone(to),
       phone_number: normalizePhone(to),
-      provider: "voidfix",
+      provider: providerName,
       external_id: result.id || null,
       status: result.ok ? "sent" : "failed",
       customer_id: customerId || null,
+      media_urls: mediaUrlsIn.length > 0 ? mediaUrlsIn : null,
       metadata: {
         source,
-        device_id: VOIDFIX_DEVICE_ID,
+        device_id: providerName === "voidfix" ? VOIDFIX_DEVICE_ID : null,
+        transport: mediaUrlsIn.length > 0 ? "mms" : "sms",
+        hybrid_imessage_thread: hybridImessageThread,
         ...extraMetadata,
         ...(result.error ? { error: result.error } : {}),
-        ...(result.raw ? { voidfix_response: result.raw } : {}),
-        ...(result.timing ? { timing_ms: result.timing } : {}),
+        ...((result as any).raw ? { provider_response: (result as any).raw } : {}),
+        ...((result as any).timing ? { timing_ms: (result as any).timing } : {}),
       },
     });
 
