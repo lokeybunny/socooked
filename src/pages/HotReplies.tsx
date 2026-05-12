@@ -13,6 +13,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
+
+function dialViaTwilio(phone: string, navigate: (p: string) => void) {
+  // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
+  navigate("/phone");
+  // Give the page a tick to mount the keypad before dispatching the dial event
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent("twilio:dial", { detail: { phone } }));
+  }, 400);
+}
 
 type Reply = {
   id: string;
