@@ -82,8 +82,15 @@ export default function PowerDial() {
       .from('powerdial_campaigns')
       .select('*')
       .order('created_at', { ascending: false });
-    setCampaigns((data as any[]) || []);
+    const list = (data as any[]) || [];
+    setCampaigns(list);
     setLoading(false);
+    // Auto-select latest running campaign so the user lands on the live one
+    setActiveCampaign((current) => {
+      if (current) return current;
+      const running = list.find((c) => c.status === 'running');
+      return (running || list[0]) ?? null;
+    });
   }, []);
 
   useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
