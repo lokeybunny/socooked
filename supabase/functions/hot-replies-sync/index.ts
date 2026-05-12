@@ -180,60 +180,92 @@ serve(async (req) => {
     }
 
     const dataRows = rows.slice(1, 1 + limit);
-    let imported = 0, skipped = 0, classified = 0;
 
-    for (const r of dataRows) {
+    // Pre-build candidate rows + dedupe keys
+    const candidates = dataRows.map(r => {
       const phone = normalizePhone(r[idx.phone] || "");
       const reply = (r[idx.reply] || "").trim();
-      if (!phone || !reply) { skipped++; continue; }
-
       const date = idx.date >= 0 ? r[idx.date] : "";
       const time = idx.time >= 0 ? r[idx.time] : "";
       const dedupe = `${phone}|${reply.slice(0, 120)}|${date}|${time}`.toLowerCase();
+      return { r, phone, reply, date, time, dedupe };
+    }).filter(c => c.phone && c.reply);
 
-      const { data: existing } = await supabase.from("hot_reply_imports")
-        .select("id").eq("dedupe_key", dedupe).maybeSingle();
-      if (existing) { skipped++; continue; }
+    // Bulk-fetch existing dedupe keys (one query instead of N)
+    const allKeys = candidates.map(c => c.dedupe);
+    const { data: existingRows } = await supabase
+      .from("hot_reply_imports")
+      .select("dedupe_key")
+      .in("dedupe_key", allKeys);
+    const existingSet = new Set((existingRows || []).map((x: any) => x.dedupe_key));
+    const fresh = candidates.filter(c => !existingSet.has(c.dedupe));
+    const skipped = candidates.length - fresh.length + (dataRows.length - candidates.length);
 
-      // Classify
-      let cls;
-      try {
-        cls = await classifyReply(reply);
-        classified++;
-      } catch (e) {
-        console.error("classify err", e);
-        cls = { classification: "NEEDS_REVIEW", confidence: 0, reason: "Pending classification", is_hot: true, is_opt_out: false };
+    // Background task: classify in parallel batches and insert
+    const processInBackground = async () => {
+      const CONCURRENCY = 8;
+      let imported = 0, classified = 0;
+      for (let i = 0; i < fresh.length; i += CONCURRENCY) {
+        const batch = fresh.slice(i, i + CONCURRENCY);
+        const classified_results = await Promise.all(batch.map(async (c) => {
+          try {
+            const cls = await classifyReply(c.reply);
+            classified++;
+            return cls;
+          } catch (e) {
+            console.error("classify err", e);
+            return { classification: "NEEDS_REVIEW", confidence: 0, reason: "Pending classification", is_hot: true, is_opt_out: false };
+          }
+        }));
+        const inserts = batch.map((c, j) => {
+          const cls = classified_results[j];
+          return {
+            dedupe_key: c.dedupe,
+            first_name: idx.first >= 0 ? c.r[idx.first] : null,
+            last_name: idx.last >= 0 ? c.r[idx.last] : null,
+            phone: c.phone,
+            reply_text: c.reply,
+            campaign_name: idx.campaign >= 0 ? c.r[idx.campaign] : null,
+            source: idx.source >= 0 ? c.r[idx.source] : null,
+            original_date: c.date || null,
+            original_time: c.time || null,
+            ai_classification: cls.classification,
+            ai_confidence: cls.confidence,
+            ai_reason: cls.reason,
+            is_hot: cls.is_hot,
+            is_opt_out: cls.is_opt_out,
+          };
+        });
+        const { error } = await supabase.from("hot_reply_imports").insert(inserts);
+        if (error) console.error("bulk insert err", error);
+        else imported += inserts.length;
       }
+      console.log(`[hot-replies-sync] bg done: imported=${imported}, classified=${classified}`);
 
-      const { error: insErr } = await supabase.from("hot_reply_imports").insert({
-        dedupe_key: dedupe,
-        first_name: idx.first >= 0 ? r[idx.first] : null,
-        last_name: idx.last >= 0 ? r[idx.last] : null,
-        phone,
-        reply_text: reply,
-        campaign_name: idx.campaign >= 0 ? r[idx.campaign] : null,
-        source: idx.source >= 0 ? r[idx.source] : null,
-        original_date: date || null,
-        original_time: time || null,
-        ai_classification: cls.classification,
-        ai_confidence: cls.confidence,
-        ai_reason: cls.reason,
-        is_hot: cls.is_hot,
-        is_opt_out: cls.is_opt_out,
-      });
-      if (insErr) { console.error("insert err", insErr); skipped++; }
-      else imported++;
+      // Update settings after background work
+      const { data: settingsRow } = await supabase.from("hot_reply_sync_settings").select("id").limit(1).maybeSingle();
+      await supabase.from("hot_reply_sync_settings").upsert({
+        id: settingsRow?.id,
+        google_sheet_url: url,
+        sheet_name: sheet || "Sheet1",
+        last_sync_at: new Date().toISOString(),
+      }, { onConflict: "id" });
+    };
+
+    // @ts-ignore EdgeRuntime is provided in Supabase functions runtime
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(processInBackground());
+    } else {
+      processInBackground().catch(e => console.error("bg err", e));
     }
 
-    // Update settings
-    await supabase.from("hot_reply_sync_settings").upsert({
-      id: (await supabase.from("hot_reply_sync_settings").select("id").limit(1).maybeSingle()).data?.id,
-      google_sheet_url: url,
-      sheet_name: sheet || "Sheet1",
-      last_sync_at: new Date().toISOString(),
-    }, { onConflict: "id" });
-
-    return new Response(JSON.stringify({ imported, skipped, classified, total: dataRows.length }), {
+    return new Response(JSON.stringify({
+      queued: fresh.length,
+      skipped,
+      total: dataRows.length,
+      message: "Sync started in background. New rows will appear shortly.",
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
