@@ -336,6 +336,29 @@ export function SmsThreadPopup({
           </ScrollArea>
 
           <div className="border-t p-3 space-y-2 bg-background shrink-0">
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {attachments.map((a) => (
+                  <div key={a.id} className="flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px]">
+                    {a.uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
+                    <span className="max-w-[140px] truncate">{a.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(a.id)}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Remove attachment"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {routeImessage && (
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+                    Will send as MMS (iMessage is text-only)
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <Textarea
                 value={body}
@@ -347,9 +370,38 @@ export function SmsThreadPopup({
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
                 }}
               />
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                className="hidden"
+                onChange={(e) => { uploadFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }}
+              />
               <div className="flex flex-col gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 w-9 p-0"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={sending || attachments.length >= 10}
+                  title="Attach photo/video"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <EmojiButton onSelect={(emoji) => setBody((b) => b + emoji)} />
-                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className={routeImessage ? "bg-[#007AFF] hover:bg-[#0066DD]" : "bg-emerald-500 hover:bg-emerald-600"}>
+                <Button
+                  size="sm"
+                  onClick={send}
+                  disabled={sending || (!body.trim() && attachments.filter((a) => !a.uploading && a.url).length === 0)}
+                  className={
+                    attachments.filter((a) => !a.uploading && a.url).length > 0
+                      ? "bg-emerald-500 hover:bg-emerald-600"
+                      : routeImessage
+                        ? "bg-[#007AFF] hover:bg-[#0066DD]"
+                        : "bg-emerald-500 hover:bg-emerald-600"
+                  }
+                >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>
