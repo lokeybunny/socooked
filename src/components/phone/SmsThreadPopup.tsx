@@ -202,6 +202,10 @@ export function SmsThreadPopup({
     }
   };
 
+  // iMessage capability: text-only. Any pending media forces the whole thread temporarily into SMS/MMS.
+  const hasMedia = attachments.length > 0;
+  const effectiveImessage = routeImessage && !hasMedia;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
