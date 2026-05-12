@@ -1376,6 +1376,22 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <Button
                 size="sm"
                 variant="ghost"
+                className={`gap-1 ${activeThread && vipRouteSet.has(activeThread) ? 'text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25' : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10'}`}
+                onClick={(e) => activeThread && toggleVipRoute(e as any, activeThread)}
+                title={activeThread && vipRouteSet.has(activeThread) ? 'VIP routing ON → forwarding to (702) 832-2317. Click to disable.' : 'Enable VIP routing → forward this caller to (702) 832-2317'}
+              >
+                <input
+                  type="checkbox"
+                  readOnly
+                  checked={!!(activeThread && vipRouteSet.has(activeThread))}
+                  className="h-3 w-3 accent-cyan-400 pointer-events-none"
+                />
+                <PhoneForwarded className="h-3.5 w-3.5" />
+                <span className="text-xs">VIP Route</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 className="text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 gap-1"
                 onClick={() => {
                   if (!activeThread) return;
