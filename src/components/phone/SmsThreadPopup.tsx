@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap } from "lucide-react";
+import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
@@ -21,7 +21,10 @@ type SMSMessage = {
   created_at: string;
   media_urls?: string[] | null;
   provider?: string | null;
+  metadata?: Record<string, any> | null;
 };
+
+type PendingAttachment = { id: string; url: string; name: string; uploading?: boolean };
 
 function isImessageProvider(p?: string | null) {
   return !!p && p.toLowerCase().includes("voidfix-imessage") && !p.toLowerCase().includes("-sms");
@@ -69,6 +72,8 @@ export function SmsThreadPopup({
   const [notesOpen, setNotesOpen] = useState(false);
   const [routeImessage, setRouteImessage] = useState(false);
   const [routeReason, setRouteReason] = useState<string>("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -82,7 +87,7 @@ export function SmsThreadPopup({
     try {
       const { data } = await supabase
         .from("communications")
-        .select("id, direction, body, from_address, to_address, status, created_at, media_urls, provider")
+        .select("id, direction, body, from_address, to_address, status, created_at, media_urls, provider, metadata")
         .eq("type", "sms")
         .or(`from_address.ilike.%${last10},to_address.ilike.%${last10}`)
         .order("created_at", { ascending: true })
@@ -138,22 +143,58 @@ export function SmsThreadPopup({
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages, open]);
 
+  const uploadFiles = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    const items = Array.from(files).slice(0, 10 - attachments.length);
+    for (const f of items) {
+      const id = crypto.randomUUID();
+      setAttachments((prev) => [...prev, { id, url: "", name: f.name, uploading: true }]);
+      try {
+        const ext = (f.name.split(".").pop() || "bin").toLowerCase();
+        const path = `sms-attachments/${last10 || "thread"}/${id}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("content-uploads")
+          .upload(path, f, { contentType: f.type || "application/octet-stream", upsert: false });
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from("content-uploads").getPublicUrl(path);
+        setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, url: pub.publicUrl, uploading: false } : a)));
+      } catch (e: any) {
+        toast.error(`Upload failed: ${e?.message || "unknown"}`);
+        setAttachments((prev) => prev.filter((a) => a.id !== id));
+      }
+    }
+  };
+
+  const removeAttachment = (id: string) => setAttachments((prev) => prev.filter((a) => a.id !== id));
+
   const send = async () => {
     const text = body.trim();
-    if (!text) { toast.error("Type a message first"); return; }
+    const ready = attachments.filter((a) => !a.uploading && a.url);
+    if (!text && ready.length === 0) { toast.error("Type a message or attach a file"); return; }
+    if (attachments.some((a) => a.uploading)) { toast.error("Wait for uploads to finish"); return; }
     if (last10.length !== 10) { toast.error("Invalid phone"); return; }
     setSending(true);
     try {
-      const fn = routeImessage ? "voidfix-imessage" : "powerdial-sms";
-      const { data, error } = await supabase.functions.invoke(fn, {
-        body: { action: "send", to: e164, body: text },
-      });
+      // Hybrid: attachments always route through SMS/MMS provider — VoidFix iMessage is text-only.
+      const useMms = ready.length > 0;
+      const fn = useMms ? "powerdial-sms" : (routeImessage ? "voidfix-imessage" : "powerdial-sms");
+      const invokeBody: Record<string, any> = { action: "send", to: e164, body: text };
+      if (useMms) {
+        invokeBody.mediaUrls = ready.map((a) => a.url);
+        invokeBody.hybridImessageThread = routeImessage;
+      }
+      const { data, error } = await supabase.functions.invoke(fn, { body: invokeBody });
       if (error || !(data as any)?.ok) {
         toast.error((data as any)?.error || error?.message || "Failed to send");
       } else {
         const channel = (data as any)?.channel;
-        toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
+        if (useMms) {
+          toast.success(routeImessage ? "Sent as MMS (attachment) 📎" : "MMS sent");
+        } else {
+          toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
+        }
         setBody("");
+        setAttachments([]);
         load(true);
       }
     } finally {
@@ -192,7 +233,7 @@ export function SmsThreadPopup({
                   )}
                 </DialogTitle>
                 <DialogDescription className="text-xs">
-                  {routeImessage ? "Routing via VoidFix iMessage (auto SMS fallback)." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
+                  {routeImessage ? "iMessage for text · attachments auto-route as MMS." : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
@@ -275,8 +316,14 @@ export function SmsThreadPopup({
                           </div>
                         )}
                         {textOnly && <div>{textOnly}</div>}
-                        <div className={`text-[10px] mt-1 flex items-center gap-1 ${meta}`}>
+                        <div className={`text-[10px] mt-1 flex items-center gap-1 flex-wrap ${meta}`}>
                           {isImsg && <span className="font-semibold">iMessage</span>}
+                          {out && !isImsg && allMedia.length > 0 && m.metadata?.hybrid_imessage_thread && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-200 px-1.5 py-0.5 font-semibold">sent as MMS</span>
+                          )}
+                          {out && !isImsg && allMedia.length > 0 && !m.metadata?.hybrid_imessage_thread && (
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/20 text-emerald-200 px-1.5 py-0.5 font-semibold">MMS</span>
+                          )}
                           <span>{new Date(m.created_at).toLocaleString()}</span>
                         </div>
                       </div>
@@ -289,6 +336,29 @@ export function SmsThreadPopup({
           </ScrollArea>
 
           <div className="border-t p-3 space-y-2 bg-background shrink-0">
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {attachments.map((a) => (
+                  <div key={a.id} className="flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px]">
+                    {a.uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
+                    <span className="max-w-[140px] truncate">{a.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(a.id)}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Remove attachment"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                {routeImessage && (
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+                    Will send as MMS (iMessage is text-only)
+                  </span>
+                )}
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <Textarea
                 value={body}
@@ -300,9 +370,38 @@ export function SmsThreadPopup({
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
                 }}
               />
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                accept="image/*,video/*,audio/*"
+                className="hidden"
+                onChange={(e) => { uploadFiles(e.target.files); if (fileRef.current) fileRef.current.value = ""; }}
+              />
               <div className="flex flex-col gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 w-9 p-0"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={sending || attachments.length >= 10}
+                  title="Attach photo/video"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <EmojiButton onSelect={(emoji) => setBody((b) => b + emoji)} />
-                <Button size="sm" onClick={send} disabled={sending || !body.trim()} className={routeImessage ? "bg-[#007AFF] hover:bg-[#0066DD]" : "bg-emerald-500 hover:bg-emerald-600"}>
+                <Button
+                  size="sm"
+                  onClick={send}
+                  disabled={sending || (!body.trim() && attachments.filter((a) => !a.uploading && a.url).length === 0)}
+                  className={
+                    attachments.filter((a) => !a.uploading && a.url).length > 0
+                      ? "bg-emerald-500 hover:bg-emerald-600"
+                      : routeImessage
+                        ? "bg-[#007AFF] hover:bg-[#0066DD]"
+                        : "bg-emerald-500 hover:bg-emerald-600"
+                  }
+                >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
               </div>

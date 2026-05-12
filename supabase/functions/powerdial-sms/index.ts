@@ -23,6 +23,40 @@ const MMS_RESEND_MESSAGE = `I got your message, but this line cannot receive pic
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID") || "";
+const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_PRIMARY_AUTH_TOKEN") || Deno.env.get("TWILIO_AUTH_TOKEN") || "";
+const TWILIO_FROM_NUMBER = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+
+async function sendTwilioMms(to: string, body: string, mediaUrls: string[]): Promise<{ ok: boolean; id?: string; error?: string; status?: number; raw?: any }> {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+    return { ok: false, error: "missing_twilio_credentials" };
+  }
+  const toNum = normalizePhone(to);
+  if (!toNum) return { ok: false, error: "invalid_to" };
+
+  const form = new URLSearchParams();
+  form.set("To", toNum);
+  form.set("From", normalizePhone(TWILIO_FROM_NUMBER));
+  if (body) form.set("Body", body);
+  for (const u of mediaUrls.slice(0, 10)) form.append("MediaUrl", u);
+
+  try {
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { ok: false, status: resp.status, error: data?.message || `twilio_${resp.status}`, raw: data };
+    return { ok: true, id: data?.sid || null, raw: data };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "twilio_fetch_failed" };
+  }
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -435,30 +469,45 @@ Deno.serve(async (req) => {
       if (existing?.[0]) return json({ ok: true, duplicate: true, id: existing[0].id });
     }
 
-    const result = await sendVoidfixSms(to, message);
-    tStamp(`VoidFix API call complete ok=${result.ok} totalMs=${result.timing?.totalMs ?? "?"}`);
+    const mediaUrlsIn: string[] = Array.isArray(payload?.mediaUrls)
+      ? payload.mediaUrls.filter((u: unknown) => typeof u === "string" && /^https?:\/\//i.test(u))
+      : [];
+    const hybridImessageThread = !!payload?.hybridImessageThread;
+
+    const result = mediaUrlsIn.length > 0
+      ? await sendTwilioMms(to, message, mediaUrlsIn)
+      : await sendVoidfixSms(to, message);
+    tStamp(`send complete provider=${mediaUrlsIn.length > 0 ? "twilio-mms" : "voidfix"} ok=${result.ok}`);
 
     const customerId = payload?.customer_id || (await findCustomerByPhone(to));
     tStamp("customer lookup done");
+
+    const providerName = mediaUrlsIn.length > 0 ? "twilio" : "voidfix";
+    const fromAddr = mediaUrlsIn.length > 0
+      ? (TWILIO_FROM_NUMBER ? normalizePhone(TWILIO_FROM_NUMBER) : null)
+      : (payload?.from_address || (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null));
 
     const insertPromise = sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
       body: message,
-      from_address: payload?.from_address || (VOIDFIX_DEVICE_ID ? `voidfix:${VOIDFIX_DEVICE_ID}` : null),
+      from_address: fromAddr,
       to_address: normalizePhone(to),
       phone_number: normalizePhone(to),
-      provider: "voidfix",
+      provider: providerName,
       external_id: result.id || null,
       status: result.ok ? "sent" : "failed",
       customer_id: customerId || null,
+      media_urls: mediaUrlsIn.length > 0 ? mediaUrlsIn : null,
       metadata: {
         source,
-        device_id: VOIDFIX_DEVICE_ID,
+        device_id: providerName === "voidfix" ? VOIDFIX_DEVICE_ID : null,
+        transport: mediaUrlsIn.length > 0 ? "mms" : "sms",
+        hybrid_imessage_thread: hybridImessageThread,
         ...extraMetadata,
         ...(result.error ? { error: result.error } : {}),
-        ...(result.raw ? { voidfix_response: result.raw } : {}),
-        ...(result.timing ? { timing_ms: result.timing } : {}),
+        ...((result as any).raw ? { provider_response: (result as any).raw } : {}),
+        ...((result as any).timing ? { timing_ms: (result as any).timing } : {}),
       },
     });
 
