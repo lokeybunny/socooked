@@ -287,7 +287,7 @@ export default function PowerDialVoicemails() {
         <div className="flex items-center justify-between">
           <div>
             <Link to="/powerdial" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-              <ArrowLeft className="w-4 h-4 mr-1" /> Back to PowerDial
+              <ArrowLeft className="w-4 h-4 mr-1" /> Back to VMD
             </Link>
             <h1 className="text-3xl font-bold">Voicemail Drops</h1>
             <p className="text-muted-foreground mt-1">
