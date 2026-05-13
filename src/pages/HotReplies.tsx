@@ -303,7 +303,9 @@ export default function HotReplies() {
                     <TableHead>Class</TableHead>
                     <TableHead>Conf</TableHead>
                     <TableHead>Campaign</TableHead>
-                    <TableHead>When</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => setSortDir(prev => prev === 'latest' ? 'earliest' : 'latest')}>
+                      <span className="inline-flex items-center gap-1">When <ArrowUpDown className="h-3 w-3" /></span>
+                    </TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
