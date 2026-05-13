@@ -1021,7 +1021,7 @@ Deno.serve(async (req) => {
         sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
       ]);
 
-      const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+      let existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
         ? existingLog.meta as Record<string, unknown>
         : {};
       const leadPhone = (existingLog as any)?.phone || "";
@@ -1510,16 +1510,16 @@ Deno.serve(async (req) => {
       if (vmDropEnabled && vmDropUrl) {
         try {
           const isAfterMessageEnd = answeredBy.startsWith("machine_end");
-          const pauseLen = isAfterMessageEnd ? "0" : String(pauseBeforeSec + 1);
+          const leadInPause = isAfterMessageEnd ? "" : `<Pause length="${Math.max(1, pauseBeforeSec)}"/>`;
           const tailPause = `<Pause length="${Math.max(0, pauseAfterSec)}"/>`;
           const ttsFallback = ttsFallbackText
             ? `<Say voice="Polly.Joanna" language="en-US">${escapeXml(ttsFallbackText)}</Say>`
             : "";
-          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
+          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response>${leadInPause}<Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
           existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_attempt", {
             call_sid: callSid || null,
             answered_by: answeredBy,
-            pause_before_sec: pauseLen,
+            pause_before_sec: isAfterMessageEnd ? 0 : Math.max(1, pauseBeforeSec),
             pause_after_sec: pauseAfterSec,
             playback_url: vmDropUrl,
             selected_recording_id: selectedRecording?.id || null,
