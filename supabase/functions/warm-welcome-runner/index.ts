@@ -41,6 +41,23 @@ function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Business-hours gate: 8 AM – 6 PM Pacific Time.
+// (We treat PT generically; America/Los_Angeles handles PST/PDT correctly.)
+function isWithinPTBusinessHours(now = new Date()): boolean {
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "numeric",
+    hour12: false,
+  }).format(now);
+  const h = parseInt(hourStr, 10);
+  // 8:00–17:59 PT inclusive (stops at 6 PM sharp)
+  return h >= 8 && h < 18;
+}
+
+function isTestCampaign(campaign: any): boolean {
+  return !!(campaign?.filter_snapshot?.test);
+}
+
 async function rolloverIfNewDay(campaign: any) {
   const today = todayUTC();
   if (campaign.counters_day !== today) {
@@ -162,11 +179,19 @@ async function processCampaign(campaign: any) {
     campaign.status = 'running';
   }
 
+  const testMode = isTestCampaign(campaign);
+
+  // Business-hours gate (skip for test campaigns)
+  if (!testMode && !isWithinPTBusinessHours()) {
+    await logEvt(campaign.id, null, 'info', 'Outside 8 AM–6 PM PT window — pausing until next eligible minute');
+    return { processed: 0, reason: 'outside_business_hours' };
+  }
+
   await rolloverIfNewDay(campaign);
 
   const imessageRoom = IMESSAGE_NEW_CAP - (campaign.imessage_new_sent_today || 0);
   const smsRoom = SMS_CAP - (campaign.sms_sent_today || 0);
-  if (imessageRoom <= 0 && smsRoom <= 0) {
+  if (!testMode && imessageRoom <= 0 && smsRoom <= 0) {
     const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
     await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
     await logEvt(campaign.id, null, 'warn', `Daily caps reached. Cooling down ${COOLDOWN_HOURS}h until ${until}`);
@@ -214,7 +239,7 @@ async function processCampaign(campaign: any) {
     const isNew = channel === 'imessage' ? await isNewImessageContact(t.phone_last10) : false;
 
     // Cap check
-    if (channel === 'imessage' && isNew && imSentToday >= IMESSAGE_NEW_CAP) {
+    if (!testMode && channel === 'imessage' && isNew && imSentToday >= IMESSAGE_NEW_CAP) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
@@ -224,7 +249,7 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'warn', 'iMessage new-contact cap hit — cooling down');
       break;
     }
-    if (channel === 'sms' && smsSentToday >= SMS_CAP) {
+    if (!testMode && channel === 'sms' && smsSentToday >= SMS_CAP) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Heart, Play, Square, RefreshCw, MessageSquare, Smartphone, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Heart, Play, Square, RefreshCw, MessageSquare, Smartphone, Loader2, AlertTriangle, CheckCircle2, FlaskConical, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -75,6 +76,9 @@ export default function WarmWelcomeCampaignPanel({ contacts }: { contacts: WWCon
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [targets, setTargets] = useState<TargetRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [testPhone1, setTestPhone1] = useState('');
+  const [testPhone2, setTestPhone2] = useState('');
+  const [testBusy, setTestBusy] = useState(false);
   const channelRef = useRef<any>(null);
 
   const loadLatest = async () => {
@@ -167,6 +171,27 @@ export default function WarmWelcomeCampaignPanel({ contacts }: { contacts: WWCon
     finally { setBusy(false); }
   };
 
+  const runTest = async () => {
+    const nums = [testPhone1, testPhone2]
+      .map((s) => s.trim())
+      .filter((s) => s.replace(/\D/g, '').length >= 10);
+    if (nums.length === 0) { toast.error('Enter at least 1 valid phone number'); return; }
+    if (nums.length > 2) { toast.error('Max 2 test numbers'); return; }
+    setTestBusy(true);
+    try {
+      const testContacts = nums.map((p) => ({ phone: p, name: 'Test Recipient' }));
+      const { data, error } = await supabase.functions.invoke('warm-welcome-campaign', {
+        body: { action: 'start', test: true, contacts: testContacts },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Test campaign started — ${(data as any).queued} number(s) queued`);
+      setTestPhone1(''); setTestPhone2('');
+      await loadLatest();
+    } catch (e: any) { toast.error(safeErr(e, 'Test failed')); }
+    finally { setTestBusy(false); }
+  };
+
   const isRunning = campaign?.status === 'running';
   const isCooldown = campaign?.status === 'cooldown';
   const cooldownLabel = useMemo(() => {
@@ -224,13 +249,52 @@ export default function WarmWelcomeCampaignPanel({ contacts }: { contacts: WWCon
             </Button>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          Audits each lead's device → sends iMessage to iPhones, SMS to Androids. AI personalizes each message with the lead's name,
-          their reply, and reply time. Caps: <span className="text-emerald-400 font-semibold">50</span> new iMessage contacts/day,{' '}
-          <span className="text-emerald-400 font-semibold">50</span> SMS/day. Auto-cooldown 24h when capped.
+        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+          <Clock className="h-3 w-3 text-amber-400" />
+          <span>
+            Active <span className="text-amber-400 font-semibold">8 AM – 6 PM Pacific Time</span> only. Audits each lead's device → iMessage to iPhones, SMS to Androids.
+            AI personalizes each message. Caps: <span className="text-emerald-400 font-semibold">50</span> new iMessage/day,{' '}
+            <span className="text-emerald-400 font-semibold">50</span> SMS/day. Auto-cooldown 24h when capped.
+          </span>
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Test Campaign */}
+        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+            <FlaskConical className="h-3.5 w-3.5" />
+            Test Campaign
+            <span className="text-[10px] font-normal text-muted-foreground">
+              (1–2 numbers, bypasses 8AM-6PM PT gate & daily caps — fires immediately)
+            </span>
+          </div>
+          <div className="flex flex-col md:flex-row gap-2">
+            <Input
+              placeholder="Test number 1 (e.g. 3235593526)"
+              value={testPhone1}
+              onChange={(e) => setTestPhone1(e.target.value)}
+              className="h-8 text-xs"
+              disabled={testBusy}
+            />
+            <Input
+              placeholder="Test number 2 (optional)"
+              value={testPhone2}
+              onChange={(e) => setTestPhone2(e.target.value)}
+              className="h-8 text-xs"
+              disabled={testBusy}
+            />
+            <Button
+              size="sm"
+              onClick={runTest}
+              disabled={testBusy}
+              className="bg-purple-600 hover:bg-purple-700 text-white shrink-0"
+            >
+              {testBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+              Run Test
+            </Button>
+          </div>
+        </div>
+
         {/* Counters */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
           <Stat label="Targets" value={campaign?.total_targets ?? 0} icon={<Smartphone className="h-3 w-3" />} />

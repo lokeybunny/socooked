@@ -33,11 +33,25 @@ async function start(payload: any) {
   const contacts: any[] = Array.isArray(payload?.contacts) ? payload.contacts : [];
   if (contacts.length === 0) return json({ ok: false, error: "no_contacts" }, 400);
 
+  const isTest = !!payload?.test;
+  if (isTest && contacts.length > 2) {
+    return json({ ok: false, error: "test_max_2_numbers" }, 400);
+  }
+
+  const baseName = isTest
+    ? `TEST — ${new Date().toISOString().slice(0,16).replace('T',' ')}`
+    : `Warm Welcome ${new Date().toISOString().slice(0,16).replace('T',' ')}`;
+
+  const filterSnapshot = {
+    ...(payload?.filter_snapshot || {}),
+    ...(isTest ? { test: true } : {}),
+  };
+
   const { data: campaign, error } = await sb.from("warm_welcome_campaigns").insert({
-    name: payload?.name || `Warm Welcome ${new Date().toISOString().slice(0,16).replace('T',' ')}`,
+    name: payload?.name || baseName,
     status: 'running',
     total_targets: contacts.length,
-    filter_snapshot: payload?.filter_snapshot || null,
+    filter_snapshot: filterSnapshot,
   }).select().single();
   if (error) return json({ ok: false, error: error.message }, 500);
 
@@ -49,8 +63,8 @@ async function start(payload: any) {
       phone_last10: last10(c.phone),
       phone_e164: e164(c.phone),
       name: c.name || null,
-      reply_text: c.reply_text || null,
-      reply_at: c.reply_at || null,
+      reply_text: c.reply_text || (isTest ? 'TEST MESSAGE — please ignore' : null),
+      reply_at: c.reply_at || (isTest ? new Date().toISOString() : null),
     }))
     .filter((r) => {
       if (!r.phone_last10 || r.phone_last10.length !== 10) return false;
@@ -71,10 +85,23 @@ async function start(payload: any) {
   await sb.from("warm_welcome_logs").insert({
     campaign_id: campaign.id,
     level: 'info',
-    message: `Campaign started with ${rows.length} contacts`,
+    message: isTest
+      ? `TEST campaign started with ${rows.length} number(s) — bypasses 8AM-6PM PT gate & daily caps`
+      : `Campaign started with ${rows.length} contacts (active 8AM-6PM PT only)`,
   });
 
-  return json({ ok: true, campaign_id: campaign.id, queued: rows.length });
+  // Test campaigns: trigger runner immediately so the user gets instant feedback
+  if (isTest) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/warm-welcome-runner`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_KEY}` },
+        body: JSON.stringify({ campaign_id: campaign.id }),
+      });
+    } catch (_) {}
+  }
+
+  return json({ ok: true, campaign_id: campaign.id, queued: rows.length, test: isTest });
 }
 
 async function stop(payload: any) {
