@@ -95,7 +95,8 @@ async function actionSend(payload: any) {
     return json({ ok: false, error: "missing_recipient_or_message" }, 400);
   }
 
-  const sendBody: Record<string, unknown> = { recipient, message };
+  // VoidFix requires a non-empty message even when sending attachments only
+  const sendBody: Record<string, unknown> = { recipient, message: message || " " };
   if (payload.iMessageLineId) sendBody.iMessageLineId = payload.iMessageLineId;
   if (attachments.length) {
     // Best-effort: forward both common shapes; VoidFix accepts the one it knows.
