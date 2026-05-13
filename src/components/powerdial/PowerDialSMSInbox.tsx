@@ -1740,11 +1740,28 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             return (
                               <>
                                 {text && <p className={textCls}>{text}</p>}
-                                {imgs.map((url) => (
-                                  <div key={url} className="mt-1">
-                                    <MediaImage url={url} />
-                                  </div>
-                                ))}
+                                {imgs.map((url) => {
+                                  const kind = classifyMedia(url);
+                                  if (kind === 'audio') {
+                                    return (
+                                      <div key={url} className="mt-1">
+                                        <audio controls preload="metadata" src={url} className="w-full max-w-[280px] h-9" />
+                                      </div>
+                                    );
+                                  }
+                                  if (kind === 'video') {
+                                    return (
+                                      <div key={url} className="mt-1">
+                                        <video controls preload="metadata" src={url} className="rounded-lg max-h-64 max-w-full" />
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div key={url} className="mt-1">
+                                      <MediaImage url={url} />
+                                    </div>
+                                  );
+                                })}
                                 {showMissingMediaHint && (
                                   <p className={`${textCls} italic opacity-70 flex items-center gap-1`}>
                                     <ImageIcon className="h-3.5 w-3.5" /> Attachment (not retrievable)
