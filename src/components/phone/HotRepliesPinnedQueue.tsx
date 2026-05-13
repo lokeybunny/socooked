@@ -104,7 +104,7 @@ export default function HotRepliesPinnedQueue() {
 
   // Match HotReplies page filter semantics
   const filtered = useMemo(() => {
-    let list = rows.filter(r => !r.is_opt_out && r.call_status !== 'not_interested' && r.call_status !== 'opt_out');
+    let list = rows.filter(r => !r.is_opt_out && r.call_status === 'not_called');
     if (filter === 'hot') list = list.filter(r => r.is_hot);
     else if (filter === 'warm') list = list.filter(r => r.ai_classification === 'WARM_INTERESTED');
     else if (filter === 'positive') list = list.filter(r => r.ai_classification === 'HOT_POSITIVE');
@@ -112,7 +112,7 @@ export default function HotRepliesPinnedQueue() {
     else if (filter === 'callback') list = list.filter(r => r.ai_classification === 'CALLBACK_REQUEST');
     else if (filter === 'needs_review') list = list.filter(r => r.ai_classification === 'NEEDS_REVIEW');
     else if (filter === 'not_called') list = list.filter(r => r.is_hot && r.call_status === 'not_called');
-    // 'all' = everything not filtered above
+    // 'all' = every uncontacted, non opt-out reply
     list.sort((a, b) => {
       const da = new Date(a.imported_at).getTime();
       const db = new Date(b.imported_at).getTime();
@@ -122,7 +122,7 @@ export default function HotRepliesPinnedQueue() {
   }, [rows, filter, sortDir]);
 
   const counts = useMemo(() => {
-    const base = rows.filter(r => !r.is_opt_out);
+    const base = rows.filter(r => !r.is_opt_out && r.call_status === 'not_called');
     return {
       hot: base.filter(r => r.is_hot).length,
       warm: base.filter(r => r.ai_classification === 'WARM_INTERESTED').length,
