@@ -1474,7 +1474,7 @@ Deno.serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(5);
         const activeRec = activeRecs?.[0];
-        if (!configuredVmDropUrl && activeRec?.id) {
+        if (activeRec?.id) {
           // Cache-bust on updated_at so re-uploads / new actives are not served
           // from Twilio's edge cache of a prior recording.
           const ver = encodeURIComponent(String(activeRec.updated_at || activeRec.created_at || Date.now()));
