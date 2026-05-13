@@ -112,5 +112,19 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: error.message }, 500);
   }
 
+  // Fire-and-forget: auto-audit the sender's device so the SMS thread
+  // auto-routes to iMessage vs SMS. The audit fn is idempotent — it locks
+  // once device_type is set, so repeat inbounds won't re-spend on Twilio Lookup.
+  const auditPromise = fetch(`${SUPABASE_URL}/functions/v1/phone-device-audit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
+    body: JSON.stringify({ action: "run", phone: from_address }),
+  }).then(r => r.text()).catch(e => console.error("[voidfix-imessage-inbound] audit error", e));
+  // @ts-ignore EdgeRuntime is provided in Supabase functions runtime
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(auditPromise);
+  }
+
   return json({ ok: true, id: ins?.id });
 });
