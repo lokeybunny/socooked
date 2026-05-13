@@ -171,6 +171,27 @@ export default function WarmWelcomeCampaignPanel({ contacts }: { contacts: WWCon
     finally { setBusy(false); }
   };
 
+  const runTest = async () => {
+    const nums = [testPhone1, testPhone2]
+      .map((s) => s.trim())
+      .filter((s) => s.replace(/\D/g, '').length >= 10);
+    if (nums.length === 0) { toast.error('Enter at least 1 valid phone number'); return; }
+    if (nums.length > 2) { toast.error('Max 2 test numbers'); return; }
+    setTestBusy(true);
+    try {
+      const testContacts = nums.map((p) => ({ phone: p, name: 'Test Recipient' }));
+      const { data, error } = await supabase.functions.invoke('warm-welcome-campaign', {
+        body: { action: 'start', test: true, contacts: testContacts },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Test campaign started — ${(data as any).queued} number(s) queued`);
+      setTestPhone1(''); setTestPhone2('');
+      await loadLatest();
+    } catch (e: any) { toast.error(safeErr(e, 'Test failed')); }
+    finally { setTestBusy(false); }
+  };
+
   const isRunning = campaign?.status === 'running';
   const isCooldown = campaign?.status === 'cooldown';
   const cooldownLabel = useMemo(() => {
