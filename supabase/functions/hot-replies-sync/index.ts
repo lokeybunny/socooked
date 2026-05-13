@@ -248,8 +248,10 @@ serve(async (req) => {
             is_opt_out: cls.is_opt_out,
           };
         });
-        const { error } = await supabase.from("hot_reply_imports").insert(inserts);
-        if (error) console.error("bulk insert err", error);
+        const { error } = await supabase
+          .from("hot_reply_imports")
+          .upsert(inserts, { onConflict: "dedupe_key", ignoreDuplicates: true });
+        if (error) console.error("bulk upsert err", error);
         else imported += inserts.length;
       }
       console.log(`[hot-replies-sync] bg done: imported=${imported}, classified=${classified}`);
