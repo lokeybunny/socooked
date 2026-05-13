@@ -973,20 +973,19 @@ Deno.serve(async (req) => {
       let vmDropOnlyHumanHangup = false;
 
       if (vmDropOnlyForAmd) {
-        // Voicemail-ready states: any "machine_end_*" classification means
-        // Twilio's DetectMessageEnd determined the greeting finished — this
-        // includes machine_end_beep, machine_end_silence, AND
-        // machine_end_other (greetings that don't fit the beep/silence
-        // pattern but still ended cleanly). Also accept plain "machine"
-        // family results since DetectMessageEnd reliably signals end-of-
-        // greeting before firing.
+        // Voicemail-ready states: only "machine_end_*" means Twilio has heard
+        // the mailbox greeting finish / beep. Do NOT drop on machine_start —
+        // that fires at the start of the greeting and plays over the mailbox.
         const isConfidentVoicemailReady =
           answeredBy.startsWith("machine_end") ||
-          answeredBy === "machine_start" ||
           answeredBy === "fax";
         if (isConfidentVoicemailReady) {
           amdResult = "voicemail";
           intendedAction = `vm_drop_only_voicemail_drop (AMD=${answeredBy})`;
+        } else if (answeredBy === "machine_start" || answeredBy === "machine") {
+          amdResult = "unknown";
+          connectVapi = false;
+          intendedAction = `vm_drop_only_wait_for_machine_end_before_drop (AMD=${answeredBy})`;
         } else {
           amdResult = answeredBy === "human" || hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)
             ? "human"
@@ -1004,9 +1003,13 @@ Deno.serve(async (req) => {
         amdResult = "human";
         connectVapi = true;
         intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
-      } else if (answeredBy.includes("machine") || answeredBy === "fax") {
+      } else if (answeredBy.startsWith("machine_end") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
+      } else if (answeredBy === "machine_start" || answeredBy === "machine") {
+        amdResult = "unknown";
+        connectVapi = false;
+        intendedAction = `wait_for_machine_end_before_vm_drop (AMD=${answeredBy})`;
       } else if (answeredBy === "unknown") {
         amdResult = "unknown";
         connectVapi = false;
@@ -1021,7 +1024,7 @@ Deno.serve(async (req) => {
         sb.from("powerdial_campaigns").select("settings").eq("id", campaignId).single(),
       ]);
 
-      const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+      let existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
         ? existingLog.meta as Record<string, unknown>
         : {};
       const leadPhone = (existingLog as any)?.phone || "";
@@ -1475,7 +1478,7 @@ Deno.serve(async (req) => {
           .order("created_at", { ascending: false })
           .limit(5);
         const activeRec = activeRecs?.[0];
-        if (!configuredVmDropUrl && activeRec?.id) {
+        if (activeRec?.id) {
           // Cache-bust on updated_at so re-uploads / new actives are not served
           // from Twilio's edge cache of a prior recording.
           const ver = encodeURIComponent(String(activeRec.updated_at || activeRec.created_at || Date.now()));
@@ -1510,16 +1513,16 @@ Deno.serve(async (req) => {
       if (vmDropEnabled && vmDropUrl) {
         try {
           const isAfterMessageEnd = answeredBy.startsWith("machine_end");
-          const pauseLen = isAfterMessageEnd ? "0" : String(pauseBeforeSec + 1);
+          const leadInPause = isAfterMessageEnd ? "" : `<Pause length="${Math.max(1, pauseBeforeSec)}"/>`;
           const tailPause = `<Pause length="${Math.max(0, pauseAfterSec)}"/>`;
           const ttsFallback = ttsFallbackText
             ? `<Say voice="Polly.Joanna" language="en-US">${escapeXml(ttsFallbackText)}</Say>`
             : "";
-          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
+          const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response>${leadInPause}<Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
           existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_attempt", {
             call_sid: callSid || null,
             answered_by: answeredBy,
-            pause_before_sec: pauseLen,
+            pause_before_sec: isAfterMessageEnd ? 0 : Math.max(1, pauseBeforeSec),
             pause_after_sec: pauseAfterSec,
             playback_url: vmDropUrl,
             selected_recording_id: selectedRecording?.id || null,
