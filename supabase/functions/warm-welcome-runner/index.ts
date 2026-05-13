@@ -206,14 +206,19 @@ async function processCampaign(campaign: any) {
 
   await rolloverIfNewDay(campaign);
 
-  // Per-API buckets (each VoidFix API has its own 50/day NEW-contact cap):
-  //   - "imessage_api" bucket = anything sent through the VoidFix iMessage API
-  //     (covers both blue-bubble iMessage AND any SMS that falls back through
-  //     the same iMessage API endpoint — they all count toward this bucket).
-  //   - "android_api"  bucket = anything sent through the dedicated Android
-  //     SMS API. Cap is independent from the iMessage API bucket.
-  const imessageApiRoom = IMESSAGE_NEW_CAP - (campaign.imessage_new_sent_today || 0);
-  const androidApiRoom  = SMS_CAP          - (campaign.sms_sent_today          || 0);
+  // GLOBAL per-API caps: 50 NEW contacts/day across ALL campaigns combined.
+  // Sum today's counters from every campaign (running + cooldown), so caps are
+  // enforced at the API/account level — not per-campaign.
+  const today = todayUTC();
+  const { data: globalRows } = await sb
+    .from("warm_welcome_campaigns")
+    .select("imessage_new_sent_today, sms_sent_today")
+    .eq("counters_day", today);
+  let globalImessageSent = (globalRows || []).reduce((s: number, r: any) => s + (r.imessage_new_sent_today || 0), 0);
+  let globalAndroidSent  = (globalRows || []).reduce((s: number, r: any) => s + (r.sms_sent_today || 0), 0);
+
+  const imessageApiRoom = IMESSAGE_NEW_CAP - globalImessageSent;
+  const androidApiRoom  = SMS_CAP          - globalAndroidSent;
   if (!testMode && imessageApiRoom <= 0 && androidApiRoom <= 0) {
     const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
     await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
@@ -243,9 +248,9 @@ async function processCampaign(campaign: any) {
   }
 
   let processed = 0;
-  // Counters by API bucket (NOT by channel). Each bucket has its own 50/day cap.
-  let imessageApiSentToday = campaign.imessage_new_sent_today || 0; // VoidFix iMessage API
-  let androidApiSentToday  = campaign.sms_sent_today          || 0; // VoidFix Android SMS API
+  // Per-campaign deltas (so we can persist this campaign's row at the end).
+  let campaignImessageSent = campaign.imessage_new_sent_today || 0;
+  let campaignAndroidSent  = campaign.sms_sent_today          || 0;
   let totalSent = campaign.total_sent || 0;
   let totalFailed = campaign.total_failed || 0;
   let totalSkipped = campaign.total_skipped || 0;
@@ -259,35 +264,28 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'info', `Audit: ${t.phone_e164} -> ${device}`);
     }
 
-    // Channel + API routing:
-    //   iPhone -> VoidFix iMessage API (channel = imessage)
-    //   Android/unknown -> VoidFix Android SMS API (channel = sms)
-    // The iMessage API can also deliver as SMS-fallback; if that happens it
-    // still counts toward the "imessage_api" bucket because the SAME API was used.
     const channel  = device === 'iphone' ? 'imessage' : 'sms';
     const apiBucket: 'imessage_api' | 'android_api' =
       channel === 'imessage' ? 'imessage_api' : 'android_api';
     const isNew = await isNewContact(t.phone_last10);
 
-    // Cap check — per API bucket. Only NEW contacts count toward caps.
-    const bucketSent = apiBucket === 'imessage_api' ? imessageApiSentToday : androidApiSentToday;
-    const bucketCap  = apiBucket === 'imessage_api' ? IMESSAGE_NEW_CAP    : SMS_CAP;
+    // GLOBAL cap check — counts NEW contacts across ALL campaigns.
+    const bucketSent = apiBucket === 'imessage_api' ? globalImessageSent : globalAndroidSent;
+    const bucketCap  = apiBucket === 'imessage_api' ? IMESSAGE_NEW_CAP   : SMS_CAP;
     if (!testMode && isNew && bucketSent >= bucketCap) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
       }).eq("id", t.id);
-      // Only cool the campaign down when BOTH API buckets are full; otherwise
-      // skip this target and continue — there might still be room on the other API.
-      const otherBucketSent = apiBucket === 'imessage_api' ? androidApiSentToday : imessageApiSentToday;
-      const otherBucketCap  = apiBucket === 'imessage_api' ? SMS_CAP             : IMESSAGE_NEW_CAP;
+      const otherBucketSent = apiBucket === 'imessage_api' ? globalAndroidSent : globalImessageSent;
+      const otherBucketCap  = apiBucket === 'imessage_api' ? SMS_CAP           : IMESSAGE_NEW_CAP;
       if (otherBucketSent >= otherBucketCap) {
         const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
         await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
-        await logEvt(campaign.id, t.id, 'warn', `Both API caps reached (${apiBucket}=${bucketSent}/${bucketCap}) — cooling down`);
+        await logEvt(campaign.id, t.id, 'warn', `GLOBAL caps reached on both APIs (${apiBucket}=${bucketSent}/${bucketCap}) — cooling down`);
         break;
       } else {
-        await logEvt(campaign.id, t.id, 'info', `${apiBucket} cap reached (${bucketSent}/${bucketCap}) — skipping; other API still open`);
+        await logEvt(campaign.id, t.id, 'info', `GLOBAL ${apiBucket} cap reached (${bucketSent}/${bucketCap}) — skipping; other API still open`);
         continue;
       }
     }
@@ -310,14 +308,14 @@ async function processCampaign(campaign: any) {
       await sb.from("warm_welcome_targets").update({
         status: 'sent', sent_at: new Date().toISOString(), error: null,
       }).eq("id", t.id);
-      // Increment the API bucket that actually sent it. Only NEW contacts count.
-      if (isNew && apiBucket === 'imessage_api') imessageApiSentToday += 1;
-      if (isNew && apiBucket === 'android_api')  androidApiSentToday  += 1;
+      // Increment GLOBAL counters and this campaign's local counters. Only NEW contacts count.
+      if (isNew && apiBucket === 'imessage_api') { globalImessageSent += 1; campaignImessageSent += 1; }
+      if (isNew && apiBucket === 'android_api')  { globalAndroidSent  += 1; campaignAndroidSent  += 1; }
       totalSent += 1;
       await logEvt(campaign.id, t.id, 'success',
         `Sent via ${apiBucket} (${channel}) to ${t.phone_e164}` +
         (isNew
-          ? ` — NEW contact, ${apiBucket}=${apiBucket === 'imessage_api' ? imessageApiSentToday : androidApiSentToday}/${bucketCap}`
+          ? ` — NEW contact, GLOBAL ${apiBucket}=${apiBucket === 'imessage_api' ? globalImessageSent : globalAndroidSent}/${bucketCap}`
           : ' — existing CRM contact, no cap'));
     } else {
       await sb.from("warm_welcome_targets").update({
@@ -328,8 +326,6 @@ async function processCampaign(campaign: any) {
     }
     processed += 1;
 
-    // Anti-spam cooldown between sends within this batch.
-    // Skip the wait after the last target so we don't hold the function open needlessly.
     const isLast = t === targets[targets.length - 1];
     if (!isLast && !testMode) {
       const waitMs = randCooldownMs();
@@ -339,8 +335,8 @@ async function processCampaign(campaign: any) {
   }
 
   await sb.from("warm_welcome_campaigns").update({
-    imessage_new_sent_today: imessageApiSentToday,
-    sms_sent_today: androidApiSentToday,
+    imessage_new_sent_today: campaignImessageSent,
+    sms_sent_today: campaignAndroidSent,
     total_sent: totalSent,
     total_failed: totalFailed,
     total_skipped: totalSkipped,

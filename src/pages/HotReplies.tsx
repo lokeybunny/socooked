@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
 import WarmWelcomeBucketCounter from "@/components/sms/WarmWelcomeBucketCounter";
+import GlobalApiCooldownPanel from "@/components/sms/GlobalApiCooldownPanel";
 
 function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
@@ -247,6 +248,9 @@ export default function HotReplies() {
             <Button variant="outline" onClick={() => setSettingsOpen(true)}><Settings /> Settings</Button>
           </div>
         </div>
+
+        {/* Global VoidFix API cooldown — caps are 50 NEW contacts/day per API across ALL campaigns */}
+        <GlobalApiCooldownPanel />
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
