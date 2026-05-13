@@ -33,18 +33,27 @@ export default function GlobalApiCooldownPanel() {
   const todayUTC = () => new Date().toISOString().slice(0, 10);
 
   const load = async () => {
-    const { data } = await supabase
-      .from('warm_welcome_campaigns')
-      .select('imessage_new_sent_today, sms_sent_today, counters_day')
-      .eq('counters_day', todayUTC());
-    const rows = data || [];
-    setImessage(rows.reduce((s: number, r: any) => s + (r.imessage_new_sent_today || 0), 0));
-    setSms(rows.reduce((s: number, r: any) => s + (r.sms_sent_today || 0), 0));
+    // Source of truth: actual sent targets today (UTC).
+    const startOfDayUtc = new Date();
+    startOfDayUtc.setUTCHours(0, 0, 0, 0);
+    const sinceIso = startOfDayUtc.toISOString();
+
+    const [imRes, smsRes] = await Promise.all([
+      supabase.from('warm_welcome_targets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'sent').eq('channel', 'imessage').gte('sent_at', sinceIso),
+      supabase.from('warm_welcome_targets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'sent').eq('channel', 'sms').gte('sent_at', sinceIso),
+    ]);
+    setImessage(imRes.count || 0);
+    setSms(smsRes.count || 0);
   };
 
   useEffect(() => {
     load();
     const ch = supabase.channel('global-api-cooldown')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warm_welcome_targets' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warm_welcome_campaigns' }, () => load())
       .subscribe();
     const t = setInterval(load, 30_000);
