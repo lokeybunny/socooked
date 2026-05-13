@@ -1206,6 +1206,33 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     }
   };
 
+  const [auditingThread, setAuditingThread] = useState<string | null>(null);
+
+  const handleAuditDevice = async (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const display = displayPhone(phoneKey);
+    const e164 = `+1${phoneKey}`;
+    if (!confirm(`Audit ${display} via Twilio + iMessage check?\n\nCost: ~$0.008. Result is permanent — the contact name will be locked with _iPhone or _Android.`)) return;
+    setAuditingThread(phoneKey);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-device-audit', {
+        body: { action: 'run', phone: e164 },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'audit_failed');
+      if (data.locked) {
+        toast.info(`Already audited: ${data.device_type}`);
+      } else {
+        toast.success(`Locked as ${data.device_type}`);
+      }
+      loadContacts();
+    } catch (err: any) {
+      toast.error(err?.message || 'Audit failed');
+    } finally {
+      setAuditingThread(null);
+    }
+  };
+
   const handleDeleteMessage = async (m: SMSMessage) => {
     if (!confirm('Delete this message? This cannot be undone.')) return;
     try {
@@ -1718,6 +1745,21 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 title="Delete thread"
               >
                 <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 gap-1"
+                onClick={(e) => activeThread && handleAuditDevice(e, activeThread)}
+                disabled={!!activeThread && auditingThread === activeThread}
+                title="Audit device (Twilio + iMessage) — locks contact as _iPhone or _Android"
+              >
+                {activeThread && auditingThread === activeThread ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Smartphone className="h-3.5 w-3.5" />
+                )}
+                <span className="text-xs">Audit Device</span>
               </Button>
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
