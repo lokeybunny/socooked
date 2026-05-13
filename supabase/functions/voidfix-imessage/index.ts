@@ -102,6 +102,19 @@ async function actionSend(payload: any) {
     return json({ ok: false, error: "missing_recipient_or_message" }, 400);
   }
 
+  // Manual cooldown — admin can pause iMessage API for 24h via /sms → Cool Down
+  try {
+    const { data: cd } = await sb
+      .from("app_settings")
+      .select("value")
+      .eq("key", "voidfix_manual_cooldown")
+      .maybeSingle();
+    const until = (cd?.value as any)?.imessage_until;
+    if (until && new Date(until).getTime() > Date.now()) {
+      return json({ ok: false, error: "manual_cooldown", channel: "imessage", until }, 423);
+    }
+  } catch (e) { console.error("[voidfix-imessage] cooldown check failed:", (e as any)?.message || e); }
+
   // VoidFix's public /messages/send API does NOT support attachments — only `recipient` and `message`.
   // For attachments, we inline the URL(s) into the message body so the recipient sees a clickable link.
   const composedMessage = attachments.length
