@@ -50,10 +50,11 @@ export default function WarmWelcomeBucketCounter() {
   const todayUTC = () => new Date().toISOString().slice(0, 10);
 
   const load = async () => {
+    // Sum across ALL campaigns today (including 'done'/'stopped') so the global
+    // daily API usage stays accurate after a campaign finishes.
     const { data } = await supabase
       .from('warm_welcome_campaigns')
       .select('id, status, imessage_new_sent_today, sms_sent_today, counters_day')
-      .in('status', ['running', 'cooldown'])
       .eq('counters_day', todayUTC());
     const rows = (data as Row[] | null) || [];
     setImessage(rows.reduce((s, r) => s + (r.imessage_new_sent_today || 0), 0));
