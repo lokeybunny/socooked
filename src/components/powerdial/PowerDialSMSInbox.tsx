@@ -58,19 +58,27 @@ function formatPhone(raw: string | null | undefined) {
   return `(${last10.slice(0, 3)}) ${last10.slice(3, 6)}-${last10.slice(6)}`;
 }
 
-// Extract image URLs from a message body (Supabase content-uploads bucket or any common image extension)
+// Extract media URLs from a message body (any common image/audio/video extension).
 const IMAGE_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp)(?:\?[^\s]*)?)/gi;
+const AUDIO_EXT_RE = /\.(mp3|m4a|aac|wav|ogg|oga|opus|caf|amr|3gp|3gpp)(?:\?|#|$)/i;
+const VIDEO_EXT_RE = /\.(mp4|mov|m4v|webm|mkv)(?:\?|#|$)/i;
+const MEDIA_URL_REGEX = /(https?:\/\/[^\s]+?\.(?:png|jpe?g|gif|webp|heic|bmp|mp3|m4a|aac|wav|ogg|oga|opus|caf|amr|3gp|3gpp|mp4|mov|m4v|webm|mkv)(?:\?[^\s]*)?)/gi;
 function extractImageUrls(body: string | null | undefined): string[] {
   if (!body) return [];
-  const matches = body.match(IMAGE_URL_REGEX);
+  const matches = body.match(MEDIA_URL_REGEX);
   return matches ? Array.from(new Set(matches)) : [];
+}
+function classifyMedia(url: string): 'image' | 'audio' | 'video' {
+  if (AUDIO_EXT_RE.test(url)) return 'audio';
+  if (VIDEO_EXT_RE.test(url)) return 'video';
+  return 'image';
 }
 function stripImageUrls(body: string | null | undefined): string {
   if (!body) return '';
-  return body.replace(IMAGE_URL_REGEX, '').replace(/\s{2,}/g, ' ').trim();
+  return body.replace(MEDIA_URL_REGEX, '').replace(/\s{2,}/g, ' ').trim();
 }
 // VoidFix iMessage placeholder for media-only inbound messages — hide in UI.
-const MEDIA_PLACEHOLDER_RE = /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker)\]\s*$/i;
+const MEDIA_PLACEHOLDER_RE = /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker|audio|voice|voice\s*memo|voice\s*message|voicemail|recording)\]\s*$/i;
 
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
@@ -1732,11 +1740,28 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             return (
                               <>
                                 {text && <p className={textCls}>{text}</p>}
-                                {imgs.map((url) => (
-                                  <div key={url} className="mt-1">
-                                    <MediaImage url={url} />
-                                  </div>
-                                ))}
+                                {imgs.map((url) => {
+                                  const kind = classifyMedia(url);
+                                  if (kind === 'audio') {
+                                    return (
+                                      <div key={url} className="mt-1">
+                                        <audio controls preload="metadata" src={url} className="w-full max-w-[280px] h-9" />
+                                      </div>
+                                    );
+                                  }
+                                  if (kind === 'video') {
+                                    return (
+                                      <div key={url} className="mt-1">
+                                        <video controls preload="metadata" src={url} className="rounded-lg max-h-64 max-w-full" />
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div key={url} className="mt-1">
+                                      <MediaImage url={url} />
+                                    </div>
+                                  );
+                                })}
                                 {showMissingMediaHint && (
                                   <p className={`${textCls} italic opacity-70 flex items-center gap-1`}>
                                     <ImageIcon className="h-3.5 w-3.5" /> Attachment (not retrievable)
