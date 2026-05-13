@@ -371,6 +371,18 @@ Deno.serve(async (req) => {
       { from: normalizedFrom, to: normalizedTo, sid },
     );
 
+    // Fire-and-forget: audit the sender's device so the SMS thread auto-routes
+    // to iMessage vs SMS. Audit fn is idempotent (locks once device_type is set).
+    runAfterResponse(
+      "phone-device-audit",
+      fetch(`${SUPABASE_URL}/functions/v1/phone-device-audit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ action: "run", phone: normalizedFrom }),
+      }).then((r) => r.text()),
+      { from: normalizedFrom, to: normalizedTo, sid },
+    );
+
     // Forward to VoidFix cell (fire and forget — don't block the webhook ack)
     if (cfg.forward_enabled && is8105LandlineWebhook) {
       void logEvent('forward:scheduled', { from: normalizedFrom, to: normalizedTo, sid, metadata: { cell: cfg.forward_to_cell } });
