@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
 
 function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
