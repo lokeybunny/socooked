@@ -179,11 +179,19 @@ async function processCampaign(campaign: any) {
     campaign.status = 'running';
   }
 
+  const testMode = isTestCampaign(campaign);
+
+  // Business-hours gate (skip for test campaigns)
+  if (!testMode && !isWithinPTBusinessHours()) {
+    await logEvt(campaign.id, null, 'info', 'Outside 8 AM–6 PM PT window — pausing until next eligible minute');
+    return { processed: 0, reason: 'outside_business_hours' };
+  }
+
   await rolloverIfNewDay(campaign);
 
   const imessageRoom = IMESSAGE_NEW_CAP - (campaign.imessage_new_sent_today || 0);
   const smsRoom = SMS_CAP - (campaign.sms_sent_today || 0);
-  if (imessageRoom <= 0 && smsRoom <= 0) {
+  if (!testMode && imessageRoom <= 0 && smsRoom <= 0) {
     const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
     await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
     await logEvt(campaign.id, null, 'warn', `Daily caps reached. Cooling down ${COOLDOWN_HOURS}h until ${until}`);
