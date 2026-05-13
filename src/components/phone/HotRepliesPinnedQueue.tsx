@@ -23,6 +23,7 @@ type HotRow = {
   is_hot: boolean;
   call_status: string;
   imported_at: string;
+  original_date?: string | null;
 };
 
 const DEACTIVATED_KEY = 'hot-replies-pinned-deactivated-v1';
