@@ -821,7 +821,7 @@ export default function PowerDialSMSInbox() {
         body: { action: 'react', to, messageId: m.external_id || m.id, reaction },
       });
       if (error || !(data as any)?.ok) {
-        toast.error((data as any)?.error || error?.message || 'Reaction failed');
+        toast.error(toErrMsg((data as any)?.error || error, 'Reaction failed'));
       } else {
         toast.success('❤️ Sent');
       }
