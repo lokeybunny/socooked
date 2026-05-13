@@ -15,6 +15,7 @@ import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, Dollar
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
+import WarmWelcomeBucketCounter from "@/components/sms/WarmWelcomeBucketCounter";
 
 function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
@@ -239,6 +240,7 @@ export default function HotReplies() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <WarmWelcomeBucketCounter />
             <Button onClick={sync} disabled={syncing}>
               {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync Now
             </Button>
