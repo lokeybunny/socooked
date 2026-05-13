@@ -875,7 +875,7 @@ Deno.serve(async (req) => {
           : Promise.resolve({ data: null } as any),
       ]);
 
-      const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+      let existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
         ? existingLog.meta as Record<string, unknown>
         : {};
       const settingsObj = {
@@ -1477,7 +1477,7 @@ Deno.serve(async (req) => {
           ttsFallbackText = activeRec.tts_fallback_text || null;
           selectedRecording = activeRec as Record<string, unknown>;
         }
-        await logVmdTimeline(callLogId, "active_recording_check", {
+        existingMeta = appendVmdTimeline(existingMeta, "active_recording_check", {
           configured_url: rawConfiguredVmDropUrl,
           configured_url_ignored_as_legacy_default: Boolean(rawConfiguredVmDropUrl && !configuredVmDropUrl),
           active_recording_count: activeRecs?.length || 0,
@@ -1487,7 +1487,7 @@ Deno.serve(async (req) => {
           playback_url: vmDropUrl,
         });
       } catch (err) {
-        await logVmdTimeline(callLogId, "active_recording_check_failed", { error: String(err), fallback_url: vmDropUrl });
+        existingMeta = appendVmdTimeline(existingMeta, "active_recording_check_failed", { error: String(err), fallback_url: vmDropUrl });
       }
 
       let vmDropped = false;
