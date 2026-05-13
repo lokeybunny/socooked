@@ -1805,16 +1805,6 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           )}
                         </div>
                       </div>
-                      {m.direction === 'inbound' && isImessageThread && (
-                        <button
-                          type="button"
-                          onClick={() => sendTapback(m, 'heart')}
-                          title="Love"
-                          className="mt-1 ml-1 p-1 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition"
-                        >
-                          <Heart className="h-3.5 w-3.5" />
-                        </button>
-                      )}
                     </div>
                   );
                   });
