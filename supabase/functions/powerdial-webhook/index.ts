@@ -1481,6 +1481,7 @@ Deno.serve(async (req) => {
           configured_url: rawConfiguredVmDropUrl,
           configured_url_ignored_as_legacy_default: Boolean(rawConfiguredVmDropUrl && !configuredVmDropUrl),
           active_recording_count: activeRecs?.length || 0,
+          active_recordings: (activeRecs || []).map((rec: any) => ({ id: rec.id, name: rec.name, updated_at: rec.updated_at })),
           selected_recording_id: activeRec?.id || null,
           selected_recording_name: activeRec?.name || null,
           selected_recording_path: activeRec?.storage_path || null,
@@ -1583,6 +1584,12 @@ Deno.serve(async (req) => {
       if (queueProcessed) {
         await bumpCampaignCount(campaignId, "voicemail_count");
       }
+      existingMeta = appendVmdTimeline(existingMeta, "queue_transition", {
+        queue_item_id: queueItemId,
+        queue_updated: queueProcessed,
+        status: "completed",
+        last_result: vmDropped ? "voicemail_dropped" : "voicemail",
+      });
 
       // Mark the call log with VM drop status
       const vmDropTs = new Date().toISOString();
