@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "signatures_public_select" ON public.signatures;
