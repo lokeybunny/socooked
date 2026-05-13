@@ -240,6 +240,31 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function appendVmdTimeline(meta: Record<string, unknown>, event: string, details: Record<string, unknown> = {}) {
+  const existing = Array.isArray((meta as any).vmd_timeline) ? (meta as any).vmd_timeline : [];
+  return {
+    ...meta,
+    vmd_timeline: [
+      ...existing.slice(-39),
+      { at: new Date().toISOString(), event, ...details },
+    ],
+  };
+}
+
+async function logVmdTimeline(callLogId: string, event: string, details: Record<string, unknown> = {}) {
+  if (!callLogId) return;
+  const { data } = await sb.from("powerdial_call_logs").select("meta").eq("id", callLogId).maybeSingle();
+  const meta = data?.meta && typeof data.meta === "object" && !Array.isArray(data.meta)
+    ? data.meta as Record<string, unknown>
+    : {};
+  await sb.from("powerdial_call_logs").update({ meta: appendVmdTimeline(meta, event, details) }).eq("id", callLogId);
+}
+
+function isLegacyDefaultVoicemailUrl(value: string | null) {
+  if (!value) return false;
+  return value.includes("powerdial-voicemail-audio?file=warren") || value.includes("voicemail-warren.mp3");
+}
+
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
