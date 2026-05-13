@@ -116,7 +116,18 @@ export function SmsThreadPopup({
     return () => { supabase.removeChannel(ch); };
   }, [open, last10, load]);
 
-  // Detect iMessage routing: VIP route, existing customer, or prior iMessage thread
+  // Load per-thread route preference (default = SMS / original VoidFix API)
+  useEffect(() => {
+    if (!open || last10.length !== 10) return;
+    try {
+      const v = localStorage.getItem(`sms-thread-route-${last10}`);
+      if (v === "imessage" || v === "sms") setRouteOverride(v);
+      else setRouteOverride(null);
+    } catch { setRouteOverride(null); }
+  }, [open, last10]);
+
+  // Detect iMessage suggestion: VIP route, existing customer, or prior iMessage thread.
+  // This is informational only — actual routing follows routeOverride (default SMS).
   useEffect(() => {
     if (!open || last10.length !== 10) { setRouteImessage(false); setRouteReason(""); return; }
     let cancelled = false;
@@ -128,13 +139,21 @@ export function SmsThreadPopup({
       if (cancelled) return;
       if (vipRes.data?.vip_route) { setRouteImessage(true); setRouteReason("VIP route"); return; }
       if (custRes.data?.id) { setRouteImessage(true); setRouteReason("Customer"); return; }
-      // Prior iMessage thread heuristic
       const hadImsg = messages.some((m) => isImessageProvider(m.provider));
       if (hadImsg) { setRouteImessage(true); setRouteReason("Prior iMessage"); return; }
       setRouteImessage(false); setRouteReason("");
     })();
     return () => { cancelled = true; };
   }, [open, last10, messages]);
+
+  const setRoute = (r: "imessage" | "sms") => {
+    setRouteOverride(r);
+    try { localStorage.setItem(`sms-thread-route-${last10}`, r); } catch {}
+    toast.success(r === "imessage" ? "Thread set to iMessage" : "Thread set to SMS (VoidFix)");
+  };
+
+  // Effective route: explicit override wins; otherwise default to SMS for existing/new threads.
+  const useImessageRoute = routeOverride ? routeOverride === "imessage" : false;
 
   // Auto-scroll to bottom whenever messages change while open
   useEffect(() => {
