@@ -103,7 +103,8 @@ Deno.serve(async (req) => {
     status: "received",
     provider: "voidfix-imessage",
     external_id: externalId,
-    metadata: { voidfix_imessage: true, event, raw: d },
+    media_urls: media_urls.length ? media_urls : null,
+    metadata: { voidfix_imessage: true, event, raw: d, has_media: media_urls.length > 0 },
   }).select("id").single();
 
   if (error) {
