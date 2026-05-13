@@ -1601,6 +1601,8 @@ Deno.serve(async (req) => {
               succeeded: vmDropped,
               url: vmDropUrl,
               dropped_at: vmDropped ? vmDropTs : null,
+              selected_recording_id: selectedRecording?.id || null,
+              selected_recording_name: selectedRecording?.name || null,
             },
           },
         },
