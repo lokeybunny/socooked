@@ -917,29 +917,8 @@ export default function PowerDialSMSInbox() {
           toast.error(errCode);
         }
       } else {
-        const queued = (data as any)?.queued === true;
-        const pendingId = (data as any)?.id as string | undefined;
-        if (queued) {
-          toast.success('Image queued — sending via iMessage (can take up to 2 min)');
-          // Surface a follow-up toast if the background send fails.
-          if (pendingId) {
-            setTimeout(async () => {
-              const { data: row } = await supabase
-                .from('communications')
-                .select('status, metadata')
-                .eq('id', pendingId)
-                .maybeSingle();
-              if (!row) return;
-              if (row.status === 'failed') {
-                const err = (row.metadata as any)?.raw?.error || (row.metadata as any)?.error || 'VoidFix did not deliver the attachment';
-                toast.error(`iMessage attachment failed: ${err}`, { duration: 10000 });
-              } else if (row.status === 'queued') {
-                toast.warning('iMessage attachment still uploading — VoidFix is slow. Check the thread for delivery status.', { duration: 8000 });
-              }
-            }, 90000);
-          }
-        } else if (useImessage) {
-          toast.success('iMessage sent');
+        if (useImessage) {
+          toast.success(pendingAttachments.length ? 'iMessage + attachment sent' : 'iMessage sent');
         } else {
           toast.success(pendingAttachments.length ? 'SMS + image link sent' : 'SMS sent');
         }
