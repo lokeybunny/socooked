@@ -775,7 +775,7 @@ export default function PowerDialSMSInbox() {
         body: { action: 'quote', phone },
       });
       if (error || !(data as any)?.ok) {
-        toast.error((data as any)?.error || error?.message || 'Quote failed');
+        toast.error(toErrMsg((data as any)?.error || error, 'Quote failed'));
         setAuditOpen(false);
         return;
       }
