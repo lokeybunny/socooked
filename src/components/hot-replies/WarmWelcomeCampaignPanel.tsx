@@ -239,9 +239,9 @@ export default function WarmWelcomeCampaignPanel({ contacts }: { contacts: WWCon
                 <Square className="h-3.5 w-3.5" /> Stop
               </Button>
             )}
-            {isCooldown && (
-              <Button size="sm" variant="outline" onClick={resumeCampaign} disabled={busy}>
-                <Play className="h-3.5 w-3.5" /> Resume Now
+            {(isCooldown || campaign?.status === 'stopped') && (
+              <Button size="sm" variant="outline" onClick={resumeCampaign} disabled={busy} className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
+                <Play className="h-3.5 w-3.5" /> Resume Campaign
               </Button>
             )}
             <Button size="sm" variant="ghost" onClick={runNow} disabled={busy} title="Trigger runner once">
