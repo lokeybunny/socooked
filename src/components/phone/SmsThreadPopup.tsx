@@ -197,11 +197,11 @@ export function SmsThreadPopup({
     try {
       // Hybrid: attachments always route through SMS/MMS provider — VoidFix iMessage is text-only.
       const useMms = ready.length > 0;
-      const fn = useMms ? "powerdial-sms" : (routeImessage ? "voidfix-imessage" : "powerdial-sms");
+      const fn = useMms ? "powerdial-sms" : (useImessageRoute ? "voidfix-imessage" : "powerdial-sms");
       const invokeBody: Record<string, any> = { action: "send", to: e164, body: text };
       if (useMms) {
         invokeBody.mediaUrls = ready.map((a) => a.url);
-        invokeBody.hybridImessageThread = routeImessage;
+        invokeBody.hybridImessageThread = useImessageRoute;
       }
       const { data, error } = await supabase.functions.invoke(fn, { body: invokeBody });
       if (error || !(data as any)?.ok) {
@@ -209,9 +209,9 @@ export function SmsThreadPopup({
       } else {
         const channel = (data as any)?.channel;
         if (useMms) {
-          toast.success(routeImessage ? "Sent as MMS (attachment) 📎" : "MMS sent");
+          toast.success(useImessageRoute ? "Sent as MMS (attachment) 📎" : "MMS sent");
         } else {
-          toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
+          toast.success(useImessageRoute ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
         }
         setBody("");
         setAttachments([]);
@@ -224,7 +224,7 @@ export function SmsThreadPopup({
 
   // iMessage capability: text-only. Any pending media forces the whole thread temporarily into SMS/MMS.
   const hasMedia = attachments.length > 0;
-  const effectiveImessage = routeImessage && !hasMedia;
+  const effectiveImessage = useImessageRoute && !hasMedia;
 
   return (
     <>
