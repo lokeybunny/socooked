@@ -858,6 +858,7 @@ export default function PowerDialSMSInbox() {
     setRecording(false);
   }, []);
 
+  const handleSend = async (toOverride?: string) => {
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
     const text = composeBody.trim();
     const attachUrls = pendingAttachments.map((a) => a.url).join('\n');
