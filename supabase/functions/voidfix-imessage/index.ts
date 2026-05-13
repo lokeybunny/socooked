@@ -105,13 +105,19 @@ async function actionSend(payload: any) {
     if (attachments.length === 1) sendBody.mediaUrl = attachments[0];
   }
 
-  const res = await imsgFetch("/messages/send", {
-    method: "POST",
-    body: JSON.stringify(sendBody),
-  });
+  // Retry once on upstream timeouts (502/503/504) — VoidFix gateway is flaky
+  let res = await imsgFetch("/messages/send", { method: "POST", body: JSON.stringify(sendBody) });
+  if (!res.ok && [502, 503, 504, 408].includes(res.status)) {
+    await new Promise((r) => setTimeout(r, 1500));
+    res = await imsgFetch("/messages/send", { method: "POST", body: JSON.stringify(sendBody) });
+  }
 
   if (!res.ok) {
-    return json({ ok: false, error: res.body?.error || `send_failed_${res.status}`, raw: res.body }, 502);
+    const friendly = [502, 503, 504, 408].includes(res.status)
+      ? "VoidFix gateway timed out — message not sent. Try again in a moment."
+      : (res.body?.error || `send_failed_${res.status}`);
+    // Return 200 so client shows a friendly toast instead of a runtime error overlay
+    return json({ ok: false, error: friendly, status: res.status, raw: res.body }, 200);
   }
 
   const data = res.body?.data || {};
