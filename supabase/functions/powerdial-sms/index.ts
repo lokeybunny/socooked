@@ -784,6 +784,23 @@ Deno.serve(async (req) => {
       const body = String(m.message || "");
       const mediaUrls = extractVoidfixMediaUrls(m);
       const strippedMms = isVoidfixStrippedMms(body, mediaUrls, m);
+      if (from && body.trim().length >= 20) {
+        const messageAt = createdAt ? new Date(createdAt).getTime() : Date.now();
+        const duplicateWindowStart = new Date(messageAt - 2 * 60_000).toISOString();
+        const duplicateWindowEnd = new Date(messageAt + 2 * 60_000).toISOString();
+        const { data: sameRecent } = await sb
+          .from("communications")
+          .select("id")
+          .eq("type", "sms")
+          .eq("direction", "inbound")
+          .eq("provider", "voidfix")
+          .eq("phone_number", from)
+          .eq("body", body)
+          .gte("created_at", duplicateWindowStart)
+          .lte("created_at", duplicateWindowEnd)
+          .limit(1);
+        if (sameRecent?.[0]) return 0;
+      }
       const { data: insertedRow, error: insertError } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
