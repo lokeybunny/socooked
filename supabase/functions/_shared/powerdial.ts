@@ -23,7 +23,7 @@ export const DEFAULT_POWERDIAL_SETTINGS = {
   calling_hours_end: "17:00",
   vapi_assistant_id: DEFAULT_OUTBOUND_VAPI_ASSISTANT,
   voicemail_drop_enabled: true,
-  voicemail_drop_url: "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren",
+  voicemail_drop_url: null,
 };
 
 const POWERDIAL_AI_ASSIST_FIRST_MESSAGE =
