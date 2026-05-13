@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { MessageCircle, Smartphone } from 'lucide-react';
+import { MessageCircle, Smartphone, Clock } from 'lucide-react';
 
 const IMESSAGE_CAP = 50;
 const SMS_CAP = 50;
@@ -13,9 +13,39 @@ type Row = {
   counters_day: string;
 };
 
+// Counters reset on UTC midnight (counters_day uses ISO UTC date)
+function msUntilUtcMidnight() {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+  return next.getTime() - now.getTime();
+}
+
+function formatCountdown(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
+// Format the UTC midnight reset moment in the user's local timezone, e.g. "5:00 PM PST"
+function formatLocalResetTime() {
+  const now = new Date();
+  const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(utcMidnight);
+  } catch {
+    return utcMidnight.toLocaleTimeString();
+  }
+}
+
 export default function WarmWelcomeBucketCounter() {
   const [imessage, setImessage] = useState(0);
   const [sms, setSms] = useState(0);
+  const [countdown, setCountdown] = useState(formatCountdown(msUntilUtcMidnight()));
 
   const todayUTC = () => new Date().toISOString().slice(0, 10);
 
@@ -41,7 +71,8 @@ export default function WarmWelcomeBucketCounter() {
       )
       .subscribe();
     const t = setInterval(load, 30_000);
-    return () => { supabase.removeChannel(ch); clearInterval(t); };
+    const cd = setInterval(() => setCountdown(formatCountdown(msUntilUtcMidnight())), 30_000);
+    return () => { supabase.removeChannel(ch); clearInterval(t); clearInterval(cd); };
   }, []);
 
   const Pill = ({
@@ -71,9 +102,17 @@ export default function WarmWelcomeBucketCounter() {
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <Pill icon={MessageCircle} label="iMessage API" sent={imessage} cap={IMESSAGE_CAP} tone="blue" />
       <Pill icon={Smartphone} label="Android SMS API" sent={sms} cap={SMS_CAP} tone="emerald" />
+      <div
+        className="flex items-center gap-1 px-2 py-1 rounded-full border border-border/60 bg-muted/40 text-[10px] text-muted-foreground"
+        title={`Daily caps reset at 00:00 UTC (${formatLocalResetTime()} local). Resets in ${countdown}.`}
+      >
+        <Clock className="h-3 w-3" />
+        <span className="tabular-nums">Resets in {countdown}</span>
+        <span className="hidden md:inline opacity-70">· {formatLocalResetTime()}</span>
+      </div>
     </div>
   );
 }
