@@ -173,7 +173,7 @@ export default function HotReplies() {
       list = list.filter(r => r.call_status !== "not_called");
     } else {
       list = list.filter(r => r.call_status === "not_called");
-      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out);
+      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out && isToday(r.imported_at));
       else if (filter === "needs_review") list = list.filter(r => r.ai_classification === "NEEDS_REVIEW");
       else if (filter === "pricing") list = list.filter(r => r.ai_classification === "PRICING_QUESTION");
       else if (filter === "callback") list = list.filter(r => r.ai_classification === "CALLBACK_REQUEST");
