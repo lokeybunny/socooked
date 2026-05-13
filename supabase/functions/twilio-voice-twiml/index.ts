@@ -8,7 +8,9 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+// Verified caller ID for browser-originated calls. Hardcoded per user request
+// (number is added as a Verified Caller ID in Twilio).
+const TWILIO_FROM = "+17253771478";
 
 function normalizePhone(input: string): string | null {
   if (!input) return null;
