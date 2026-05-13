@@ -103,6 +103,10 @@ export default function HotReplies() {
 
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    try { localStorage.setItem('hot-replies-sort-dir', sortDir); } catch {}
+  }, [sortDir]);
+
   const sync = async () => {
     if (!sheetUrl) { toast.error("Add a Google Sheet URL first"); setSettingsOpen(true); return; }
     setSyncing(true);
@@ -175,8 +179,13 @@ export default function HotReplies() {
         (`${r.first_name || ""} ${r.last_name || ""}`).toLowerCase().includes(q)
       );
     }
+    list.sort((a, b) => {
+      const da = new Date(a.imported_at).getTime();
+      const db = new Date(b.imported_at).getTime();
+      return sortDir === 'latest' ? db - da : da - db;
+    });
     return list;
-  }, [rows, filter, campaignFilter, search]);
+  }, [rows, filter, campaignFilter, search, sortDir]);
 
   const openLead = async (r: Reply) => {
     setSelected(r);
