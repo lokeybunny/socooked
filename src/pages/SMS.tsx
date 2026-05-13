@@ -212,6 +212,7 @@ export default function SMS() {
             <TabsTrigger value="templates"><FileText className="h-3.5 w-3.5 mr-1" /> Templates</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="cooldown"><div className="max-w-2xl"><VoidFixCooldownPanel /></div></TabsContent>
           <TabsContent value="disconnected"><DisconnectedTab /></TabsContent>
           <TabsContent value="log"><AutoSmsLogTab /></TabsContent>
 
