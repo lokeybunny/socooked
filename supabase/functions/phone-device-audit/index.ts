@@ -66,6 +66,8 @@ async function imessageValidate(e164: string): Promise<boolean | null> {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return null;
+    // If VoidFix itself reported failure, return null (unknown) instead of false
+    if (j.ok === false) return null;
     return !!j.isImessage;
   } catch { return null; }
 }
