@@ -26,6 +26,14 @@ const BATCH_SIZE = 5;        // targets processed per invocation
 const IMESSAGE_NEW_CAP = 50;
 const SMS_CAP = 50;
 const COOLDOWN_HOURS = 24;
+// Per-send cooldown to avoid spam filters / rate flags.
+// Randomized between MIN and MAX seconds between consecutive sends in a batch.
+const SEND_COOLDOWN_MIN_MS = 12_000; // 12s
+const SEND_COOLDOWN_MAX_MS = 25_000; // 25s
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const randCooldownMs = () =>
+  SEND_COOLDOWN_MIN_MS + Math.floor(Math.random() * (SEND_COOLDOWN_MAX_MS - SEND_COOLDOWN_MIN_MS));
 
 function json(d: unknown, status = 200) {
   return new Response(JSON.stringify(d), { status, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -301,6 +309,15 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'error', `Send failed via ${channel}`, send.raw);
     }
     processed += 1;
+
+    // Anti-spam cooldown between sends within this batch.
+    // Skip the wait after the last target so we don't hold the function open needlessly.
+    const isLast = t === targets[targets.length - 1];
+    if (!isLast && !testMode) {
+      const waitMs = randCooldownMs();
+      await logEvt(campaign.id, null, 'info', `Cooling down ${Math.round(waitMs/1000)}s before next send`);
+      await sleep(waitMs);
+    }
   }
 
   await sb.from("warm_welcome_campaigns").update({
