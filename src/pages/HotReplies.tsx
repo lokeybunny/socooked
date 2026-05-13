@@ -259,7 +259,7 @@ export default function HotReplies() {
           <StatCard icon={<DollarSign />} label="Pricing" value={stats.pricing} />
           <StatCard icon={<PhoneCall />} label="Callback" value={stats.callback} />
           <StatCard icon={<Ban className="text-red-700" />} label="Opt-Outs" value={stats.optOut} />
-          <StatCard icon={<PhoneOff />} label="Not Called" value={stats.notCalled} />
+          <StatCard icon={<PhoneOff />} label="Not Called/Texted" value={stats.notCalled} />
           <StatCard icon={<Clock />} label="Today" value={stats.calledToday} />
         </div>
 
