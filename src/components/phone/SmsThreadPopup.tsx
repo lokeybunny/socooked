@@ -404,7 +404,7 @@ export function SmsThreadPopup({
                     </button>
                   </div>
                 ))}
-                {routeImessage && (
+                {useImessageRoute && (
                   <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
                     Will send as MMS (iMessage is text-only)
                   </span>
