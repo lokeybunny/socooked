@@ -181,6 +181,25 @@ serve(async (req) => {
 
     const dataRows = rows.slice(1, 1 + limit);
 
+    // 24h cutoff: only sync replies received within the last 24 hours
+    const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+    const parseRowTime = (date: string, time: string): number | null => {
+      const d = (date || "").trim();
+      const t = (time || "").trim();
+      if (!d && !t) return null;
+      const candidates = [
+        `${d} ${t}`.trim(),
+        d,
+        t,
+      ];
+      for (const s of candidates) {
+        if (!s) continue;
+        const ms = Date.parse(s);
+        if (!isNaN(ms)) return ms;
+      }
+      return null;
+    };
+
     // Pre-build candidate rows + dedupe keys
     const rawCandidates = dataRows.map(r => {
       const phone = normalizePhone(r[idx.phone] || "");
@@ -188,8 +207,11 @@ serve(async (req) => {
       const date = idx.date >= 0 ? r[idx.date] : "";
       const time = idx.time >= 0 ? r[idx.time] : "";
       const dedupe = `${phone}|${reply.slice(0, 120)}|${date}|${time}`.toLowerCase();
-      return { r, phone, reply, date, time, dedupe };
-    }).filter(c => c.phone && c.reply);
+      const ts = parseRowTime(date, time);
+      return { r, phone, reply, date, time, dedupe, ts };
+    }).filter(c => c.phone && c.reply)
+      // Only last 24h. If we couldn't parse a timestamp, skip it (avoids re-importing old backlog).
+      .filter(c => c.ts !== null && c.ts >= cutoffMs);
 
     // Dedupe within the sheet itself (same key appearing twice would kill a whole batch insert)
     const seenInSheet = new Set<string>();
