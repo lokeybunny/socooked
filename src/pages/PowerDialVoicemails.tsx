@@ -187,6 +187,44 @@ export default function PowerDialVoicemails() {
       toast.success(`Transcoded → ${json.recording.codec} / ${json.recording.sample_rate}Hz / mono`, { id: t });
       setUploadName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
+
+      // ── Post-upload validation ─────────────────────────────────────
+      // Verify exactly ONE active recording exists, and that it is the one
+      // we just uploaded. Warn loudly if not — a missing/wrong active
+      // recording is the #1 cause of "voicemail drop is playing the old
+      // file" or "no voicemail at all".
+      try {
+        const newId = json?.recording?.id;
+        const { data: actives } = await supabase
+          .from("voicemail_recordings")
+          .select("id, name, is_active")
+          .eq("is_active", true);
+        const count = actives?.length ?? 0;
+        if (count === 0) {
+          toast.error(
+            "⚠️ No active voicemail recording! VMD will fall back to default. Click 'Set Active' on the recording you want to use.",
+            { duration: 10_000 },
+          );
+        } else if (count > 1) {
+          toast.error(
+            `⚠️ ${count} recordings are marked ACTIVE — only one should be. VMD picks one at random. Deactivate the extras.`,
+            { duration: 10_000 },
+          );
+        } else if (setActiveOnUpload && newId && actives![0].id !== newId) {
+          toast.error(
+            `⚠️ Upload finished but "${actives![0].name}" is still active — your new recording is NOT being dropped. Click 'Set Active' on it.`,
+            { duration: 10_000 },
+          );
+        } else if (!setActiveOnUpload) {
+          toast.warning(
+            "Heads up: upload was NOT set active. The previous recording is still being dropped. Click 'Set Active' on this one when ready.",
+            { duration: 8_000 },
+          );
+        }
+      } catch (validateErr) {
+        console.warn("[voicemail upload] post-validate failed", validateErr);
+      }
+
       await load();
     } catch (e: any) {
       toast.error(`Upload failed: ${e.message || e}`, { id: t });
