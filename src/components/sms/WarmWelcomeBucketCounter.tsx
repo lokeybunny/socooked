@@ -50,15 +50,29 @@ export default function WarmWelcomeBucketCounter() {
   const todayUTC = () => new Date().toISOString().slice(0, 10);
 
   const load = async () => {
-    // Sum across ALL campaigns today (including 'done'/'stopped') so the global
-    // daily API usage stays accurate after a campaign finishes.
-    const { data } = await supabase
-      .from('warm_welcome_campaigns')
-      .select('id, status, imessage_new_sent_today, sms_sent_today, counters_day')
-      .eq('counters_day', todayUTC());
-    const rows = (data as Row[] | null) || [];
-    setImessage(rows.reduce((s, r) => s + (r.imessage_new_sent_today || 0), 0));
-    setSms(rows.reduce((s, r) => s + (r.sms_sent_today || 0), 0));
+    // Source of truth: count actual sent targets today (UTC), not the
+    // per-campaign counter columns (which can drift / not include
+    // campaigns that have already finished).
+    const startOfDayUtc = new Date();
+    startOfDayUtc.setUTCHours(0, 0, 0, 0);
+    const sinceIso = startOfDayUtc.toISOString();
+
+    const [imRes, smsRes] = await Promise.all([
+      supabase
+        .from('warm_welcome_targets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'sent')
+        .eq('channel', 'imessage')
+        .gte('sent_at', sinceIso),
+      supabase
+        .from('warm_welcome_targets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'sent')
+        .eq('channel', 'sms')
+        .gte('sent_at', sinceIso),
+    ]);
+    setImessage(imRes.count || 0);
+    setSms(smsRes.count || 0);
   };
 
   useEffect(() => {
@@ -67,7 +81,7 @@ export default function WarmWelcomeBucketCounter() {
       .channel('ww-bucket-counter')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'warm_welcome_campaigns' },
+        { event: '*', schema: 'public', table: 'warm_welcome_targets' },
         () => load(),
       )
       .subscribe();
