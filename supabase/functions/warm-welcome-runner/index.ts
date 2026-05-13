@@ -72,13 +72,22 @@ async function rolloverIfNewDay(campaign: any) {
   }
 }
 
-async function isNewImessageContact(phone_last10: string): Promise<boolean> {
-  const { count } = await sb.from("warm_welcome_targets")
+// A contact is "new" (and thus counts toward the daily cap) ONLY if we have
+// never had a prior SMS/iMessage conversation with them. Presence in
+// sms_contacts means we've already established communication — those do NOT
+// increment the daily counter, regardless of channel.
+async function isNewContact(phone_last10: string): Promise<boolean> {
+  const { count: crmCount } = await sb.from("sms_contacts")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_last10", phone_last10);
+  if ((crmCount || 0) > 0) return false;
+
+  // Also exclude anyone we've previously sent a warm-welcome to.
+  const { count: wwCount } = await sb.from("warm_welcome_targets")
     .select("id", { count: "exact", head: true })
     .eq("phone_last10", phone_last10)
-    .eq("channel", "imessage")
     .eq("status", "sent");
-  return (count || 0) === 0;
+  return (wwCount || 0) === 0;
 }
 
 async function auditDevice(phone_e164: string): Promise<string> {
