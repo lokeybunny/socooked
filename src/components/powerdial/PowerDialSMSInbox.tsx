@@ -95,6 +95,24 @@ export default function PowerDialSMSInbox() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [activeThread, setActiveThread] = useState<string | null>(null);
+  const ROUTE_KEY = 'sms-thread-route-';
+  const [threadRoutes, setThreadRoutes] = useState<Record<string, 'imessage' | 'sms'>>(() => {
+    try {
+      const out: Record<string, 'imessage' | 'sms'> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith(ROUTE_KEY)) continue;
+        const v = localStorage.getItem(k);
+        if (v === 'imessage' || v === 'sms') out[k.slice(ROUTE_KEY.length)] = v;
+      }
+      return out;
+    } catch { return {}; }
+  });
+  const setThreadRoute = (last10: string, route: 'imessage' | 'sms') => {
+    setThreadRoutes((p) => ({ ...p, [last10]: route }));
+    try { localStorage.setItem(ROUTE_KEY + last10, route); } catch {}
+    toast.success(route === 'imessage' ? 'Thread set to iMessage' : 'Thread set to SMS (VoidFix)');
+  };
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
