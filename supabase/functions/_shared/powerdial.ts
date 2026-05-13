@@ -475,18 +475,22 @@ function buildCallParams(args: {
   });
 }
 
-export async function resolveTwilioFromNumber(configuredFrom = TWILIO_FROM) {
+// HARD PIN: all PowerDial outbound calls (including VMD campaigns) MUST
+// originate from this verified Twilio caller ID. Overrides campaign
+// settings and env vars to guarantee a single consistent outbound number.
+const PINNED_VERIFIED_CALLER_ID = "+17253771478";
+
+export async function resolveTwilioFromNumber(_configuredFrom = TWILIO_FROM) {
   const availableFromNumbers = await listAvailableTwilioFromNumbers();
-  const normalizedConfigured = configuredFrom ? normalizePhone(configuredFrom) : "";
-
-  if (normalizedConfigured && availableFromNumbers.includes(normalizedConfigured)) {
-    return { resolvedFrom: normalizedConfigured, availableFromNumbers };
+  // Always prefer the pinned verified caller ID, regardless of what the
+  // caller passed in or what campaign.settings.from_number says.
+  if (availableFromNumbers.includes(PINNED_VERIFIED_CALLER_ID)) {
+    return { resolvedFrom: PINNED_VERIFIED_CALLER_ID, availableFromNumbers };
   }
-
-  return {
-    resolvedFrom: availableFromNumbers[0] || null,
-    availableFromNumbers,
-  };
+  // If Twilio doesn't list it as a verified/purchased number, still try it
+  // — Twilio will reject with a clear caller-id error and we'll surface
+  // that instead of silently calling from the wrong number.
+  return { resolvedFrom: PINNED_VERIFIED_CALLER_ID, availableFromNumbers };
 }
 
 async function markCallFailed(
