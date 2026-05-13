@@ -66,6 +66,8 @@ async function imessageValidate(e164: string): Promise<boolean | null> {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) return null;
+    // If VoidFix itself reported failure, return null (unknown) instead of false
+    if (j.ok === false) return null;
     return !!j.isImessage;
   } catch { return null; }
 }
@@ -121,8 +123,8 @@ Deno.serve(async (req) => {
 
     let device_type: "iphone" | "android" | "landline" | "voip" | "unknown" = "unknown";
     if (lookup.line_type === "landline" || lookup.line_type === "fixed") device_type = "landline";
-    else if (lookup.line_type === "voip") device_type = isIMessage ? "iphone" : "voip";
-    else if (lookup.line_type === "mobile") device_type = isIMessage ? "iphone" : "android";
+    else if (lookup.line_type === "voip") device_type = isIMessage === true ? "iphone" : isIMessage === false ? "voip" : "unknown";
+    else if (lookup.line_type === "mobile") device_type = isIMessage === true ? "iphone" : isIMessage === false ? "android" : "unknown";
 
     const auditedAt = new Date().toISOString();
     const meta = {
