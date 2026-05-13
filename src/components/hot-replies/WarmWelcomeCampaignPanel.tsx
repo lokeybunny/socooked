@@ -76,8 +76,8 @@ export default function WarmWelcomeCampaignPanel({ contacts }: { contacts: WWCon
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [targets, setTargets] = useState<TargetRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [testPhone1, setTestPhone1] = useState('');
-  const [testPhone2, setTestPhone2] = useState('');
+  const [testPhone1, setTestPhone1] = useState('+13235593526');
+  const [testPhone2, setTestPhone2] = useState('+17253771478');
   const [testBusy, setTestBusy] = useState(false);
   const channelRef = useRef<any>(null);
 
