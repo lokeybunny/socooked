@@ -26,6 +26,14 @@ const BATCH_SIZE = 5;        // targets processed per invocation
 const IMESSAGE_NEW_CAP = 50;
 const SMS_CAP = 50;
 const COOLDOWN_HOURS = 24;
+// Per-send cooldown to avoid spam filters / rate flags.
+// Randomized between MIN and MAX seconds between consecutive sends in a batch.
+const SEND_COOLDOWN_MIN_MS = 12_000; // 12s
+const SEND_COOLDOWN_MAX_MS = 25_000; // 25s
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const randCooldownMs = () =>
+  SEND_COOLDOWN_MIN_MS + Math.floor(Math.random() * (SEND_COOLDOWN_MAX_MS - SEND_COOLDOWN_MIN_MS));
 
 function json(d: unknown, status = 200) {
   return new Response(JSON.stringify(d), { status, headers: { ...CORS, "Content-Type": "application/json" } });
