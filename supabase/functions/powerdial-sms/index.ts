@@ -495,6 +495,20 @@ Deno.serve(async (req) => {
 
     tStamp(`send action received to=${to} source=${source}`);
 
+    // Manual cooldown — admin can pause Android SMS API for 24h via /sms → Cool Down
+    try {
+      const { data: cd } = await sb
+        .from("app_settings")
+        .select("value")
+        .eq("key", "voidfix_manual_cooldown")
+        .maybeSingle();
+      const until = (cd?.value as any)?.sms_until;
+      if (until && new Date(until).getTime() > Date.now()) {
+        tStamp(`blocked by manual cooldown until ${until}`);
+        return json({ ok: false, error: "manual_cooldown", channel: "sms", until }, 423);
+      }
+    } catch (e) { console.error("[powerdial-sms] cooldown check failed:", (e as any)?.message || e); }
+
     // DND guard — bypass for the auto-reply hook itself so the initial Warren Guru hook still fires
     const bypassDnd = source === "twilio-auto-reply-voidfix";
     if (!bypassDnd) {
