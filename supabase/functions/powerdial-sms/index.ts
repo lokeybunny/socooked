@@ -331,7 +331,7 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
   const metadata: Record<string, unknown> = { source: inboundSource, device_id: payload.device_id || null };
   if (isVoidfixStrippedMms(body, mediaUrls, payload.raw || payload)) metadata.voidfix_mms_stripped = true;
 
-  const { data: insertedRow } = await sb.from("communications").insert({
+  const { data: insertedRow, error: insertError } = await sb.from("communications").insert({
     type: "sms",
     direction: "inbound",
     body,
@@ -345,6 +345,12 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
     media_urls: mediaUrls,
     metadata,
   }).select("id, created_at").single();
+
+  if (insertError) {
+    if ((insertError as any).code === "23505") return;
+    console.error("[powerdial-sms] inbound insert error", insertError.message);
+    return;
+  }
 
   if (isVoidfixStrippedMms(body, mediaUrls, payload.raw || payload)) {
     const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
@@ -762,7 +768,7 @@ Deno.serve(async (req) => {
       const body = String(m.message || "");
       const mediaUrls = extractVoidfixMediaUrls(m);
       const strippedMms = isVoidfixStrippedMms(body, mediaUrls, m);
-      const { data: insertedRow } = await sb.from("communications").insert({
+      const { data: insertedRow, error: insertError } = await sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
         body,
@@ -777,6 +783,12 @@ Deno.serve(async (req) => {
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status, ...(strippedMms ? { voidfix_mms_stripped: true } : {}) },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
       }).select("id, created_at").single();
+
+      if (insertError) {
+        if ((insertError as any).code === "23505") return 0;
+        console.error("[powerdial-sms/poll] inbound insert error", insertError.message);
+        return 0;
+      }
 
       if (strippedMms) {
         const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
