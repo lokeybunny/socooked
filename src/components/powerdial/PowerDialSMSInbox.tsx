@@ -31,6 +31,14 @@ type SMSMessage = {
   media_urls?: string[] | null;
 };
 
+function toErrMsg(e: any, fallback = 'Error'): string {
+  if (!e) return fallback;
+  if (typeof e === 'string') return e;
+  if (typeof e?.message === 'string') return e.message;
+  if (typeof e?.error === 'string') return e.error;
+  try { return JSON.stringify(e); } catch { return fallback; }
+}
+
 function isLandlineReply(m: SMSMessage) {
   if (!m || m.direction !== 'inbound') return false;
   return m.metadata?.landline_reply === true || m.provider === 'twilio';
