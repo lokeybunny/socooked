@@ -1740,7 +1740,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                   const metaCls = isImessageThread ? "text-[10px] opacity-70 mt-1" : "text-[9px] text-muted-foreground mt-1";
                   return (
                     <div key={m.id} className={`group flex flex-col ${m.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
-                      <div className="flex items-start gap-1.5 max-w-[75%]">
+                      <div className={`flex items-start gap-1.5 max-w-[75%] ${m.direction === 'outbound' ? 'flex-row-reverse' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMessage(m)}
+                          title="Delete message"
+                          className="opacity-0 group-hover:opacity-100 transition mt-2 p-1 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                         {m.direction === 'inbound' && isImessageThread && (
                           <button
                             type="button"
