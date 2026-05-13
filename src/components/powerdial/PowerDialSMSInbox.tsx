@@ -69,6 +69,8 @@ function stripImageUrls(body: string | null | undefined): string {
   if (!body) return '';
   return body.replace(IMAGE_URL_REGEX, '').replace(/\s{2,}/g, ' ').trim();
 }
+// VoidFix iMessage placeholder for media-only inbound messages — hide in UI.
+const MEDIA_PLACEHOLDER_RE = /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker)\]\s*$/i;
 
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
