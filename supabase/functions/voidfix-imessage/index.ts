@@ -141,6 +141,20 @@ async function actionSend(payload: any) {
   return json({ ok: true, channel, provider, data });
 }
 
+async function actionReact(payload: any) {
+  const recipient = normalizeE164(payload.to || payload.recipient);
+  const messageId = String(payload.messageId || payload.message_id || "");
+  const reaction = String(payload.reaction || "heart");
+  if (!recipient || !messageId) return json({ ok: false, error: "missing_recipient_or_message_id" }, 400);
+  // Best-effort tapback to VoidFix; endpoint name may vary by provider build.
+  const res = await imsgFetch("/messages/react", {
+    method: "POST",
+    body: JSON.stringify({ recipient, messageId, reaction }),
+  });
+  if (!res.ok) return json({ ok: false, error: res.body?.error || `react_failed_${res.status}`, raw: res.body }, 502);
+  return json({ ok: true, reaction, raw: res.body });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   let payload: any = {};
@@ -149,6 +163,7 @@ Deno.serve(async (req) => {
   try {
     if (action === "send") return await actionSend(payload);
     if (action === "validate") return await actionValidate(payload.to);
+    if (action === "react") return await actionReact(payload);
     return json({ ok: false, error: "unknown_action" }, 400);
   } catch (e) {
     console.error("[voidfix-imessage] error", e);
