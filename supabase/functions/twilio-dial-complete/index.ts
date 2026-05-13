@@ -354,32 +354,36 @@ Deno.serve(async (req) => {
       rawPayload,
     });
 
-    // Add to power dialer callback queue (no campaign — generic callback queue uses NULL campaign)
+    // Missed-call callback queue:
+    // Previously this auto-injected the inbound caller's number into the most
+    // recent PowerDial campaign — which polluted live VMD campaigns with
+    // "random numbers" the operator never added. Only enqueue when a
+    // dedicated callback campaign is explicitly configured via
+    // app_settings.voidfix_missed_call.callback_campaign_id. Otherwise skip.
     if (cfg.queue_enabled) {
-      // Use the most recent active power-dialer campaign if one exists; otherwise skip
-      // (queue requires campaign_id). Fallback: skip silently.
-      const { data: anyCampaign } = await sb
-        .from("powerdial_campaigns")
-        .select("id")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (anyCampaign?.id) {
+      const callbackCampaignId =
+        (cfg as any)?.callback_campaign_id ||
+        (cfg as any)?.queue_campaign_id ||
+        null;
+      if (callbackCampaignId) {
         const { data: existing } = await sb
           .from("powerdial_queue")
           .select("id")
+          .eq("campaign_id", callbackCampaignId)
           .eq("phone", from)
           .in("status", ["pending", "retry_later"])
           .limit(1);
         if (!existing?.[0]) {
           await sb.from("powerdial_queue").insert({
-            campaign_id: anyCampaign.id,
+            campaign_id: callbackCampaignId,
             customer_id: customerId,
             phone: from,
             status: "pending",
             position: 0,
           });
         }
+      } else {
+        console.log("[twilio-dial-complete] queue_enabled but no callback_campaign_id configured — skipping auto-enqueue to avoid polluting live campaigns");
       }
     }
 
