@@ -909,8 +909,19 @@ Deno.serve(async (req) => {
         await sb.from("powerdial_call_logs").update({
           connected_to_vapi: false,
           ...(mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
+          meta: appendVmdTimeline(existingMeta, "twilio_twiml_answered", {
+            type,
+            call_sid: params.get("CallSid") || null,
+            from: twilioFrom || null,
+            to: params.get("To") || null,
+            mode,
+            hold_seconds: mode === "hold_for_amd" ? AMD_HOLD_SECONDS : null,
+            vm_drop_only: vmDropOnlyMode,
+          }),
+        }).eq("id", callLogId);
+        await sb.from("powerdial_call_logs").update({
           meta: {
-            ...existingMeta,
+            ...(appendVmdTimeline(existingMeta, "twilio_twiml_answered", {}) as Record<string, unknown>),
             immediate_answer_twiml: mode !== "hold_for_amd",
             immediate_answer_mode: mode,
             twilio_from: callerId || null,
