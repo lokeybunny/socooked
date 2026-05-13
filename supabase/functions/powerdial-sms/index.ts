@@ -276,6 +276,34 @@ async function maybeSendFirstTimeAutoReply(fromPhone: string) {
         ...(result.error ? { error: result.error } : {}),
       },
     });
+
+    // Open a thread so a positive reply triggers the IG-link auto-response.
+    if (result.ok) {
+      try {
+        const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: existingThread } = await sb
+          .from("hook_reply_threads")
+          .select("id")
+          .eq("phone_last10", last10)
+          .gte("created_at", fourteenDaysAgo)
+          .limit(1);
+        if (!existingThread?.[0]) {
+          await sb.from("hook_reply_threads").insert({
+            phone: norm,
+            phone_last10: last10,
+            status: "awaiting_reply",
+            sentiment: "pending",
+            meta: {
+              source: "voidfix-first-time-auto-reply",
+              outbound_body: message,
+              customer_id: customerId || null,
+            },
+          });
+        }
+      } catch (e) {
+        console.error("[powerdial-sms][first-reply] thread create error", e);
+      }
+    }
   } catch (e) {
     console.error("[powerdial-sms][first-reply] error", e);
   }
