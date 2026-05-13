@@ -923,10 +923,17 @@ Deno.serve(async (req) => {
       let vmDropOnlyHumanHangup = false;
 
       if (vmDropOnlyForAmd) {
-        // Only the most confident "machine has finished greeting, ready to
-        // record" states actually drop a voicemail. Everything else hangs up.
+        // Voicemail-ready states: any "machine_end_*" classification means
+        // Twilio's DetectMessageEnd determined the greeting finished — this
+        // includes machine_end_beep, machine_end_silence, AND
+        // machine_end_other (greetings that don't fit the beep/silence
+        // pattern but still ended cleanly). Also accept plain "machine"
+        // family results since DetectMessageEnd reliably signals end-of-
+        // greeting before firing.
         const isConfidentVoicemailReady =
-          answeredBy === "machine_end_beep" || answeredBy === "machine_end_silence";
+          answeredBy.startsWith("machine_end") ||
+          answeredBy === "machine_start" ||
+          answeredBy === "fax";
         if (isConfidentVoicemailReady) {
           amdResult = "voicemail";
           intendedAction = `vm_drop_only_voicemail_drop (AMD=${answeredBy})`;
