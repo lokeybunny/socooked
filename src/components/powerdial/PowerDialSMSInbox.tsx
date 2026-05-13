@@ -1206,6 +1206,28 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     }
   };
 
+  const handleDeleteMessage = async (m: SMSMessage) => {
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+    try {
+      // Prevent VoidFix poller from re-importing inbound messages
+      if (m.direction === 'inbound' && m.external_id) {
+        const last10 = normalizeLast10(m.from_address);
+        await supabase
+          .from('sms_deleted_external_ids')
+          .upsert(
+            [{ external_id: String(m.external_id), phone_last10: last10 }],
+            { onConflict: 'external_id' },
+          );
+      }
+      const { error } = await supabase.from('communications').delete().eq('id', m.id);
+      if (error) { toast.error(error.message); return; }
+      setMessages(prev => prev.filter(x => x.id !== m.id));
+      toast.success('Message deleted');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete message');
+    }
+  };
+
   const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
     e.stopPropagation();
     const display = displayPhone(phoneKey);
