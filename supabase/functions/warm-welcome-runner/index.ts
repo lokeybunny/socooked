@@ -339,8 +339,8 @@ async function processCampaign(campaign: any) {
   }
 
   await sb.from("warm_welcome_campaigns").update({
-    imessage_new_sent_today: imSentToday,
-    sms_sent_today: smsSentToday,
+    imessage_new_sent_today: imessageApiSentToday,
+    sms_sent_today: androidApiSentToday,
     total_sent: totalSent,
     total_failed: totalFailed,
     total_skipped: totalSkipped,
