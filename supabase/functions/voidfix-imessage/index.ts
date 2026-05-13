@@ -79,9 +79,9 @@ async function actionValidate(to: string) {
   if (!recipient) return json({ ok: false, error: "invalid_phone" }, 400);
   const res = await imsgFetch("/messages/validate-imessage", {
     method: "POST",
-    body: JSON.stringify({ recipient }),
+    body: JSON.stringify({ phone: recipient, recipient }),
   });
-  const isImessage = !!(res.body?.data?.isImessage ?? res.body?.data?.iMessage ?? res.body?.isImessage);
+  const isImessage = !!(res.body?.data?.isImessage ?? res.body?.data?.iMessage ?? res.body?.isImessage ?? res.body?.data?.is_imessage);
   return json({ ok: res.ok, isImessage, raw: res.body });
 }
 
