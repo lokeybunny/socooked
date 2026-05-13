@@ -31,6 +31,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 //    must be present before we call it a confirmed human.
 const POST_PICKUP_DEBOUNCE_MS = 400;
 const HUMAN_SPEECH_MIN_AUDIO_MS = 1200;
+// Must exceed Twilio MachineDetectionTimeout (30s). If this hold ends at the
+// same time AMD returns, Twilio hangs up before we can redirect the live call
+// to the voicemail <Play>, leaving VMD stuck on "waiting" with no drop.
+const AMD_HOLD_SECONDS = 75;
 
 // Auto-SMS after transfer is OFF by default — only fires when explicitly enabled
 // in PowerDialSettings (settings.sms_after_transfer === true) with a non-empty body.
@@ -861,7 +865,7 @@ Deno.serve(async (req) => {
       const vmDropOnlyMode = (settingsObj as any).voicemail_drop_only === true;
 
       let mode = "hold_for_amd";
-      let xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="30"/><Hangup/></Response>`;
+      let xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${AMD_HOLD_SECONDS}"/><Hangup/></Response>`;
 
       // In voicemail-drop-only mode, never bridge to a human up-front. Always
       // wait for AMD so we can detect voicemail (drop the recording) or human
