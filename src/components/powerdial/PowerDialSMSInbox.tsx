@@ -1749,16 +1749,6 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
-                        {m.direction === 'inbound' && isImessageThread && (
-                          <button
-                            type="button"
-                            onClick={() => sendTapback(m, 'like')}
-                            title="Thumbs up"
-                            className="mt-1 p-1 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition"
-                          >
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                         <div className={`rounded-2xl px-3 py-2 ${bubbleCls}`} style={isImessageThread ? { fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif' } : undefined}>
                           {isLandlineReply(m) && (
                             <Badge variant="outline" className="text-[9px] px-1.5 mb-1 bg-amber-500/20 text-amber-400 border-amber-500/40">
@@ -1815,16 +1805,6 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           )}
                         </div>
                       </div>
-                      {m.direction === 'inbound' && isImessageThread && (
-                        <button
-                          type="button"
-                          onClick={() => sendTapback(m, 'heart')}
-                          title="Love"
-                          className="mt-1 ml-1 p-1 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition"
-                        >
-                          <Heart className="h-3.5 w-3.5" />
-                        </button>
-                      )}
                     </div>
                   );
                   });
