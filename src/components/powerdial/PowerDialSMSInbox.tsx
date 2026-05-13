@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, PhoneForwarded, CalendarClock, Paperclip, X as XIcon, ImageIcon } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, PhoneForwarded, CalendarClock, Paperclip, X as XIcon, ImageIcon, Smartphone, Mic, Heart, Square as SquareIcon } from 'lucide-react';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
