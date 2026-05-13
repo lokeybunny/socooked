@@ -143,9 +143,16 @@ export default function HotReplies() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetUrl]);
 
+  const isToday = (iso?: string | null) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  };
+
   const stats = useMemo(() => {
     const total = rows.length;
-    const hot = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called").length;
+    const hot = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called" && isToday(r.imported_at)).length;
     const pricing = rows.filter(r => r.ai_classification === "PRICING_QUESTION" && r.call_status === "not_called").length;
     const callback = rows.filter(r => r.ai_classification === "CALLBACK_REQUEST" && r.call_status === "not_called").length;
     const optOut = rows.filter(r => r.is_opt_out && r.call_status === "not_called").length;
@@ -166,7 +173,7 @@ export default function HotReplies() {
       list = list.filter(r => r.call_status !== "not_called");
     } else {
       list = list.filter(r => r.call_status === "not_called");
-      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out);
+      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out && isToday(r.imported_at));
       else if (filter === "needs_review") list = list.filter(r => r.ai_classification === "NEEDS_REVIEW");
       else if (filter === "pricing") list = list.filter(r => r.ai_classification === "PRICING_QUESTION");
       else if (filter === "callback") list = list.filter(r => r.ai_classification === "CALLBACK_REQUEST");
