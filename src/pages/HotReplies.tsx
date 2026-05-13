@@ -240,6 +240,7 @@ export default function HotReplies() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <WarmWelcomeBucketCounter />
             <Button onClick={sync} disabled={syncing}>
               {syncing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Sync Now
             </Button>
