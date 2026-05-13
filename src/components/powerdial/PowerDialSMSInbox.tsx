@@ -1775,7 +1775,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 {(() => {
                   const isImessageThread = activeThread ? (threadRoutes[activeThread] === 'imessage') : false;
                   return activeMessages.map(m => {
-                  const errMsg = m.metadata?.error || m.metadata?.twilio_error_message;
+                  const errMsg = toErrMsg(m.metadata?.error || m.metadata?.twilio_error_message, '');
                   const isFailed = ['failed', 'undelivered'].includes(String(m.status).toLowerCase()) || !!errMsg;
                   const imessageOut = "bg-[#0A84FF] text-white shadow-sm";
                   const imessageIn = "bg-[#3a3a3c] text-white shadow-sm";
