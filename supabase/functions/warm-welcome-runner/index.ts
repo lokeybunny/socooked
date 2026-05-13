@@ -309,6 +309,15 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'error', `Send failed via ${channel}`, send.raw);
     }
     processed += 1;
+
+    // Anti-spam cooldown between sends within this batch.
+    // Skip the wait after the last target so we don't hold the function open needlessly.
+    const isLast = t === targets[targets.length - 1];
+    if (!isLast && !testMode) {
+      const waitMs = randCooldownMs();
+      await logEvt(campaign.id, null, 'info', `Cooling down ${Math.round(waitMs/1000)}s before next send`);
+      await sleep(waitMs);
+    }
   }
 
   await sb.from("warm_welcome_campaigns").update({
