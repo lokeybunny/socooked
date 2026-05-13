@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
   ));
 
   // If body is an empty/placeholder like "[Image]" or "[Attachment]" but media exists, drop it.
-  if (media_urls.length && /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker)\]\s*$/i.test(message)) {
+  if (media_urls.length && /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker|audio|voice|voice\s*memo|voice\s*message|voicemail|recording)\]\s*$/i.test(message)) {
     message = "";
   }
 
