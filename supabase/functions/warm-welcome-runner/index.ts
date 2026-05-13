@@ -41,6 +41,23 @@ function todayUTC(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Business-hours gate: 8 AM – 6 PM Pacific Time.
+// (We treat PT generically; America/Los_Angeles handles PST/PDT correctly.)
+function isWithinPTBusinessHours(now = new Date()): boolean {
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "numeric",
+    hour12: false,
+  }).format(now);
+  const h = parseInt(hourStr, 10);
+  // 8:00–17:59 PT inclusive (stops at 6 PM sharp)
+  return h >= 8 && h < 18;
+}
+
+function isTestCampaign(campaign: any): boolean {
+  return !!(campaign?.filter_snapshot?.test);
+}
+
 async function rolloverIfNewDay(campaign: any) {
   const today = todayUTC();
   if (campaign.counters_day !== today) {
