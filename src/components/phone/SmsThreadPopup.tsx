@@ -116,14 +116,26 @@ export function SmsThreadPopup({
     return () => { supabase.removeChannel(ch); };
   }, [open, last10, load]);
 
-  // Load per-thread route preference (default = SMS / original VoidFix API)
+  // Load per-thread route preference. If user has saved a choice, honor it.
+  // Otherwise auto-default to iMessage when contact is audited as iPhone (or name has _iPhone suffix).
   useEffect(() => {
     if (!open || last10.length !== 10) return;
-    try {
-      const v = localStorage.getItem(`sms-thread-route-${last10}`);
-      if (v === "imessage" || v === "sms") setRouteOverride(v);
-      else setRouteOverride(null);
-    } catch { setRouteOverride(null); }
+    let cancelled = false;
+    (async () => {
+      try {
+        const v = localStorage.getItem(`sms-thread-route-${last10}`);
+        if (v === "imessage" || v === "sms") { setRouteOverride(v); return; }
+      } catch {}
+      const { data } = await supabase
+        .from("sms_contacts")
+        .select("device_type, name")
+        .eq("phone_last10", last10)
+        .maybeSingle();
+      if (cancelled) return;
+      const isIphone = data?.device_type === "iphone" || /_iPhone$/i.test(data?.name || "");
+      setRouteOverride(isIphone ? "imessage" : null);
+    })();
+    return () => { cancelled = true; };
   }, [open, last10]);
 
   // Detect iMessage suggestion: VIP route, existing customer, or prior iMessage thread.
