@@ -88,10 +88,21 @@ async function actionValidate(to: string) {
 async function actionSend(payload: any) {
   const recipient = normalizeE164(payload.to || payload.recipient);
   const message = String(payload.body || payload.message || "").trim();
-  if (!recipient || !message) return json({ ok: false, error: "missing_recipient_or_message" }, 400);
+  const attachments: string[] = Array.isArray(payload.attachments)
+    ? payload.attachments.filter((u: any) => typeof u === "string" && u)
+    : [];
+  if (!recipient || (!message && attachments.length === 0)) {
+    return json({ ok: false, error: "missing_recipient_or_message" }, 400);
+  }
 
   const sendBody: Record<string, unknown> = { recipient, message };
   if (payload.iMessageLineId) sendBody.iMessageLineId = payload.iMessageLineId;
+  if (attachments.length) {
+    // Best-effort: forward both common shapes; VoidFix accepts the one it knows.
+    sendBody.attachments = attachments;
+    sendBody.mediaUrls = attachments;
+    if (attachments.length === 1) sendBody.mediaUrl = attachments[0];
+  }
 
   const res = await imsgFetch("/messages/send", {
     method: "POST",
@@ -112,7 +123,8 @@ async function actionSend(payload: any) {
     await sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
-      body: message,
+      body: attachments.length ? `${message}${message ? "\n" : ""}${attachments.join("\n")}` : message,
+      media_urls: attachments.length ? attachments : null,
       from_address: data.from || data.lineNumber || null,
       to_address: recipient,
       phone_number: recipient,
@@ -129,6 +141,20 @@ async function actionSend(payload: any) {
   return json({ ok: true, channel, provider, data });
 }
 
+async function actionReact(payload: any) {
+  const recipient = normalizeE164(payload.to || payload.recipient);
+  const messageId = String(payload.messageId || payload.message_id || "");
+  const reaction = String(payload.reaction || "heart");
+  if (!recipient || !messageId) return json({ ok: false, error: "missing_recipient_or_message_id" }, 400);
+  // Best-effort tapback to VoidFix; endpoint name may vary by provider build.
+  const res = await imsgFetch("/messages/react", {
+    method: "POST",
+    body: JSON.stringify({ recipient, messageId, reaction }),
+  });
+  if (!res.ok) return json({ ok: false, error: res.body?.error || `react_failed_${res.status}`, raw: res.body }, 502);
+  return json({ ok: true, reaction, raw: res.body });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   let payload: any = {};
@@ -137,6 +163,7 @@ Deno.serve(async (req) => {
   try {
     if (action === "send") return await actionSend(payload);
     if (action === "validate") return await actionValidate(payload.to);
+    if (action === "react") return await actionReact(payload);
     return json({ ok: false, error: "unknown_action" }, 400);
   } catch (e) {
     console.error("[voidfix-imessage] error", e);

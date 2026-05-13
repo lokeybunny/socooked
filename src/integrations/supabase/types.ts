@@ -7531,6 +7531,9 @@ export type Database = {
       sms_contacts: {
         Row: {
           created_at: string
+          device_audit_meta: Json | null
+          device_audited_at: string | null
+          device_type: string | null
           email: string | null
           id: string
           instagram: string | null
@@ -7549,6 +7552,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          device_audit_meta?: Json | null
+          device_audited_at?: string | null
+          device_type?: string | null
           email?: string | null
           id?: string
           instagram?: string | null
@@ -7567,6 +7573,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          device_audit_meta?: Json | null
+          device_audited_at?: string | null
+          device_type?: string | null
           email?: string | null
           id?: string
           instagram?: string | null

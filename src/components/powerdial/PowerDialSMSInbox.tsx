@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, PhoneForwarded, CalendarClock, Paperclip, X as XIcon, ImageIcon } from 'lucide-react';
+import { MessageSquare, Send, RefreshCw, Loader2, Plus, ArrowLeft, Webhook, Trash2, UserPlus, FileText, Star, StickyNote, Workflow, PhoneOff, Zap, Pin, PinOff, Phone, PhoneForwarded, CalendarClock, Paperclip, X as XIcon, ImageIcon, Smartphone, Mic, Heart, Square as SquareIcon } from 'lucide-react';
 import TwilioKeypad from '@/components/phone/TwilioKeypad';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -121,6 +121,16 @@ export default function PowerDialSMSInbox() {
   const [pendingAttachments, setPendingAttachments] = useState<{ url: string; name: string }[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Device audit (Twilio Lookup -> iPhone/Android tag)
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditPhone, setAuditPhone] = useState<string>('');
+  const [auditQuote, setAuditQuote] = useState<{ cost_usd: number; already_audited: boolean; device_type: string | null } | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditResult, setAuditResult] = useState<{ device_type: string; cost_usd?: number } | null>(null);
+  // Audio recording (iMessage)
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   // Send Proposal modal
   const [proposalOpen, setProposalOpen] = useState(false);
   const [proposalPhoneKey, setProposalPhoneKey] = useState<string | null>(null);
@@ -709,12 +719,17 @@ export default function PowerDialSMSInbox() {
     try {
       const uploads: { url: string; name: string }[] = [];
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not an image`);
+        const isImessageRoute = (showCompose ? composeRoute : (activeThread ? threadRoutes[activeThread] : 'sms')) === 'imessage';
+        const isImg = file.type.startsWith('image/');
+        const isVid = file.type.startsWith('video/');
+        const isAud = file.type.startsWith('audio/');
+        if (!isImg && !(isImessageRoute && (isVid || isAud))) {
+          toast.error(`${file.name}: ${isImessageRoute ? 'images, videos & audio supported' : 'only images supported on SMS'}`);
           continue;
         }
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error(`${file.name} exceeds 10MB`);
+        const maxMb = isImessageRoute ? 100 : 10;
+        if (file.size > maxMb * 1024 * 1024) {
+          toast.error(`${file.name} exceeds ${maxMb}MB`);
           continue;
         }
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -736,6 +751,113 @@ export default function PowerDialSMSInbox() {
     }
   };
 
+  // Open Twilio carrier audit dialog for a thread
+  const openAudit = useCallback(async (e: React.MouseEvent, last10: string) => {
+    e.stopPropagation();
+    const t = threads.find(t => normalizeLast10(t.phone) === last10);
+    const phone = t?.phone || last10;
+    setAuditPhone(phone);
+    setAuditResult(null);
+    setAuditQuote(null);
+    setAuditOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-device-audit', {
+        body: { action: 'quote', phone },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Quote failed');
+        setAuditOpen(false);
+        return;
+      }
+      setAuditQuote(data as any);
+    } catch (err: any) {
+      toast.error(err?.message || 'Quote failed');
+      setAuditOpen(false);
+    }
+  }, [threads]);
+
+  const runAudit = useCallback(async () => {
+    if (!auditPhone) return;
+    setAuditLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-device-audit', {
+        body: { action: 'run', phone: auditPhone },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Audit failed');
+        return;
+      }
+      const r = data as any;
+      setAuditResult({ device_type: r.device_type, cost_usd: r.cost_usd });
+      const label = r.device_type === 'iphone' ? '📱 iPhone'
+        : r.device_type === 'android' ? '🤖 Android'
+        : r.device_type === 'landline' ? '☎️ Landline'
+        : r.device_type === 'voip' ? '🌐 VoIP' : '❓ Unknown';
+      toast.success(`Tagged as ${label}${r.locked ? ' (already audited)' : ''}`);
+      load({ silent: true });
+    } catch (err: any) {
+      toast.error(err?.message || 'Audit failed');
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [auditPhone]);
+
+  // Send tapback (heart) reaction on an iMessage bubble
+  const sendTapback = useCallback(async (m: SMSMessage, reaction: 'heart' | 'like' | 'love' = 'heart') => {
+    const to = m.from_address || m.phone_number;
+    if (!to) { toast.error('No recipient'); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke('voidfix-imessage', {
+        body: { action: 'react', to, messageId: m.external_id || m.id, reaction },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Reaction failed');
+      } else {
+        toast.success('❤️ Sent');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Reaction failed');
+    }
+  }, []);
+
+  // Audio recording for iMessage
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+      recordedChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+        if (blob.size === 0) return;
+        setUploadingAttachment(true);
+        try {
+          const path = `sms-mms/audio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webm`;
+          const { error: upErr } = await supabase.storage
+            .from('content-uploads')
+            .upload(path, blob, { contentType: 'audio/webm', upsert: false });
+          if (upErr) { toast.error(`Upload failed: ${upErr.message}`); return; }
+          const { data: pub } = supabase.storage.from('content-uploads').getPublicUrl(path);
+          setPendingAttachments((p) => [...p, { url: pub.publicUrl, name: 'voice-message.webm' }]);
+          toast.success('Voice message ready to send');
+        } finally {
+          setUploadingAttachment(false);
+        }
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Microphone access denied');
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    try { mediaRecorderRef.current?.stop(); } catch {}
+    setRecording(false);
+  }, []);
+
   const handleSend = async (toOverride?: string) => {
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
     const text = composeBody.trim();
@@ -753,10 +875,14 @@ export default function PowerDialSMSInbox() {
         setThreadRoute(last10, composeRoute);
       }
       const route = showCompose ? composeRoute : (threadRoutes[last10] || 'sms');
-      const useImessage = route === 'imessage' && pendingAttachments.length === 0;
+      const useImessage = route === 'imessage';
       const fn = useImessage ? 'voidfix-imessage' : 'powerdial-sms';
+      const attachments = pendingAttachments.map(a => a.url);
+      const sendBody: any = useImessage
+        ? { action: 'send', to, body: text || '', attachments }
+        : { action: 'send', to, body };
       const { data, error } = await supabase.functions.invoke(fn, {
-        body: { action: 'send', to, body },
+        body: sendBody,
       });
       if (error || !(data as any)?.ok) {
         const errCode = (data as any)?.error || error?.message || 'Failed to send';
@@ -1278,6 +1404,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
+                      <button
+                        onClick={(e) => openAudit(e, key)}
+                        className="p-1 rounded hover:bg-indigo-500/20 text-indigo-400 transition-colors"
+                        title="Carrier audit (Twilio Lookup → tag iPhone/Android, $0.008)"
+                        aria-label="Carrier audit"
+                      >
+                        <Smartphone className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1307,9 +1441,9 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <button
                   type="button"
                   onClick={() => setComposeRoute('imessage')}
-                  disabled={pendingAttachments.length > 0}
-                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'} disabled:opacity-40 disabled:cursor-not-allowed`}
-                  title={pendingAttachments.length > 0 ? 'Remove media to use iMessage' : 'Send as iMessage'}
+                  disabled={false}
+                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                  title="Send as iMessage (supports images, video, audio)"
                 >
                   iMessage
                 </button>
@@ -1647,25 +1781,41 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleAttachFiles(e.target.files)}
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAttachment}
-                  title="Attach image"
-                  className="shrink-0"
-                >
-                  {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-                </Button>
+                {(() => {
+                  const isImsg = activeThread ? threadRoutes[activeThread] === 'imessage' : composeRoute === 'imessage';
+                  return (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={isImsg ? "image/*,video/*,audio/*" : "image/*"}
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleAttachFiles(e.target.files)}
+                      />
+                      <Button
+                        type="button" size="icon" variant="ghost"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAttachment}
+                        title={isImsg ? "Attach image, video or audio" : "Attach image"}
+                        className="shrink-0"
+                      >
+                        {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                      </Button>
+                      {isImsg && (
+                        <Button
+                          type="button" size="icon" variant="ghost"
+                          onClick={recording ? stopRecording : startRecording}
+                          disabled={uploadingAttachment}
+                          title={recording ? "Stop recording" : "Record voice message"}
+                          className={`shrink-0 ${recording ? 'text-red-500 animate-pulse' : ''}`}
+                        >
+                          {recording ? <SquareIcon className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </>
+                  );
+                })()}
                 <Textarea
                   placeholder="Type a reply..."
                   value={composeBody}
@@ -1917,6 +2067,61 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             </div>
           );
         })()}
+      </DialogContent>
+    </Dialog>
+
+    {/* Carrier Audit Dialog */}
+    <Dialog open={auditOpen} onOpenChange={(o) => { if (!o && !auditLoading) { setAuditOpen(false); setAuditResult(null); setAuditQuote(null); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Smartphone className="h-4 w-4" /> Carrier Audit</DialogTitle>
+          <DialogDescription>
+            Identify whether <span className="font-mono">{formatPhone(auditPhone)}</span> is an iPhone or Android. Result is permanent.
+          </DialogDescription>
+        </DialogHeader>
+        {!auditQuote && !auditResult && (
+          <div className="flex items-center justify-center py-6 text-muted-foreground text-sm gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Fetching quote…
+          </div>
+        )}
+        {auditQuote && !auditResult && (
+          <div className="space-y-3 py-2">
+            {auditQuote.already_audited ? (
+              <div className="rounded border border-border bg-muted/40 p-3 text-sm">
+                Already audited as <span className="font-semibold">{auditQuote.device_type}</span>. No charge.
+              </div>
+            ) : (
+              <div className="rounded border border-indigo-500/40 bg-indigo-500/5 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span>Twilio Lookup (line type intelligence)</span><span className="font-mono font-semibold">${auditQuote.cost_usd.toFixed(3)}</span></div>
+                <div className="text-xs text-muted-foreground">Billed by Twilio. Includes iMessage validation. Tag is permanent.</div>
+              </div>
+            )}
+          </div>
+        )}
+        {auditResult && (
+          <div className="py-3 text-center space-y-2">
+            <div className="text-3xl">
+              {auditResult.device_type === 'iphone' ? '📱' : auditResult.device_type === 'android' ? '🤖' : auditResult.device_type === 'landline' ? '☎️' : auditResult.device_type === 'voip' ? '🌐' : '❓'}
+            </div>
+            <div className="font-semibold capitalize">{auditResult.device_type}</div>
+            <div className="text-xs text-muted-foreground">Charged ${(auditResult.cost_usd ?? 0.008).toFixed(3)} — name tagged permanently</div>
+          </div>
+        )}
+        <DialogFooter>
+          {!auditResult ? (
+            <>
+              <Button variant="outline" onClick={() => setAuditOpen(false)} disabled={auditLoading}>{auditQuote?.already_audited ? 'Close' : 'Deny'}</Button>
+              {!auditQuote?.already_audited && (
+                <Button onClick={runAudit} disabled={!auditQuote || auditLoading} className="bg-indigo-500 hover:bg-indigo-600 text-white">
+                  {auditLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Approve & Charge ${auditQuote?.cost_usd?.toFixed(3) ?? '0.008'}
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button onClick={() => setAuditOpen(false)}>Done</Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
     </>
