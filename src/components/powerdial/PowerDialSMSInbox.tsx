@@ -1441,9 +1441,9 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <button
                   type="button"
                   onClick={() => setComposeRoute('imessage')}
-                  disabled={pendingAttachments.length > 0}
-                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'} disabled:opacity-40 disabled:cursor-not-allowed`}
-                  title={pendingAttachments.length > 0 ? 'Remove media to use iMessage' : 'Send as iMessage'}
+                  disabled={false}
+                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                  title="Send as iMessage (supports images, video, audio)"
                 >
                   iMessage
                 </button>
