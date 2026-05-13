@@ -42,6 +42,9 @@ export default function HotRepliesPinnedQueue() {
   const [loading, setLoading] = useState(true);
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
   const [filter, setFilter] = useState<string>(() => localStorage.getItem(FILTER_KEY) || 'hot');
+  const [sortDir, setSortDir] = useState<'latest' | 'earliest'>(() => {
+    try { return (localStorage.getItem(SORT_KEY) as 'latest' | 'earliest') || 'latest'; } catch { return 'latest'; }
+  });
   const [deactivated, setDeactivated] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(DEACTIVATED_KEY) || '[]')); } catch { return new Set(); }
   });
