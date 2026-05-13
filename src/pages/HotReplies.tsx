@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2 } from "lucide-react";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -81,6 +81,9 @@ export default function HotReplies() {
   const [filter, setFilter] = useState<string>("hot");
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<'latest' | 'earliest'>(() => {
+    try { return (localStorage.getItem('hot-replies-sort-dir') as 'latest' | 'earliest') || 'latest'; } catch { return 'latest'; }
+  });
   const [selected, setSelected] = useState<Reply | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [noteList, setNoteList] = useState<any[]>([]);
@@ -99,6 +102,10 @@ export default function HotReplies() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem('hot-replies-sort-dir', sortDir); } catch {}
+  }, [sortDir]);
 
   const sync = async () => {
     if (!sheetUrl) { toast.error("Add a Google Sheet URL first"); setSettingsOpen(true); return; }
@@ -172,8 +179,13 @@ export default function HotReplies() {
         (`${r.first_name || ""} ${r.last_name || ""}`).toLowerCase().includes(q)
       );
     }
+    list.sort((a, b) => {
+      const da = new Date(a.imported_at).getTime();
+      const db = new Date(b.imported_at).getTime();
+      return sortDir === 'latest' ? db - da : da - db;
+    });
     return list;
-  }, [rows, filter, campaignFilter, search]);
+  }, [rows, filter, campaignFilter, search, sortDir]);
 
   const openLead = async (r: Reply) => {
     setSelected(r);
@@ -291,7 +303,9 @@ export default function HotReplies() {
                     <TableHead>Class</TableHead>
                     <TableHead>Conf</TableHead>
                     <TableHead>Campaign</TableHead>
-                    <TableHead>When</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => setSortDir(prev => prev === 'latest' ? 'earliest' : 'latest')}>
+                      <span className="inline-flex items-center gap-1">When <ArrowUpDown className="h-3 w-3" /></span>
+                    </TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>

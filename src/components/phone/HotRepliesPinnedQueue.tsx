@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, MessageSquare, UserX, Flame, RefreshCw } from 'lucide-react';
+import { Phone, MessageSquare, UserX, Flame, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { SmsThreadPopup } from '@/components/phone/SmsThreadPopup';
 
@@ -22,10 +22,12 @@ type HotRow = {
   is_opt_out: boolean;
   is_hot: boolean;
   call_status: string;
+  imported_at: string;
 };
 
 const DEACTIVATED_KEY = 'hot-replies-pinned-deactivated-v1';
 const FILTER_KEY = 'hot-replies-pinned-filter-v1';
+const SORT_KEY = 'hot-replies-pinned-sort-v1';
 
 const CLASS_BADGE: Record<string, string> = {
   HOT_POSITIVE: 'bg-red-500/15 text-red-400 border-red-500/30',
@@ -40,6 +42,9 @@ export default function HotRepliesPinnedQueue() {
   const [loading, setLoading] = useState(true);
   const [smsPopup, setSmsPopup] = useState<{ phone: string; name: string | null; initialBody?: string } | null>(null);
   const [filter, setFilter] = useState<string>(() => localStorage.getItem(FILTER_KEY) || 'hot');
+  const [sortDir, setSortDir] = useState<'latest' | 'earliest'>(() => {
+    try { return (localStorage.getItem(SORT_KEY) as 'latest' | 'earliest') || 'latest'; } catch { return 'latest'; }
+  });
   const [deactivated, setDeactivated] = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem(DEACTIVATED_KEY) || '[]')); } catch { return new Set(); }
   });
@@ -50,7 +55,7 @@ export default function HotRepliesPinnedQueue() {
     // filter client-side the same way the Hot Replies page does.
     const { data } = await supabase
       .from('hot_reply_imports')
-      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status')
+      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status, imported_at')
       .eq('is_opt_out', false)
       .order('imported_at', { ascending: false })
       .limit(300);
@@ -68,6 +73,8 @@ export default function HotRepliesPinnedQueue() {
   }, [load]);
 
   useEffect(() => { localStorage.setItem(FILTER_KEY, filter); }, [filter]);
+
+  useEffect(() => { try { localStorage.setItem(SORT_KEY, sortDir); } catch {} }, [sortDir]);
 
   const toggleDeactivated = async (id: string) => {
     setDeactivated(prev => {
@@ -106,8 +113,13 @@ export default function HotRepliesPinnedQueue() {
     else if (filter === 'needs_review') list = list.filter(r => r.ai_classification === 'NEEDS_REVIEW');
     else if (filter === 'not_called') list = list.filter(r => r.is_hot && r.call_status === 'not_called');
     // 'all' = everything not filtered above
+    list.sort((a, b) => {
+      const da = new Date(a.imported_at).getTime();
+      const db = new Date(b.imported_at).getTime();
+      return sortDir === 'latest' ? db - da : da - db;
+    });
     return list;
-  }, [rows, filter]);
+  }, [rows, filter, sortDir]);
 
   const counts = useMemo(() => {
     const base = rows.filter(r => !r.is_opt_out);
@@ -150,6 +162,16 @@ export default function HotRepliesPinnedQueue() {
               <SelectItem value="all">All (non opt-out)</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            title={sortDir === 'latest' ? 'Sorted: latest first' : 'Sorted: earliest first'}
+            onClick={() => setSortDir(prev => prev === 'latest' ? 'earliest' : 'latest')}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1" />
+            {sortDir === 'latest' ? 'Latest' : 'Earliest'}
+          </Button>
           <Button variant="ghost" size="sm" onClick={load} className="h-7">
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
