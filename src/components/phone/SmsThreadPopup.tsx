@@ -455,7 +455,7 @@ export function SmsThreadPopup({
                   }`}
                   title={
                     hasMedia
-                      ? (routeImessage ? "iMessage disabled — sending as MMS (media attached)" : "Send MMS")
+                      ? (useImessageRoute ? "iMessage disabled — sending as MMS (media attached)" : "Send MMS")
                       : effectiveImessage ? "Send iMessage" : "Send SMS"
                   }
                 >
