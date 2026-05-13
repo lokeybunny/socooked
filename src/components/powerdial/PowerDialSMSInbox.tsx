@@ -1728,6 +1728,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             let text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
                             // If we have media (or even when not, when body is just a placeholder), hide "[Image]" style placeholders.
                             if (text && MEDIA_PLACEHOLDER_RE.test(text)) text = '';
+                            const showMissingMediaHint = !text && imgs.length === 0;
                             return (
                               <>
                                 {text && <p className={textCls}>{text}</p>}
@@ -1736,6 +1737,11 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                                     <MediaImage url={url} />
                                   </div>
                                 ))}
+                                {showMissingMediaHint && (
+                                  <p className={`${textCls} italic opacity-70 flex items-center gap-1`}>
+                                    <ImageIcon className="h-3.5 w-3.5" /> Attachment (not retrievable)
+                                  </p>
+                                )}
                               </>
                             );
                           })()}
