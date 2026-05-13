@@ -137,7 +137,7 @@ export default function HotRepliesPinnedQueue() {
   const counts = useMemo(() => {
     const base = rows.filter(r => !r.is_opt_out && r.call_status === 'not_called');
     return {
-      hot: base.filter(r => r.is_hot && isToday(r.imported_at)).length,
+      hot: base.filter(r => r.is_hot && isOriginalToday(r.original_date)).length,
       warm: base.filter(r => r.ai_classification === 'WARM_INTERESTED').length,
       positive: base.filter(r => r.ai_classification === 'HOT_POSITIVE').length,
       pricing: base.filter(r => r.ai_classification === 'PRICING_QUESTION').length,
