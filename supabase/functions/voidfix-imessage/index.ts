@@ -88,10 +88,21 @@ async function actionValidate(to: string) {
 async function actionSend(payload: any) {
   const recipient = normalizeE164(payload.to || payload.recipient);
   const message = String(payload.body || payload.message || "").trim();
-  if (!recipient || !message) return json({ ok: false, error: "missing_recipient_or_message" }, 400);
+  const attachments: string[] = Array.isArray(payload.attachments)
+    ? payload.attachments.filter((u: any) => typeof u === "string" && u)
+    : [];
+  if (!recipient || (!message && attachments.length === 0)) {
+    return json({ ok: false, error: "missing_recipient_or_message" }, 400);
+  }
 
   const sendBody: Record<string, unknown> = { recipient, message };
   if (payload.iMessageLineId) sendBody.iMessageLineId = payload.iMessageLineId;
+  if (attachments.length) {
+    // Best-effort: forward both common shapes; VoidFix accepts the one it knows.
+    sendBody.attachments = attachments;
+    sendBody.mediaUrls = attachments;
+    if (attachments.length === 1) sendBody.mediaUrl = attachments[0];
+  }
 
   const res = await imsgFetch("/messages/send", {
     method: "POST",
