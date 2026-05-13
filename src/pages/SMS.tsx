@@ -203,6 +203,7 @@ export default function SMS() {
             <TabsTrigger value="auto-reply"><Zap className="h-3.5 w-3.5 mr-1" /> Auto-Reply</TabsTrigger>
             <TabsTrigger value="voidfix-first-reply"><Sparkles className="h-3.5 w-3.5 mr-1" /> VoidFix Auto-Reply</TabsTrigger>
             <TabsTrigger value="vm-followup"><Voicemail className="h-3.5 w-3.5 mr-1" /> Followup SMS VM</TabsTrigger>
+            <TabsTrigger value="cooldown"><Snowflake className="h-3.5 w-3.5 mr-1" /> Cool Down</TabsTrigger>
             <TabsTrigger value="disconnected"><PhoneOff className="h-3.5 w-3.5 mr-1" /> Disconnected</TabsTrigger>
             <TabsTrigger value="log"><ScrollText className="h-3.5 w-3.5 mr-1" /> LOG</TabsTrigger>
             <TabsTrigger value="blast"><Megaphone className="h-3.5 w-3.5 mr-1" /> New Blast</TabsTrigger>
