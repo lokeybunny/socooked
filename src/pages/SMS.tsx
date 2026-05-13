@@ -21,6 +21,7 @@ import DisconnectedTab from '@/components/sms/DisconnectedTab';
 import HookReplyTab from '@/components/powerdial/HookReplyTab';
 import DNDListTab from '@/components/powerdial/DNDListTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import WarmWelcomeBucketCounter from '@/components/sms/WarmWelcomeBucketCounter';
 
 type Template = { id: string; name: string; body: string };
 type Campaign = { id: string; name: string; body: string; status: string; total_recipients: number; sent_count: number; failed_count: number; created_at: string };
@@ -167,12 +168,15 @@ export default function SMS() {
   return (
     <AppLayout>
       <div className="space-y-5 animate-fade-in">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-400/20"><MessageSquare className="h-5 w-5 text-emerald-400" /></div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">iMessage + SMS</h1>
-            <p className="text-xs text-muted-foreground">Inbox · Blasts · Templates (VoidFix iMessage + SMS gateway)</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-400/20"><MessageSquare className="h-5 w-5 text-emerald-400" /></div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">iMessage + SMS</h1>
+              <p className="text-xs text-muted-foreground">Inbox · Blasts · Templates (VoidFix iMessage + SMS gateway)</p>
+            </div>
           </div>
+          <WarmWelcomeBucketCounter />
         </div>
 
         <Tabs defaultValue="inbox">
