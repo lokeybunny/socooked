@@ -1701,37 +1701,59 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     : "text-sm whitespace-pre-wrap break-words";
                   const metaCls = isImessageThread ? "text-[10px] opacity-70 mt-1" : "text-[9px] text-muted-foreground mt-1";
                   return (
-                    <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${bubbleCls}`} style={isImessageThread ? { fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif' } : undefined}>
-                        {isLandlineReply(m) && (
-                          <Badge variant="outline" className="text-[9px] px-1.5 mb-1 bg-amber-500/20 text-amber-400 border-amber-500/40">
-                            LANDLINE REPLY · needs follow-up from VoidFix
-                          </Badge>
+                    <div key={m.id} className={`flex flex-col ${m.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-start gap-1.5 max-w-[75%]">
+                        {m.direction === 'inbound' && isImessageThread && (
+                          <button
+                            type="button"
+                            onClick={() => sendTapback(m, 'like')}
+                            title="Thumbs up"
+                            className="mt-1 p-1 rounded-full bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition"
+                          >
+                            <ThumbsUp className="h-3.5 w-3.5" />
+                          </button>
                         )}
-                        {(() => {
-                          const bodyImgs = extractImageUrls(m.body);
-                          const colImgs = Array.isArray(m.media_urls) ? m.media_urls.filter(Boolean) : [];
-                          const imgs = Array.from(new Set([...colImgs, ...bodyImgs]));
-                          const text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
-                          return (
-                            <>
-                              {text && <p className={textCls}>{text}</p>}
-                              {imgs.map((url) => (
-                                <div key={url} className="mt-1">
-                                  <MediaImage url={url} />
-                                </div>
-                              ))}
-                            </>
-                          );
-                        })()}
-                        <p className={metaCls}>
-                          {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
-                        </p>
+                        <div className={`rounded-2xl px-3 py-2 ${bubbleCls}`} style={isImessageThread ? { fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif' } : undefined}>
+                          {isLandlineReply(m) && (
+                            <Badge variant="outline" className="text-[9px] px-1.5 mb-1 bg-amber-500/20 text-amber-400 border-amber-500/40">
+                              LANDLINE REPLY · needs follow-up from VoidFix
+                            </Badge>
+                          )}
+                          {(() => {
+                            const bodyImgs = extractImageUrls(m.body);
+                            const colImgs = Array.isArray(m.media_urls) ? m.media_urls.filter(Boolean) : [];
+                            const imgs = Array.from(new Set([...colImgs, ...bodyImgs]));
+                            const text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
+                            return (
+                              <>
+                                {text && <p className={textCls}>{text}</p>}
+                                {imgs.map((url) => (
+                                  <div key={url} className="mt-1">
+                                    <MediaImage url={url} />
+                                  </div>
+                                ))}
+                              </>
+                            );
+                          })()}
+                          <p className={metaCls}>
+                            {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
+                          </p>
 
-                        {isFailed && errMsg && (
-                          <p className="text-[10px] text-red-300 mt-1">{errMsg}</p>
-                        )}
+                          {isFailed && errMsg && (
+                            <p className="text-[10px] text-red-300 mt-1">{errMsg}</p>
+                          )}
+                        </div>
                       </div>
+                      {m.direction === 'inbound' && isImessageThread && (
+                        <button
+                          type="button"
+                          onClick={() => sendTapback(m, 'heart')}
+                          title="Love"
+                          className="mt-1 ml-1 p-1 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition"
+                        >
+                          <Heart className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   );
                   });
