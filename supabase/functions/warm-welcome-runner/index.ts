@@ -239,7 +239,7 @@ async function processCampaign(campaign: any) {
     const isNew = channel === 'imessage' ? await isNewImessageContact(t.phone_last10) : false;
 
     // Cap check
-    if (channel === 'imessage' && isNew && imSentToday >= IMESSAGE_NEW_CAP) {
+    if (!testMode && channel === 'imessage' && isNew && imSentToday >= IMESSAGE_NEW_CAP) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
