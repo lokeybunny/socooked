@@ -463,7 +463,7 @@ function buildCallParams(args: {
     // quickly as AnsweredBy="human" within ~1-2s of "hello".
     MachineDetection: "DetectMessageEnd",
     AsyncAmd: "true",
-    MachineDetectionTimeout: "30",
+    MachineDetectionTimeout: "18",
     MachineDetectionSpeechThreshold: "2400",
     MachineDetectionSpeechEndThreshold: "1200",
     MachineDetectionSilenceTimeout: "5000",
@@ -1081,7 +1081,7 @@ async function placeCallWithBatch(campaign: any, queueItem: any, batchId: string
     // voicemail beep, which prevents reliable voicemail drops.
     MachineDetection: "DetectMessageEnd",
     AsyncAmd: "true",
-    MachineDetectionTimeout: "30",
+    MachineDetectionTimeout: "18",
     MachineDetectionSpeechThreshold: "2400",
     MachineDetectionSpeechEndThreshold: "1200",
     MachineDetectionSilenceTimeout: "5000",

@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
           From: fromResolution.resolvedFrom,
           MachineDetection: "DetectMessageEnd",
           AsyncAmd: "true",
-          MachineDetectionTimeout: "30",
+          MachineDetectionTimeout: "18",
           MachineDetectionSpeechThreshold: "2400",
           MachineDetectionSpeechEndThreshold: "1200",
           MachineDetectionSilenceTimeout: "5000",
