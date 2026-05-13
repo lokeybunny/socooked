@@ -1746,6 +1746,21 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 gap-1"
+                onClick={(e) => activeThread && handleAuditDevice(e, activeThread)}
+                disabled={!!activeThread && auditingThread === activeThread}
+                title="Audit device (Twilio + iMessage) — locks contact as _iPhone or _Android"
+              >
+                {activeThread && auditingThread === activeThread ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Smartphone className="h-3.5 w-3.5" />
+                )}
+                <span className="text-xs">Audit Device</span>
+              </Button>
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
