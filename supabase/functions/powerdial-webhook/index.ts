@@ -1494,6 +1494,7 @@ Deno.serve(async (req) => {
       const vmDropClaimed = await claimVoicemailDrop(callLogId);
       if (!vmDropClaimed) {
         console.warn(`[powerdial-webhook] Duplicate voicemail AMD ignored for call ${callLogId || callSid}`);
+        await logVmdTimeline(callLogId, "voicemail_drop_duplicate_ignored", { call_sid: callSid || null });
         return json({ ok: true, amd_result: amdResult, vm_dropped: false, duplicate: true });
       }
 
@@ -1506,6 +1507,15 @@ Deno.serve(async (req) => {
             ? `<Say voice="Polly.Joanna" language="en-US">${escapeXml(ttsFallbackText)}</Say>`
             : "";
           const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
+          existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_attempt", {
+            call_sid: callSid || null,
+            answered_by: answeredBy,
+            pause_before_sec: pauseLen,
+            pause_after_sec: pauseAfterSec,
+            playback_url: vmDropUrl,
+            selected_recording_id: selectedRecording?.id || null,
+            selected_recording_name: selectedRecording?.name || null,
+          });
           const redirectResp = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
             {
@@ -1524,9 +1534,15 @@ Deno.serve(async (req) => {
           } else {
             const errText = await redirectResp.text();
             console.error(`[powerdial-webhook] Voicemail drop redirect failed:`, errText);
+            existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_failed", {
+              call_sid: callSid || null,
+              status: redirectResp.status,
+              error: errText.slice(0, 500),
+            });
           }
         } catch (err) {
           console.error("[powerdial-webhook] Voicemail drop exception:", err);
+          existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_exception", { error: String(err) });
         }
       }
 
