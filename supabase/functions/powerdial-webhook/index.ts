@@ -1054,6 +1054,14 @@ Deno.serve(async (req) => {
         call_status_at_amd: callStatus,
       };
 
+      existingMeta = appendVmdTimeline(existingMeta, "amd_classified", {
+        call_sid: callSid || null,
+        answered_by: answeredBy,
+        amd_result: amdResult,
+        intended_action: intendedAction,
+        machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
+      });
+
       await sb.from("powerdial_call_logs").update({
         amd_result: amdResult,
         meta: { ...existingMeta, amd_debug: amdDebug },
