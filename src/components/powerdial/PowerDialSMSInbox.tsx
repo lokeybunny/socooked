@@ -116,6 +116,7 @@ export default function PowerDialSMSInbox() {
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  const [composeRoute, setComposeRoute] = useState<'sms' | 'imessage'>('sms');
   // Image attachment (uploaded to storage; URL appended to outbound SMS body)
   const [pendingAttachments, setPendingAttachments] = useState<{ url: string; name: string }[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -747,7 +748,11 @@ export default function PowerDialSMSInbox() {
     setSending(true);
     try {
       const last10 = String(to).replace(/\D/g, '').slice(-10);
-      const route = threadRoutes[last10] || 'sms';
+      // For new compose threads, persist chosen route so future sends honor it
+      if (showCompose && last10 && !threadRoutes[last10]) {
+        setThreadRoute(last10, composeRoute);
+      }
+      const route = showCompose ? composeRoute : (threadRoutes[last10] || 'sms');
       const useImessage = route === 'imessage' && pendingAttachments.length === 0;
       const fn = useImessage ? 'voidfix-imessage' : 'powerdial-sms';
       const { data, error } = await supabase.functions.invoke(fn, {
@@ -1291,6 +1296,24 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm font-semibold">New SMS</span>
+              <div className="ml-auto inline-flex items-center gap-1 text-[11px] border border-border rounded-md p-0.5 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setComposeRoute('sms')}
+                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'sms' ? 'bg-emerald-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  SMS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposeRoute('imessage')}
+                  disabled={pendingAttachments.length > 0}
+                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  title={pendingAttachments.length > 0 ? 'Remove media to use iMessage' : 'Send as iMessage'}
+                >
+                  iMessage
+                </button>
+              </div>
             </div>
             <Input
               placeholder="To: +1 555 555 5555"
