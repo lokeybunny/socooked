@@ -1781,25 +1781,41 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => handleAttachFiles(e.target.files)}
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAttachment}
-                  title="Attach image"
-                  className="shrink-0"
-                >
-                  {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-                </Button>
+                {(() => {
+                  const isImsg = activeThread ? threadRoutes[activeThread] === 'imessage' : composeRoute === 'imessage';
+                  return (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={isImsg ? "image/*,video/*,audio/*" : "image/*"}
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleAttachFiles(e.target.files)}
+                      />
+                      <Button
+                        type="button" size="icon" variant="ghost"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAttachment}
+                        title={isImsg ? "Attach image, video or audio" : "Attach image"}
+                        className="shrink-0"
+                      >
+                        {uploadingAttachment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                      </Button>
+                      {isImsg && (
+                        <Button
+                          type="button" size="icon" variant="ghost"
+                          onClick={recording ? stopRecording : startRecording}
+                          disabled={uploadingAttachment}
+                          title={recording ? "Stop recording" : "Record voice message"}
+                          className={`shrink-0 ${recording ? 'text-red-500 animate-pulse' : ''}`}
+                        >
+                          {recording ? <SquareIcon className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </>
+                  );
+                })()}
                 <Textarea
                   placeholder="Type a reply..."
                   value={composeBody}
