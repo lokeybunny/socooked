@@ -149,10 +149,22 @@ export default function HotReplies() {
     const now = new Date();
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
   };
+  // original_date arrives as "M/D/YYYY" from the sheet
+  const isOriginalToday = (orig?: string | null) => {
+    if (!orig) return false;
+    const m = orig.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (!m) return false;
+    const now = new Date();
+    let yr = parseInt(m[3], 10);
+    if (yr < 100) yr += 2000;
+    return parseInt(m[1], 10) === now.getMonth() + 1
+      && parseInt(m[2], 10) === now.getDate()
+      && yr === now.getFullYear();
+  };
 
   const stats = useMemo(() => {
     const total = rows.length;
-    const hot = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called" && isToday(r.imported_at)).length;
+    const hot = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called" && isOriginalToday(r.original_date)).length;
     const pricing = rows.filter(r => r.ai_classification === "PRICING_QUESTION" && r.call_status === "not_called").length;
     const callback = rows.filter(r => r.ai_classification === "CALLBACK_REQUEST" && r.call_status === "not_called").length;
     const optOut = rows.filter(r => r.is_opt_out && r.call_status === "not_called").length;
@@ -173,7 +185,7 @@ export default function HotReplies() {
       list = list.filter(r => r.call_status !== "not_called");
     } else {
       list = list.filter(r => r.call_status === "not_called");
-      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out && isToday(r.imported_at));
+      if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out && isOriginalToday(r.original_date));
       else if (filter === "needs_review") list = list.filter(r => r.ai_classification === "NEEDS_REVIEW");
       else if (filter === "pricing") list = list.filter(r => r.ai_classification === "PRICING_QUESTION");
       else if (filter === "callback") list = list.filter(r => r.ai_classification === "CALLBACK_REQUEST");

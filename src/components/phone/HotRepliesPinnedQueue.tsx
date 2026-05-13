@@ -23,6 +23,7 @@ type HotRow = {
   is_hot: boolean;
   call_status: string;
   imported_at: string;
+  original_date?: string | null;
 };
 
 const DEACTIVATED_KEY = 'hot-replies-pinned-deactivated-v1';
@@ -55,7 +56,7 @@ export default function HotRepliesPinnedQueue() {
     // filter client-side the same way the Hot Replies page does.
     const { data } = await supabase
       .from('hot_reply_imports')
-      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status, imported_at')
+      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status, imported_at, original_date')
       .eq('is_opt_out', false)
       .order('imported_at', { ascending: false })
       .limit(300);
@@ -102,17 +103,22 @@ export default function HotRepliesPinnedQueue() {
     toast.success(`Calling ${row.first_name || row.phone} via Twilio…`);
   };
 
-  const isToday = (iso?: string | null) => {
-    if (!iso) return false;
-    const d = new Date(iso);
+  const isOriginalToday = (orig?: string | null) => {
+    if (!orig) return false;
+    const m = orig.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (!m) return false;
     const now = new Date();
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    let yr = parseInt(m[3], 10);
+    if (yr < 100) yr += 2000;
+    return parseInt(m[1], 10) === now.getMonth() + 1
+      && parseInt(m[2], 10) === now.getDate()
+      && yr === now.getFullYear();
   };
 
   // Match HotReplies page filter semantics
   const filtered = useMemo(() => {
     let list = rows.filter(r => !r.is_opt_out && r.call_status === 'not_called');
-    if (filter === 'hot') list = list.filter(r => r.is_hot && isToday(r.imported_at));
+    if (filter === 'hot') list = list.filter(r => r.is_hot && isOriginalToday(r.original_date));
     else if (filter === 'warm') list = list.filter(r => r.ai_classification === 'WARM_INTERESTED');
     else if (filter === 'positive') list = list.filter(r => r.ai_classification === 'HOT_POSITIVE');
     else if (filter === 'pricing') list = list.filter(r => r.ai_classification === 'PRICING_QUESTION');
@@ -131,7 +137,7 @@ export default function HotRepliesPinnedQueue() {
   const counts = useMemo(() => {
     const base = rows.filter(r => !r.is_opt_out && r.call_status === 'not_called');
     return {
-      hot: base.filter(r => r.is_hot && isToday(r.imported_at)).length,
+      hot: base.filter(r => r.is_hot && isOriginalToday(r.original_date)).length,
       warm: base.filter(r => r.ai_classification === 'WARM_INTERESTED').length,
       positive: base.filter(r => r.ai_classification === 'HOT_POSITIVE').length,
       pricing: base.filter(r => r.ai_classification === 'PRICING_QUESTION').length,
