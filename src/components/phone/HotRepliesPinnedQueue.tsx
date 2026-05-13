@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, MessageSquare, UserX, Flame, RefreshCw } from 'lucide-react';
+import { Phone, MessageSquare, UserX, Flame, RefreshCw, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { SmsThreadPopup } from '@/components/phone/SmsThreadPopup';
 
@@ -22,10 +22,12 @@ type HotRow = {
   is_opt_out: boolean;
   is_hot: boolean;
   call_status: string;
+  imported_at: string;
 };
 
 const DEACTIVATED_KEY = 'hot-replies-pinned-deactivated-v1';
 const FILTER_KEY = 'hot-replies-pinned-filter-v1';
+const SORT_KEY = 'hot-replies-pinned-sort-v1';
 
 const CLASS_BADGE: Record<string, string> = {
   HOT_POSITIVE: 'bg-red-500/15 text-red-400 border-red-500/30',
