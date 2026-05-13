@@ -72,13 +72,22 @@ async function rolloverIfNewDay(campaign: any) {
   }
 }
 
-async function isNewImessageContact(phone_last10: string): Promise<boolean> {
-  const { count } = await sb.from("warm_welcome_targets")
+// A contact is "new" (and thus counts toward the daily cap) ONLY if we have
+// never had a prior SMS/iMessage conversation with them. Presence in
+// sms_contacts means we've already established communication — those do NOT
+// increment the daily counter, regardless of channel.
+async function isNewContact(phone_last10: string): Promise<boolean> {
+  const { count: crmCount } = await sb.from("sms_contacts")
+    .select("id", { count: "exact", head: true })
+    .eq("phone_last10", phone_last10);
+  if ((crmCount || 0) > 0) return false;
+
+  // Also exclude anyone we've previously sent a warm-welcome to.
+  const { count: wwCount } = await sb.from("warm_welcome_targets")
     .select("id", { count: "exact", head: true })
     .eq("phone_last10", phone_last10)
-    .eq("channel", "imessage")
     .eq("status", "sent");
-  return (count || 0) === 0;
+  return (wwCount || 0) === 0;
 }
 
 async function auditDevice(phone_e164: string): Promise<string> {
@@ -236,10 +245,10 @@ async function processCampaign(campaign: any) {
     }
 
     const channel = device === 'iphone' ? 'imessage' : 'sms';
-    const isNew = channel === 'imessage' ? await isNewImessageContact(t.phone_last10) : false;
+    const isNew = await isNewContact(t.phone_last10);
 
-    // Cap check
-    if (!testMode && channel === 'imessage' && isNew && imSentToday >= IMESSAGE_NEW_CAP) {
+    // Cap check — only NEW contacts (no prior CRM thread) count toward caps
+    if (!testMode && isNew && channel === 'imessage' && imSentToday >= IMESSAGE_NEW_CAP) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
@@ -249,14 +258,14 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'warn', 'iMessage new-contact cap hit — cooling down');
       break;
     }
-    if (!testMode && channel === 'sms' && smsSentToday >= SMS_CAP) {
+    if (!testMode && isNew && channel === 'sms' && smsSentToday >= SMS_CAP) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
       }).eq("id", t.id);
       const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
       await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
-      await logEvt(campaign.id, t.id, 'warn', 'SMS daily cap hit — cooling down');
+      await logEvt(campaign.id, t.id, 'warn', 'SMS new-contact cap hit — cooling down');
       break;
     }
 
@@ -278,10 +287,12 @@ async function processCampaign(campaign: any) {
       await sb.from("warm_welcome_targets").update({
         status: 'sent', sent_at: new Date().toISOString(), error: null,
       }).eq("id", t.id);
-      if (channel === 'imessage' && isNew) imSentToday += 1;
-      if (channel === 'sms') smsSentToday += 1;
+      // Only NEW contacts (never previously in CRM) count toward daily caps
+      if (isNew && channel === 'imessage') imSentToday += 1;
+      if (isNew && channel === 'sms') smsSentToday += 1;
       totalSent += 1;
-      await logEvt(campaign.id, t.id, 'success', `Sent via ${channel} to ${t.phone_e164}${isNew ? ' (new iMessage contact)' : ''}`);
+      await logEvt(campaign.id, t.id, 'success',
+        `Sent via ${channel} to ${t.phone_e164}${isNew ? ' (NEW contact, +1 cap)' : ' (existing CRM contact, no cap)'}`);
     } else {
       await sb.from("warm_welcome_targets").update({
         status: 'failed', error: JSON.stringify(send.raw || {}).slice(0, 500),
