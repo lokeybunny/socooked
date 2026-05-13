@@ -1296,6 +1296,24 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <span className="text-sm font-semibold">New SMS</span>
+              <div className="ml-auto inline-flex items-center gap-1 text-[11px] border border-border rounded-md p-0.5 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => setComposeRoute('sms')}
+                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'sms' ? 'bg-emerald-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  SMS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setComposeRoute('imessage')}
+                  disabled={pendingAttachments.length > 0}
+                  className={`px-2 py-0.5 rounded font-semibold transition ${composeRoute === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                  title={pendingAttachments.length > 0 ? 'Remove media to use iMessage' : 'Send as iMessage'}
+                >
+                  iMessage
+                </button>
+              </div>
             </div>
             <Input
               placeholder="To: +1 555 555 5555"
