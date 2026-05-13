@@ -746,7 +746,11 @@ export default function PowerDialSMSInbox() {
     }
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('powerdial-sms', {
+      const last10 = String(to).replace(/\D/g, '').slice(-10);
+      const route = threadRoutes[last10] || 'sms';
+      const useImessage = route === 'imessage' && pendingAttachments.length === 0;
+      const fn = useImessage ? 'voidfix-imessage' : 'powerdial-sms';
+      const { data, error } = await supabase.functions.invoke(fn, {
         body: { action: 'send', to, body },
       });
       if (error || !(data as any)?.ok) {
