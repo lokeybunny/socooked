@@ -145,14 +145,24 @@ async function actionReact(payload: any) {
   const recipient = normalizeE164(payload.to || payload.recipient);
   const messageId = String(payload.messageId || payload.message_id || "");
   const reaction = String(payload.reaction || "heart");
-  if (!recipient || !messageId) return json({ ok: false, error: "missing_recipient_or_message_id" }, 400);
-  // Best-effort tapback to VoidFix; endpoint name may vary by provider build.
-  const res = await imsgFetch("/messages/react", {
-    method: "POST",
-    body: JSON.stringify({ recipient, messageId, reaction }),
-  });
-  if (!res.ok) return json({ ok: false, error: res.body?.error || `react_failed_${res.status}`, raw: res.body }, 502);
-  return json({ ok: true, reaction, raw: res.body });
+  if (!recipient || !messageId) return json({ ok: false, error: "missing_recipient_or_message_id" }, 200);
+  // VoidFix endpoint name varies by build; try several known shapes.
+  const candidates = [
+    { path: "/messages/react", body: { recipient, messageId, reaction } },
+    { path: "/messages/tapback", body: { recipient, messageId, tapback: reaction } },
+    { path: "/messages/reaction", body: { recipient, messageId, reaction } },
+  ];
+  let lastErr: any = null;
+  for (const c of candidates) {
+    const res = await imsgFetch(c.path, { method: "POST", body: JSON.stringify(c.body) });
+    if (res.ok) return json({ ok: true, reaction, raw: res.body });
+    lastErr = res.body;
+    const msg = String(res.body?.error || "");
+    // Only keep trying on "route not found"; bail on other errors
+    if (!/route not found|not\s*found/i.test(msg) && res.status !== 404) break;
+  }
+  // Soft failure — return 200 so client toast is friendly, no overlay
+  return json({ ok: false, error: "tapback_not_supported_by_voidfix", raw: lastErr }, 200);
 }
 
 Deno.serve(async (req) => {
