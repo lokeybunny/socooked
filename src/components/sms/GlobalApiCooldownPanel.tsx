@@ -72,6 +72,7 @@ export default function GlobalApiCooldownPanel() {
     const ch = supabase.channel('global-api-cooldown')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warm_welcome_targets' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warm_welcome_campaigns' }, () => load())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, () => load())
       .subscribe();
     const t = setInterval(load, 30_000);
     const c = setInterval(() => setCountdown(fmt(msUntilUtcMidnight())), 30_000);
