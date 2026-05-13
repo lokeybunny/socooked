@@ -182,7 +182,7 @@ serve(async (req) => {
     const dataRows = rows.slice(1, 1 + limit);
 
     // Pre-build candidate rows + dedupe keys
-    const candidates = dataRows.map(r => {
+    const rawCandidates = dataRows.map(r => {
       const phone = normalizePhone(r[idx.phone] || "");
       const reply = (r[idx.reply] || "").trim();
       const date = idx.date >= 0 ? r[idx.date] : "";
@@ -191,13 +191,25 @@ serve(async (req) => {
       return { r, phone, reply, date, time, dedupe };
     }).filter(c => c.phone && c.reply);
 
-    // Bulk-fetch existing dedupe keys (one query instead of N)
+    // Dedupe within the sheet itself (same key appearing twice would kill a whole batch insert)
+    const seenInSheet = new Set<string>();
+    const candidates = rawCandidates.filter(c => {
+      if (seenInSheet.has(c.dedupe)) return false;
+      seenInSheet.add(c.dedupe);
+      return true;
+    });
+
+    // Bulk-fetch existing dedupe keys in chunks (PostgREST .in() chokes on huge arrays)
+    const existingSet = new Set<string>();
     const allKeys = candidates.map(c => c.dedupe);
-    const { data: existingRows } = await supabase
-      .from("hot_reply_imports")
-      .select("dedupe_key")
-      .in("dedupe_key", allKeys);
-    const existingSet = new Set((existingRows || []).map((x: any) => x.dedupe_key));
+    for (let i = 0; i < allKeys.length; i += 500) {
+      const chunk = allKeys.slice(i, i + 500);
+      const { data: existingRows } = await supabase
+        .from("hot_reply_imports")
+        .select("dedupe_key")
+        .in("dedupe_key", chunk);
+      for (const x of existingRows || []) existingSet.add((x as any).dedupe_key);
+    }
     const fresh = candidates.filter(c => !existingSet.has(c.dedupe));
     const skipped = candidates.length - fresh.length + (dataRows.length - candidates.length);
 
