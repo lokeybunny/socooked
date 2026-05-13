@@ -21,6 +21,7 @@ import DisconnectedTab from '@/components/sms/DisconnectedTab';
 import HookReplyTab from '@/components/powerdial/HookReplyTab';
 import DNDListTab from '@/components/powerdial/DNDListTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import WarmWelcomeBucketCounter from '@/components/sms/WarmWelcomeBucketCounter';
 
 type Template = { id: string; name: string; body: string };
 type Campaign = { id: string; name: string; body: string; status: string; total_recipients: number; sent_count: number; failed_count: number; created_at: string };
