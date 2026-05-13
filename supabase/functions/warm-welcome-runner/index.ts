@@ -206,12 +206,18 @@ async function processCampaign(campaign: any) {
 
   await rolloverIfNewDay(campaign);
 
-  const imessageRoom = IMESSAGE_NEW_CAP - (campaign.imessage_new_sent_today || 0);
-  const smsRoom = SMS_CAP - (campaign.sms_sent_today || 0);
-  if (!testMode && imessageRoom <= 0 && smsRoom <= 0) {
+  // Per-API buckets (each VoidFix API has its own 50/day NEW-contact cap):
+  //   - "imessage_api" bucket = anything sent through the VoidFix iMessage API
+  //     (covers both blue-bubble iMessage AND any SMS that falls back through
+  //     the same iMessage API endpoint — they all count toward this bucket).
+  //   - "android_api"  bucket = anything sent through the dedicated Android
+  //     SMS API. Cap is independent from the iMessage API bucket.
+  const imessageApiRoom = IMESSAGE_NEW_CAP - (campaign.imessage_new_sent_today || 0);
+  const androidApiRoom  = SMS_CAP          - (campaign.sms_sent_today          || 0);
+  if (!testMode && imessageApiRoom <= 0 && androidApiRoom <= 0) {
     const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
     await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
-    await logEvt(campaign.id, null, 'warn', `Daily caps reached. Cooling down ${COOLDOWN_HOURS}h until ${until}`);
+    await logEvt(campaign.id, null, 'warn', `Both API daily caps reached. Cooling down ${COOLDOWN_HOURS}h until ${until}`);
     return { processed: 0, reason: 'caps_reached' };
   }
 
