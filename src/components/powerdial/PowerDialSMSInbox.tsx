@@ -751,7 +751,113 @@ export default function PowerDialSMSInbox() {
     }
   };
 
-  const handleSend = async (toOverride?: string) => {
+  // Open Twilio carrier audit dialog for a thread
+  const openAudit = useCallback(async (e: React.MouseEvent, last10: string) => {
+    e.stopPropagation();
+    const t = threads.find(t => normalizeLast10(t.phone) === last10);
+    const phone = t?.phone || last10;
+    setAuditPhone(phone);
+    setAuditResult(null);
+    setAuditQuote(null);
+    setAuditOpen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-device-audit', {
+        body: { action: 'quote', phone },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Quote failed');
+        setAuditOpen(false);
+        return;
+      }
+      setAuditQuote(data as any);
+    } catch (err: any) {
+      toast.error(err?.message || 'Quote failed');
+      setAuditOpen(false);
+    }
+  }, [threads]);
+
+  const runAudit = useCallback(async () => {
+    if (!auditPhone) return;
+    setAuditLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-device-audit', {
+        body: { action: 'run', phone: auditPhone },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Audit failed');
+        return;
+      }
+      const r = data as any;
+      setAuditResult({ device_type: r.device_type, cost_usd: r.cost_usd });
+      const label = r.device_type === 'iphone' ? '📱 iPhone'
+        : r.device_type === 'android' ? '🤖 Android'
+        : r.device_type === 'landline' ? '☎️ Landline'
+        : r.device_type === 'voip' ? '🌐 VoIP' : '❓ Unknown';
+      toast.success(`Tagged as ${label}${r.locked ? ' (already audited)' : ''}`);
+      load({ silent: true });
+    } catch (err: any) {
+      toast.error(err?.message || 'Audit failed');
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [auditPhone]);
+
+  // Send tapback (heart) reaction on an iMessage bubble
+  const sendTapback = useCallback(async (m: SMSMessage, reaction: 'heart' | 'like' | 'love' = 'heart') => {
+    const to = m.from_address || m.phone_number;
+    if (!to) { toast.error('No recipient'); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke('voidfix-imessage', {
+        body: { action: 'react', to, messageId: m.external_id || m.id, reaction },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || 'Reaction failed');
+      } else {
+        toast.success('❤️ Sent');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Reaction failed');
+    }
+  }, []);
+
+  // Audio recording for iMessage
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+      recordedChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+        if (blob.size === 0) return;
+        setUploadingAttachment(true);
+        try {
+          const path = `sms-mms/audio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webm`;
+          const { error: upErr } = await supabase.storage
+            .from('content-uploads')
+            .upload(path, blob, { contentType: 'audio/webm', upsert: false });
+          if (upErr) { toast.error(`Upload failed: ${upErr.message}`); return; }
+          const { data: pub } = supabase.storage.from('content-uploads').getPublicUrl(path);
+          setPendingAttachments((p) => [...p, { url: pub.publicUrl, name: 'voice-message.webm' }]);
+          toast.success('Voice message ready to send');
+        } finally {
+          setUploadingAttachment(false);
+        }
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'Microphone access denied');
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    try { mediaRecorderRef.current?.stop(); } catch {}
+    setRecording(false);
+  }, []);
+
     const to = (toOverride ?? (activeThread ? threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone : composeTo)) || '';
     const text = composeBody.trim();
     const attachUrls = pendingAttachments.map((a) => a.url).join('\n');
