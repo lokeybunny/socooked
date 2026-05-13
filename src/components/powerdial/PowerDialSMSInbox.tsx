@@ -1362,6 +1362,28 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               })()}
               <div className="flex-1" />
               {(() => {
+                const last10 = activeThread || '';
+                const route = threadRoutes[last10] || 'sms';
+                return (
+                  <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5 text-[10px]" title="Choose VoidFix API for this thread">
+                    <button
+                      type="button"
+                      onClick={() => setThreadRoute(last10, 'sms')}
+                      className={`px-2 py-0.5 rounded font-semibold transition ${route === 'sms' ? 'bg-emerald-500 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      SMS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setThreadRoute(last10, 'imessage')}
+                      className={`px-2 py-0.5 rounded font-semibold transition ${route === 'imessage' ? 'bg-[#007AFF] text-white' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      iMessage
+                    </button>
+                  </div>
+                );
+              })()}
+              {(() => {
                 const activePhone = threads.find(t => normalizeLast10(t.phone) === activeThread)?.phone || activeThread || '';
                 const last10 = normalizeLast10(activePhone);
                 if (funneledSet.has(last10)) return null;
