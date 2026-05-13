@@ -918,7 +918,9 @@ export default function PowerDialSMSInbox() {
         }
       } else {
         if (useImessage) {
-          toast.success(pendingAttachments.length ? 'iMessage + attachment sent' : 'iMessage sent');
+          toast.success(pendingAttachments.length
+            ? 'iMessage sent (image as link — VoidFix API doesn\'t support native attachments)'
+            : 'iMessage sent');
         } else {
           toast.success(pendingAttachments.length ? 'SMS + image link sent' : 'SMS sent');
         }
