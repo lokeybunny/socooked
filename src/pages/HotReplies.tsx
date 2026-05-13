@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
 import WarmWelcomeBucketCounter from "@/components/sms/WarmWelcomeBucketCounter";
+import GlobalApiCooldownPanel from "@/components/sms/GlobalApiCooldownPanel";
 
 function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
