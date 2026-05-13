@@ -72,6 +72,7 @@ export function SmsThreadPopup({
   const [notesOpen, setNotesOpen] = useState(false);
   const [routeImessage, setRouteImessage] = useState(false);
   const [routeReason, setRouteReason] = useState<string>("");
+  const [routeOverride, setRouteOverride] = useState<"imessage" | "sms" | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
