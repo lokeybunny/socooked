@@ -38,16 +38,33 @@ export default function GlobalApiCooldownPanel() {
     startOfDayUtc.setUTCHours(0, 0, 0, 0);
     const sinceIso = startOfDayUtc.toISOString();
 
-    const [imRes, smsRes] = await Promise.all([
+    // Auto-reply sources that route through the VoidFix Android SMS API
+    // (powerdial-sms → sms.voidfix.com). These count toward the SMS bucket.
+    const SMS_AUTO_SOURCES = [
+      'powerdial-dropped-call-sms',
+      'powerdial-voicemail-drop-sms',
+      'vapi-hangup-auto-reply',
+      'vapi-auto-reply',
+      'voidfix-first-time-auto-reply',
+      'twilio-auto-reply-voidfix',
+    ];
+
+    const [imRes, smsRes, autoSmsRes] = await Promise.all([
       supabase.from('warm_welcome_targets')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'sent').eq('channel', 'imessage').gte('sent_at', sinceIso),
       supabase.from('warm_welcome_targets')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'sent').eq('channel', 'sms').gte('sent_at', sinceIso),
+      supabase.from('communications')
+        .select('id', { count: 'exact', head: true })
+        .eq('type', 'sms')
+        .eq('direction', 'outbound')
+        .gte('created_at', sinceIso)
+        .in('metadata->>source', SMS_AUTO_SOURCES),
     ]);
     setImessage(imRes.count || 0);
-    setSms(smsRes.count || 0);
+    setSms((smsRes.count || 0) + (autoSmsRes.count || 0));
   };
 
   useEffect(() => {
