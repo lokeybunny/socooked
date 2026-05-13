@@ -1206,6 +1206,33 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     }
   };
 
+  const [auditingThread, setAuditingThread] = useState<string | null>(null);
+
+  const handleAuditDevice = async (e: React.MouseEvent, phoneKey: string) => {
+    e.stopPropagation();
+    const display = displayPhone(phoneKey);
+    const e164 = `+1${phoneKey}`;
+    if (!confirm(`Audit ${display} via Twilio + iMessage check?\n\nCost: ~$0.008. Result is permanent — the contact name will be locked with _iPhone or _Android.`)) return;
+    setAuditingThread(phoneKey);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-device-audit', {
+        body: { action: 'run', phone: e164 },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'audit_failed');
+      if (data.locked) {
+        toast.info(`Already audited: ${data.device_type}`);
+      } else {
+        toast.success(`Locked as ${data.device_type}`);
+      }
+      loadContacts();
+    } catch (err: any) {
+      toast.error(err?.message || 'Audit failed');
+    } finally {
+      setAuditingThread(null);
+    }
+  };
+
   const handleDeleteMessage = async (m: SMSMessage) => {
     if (!confirm('Delete this message? This cannot be undone.')) return;
     try {
