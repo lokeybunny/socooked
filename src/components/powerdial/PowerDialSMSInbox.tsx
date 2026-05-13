@@ -1206,6 +1206,28 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
     }
   };
 
+  const handleDeleteMessage = async (m: SMSMessage) => {
+    if (!confirm('Delete this message? This cannot be undone.')) return;
+    try {
+      // Prevent VoidFix poller from re-importing inbound messages
+      if (m.direction === 'inbound' && m.external_id) {
+        const last10 = normalizeLast10(m.from_address);
+        await supabase
+          .from('sms_deleted_external_ids')
+          .upsert(
+            [{ external_id: String(m.external_id), phone_last10: last10 }],
+            { onConflict: 'external_id' },
+          );
+      }
+      const { error } = await supabase.from('communications').delete().eq('id', m.id);
+      if (error) { toast.error(error.message); return; }
+      setMessages(prev => prev.filter(x => x.id !== m.id));
+      toast.success('Message deleted');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete message');
+    }
+  };
+
   const handleDeleteThread = async (e: React.MouseEvent, phoneKey: string) => {
     e.stopPropagation();
     const display = displayPhone(phoneKey);
@@ -1717,8 +1739,16 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     : "text-sm whitespace-pre-wrap break-words";
                   const metaCls = isImessageThread ? "text-[10px] opacity-70 mt-1" : "text-[9px] text-muted-foreground mt-1";
                   return (
-                    <div key={m.id} className={`flex flex-col ${m.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
-                      <div className="flex items-start gap-1.5 max-w-[75%]">
+                    <div key={m.id} className={`group flex flex-col ${m.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
+                      <div className={`flex items-start gap-1.5 max-w-[75%] ${m.direction === 'outbound' ? 'flex-row-reverse' : ''}`}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMessage(m)}
+                          title="Delete message"
+                          className="opacity-0 group-hover:opacity-100 transition mt-2 p-1 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                         {m.direction === 'inbound' && isImessageThread && (
                           <button
                             type="button"
