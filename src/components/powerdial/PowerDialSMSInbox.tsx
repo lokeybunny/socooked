@@ -116,6 +116,7 @@ export default function PowerDialSMSInbox() {
   const [composeTo, setComposeTo] = useState('');
   const [composeBody, setComposeBody] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  const [composeRoute, setComposeRoute] = useState<'sms' | 'imessage'>('sms');
   // Image attachment (uploaded to storage; URL appended to outbound SMS body)
   const [pendingAttachments, setPendingAttachments] = useState<{ url: string; name: string }[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
