@@ -168,12 +168,15 @@ export default function SMS() {
   return (
     <AppLayout>
       <div className="space-y-5 animate-fade-in">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-400/20"><MessageSquare className="h-5 w-5 text-emerald-400" /></div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">iMessage + SMS</h1>
-            <p className="text-xs text-muted-foreground">Inbox · Blasts · Templates (VoidFix iMessage + SMS gateway)</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-400/20"><MessageSquare className="h-5 w-5 text-emerald-400" /></div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">iMessage + SMS</h1>
+              <p className="text-xs text-muted-foreground">Inbox · Blasts · Templates (VoidFix iMessage + SMS gateway)</p>
+            </div>
           </div>
+          <WarmWelcomeBucketCounter />
         </div>
 
         <Tabs defaultValue="inbox">
