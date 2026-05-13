@@ -397,15 +397,37 @@ export default function PowerDialSMSInbox() {
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? hasLoadedRef.current;
     if (!silent) setLoading(true);
+    const cols = 'id, direction, body, from_address, to_address, phone_number, external_id, status, created_at, customer_id, metadata, type, provider, media_urls';
     const { data } = await supabase
       .from('communications')
-      .select('id, direction, body, from_address, to_address, phone_number, external_id, status, created_at, customer_id, metadata, type, provider, media_urls')
+      .select(cols)
       .eq('type', 'sms')
       .order('created_at', { ascending: false })
       .limit(300);
+    let merged = (data as SMSMessage[]) || [];
+
+    // Always pull pinned-thread messages too, even if they fall outside the 300-message window.
+    // Without this, a pinned contact whose last reply is older than the window has no thread to attach to.
+    const pinnedKeys = Array.from(pinnedSet);
+    if (pinnedKeys.length > 0) {
+      const orFilter = pinnedKeys
+        .map(k => `from_address.ilike.%${k},to_address.ilike.%${k}`)
+        .join(',');
+      const { data: pinData } = await supabase
+        .from('communications')
+        .select(cols)
+        .eq('type', 'sms')
+        .or(orFilter)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      const seen = new Set(merged.map(m => m.id));
+      for (const m of (pinData as SMSMessage[]) || []) {
+        if (!seen.has(m.id)) { merged.push(m); seen.add(m.id); }
+      }
+    }
+
     setMessages((prev) => {
-      const next = (data as SMSMessage[]) || [];
-      // Avoid re-rendering if nothing actually changed (prevents thread "recycle" flash)
+      const next = merged;
       if (prev.length === next.length && prev.length > 0 && prev[0]?.id === next[0]?.id && prev[prev.length - 1]?.id === next[next.length - 1]?.id) {
         return prev;
       }
@@ -413,7 +435,7 @@ export default function PowerDialSMSInbox() {
     });
     if (!silent) setLoading(false);
     hasLoadedRef.current = true;
-  }, []);
+  }, [pinnedSet]);
 
   const syncAndLoad = useCallback(async (opts?: { silent?: boolean }) => {
     await load(opts);
