@@ -936,6 +936,18 @@ Deno.serve(async (req) => {
     const callStatus = params.get("CallStatus") || "";
     const twilioFrom = params.get("From") || "";
 
+    if (callLogId && ["amd", "status", "dial-complete"].includes(type || "")) {
+      await logVmdTimeline(callLogId, "twilio_webhook_received", {
+        type,
+        call_sid: callSid || null,
+        call_status: callStatus || null,
+        answered_by: params.get("AnsweredBy") || null,
+        machine_detection_duration_ms: params.get("MachineDetectionDuration") || null,
+        from: twilioFrom || null,
+        to: params.get("To") || null,
+      });
+    }
+
     if (type === "amd") {
       const answeredBy = params.get("AnsweredBy") || "";
       const machineDetectionDuration = params.get("MachineDetectionDuration") || "";
