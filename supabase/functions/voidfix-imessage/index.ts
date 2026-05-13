@@ -95,14 +95,13 @@ async function actionSend(payload: any) {
     return json({ ok: false, error: "missing_recipient_or_message" }, 400);
   }
 
-  // VoidFix requires a non-empty message even when sending attachments only
-  const sendBody: Record<string, unknown> = { recipient, message: message || " " };
+  // VoidFix's public /messages/send API does NOT support attachments — only `recipient` and `message`.
+  // For attachments, we inline the URL(s) into the message body so the recipient sees a clickable link.
+  const composedMessage = attachments.length
+    ? [message, ...attachments].filter(Boolean).join("\n")
+    : message;
+  const sendBody: Record<string, unknown> = { recipient, message: composedMessage || " " };
   if (payload.iMessageLineId) sendBody.iMessageLineId = payload.iMessageLineId;
-  if (attachments.length) {
-    sendBody.attachments = attachments;
-    sendBody.mediaUrls = attachments;
-    if (attachments.length === 1) sendBody.mediaUrl = attachments[0];
-  }
 
   // Send to VoidFix inline. In practice it responds in ~150ms even for media URLs.
   let res = await imsgFetch("/messages/send", { method: "POST", body: JSON.stringify(sendBody) });
