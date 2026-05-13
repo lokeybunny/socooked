@@ -1739,7 +1739,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                     : "text-sm whitespace-pre-wrap break-words";
                   const metaCls = isImessageThread ? "text-[10px] opacity-70 mt-1" : "text-[9px] text-muted-foreground mt-1";
                   return (
-                    <div key={m.id} className={`flex flex-col ${m.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
+                    <div key={m.id} className={`group flex flex-col ${m.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
                       <div className="flex items-start gap-1.5 max-w-[75%]">
                         {m.direction === 'inbound' && isImessageThread && (
                           <button
