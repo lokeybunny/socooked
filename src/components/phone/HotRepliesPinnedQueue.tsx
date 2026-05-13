@@ -113,8 +113,13 @@ export default function HotRepliesPinnedQueue() {
     else if (filter === 'needs_review') list = list.filter(r => r.ai_classification === 'NEEDS_REVIEW');
     else if (filter === 'not_called') list = list.filter(r => r.is_hot && r.call_status === 'not_called');
     // 'all' = everything not filtered above
+    list.sort((a, b) => {
+      const da = new Date(a.imported_at).getTime();
+      const db = new Date(b.imported_at).getTime();
+      return sortDir === 'latest' ? db - da : da - db;
+    });
     return list;
-  }, [rows, filter]);
+  }, [rows, filter, sortDir]);
 
   const counts = useMemo(() => {
     const base = rows.filter(r => !r.is_opt_out);
