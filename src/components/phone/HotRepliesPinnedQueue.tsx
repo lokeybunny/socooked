@@ -56,7 +56,7 @@ export default function HotRepliesPinnedQueue() {
     // filter client-side the same way the Hot Replies page does.
     const { data } = await supabase
       .from('hot_reply_imports')
-      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status, imported_at')
+      .select('id, first_name, last_name, phone, reply_text, campaign_name, ai_classification, is_opt_out, is_hot, call_status, imported_at, original_date')
       .eq('is_opt_out', false)
       .order('imported_at', { ascending: false })
       .limit(300);
