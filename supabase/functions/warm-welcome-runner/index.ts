@@ -324,9 +324,6 @@ async function processCampaign(campaign: any) {
       // "Hot Only" / "Not Called/Texted Yet" buckets and appear in
       // "Already Called/Texted".
       try {
-        await sb.rpc as any; // no-op typing guard
-      } catch {}
-      try {
         const last10 = String(t.phone_last10 || '').replace(/\D/g, '').slice(-10);
         if (last10.length === 10) {
           // Update by last-10 match — phones may be stored with various formats.
