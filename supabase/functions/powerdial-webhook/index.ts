@@ -1510,7 +1510,7 @@ Deno.serve(async (req) => {
       if (vmDropEnabled && vmDropUrl) {
         try {
           const isAfterMessageEnd = answeredBy.startsWith("machine_end");
-          const pauseLen = isAfterMessageEnd ? String(Math.max(1, pauseBeforeSec - 1)) : String(pauseBeforeSec + 1);
+          const pauseLen = isAfterMessageEnd ? "0" : String(pauseBeforeSec + 1);
           const tailPause = `<Pause length="${Math.max(0, pauseAfterSec)}"/>`;
           const ttsFallback = ttsFallbackText
             ? `<Say voice="Polly.Joanna" language="en-US">${escapeXml(ttsFallbackText)}</Say>`
