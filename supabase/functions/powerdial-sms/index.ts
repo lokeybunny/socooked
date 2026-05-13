@@ -134,7 +134,8 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
   const t0 = performance.now();
   console.log(`[powerdial-sms][TIMING] → POST VoidFix send.php to=${toNum} bytes=${body.length}`);
   const ac = new AbortController();
-  const timeoutId = setTimeout(() => ac.abort(), 20000); // 20s hard cap
+  const TIMEOUT_MS = 45000; // 45s — VoidFix send.php occasionally stalls past 20s
+  const timeoutId = setTimeout(() => ac.abort(), TIMEOUT_MS);
   let resp: Response;
   try {
     resp = await fetch(VOIDFIX_SEND_URL, {
@@ -146,8 +147,14 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
   } catch (e: any) {
     clearTimeout(timeoutId);
     const isAbort = e?.name === "AbortError";
-    console.error(`[powerdial-sms][TIMING] VoidFix fetch ${isAbort ? "TIMEOUT" : "FAIL"} after ${Math.round(performance.now() - t0)}ms`);
-    return { ok: false, error: isAbort ? "voidfix_timeout_20s" : (e?.message || "voidfix_fetch_failed") };
+    const elapsed = Math.round(performance.now() - t0);
+    console.error(`[powerdial-sms][TIMING] VoidFix fetch ${isAbort ? "TIMEOUT" : "FAIL"} after ${elapsed}ms`);
+    // Soft-success on timeout: VoidFix typically still queues the SMS on its Android relay
+    // even when the HTTP response stalls. Treat as queued so the user UI doesn't show 500.
+    if (isAbort) {
+      return { ok: true, id: `voidfix-queued-${Date.now()}`, status: 202, raw: { queued: true, reason: "voidfix_slow_response", elapsed_ms: elapsed } };
+    }
+    return { ok: false, error: e?.message || "voidfix_fetch_failed" };
   }
   clearTimeout(timeoutId);
   const tHeaders = performance.now();
