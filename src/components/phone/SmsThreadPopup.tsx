@@ -72,6 +72,7 @@ export function SmsThreadPopup({
   const [notesOpen, setNotesOpen] = useState(false);
   const [routeImessage, setRouteImessage] = useState(false);
   const [routeReason, setRouteReason] = useState<string>("");
+  const [routeOverride, setRouteOverride] = useState<"imessage" | "sms" | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -115,7 +116,18 @@ export function SmsThreadPopup({
     return () => { supabase.removeChannel(ch); };
   }, [open, last10, load]);
 
-  // Detect iMessage routing: VIP route, existing customer, or prior iMessage thread
+  // Load per-thread route preference (default = SMS / original VoidFix API)
+  useEffect(() => {
+    if (!open || last10.length !== 10) return;
+    try {
+      const v = localStorage.getItem(`sms-thread-route-${last10}`);
+      if (v === "imessage" || v === "sms") setRouteOverride(v);
+      else setRouteOverride(null);
+    } catch { setRouteOverride(null); }
+  }, [open, last10]);
+
+  // Detect iMessage suggestion: VIP route, existing customer, or prior iMessage thread.
+  // This is informational only — actual routing follows routeOverride (default SMS).
   useEffect(() => {
     if (!open || last10.length !== 10) { setRouteImessage(false); setRouteReason(""); return; }
     let cancelled = false;
@@ -127,13 +139,21 @@ export function SmsThreadPopup({
       if (cancelled) return;
       if (vipRes.data?.vip_route) { setRouteImessage(true); setRouteReason("VIP route"); return; }
       if (custRes.data?.id) { setRouteImessage(true); setRouteReason("Customer"); return; }
-      // Prior iMessage thread heuristic
       const hadImsg = messages.some((m) => isImessageProvider(m.provider));
       if (hadImsg) { setRouteImessage(true); setRouteReason("Prior iMessage"); return; }
       setRouteImessage(false); setRouteReason("");
     })();
     return () => { cancelled = true; };
   }, [open, last10, messages]);
+
+  const setRoute = (r: "imessage" | "sms") => {
+    setRouteOverride(r);
+    try { localStorage.setItem(`sms-thread-route-${last10}`, r); } catch {}
+    toast.success(r === "imessage" ? "Thread set to iMessage" : "Thread set to SMS (VoidFix)");
+  };
+
+  // Effective route: explicit override wins; otherwise default to SMS for existing/new threads.
+  const useImessageRoute = routeOverride ? routeOverride === "imessage" : false;
 
   // Auto-scroll to bottom whenever messages change while open
   useEffect(() => {
@@ -177,11 +197,11 @@ export function SmsThreadPopup({
     try {
       // Hybrid: attachments always route through SMS/MMS provider — VoidFix iMessage is text-only.
       const useMms = ready.length > 0;
-      const fn = useMms ? "powerdial-sms" : (routeImessage ? "voidfix-imessage" : "powerdial-sms");
+      const fn = useMms ? "powerdial-sms" : (useImessageRoute ? "voidfix-imessage" : "powerdial-sms");
       const invokeBody: Record<string, any> = { action: "send", to: e164, body: text };
       if (useMms) {
         invokeBody.mediaUrls = ready.map((a) => a.url);
-        invokeBody.hybridImessageThread = routeImessage;
+        invokeBody.hybridImessageThread = useImessageRoute;
       }
       const { data, error } = await supabase.functions.invoke(fn, { body: invokeBody });
       if (error || !(data as any)?.ok) {
@@ -189,9 +209,9 @@ export function SmsThreadPopup({
       } else {
         const channel = (data as any)?.channel;
         if (useMms) {
-          toast.success(routeImessage ? "Sent as MMS (attachment) 📎" : "MMS sent");
+          toast.success(useImessageRoute ? "Sent as MMS (attachment) 📎" : "MMS sent");
         } else {
-          toast.success(routeImessage ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
+          toast.success(useImessageRoute ? (channel === "sms" ? "Sent (SMS fallback)" : "iMessage sent 💙") : "SMS sent via VoidFix");
         }
         setBody("");
         setAttachments([]);
@@ -204,7 +224,7 @@ export function SmsThreadPopup({
 
   // iMessage capability: text-only. Any pending media forces the whole thread temporarily into SMS/MMS.
   const hasMedia = attachments.length > 0;
-  const effectiveImessage = routeImessage && !hasMedia;
+  const effectiveImessage = useImessageRoute && !hasMedia;
 
   return (
     <>
@@ -232,10 +252,10 @@ export function SmsThreadPopup({
                   {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
                   {effectiveImessage && (
                     <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#007AFF]/15 text-[#007AFF] text-[10px] font-semibold px-2 py-0.5">
-                      iMessage{routeReason ? ` · ${routeReason}` : ""}
+                      iMessage
                     </span>
                   )}
-                  {routeImessage && hasMedia && (
+                  {useImessageRoute && hasMedia && (
                     <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
                       SMS/MMS · media attached
                     </span>
@@ -243,11 +263,30 @@ export function SmsThreadPopup({
                 </DialogTitle>
                 <DialogDescription className="text-xs">
                   {effectiveImessage
-                    ? "iMessage is text-only. Add media to fall back to SMS/MMS for the next send."
-                    : routeImessage && hasMedia
+                    ? "iMessage (VoidFix). Add media to fall back to SMS/MMS for the next send."
+                    : useImessageRoute && hasMedia
                       ? "Thread temporarily on SMS/MMS — remove media to return to iMessage."
-                      : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
+                      : `SMS via VoidFix${routeImessage && !routeOverride ? ` · iMessage suggested (${routeReason})` : ""}.`}
                 </DialogDescription>
+                {/* Per-thread API selector — VoidFix iMessage vs VoidFix SMS (original) */}
+                <div className="mt-1.5 inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setRoute("sms")}
+                    className={`px-2 py-0.5 rounded font-semibold transition ${!useImessageRoute ? "bg-emerald-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Send via VoidFix SMS (original)"
+                  >
+                    SMS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoute("imessage")}
+                    className={`px-2 py-0.5 rounded font-semibold transition ${useImessageRoute ? "bg-[#007AFF] text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Send via VoidFix iMessage"
+                  >
+                    iMessage
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
                 <Button
@@ -365,7 +404,7 @@ export function SmsThreadPopup({
                     </button>
                   </div>
                 ))}
-                {routeImessage && (
+                {useImessageRoute && (
                   <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
                     Will send as MMS (iMessage is text-only)
                   </span>
@@ -416,7 +455,7 @@ export function SmsThreadPopup({
                   }`}
                   title={
                     hasMedia
-                      ? (routeImessage ? "iMessage disabled — sending as MMS (media attached)" : "Send MMS")
+                      ? (useImessageRoute ? "iMessage disabled — sending as MMS (media attached)" : "Send MMS")
                       : effectiveImessage ? "Send iMessage" : "Send SMS"
                   }
                 >
