@@ -1404,6 +1404,14 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
+                      <button
+                        onClick={(e) => openAudit(e, key)}
+                        className="p-1 rounded hover:bg-indigo-500/20 text-indigo-400 transition-colors"
+                        title="Carrier audit (Twilio Lookup → tag iPhone/Android, $0.008)"
+                        aria-label="Carrier audit"
+                      >
+                        <Smartphone className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
