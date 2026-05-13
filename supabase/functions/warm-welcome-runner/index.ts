@@ -206,14 +206,19 @@ async function processCampaign(campaign: any) {
 
   await rolloverIfNewDay(campaign);
 
-  // Per-API buckets (each VoidFix API has its own 50/day NEW-contact cap):
-  //   - "imessage_api" bucket = anything sent through the VoidFix iMessage API
-  //     (covers both blue-bubble iMessage AND any SMS that falls back through
-  //     the same iMessage API endpoint — they all count toward this bucket).
-  //   - "android_api"  bucket = anything sent through the dedicated Android
-  //     SMS API. Cap is independent from the iMessage API bucket.
-  const imessageApiRoom = IMESSAGE_NEW_CAP - (campaign.imessage_new_sent_today || 0);
-  const androidApiRoom  = SMS_CAP          - (campaign.sms_sent_today          || 0);
+  // GLOBAL per-API caps: 50 NEW contacts/day across ALL campaigns combined.
+  // Sum today's counters from every campaign (running + cooldown), so caps are
+  // enforced at the API/account level — not per-campaign.
+  const today = todayUTC();
+  const { data: globalRows } = await sb
+    .from("warm_welcome_campaigns")
+    .select("imessage_new_sent_today, sms_sent_today")
+    .eq("counters_day", today);
+  let globalImessageSent = (globalRows || []).reduce((s: number, r: any) => s + (r.imessage_new_sent_today || 0), 0);
+  let globalAndroidSent  = (globalRows || []).reduce((s: number, r: any) => s + (r.sms_sent_today || 0), 0);
+
+  const imessageApiRoom = IMESSAGE_NEW_CAP - globalImessageSent;
+  const androidApiRoom  = SMS_CAP          - globalAndroidSent;
   if (!testMode && imessageApiRoom <= 0 && androidApiRoom <= 0) {
     const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
     await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
