@@ -121,6 +121,16 @@ export default function PowerDialSMSInbox() {
   const [pendingAttachments, setPendingAttachments] = useState<{ url: string; name: string }[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Device audit (Twilio Lookup -> iPhone/Android tag)
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditPhone, setAuditPhone] = useState<string>('');
+  const [auditQuote, setAuditQuote] = useState<{ cost_usd: number; already_audited: boolean; device_type: string | null } | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditResult, setAuditResult] = useState<{ device_type: string; cost_usd?: number } | null>(null);
+  // Audio recording (iMessage)
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
   // Send Proposal modal
   const [proposalOpen, setProposalOpen] = useState(false);
   const [proposalPhoneKey, setProposalPhoneKey] = useState<string | null>(null);
