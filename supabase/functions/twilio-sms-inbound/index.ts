@@ -316,8 +316,22 @@ Deno.serve(async (req) => {
     const cfg = await loadConfig();
     tStamp("config loaded");
 
+    // "How much" pricing auto-reply — fires on any inbound containing the phrase, not DND.
+    const HOW_MUCH_RE = /how\s*much/i;
+    const matchedHowMuch = !isDnd && HOW_MUCH_RE.test(body || "");
+    const PRICING_REPLY = "The first client deal is no deposit whatsoever. However, if you do like what we have to offer, at the end of everything it'll be $200 — that's 50% off our original video package.";
+    if (matchedHowMuch) {
+      void logEvent('auto-reply:how-much', { from: normalizedFrom, to: normalizedTo, sid });
+      runAfterResponse(
+        "how-much-pricing-reply",
+        sendVoidfixAutoReply(from, to, sid || null, customerId, body, { ...cfg, prefix: PRICING_REPLY, include_quoted: false }),
+        { from: normalizedFrom, to: normalizedTo, sid },
+      );
+    }
+
     // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline AND not DND.
-    if (cfg.enabled && is8105LandlineWebhook && !isDnd) {
+    // Skip when we already sent the pricing reply so the sender doesn't get two messages.
+    if (cfg.enabled && is8105LandlineWebhook && !isDnd && !matchedHowMuch) {
       tStamp("scheduling VoidFix auto-reply (background)");
       void logEvent('auto-reply:scheduled', { from: normalizedFrom, to: normalizedTo, sid });
       runAfterResponse("VoidFix auto-reply", sendVoidfixAutoReply(from, to, sid || null, customerId, body, cfg), { from: normalizedFrom, to: normalizedTo, sid });

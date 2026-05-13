@@ -112,6 +112,24 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: error.message }, 500);
   }
 
+  // "How much" pricing auto-reply — fires on any inbound containing the phrase.
+  const HOW_MUCH_RE = /how\s*much/i;
+  const PRICING_REPLY = "The first client deal is no deposit whatsoever. However, if you do like what we have to offer, at the end of everything it'll be $200 — that's 50% off our original video package.";
+  let pricingPromise: Promise<unknown> | null = null;
+  if (message && HOW_MUCH_RE.test(message)) {
+    pricingPromise = fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
+      body: JSON.stringify({
+        action: "send",
+        to: from_address,
+        body: PRICING_REPLY,
+        source: "voidfix-imessage-how-much",
+        metadata: { source: "voidfix-imessage-how-much", inbound_external_id: externalId, inbound_body: message },
+      }),
+    }).then(r => r.text()).catch(e => console.error("[voidfix-imessage-inbound] pricing reply error", e));
+  }
+
   // Fire-and-forget: auto-audit the sender's device so the SMS thread
   // auto-routes to iMessage vs SMS. The audit fn is idempotent — it locks
   // once device_type is set, so repeat inbounds won't re-spend on Twilio Lookup.
@@ -124,6 +142,8 @@ Deno.serve(async (req) => {
   if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(auditPromise);
+    // @ts-ignore
+    if (pricingPromise) EdgeRuntime.waitUntil(pricingPromise);
   }
 
   return json({ ok: true, id: ins?.id });
