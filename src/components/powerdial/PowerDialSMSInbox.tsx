@@ -875,10 +875,14 @@ export default function PowerDialSMSInbox() {
         setThreadRoute(last10, composeRoute);
       }
       const route = showCompose ? composeRoute : (threadRoutes[last10] || 'sms');
-      const useImessage = route === 'imessage' && pendingAttachments.length === 0;
+      const useImessage = route === 'imessage';
       const fn = useImessage ? 'voidfix-imessage' : 'powerdial-sms';
+      const attachments = pendingAttachments.map(a => a.url);
+      const sendBody: any = useImessage
+        ? { action: 'send', to, body: text || '', attachments }
+        : { action: 'send', to, body };
       const { data, error } = await supabase.functions.invoke(fn, {
-        body: { action: 'send', to, body },
+        body: sendBody,
       });
       if (error || !(data as any)?.ok) {
         const errCode = (data as any)?.error || error?.message || 'Failed to send';
