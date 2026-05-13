@@ -158,7 +158,7 @@ export default function HotRepliesPinnedQueue() {
               <SelectItem value="pricing">Pricing Questions ({counts.pricing})</SelectItem>
               <SelectItem value="callback">Callback Requests ({counts.callback})</SelectItem>
               <SelectItem value="needs_review">Needs Review ({counts.needs_review})</SelectItem>
-              <SelectItem value="not_called">Not Called Yet ({counts.not_called})</SelectItem>
+              <SelectItem value="not_called">Not Called/Texted Yet ({counts.not_called})</SelectItem>
               <SelectItem value="all">All (non opt-out)</SelectItem>
             </SelectContent>
           </Select>
