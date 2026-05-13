@@ -240,6 +240,31 @@ function escapeXml(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function appendVmdTimeline(meta: Record<string, unknown>, event: string, details: Record<string, unknown> = {}) {
+  const existing = Array.isArray((meta as any).vmd_timeline) ? (meta as any).vmd_timeline : [];
+  return {
+    ...meta,
+    vmd_timeline: [
+      ...existing.slice(-39),
+      { at: new Date().toISOString(), event, ...details },
+    ],
+  };
+}
+
+async function logVmdTimeline(callLogId: string, event: string, details: Record<string, unknown> = {}) {
+  if (!callLogId) return;
+  const { data } = await sb.from("powerdial_call_logs").select("meta").eq("id", callLogId).maybeSingle();
+  const meta = data?.meta && typeof data.meta === "object" && !Array.isArray(data.meta)
+    ? data.meta as Record<string, unknown>
+    : {};
+  await sb.from("powerdial_call_logs").update({ meta: appendVmdTimeline(meta, event, details) }).eq("id", callLogId);
+}
+
+function isLegacyDefaultVoicemailUrl(value: string | null) {
+  if (!value) return false;
+  return value.includes("powerdial-voicemail-audio?file=warren") || value.includes("voicemail-warren.mp3");
+}
+
 function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -850,7 +875,7 @@ Deno.serve(async (req) => {
           : Promise.resolve({ data: null } as any),
       ]);
 
-      const existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
+      let existingMeta = existingLog?.meta && typeof existingLog.meta === "object" && !Array.isArray(existingLog.meta)
         ? existingLog.meta as Record<string, unknown>
         : {};
       const settingsObj = {
@@ -881,11 +906,20 @@ Deno.serve(async (req) => {
       }
 
       if (callLogId) {
+        const timelineMeta = appendVmdTimeline(existingMeta, "twilio_twiml_answered", {
+          type,
+          call_sid: params.get("CallSid") || null,
+          from: twilioFrom || null,
+          to: params.get("To") || null,
+          mode,
+          hold_seconds: mode === "hold_for_amd" ? AMD_HOLD_SECONDS : null,
+          vm_drop_only: vmDropOnlyMode,
+        });
         await sb.from("powerdial_call_logs").update({
           connected_to_vapi: false,
           ...(mode === "live_human_transfer_immediate" ? { disposition: "transferred_to_human" } : {}),
           meta: {
-            ...existingMeta,
+            ...timelineMeta,
             immediate_answer_twiml: mode !== "hold_for_amd",
             immediate_answer_mode: mode,
             twilio_from: callerId || null,
@@ -901,6 +935,18 @@ Deno.serve(async (req) => {
     const callSid = params.get("CallSid") || "";
     const callStatus = params.get("CallStatus") || "";
     const twilioFrom = params.get("From") || "";
+
+    if (callLogId && ["amd", "status", "dial-complete"].includes(type || "")) {
+      await logVmdTimeline(callLogId, "twilio_webhook_received", {
+        type,
+        call_sid: callSid || null,
+        call_status: callStatus || null,
+        answered_by: params.get("AnsweredBy") || null,
+        machine_detection_duration_ms: params.get("MachineDetectionDuration") || null,
+        from: twilioFrom || null,
+        to: params.get("To") || null,
+      });
+    }
 
     if (type === "amd") {
       const answeredBy = params.get("AnsweredBy") || "";
@@ -1007,6 +1053,14 @@ Deno.serve(async (req) => {
         call_sid: callSid,
         call_status_at_amd: callStatus,
       };
+
+      existingMeta = appendVmdTimeline(existingMeta, "amd_classified", {
+        call_sid: callSid || null,
+        answered_by: answeredBy,
+        amd_result: amdResult,
+        intended_action: intendedAction,
+        machine_detection_duration_ms: machineDetectionDuration ? Number(machineDetectionDuration) : null,
+      });
 
       await sb.from("powerdial_call_logs").update({
         amd_result: amdResult,
@@ -1400,9 +1454,10 @@ Deno.serve(async (req) => {
       // plays the configured MP3 directly into the recipient's voicemail box,
       // then hangs up. Otherwise, just hang up immediately.
       const vmDropEnabled = settingsObj.voicemail_drop_enabled !== false; // ON by default
-      const configuredVmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
+      const rawConfiguredVmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
         ? settingsObj.voicemail_drop_url.trim()
         : null;
+      const configuredVmDropUrl = isLegacyDefaultVoicemailUrl(rawConfiguredVmDropUrl) ? null : rawConfiguredVmDropUrl;
       let vmDropUrl = configuredVmDropUrl
         || "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren";
 
@@ -1410,12 +1465,16 @@ Deno.serve(async (req) => {
       let pauseBeforeSec = 1;
       let pauseAfterSec = 0;
       let ttsFallbackText: string | null = null;
+      let selectedRecording: Record<string, unknown> | null = null;
       try {
-        const { data: activeRec } = await sb
+        const { data: activeRecs } = await sb
           .from("voicemail_recordings")
-          .select("id, pause_before_sec, pause_after_sec, tts_fallback_text, updated_at, created_at")
+          .select("id, name, storage_path, is_active, pause_before_sec, pause_after_sec, tts_fallback_text, updated_at, created_at")
           .eq("is_active", true)
-          .maybeSingle();
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(5);
+        const activeRec = activeRecs?.[0];
         if (!configuredVmDropUrl && activeRec?.id) {
           // Cache-bust on updated_at so re-uploads / new actives are not served
           // from Twilio's edge cache of a prior recording.
@@ -1424,25 +1483,48 @@ Deno.serve(async (req) => {
           pauseBeforeSec = Number(activeRec.pause_before_sec ?? 2);
           pauseAfterSec = Number(activeRec.pause_after_sec ?? 1);
           ttsFallbackText = activeRec.tts_fallback_text || null;
+          selectedRecording = activeRec as Record<string, unknown>;
         }
-      } catch (_) { /* fall back to default URL */ }
+        existingMeta = appendVmdTimeline(existingMeta, "active_recording_check", {
+          configured_url: rawConfiguredVmDropUrl,
+          configured_url_ignored_as_legacy_default: Boolean(rawConfiguredVmDropUrl && !configuredVmDropUrl),
+          active_recording_count: activeRecs?.length || 0,
+          active_recordings: (activeRecs || []).map((rec: any) => ({ id: rec.id, name: rec.name, updated_at: rec.updated_at })),
+          selected_recording_id: activeRec?.id || null,
+          selected_recording_name: activeRec?.name || null,
+          selected_recording_path: activeRec?.storage_path || null,
+          playback_url: vmDropUrl,
+        });
+      } catch (err) {
+        existingMeta = appendVmdTimeline(existingMeta, "active_recording_check_failed", { error: String(err), fallback_url: vmDropUrl });
+      }
 
       let vmDropped = false;
       const vmDropClaimed = await claimVoicemailDrop(callLogId);
       if (!vmDropClaimed) {
         console.warn(`[powerdial-webhook] Duplicate voicemail AMD ignored for call ${callLogId || callSid}`);
+        await logVmdTimeline(callLogId, "voicemail_drop_duplicate_ignored", { call_sid: callSid || null });
         return json({ ok: true, amd_result: amdResult, vm_dropped: false, duplicate: true });
       }
 
       if (vmDropEnabled && vmDropUrl) {
         try {
           const isAfterMessageEnd = answeredBy.startsWith("machine_end");
-          const pauseLen = isAfterMessageEnd ? String(Math.max(1, pauseBeforeSec - 1)) : String(pauseBeforeSec + 1);
+          const pauseLen = isAfterMessageEnd ? "0" : String(pauseBeforeSec + 1);
           const tailPause = `<Pause length="${Math.max(0, pauseAfterSec)}"/>`;
           const ttsFallback = ttsFallbackText
             ? `<Say voice="Polly.Joanna" language="en-US">${escapeXml(ttsFallbackText)}</Say>`
             : "";
           const vmTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="${pauseLen}"/><Play>${escapeXml(vmDropUrl)}</Play>${tailPause}${ttsFallback}<Hangup/></Response>`;
+          existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_attempt", {
+            call_sid: callSid || null,
+            answered_by: answeredBy,
+            pause_before_sec: pauseLen,
+            pause_after_sec: pauseAfterSec,
+            playback_url: vmDropUrl,
+            selected_recording_id: selectedRecording?.id || null,
+            selected_recording_name: selectedRecording?.name || null,
+          });
           const redirectResp = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
             {
@@ -1458,18 +1540,34 @@ Deno.serve(async (req) => {
             vmDropped = true;
             await sb.from("powerdial_call_logs").update({ voicemail_drop_completed_at: new Date().toISOString() }).eq("id", callLogId);
             console.log(`[powerdial-webhook] Voicemail drop sent for call ${callSid}: ${vmDropUrl}`);
+            existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_success", {
+              call_sid: callSid || null,
+              playback_url: vmDropUrl,
+              selected_recording_id: selectedRecording?.id || null,
+              selected_recording_name: selectedRecording?.name || null,
+            });
           } else {
             const errText = await redirectResp.text();
             console.error(`[powerdial-webhook] Voicemail drop redirect failed:`, errText);
+            existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_failed", {
+              call_sid: callSid || null,
+              status: redirectResp.status,
+              error: errText.slice(0, 500),
+            });
           }
         } catch (err) {
           console.error("[powerdial-webhook] Voicemail drop exception:", err);
+          existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_exception", { error: String(err) });
         }
       }
 
       if (!vmDropped) {
         // Fallback: hang up immediately
         try {
+          existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_fallback_hangup", {
+            call_sid: callSid || null,
+            reason: "drop_not_confirmed",
+          });
           await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
             {
@@ -1494,6 +1592,12 @@ Deno.serve(async (req) => {
       if (queueProcessed) {
         await bumpCampaignCount(campaignId, "voicemail_count");
       }
+      existingMeta = appendVmdTimeline(existingMeta, "queue_transition", {
+        queue_item_id: queueItemId,
+        queue_updated: queueProcessed,
+        status: "completed",
+        last_result: vmDropped ? "voicemail_dropped" : "voicemail",
+      });
 
       // Mark the call log with VM drop status
       const vmDropTs = new Date().toISOString();
@@ -1512,6 +1616,8 @@ Deno.serve(async (req) => {
               succeeded: vmDropped,
               url: vmDropUrl,
               dropped_at: vmDropped ? vmDropTs : null,
+              selected_recording_id: selectedRecording?.id || null,
+              selected_recording_name: selectedRecording?.name || null,
             },
           },
         },
