@@ -44,6 +44,7 @@ type CallLogMeta = {
   amd_debug?: AmdDebug;
   voicemail_dropped?: boolean;
   voicemail_drop_url?: string | null;
+  vmd_timeline?: Array<Record<string, unknown> & { at?: string; event?: string }>;
 };
 
 type CallLog = {
@@ -223,6 +224,29 @@ export default function PowerDialCallLog({ campaignId }: { campaignId: string })
                   </div>
                 </div>
               )}
+              {selected.meta?.vmd_timeline?.length ? (
+                <div>
+                  <p className="text-muted-foreground mb-1">VMD Timeline</p>
+                  <div className="rounded-md border border-border bg-muted/30 p-3 text-xs space-y-2 font-mono">
+                    {selected.meta.vmd_timeline.map((item, index) => {
+                      const { at, event, ...details } = item;
+                      return (
+                        <div key={`${at || 'event'}-${index}`} className="border-l border-primary/40 pl-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-foreground">{event || 'event'}</span>
+                            <span className="text-muted-foreground">{at ? format(new Date(at), 'HH:mm:ss.SSS') : '—'}</span>
+                          </div>
+                          {Object.keys(details).length > 0 && (
+                            <pre className="mt-1 text-muted-foreground whitespace-pre-wrap break-words">
+                              {JSON.stringify(details, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               {selected.summary && (
                 <div>
                   <p className="text-muted-foreground mb-1">Summary</p>
