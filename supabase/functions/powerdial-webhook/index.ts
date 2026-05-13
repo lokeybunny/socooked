@@ -1446,9 +1446,10 @@ Deno.serve(async (req) => {
       // plays the configured MP3 directly into the recipient's voicemail box,
       // then hangs up. Otherwise, just hang up immediately.
       const vmDropEnabled = settingsObj.voicemail_drop_enabled !== false; // ON by default
-      const configuredVmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
+      const rawConfiguredVmDropUrl = (typeof settingsObj.voicemail_drop_url === "string" && settingsObj.voicemail_drop_url.trim())
         ? settingsObj.voicemail_drop_url.trim()
         : null;
+      const configuredVmDropUrl = isLegacyDefaultVoicemailUrl(rawConfiguredVmDropUrl) ? null : rawConfiguredVmDropUrl;
       let vmDropUrl = configuredVmDropUrl
         || "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=warren";
 
@@ -1456,12 +1457,16 @@ Deno.serve(async (req) => {
       let pauseBeforeSec = 1;
       let pauseAfterSec = 0;
       let ttsFallbackText: string | null = null;
+      let selectedRecording: Record<string, unknown> | null = null;
       try {
-        const { data: activeRec } = await sb
+        const { data: activeRecs } = await sb
           .from("voicemail_recordings")
-          .select("id, pause_before_sec, pause_after_sec, tts_fallback_text, updated_at, created_at")
+          .select("id, name, storage_path, is_active, pause_before_sec, pause_after_sec, tts_fallback_text, updated_at, created_at")
           .eq("is_active", true)
-          .maybeSingle();
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(5);
+        const activeRec = activeRecs?.[0];
         if (!configuredVmDropUrl && activeRec?.id) {
           // Cache-bust on updated_at so re-uploads / new actives are not served
           // from Twilio's edge cache of a prior recording.
@@ -1470,8 +1475,20 @@ Deno.serve(async (req) => {
           pauseBeforeSec = Number(activeRec.pause_before_sec ?? 2);
           pauseAfterSec = Number(activeRec.pause_after_sec ?? 1);
           ttsFallbackText = activeRec.tts_fallback_text || null;
+          selectedRecording = activeRec as Record<string, unknown>;
         }
-      } catch (_) { /* fall back to default URL */ }
+        await logVmdTimeline(callLogId, "active_recording_check", {
+          configured_url: rawConfiguredVmDropUrl,
+          configured_url_ignored_as_legacy_default: Boolean(rawConfiguredVmDropUrl && !configuredVmDropUrl),
+          active_recording_count: activeRecs?.length || 0,
+          selected_recording_id: activeRec?.id || null,
+          selected_recording_name: activeRec?.name || null,
+          selected_recording_path: activeRec?.storage_path || null,
+          playback_url: vmDropUrl,
+        });
+      } catch (err) {
+        await logVmdTimeline(callLogId, "active_recording_check_failed", { error: String(err), fallback_url: vmDropUrl });
+      }
 
       let vmDropped = false;
       const vmDropClaimed = await claimVoicemailDrop(callLogId);
