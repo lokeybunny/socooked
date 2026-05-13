@@ -162,6 +162,16 @@ export default function HotRepliesPinnedQueue() {
               <SelectItem value="all">All (non opt-out)</SelectItem>
             </SelectContent>
           </Select>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            title={sortDir === 'latest' ? 'Sorted: latest first' : 'Sorted: earliest first'}
+            onClick={() => setSortDir(prev => prev === 'latest' ? 'earliest' : 'latest')}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1" />
+            {sortDir === 'latest' ? 'Latest' : 'Earliest'}
+          </Button>
           <Button variant="ghost" size="sm" onClick={load} className="h-7">
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
