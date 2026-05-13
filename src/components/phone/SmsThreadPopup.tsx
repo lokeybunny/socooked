@@ -252,10 +252,10 @@ export function SmsThreadPopup({
                   {contactName ? `${contactName} — ` : ""}{formatPhone(phone)}
                   {effectiveImessage && (
                     <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#007AFF]/15 text-[#007AFF] text-[10px] font-semibold px-2 py-0.5">
-                      iMessage{routeReason ? ` · ${routeReason}` : ""}
+                      iMessage
                     </span>
                   )}
-                  {routeImessage && hasMedia && (
+                  {useImessageRoute && hasMedia && (
                     <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
                       SMS/MMS · media attached
                     </span>
@@ -263,11 +263,30 @@ export function SmsThreadPopup({
                 </DialogTitle>
                 <DialogDescription className="text-xs">
                   {effectiveImessage
-                    ? "iMessage is text-only. Add media to fall back to SMS/MMS for the next send."
-                    : routeImessage && hasMedia
+                    ? "iMessage (VoidFix). Add media to fall back to SMS/MMS for the next send."
+                    : useImessageRoute && hasMedia
                       ? "Thread temporarily on SMS/MMS — remove media to return to iMessage."
-                      : "SMS via VoidFix. iMessage auto-routes for VIP & customers."}
+                      : `SMS via VoidFix${routeImessage && !routeOverride ? ` · iMessage suggested (${routeReason})` : ""}.`}
                 </DialogDescription>
+                {/* Per-thread API selector — VoidFix iMessage vs VoidFix SMS (original) */}
+                <div className="mt-1.5 inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setRoute("sms")}
+                    className={`px-2 py-0.5 rounded font-semibold transition ${!useImessageRoute ? "bg-emerald-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Send via VoidFix SMS (original)"
+                  >
+                    SMS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoute("imessage")}
+                    className={`px-2 py-0.5 rounded font-semibold transition ${useImessageRoute ? "bg-[#007AFF] text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Send via VoidFix iMessage"
+                  >
+                    iMessage
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap shrink-0 mr-6">
                 <Button
