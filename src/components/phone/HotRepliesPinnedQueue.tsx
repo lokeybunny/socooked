@@ -103,17 +103,22 @@ export default function HotRepliesPinnedQueue() {
     toast.success(`Calling ${row.first_name || row.phone} via Twilio…`);
   };
 
-  const isToday = (iso?: string | null) => {
-    if (!iso) return false;
-    const d = new Date(iso);
+  const isOriginalToday = (orig?: string | null) => {
+    if (!orig) return false;
+    const m = orig.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (!m) return false;
     const now = new Date();
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    let yr = parseInt(m[3], 10);
+    if (yr < 100) yr += 2000;
+    return parseInt(m[1], 10) === now.getMonth() + 1
+      && parseInt(m[2], 10) === now.getDate()
+      && yr === now.getFullYear();
   };
 
   // Match HotReplies page filter semantics
   const filtered = useMemo(() => {
     let list = rows.filter(r => !r.is_opt_out && r.call_status === 'not_called');
-    if (filter === 'hot') list = list.filter(r => r.is_hot && isToday(r.imported_at));
+    if (filter === 'hot') list = list.filter(r => r.is_hot && isOriginalToday(r.original_date));
     else if (filter === 'warm') list = list.filter(r => r.ai_classification === 'WARM_INTERESTED');
     else if (filter === 'positive') list = list.filter(r => r.ai_classification === 'HOT_POSITIVE');
     else if (filter === 'pricing') list = list.filter(r => r.ai_classification === 'PRICING_QUESTION');
