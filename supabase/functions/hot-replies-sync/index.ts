@@ -232,7 +232,34 @@ serve(async (req) => {
         .in("dedupe_key", chunk);
       for (const x of existingRows || []) existingSet.add((x as any).dedupe_key);
     }
-    const fresh = candidates.filter(c => !existingSet.has(c.dedupe));
+    const afterExisting = candidates.filter(c => !existingSet.has(c.dedupe));
+
+    // Exclude leads that have already been contacted (any outbound SMS or call to that phone)
+    const last10 = (p: string) => (p || "").replace(/\D/g, "").slice(-10);
+    const phoneLast10s = Array.from(new Set(afterExisting.map(c => last10(c.phone)).filter(p => p.length === 10)));
+    const contactedSet = new Set<string>();
+    for (let i = 0; i < phoneLast10s.length; i += 200) {
+      const chunk = phoneLast10s.slice(i, i + 200);
+      // Match by trailing 10 digits via OR ilike on phone_number/to_address
+      const orClauses = chunk.flatMap(p => [
+        `phone_number.ilike.%${p}`,
+        `to_address.ilike.%${p}`,
+      ]).join(",");
+      const { data: contactedRows, error: contactedErr } = await supabase
+        .from("communications")
+        .select("phone_number,to_address")
+        .eq("direction", "outbound")
+        .in("type", ["sms", "call"])
+        .or(orClauses);
+      if (contactedErr) { console.error("contacted lookup err", contactedErr); continue; }
+      for (const row of contactedRows || []) {
+        const a = last10((row as any).phone_number || "");
+        const b = last10((row as any).to_address || "");
+        if (a) contactedSet.add(a);
+        if (b) contactedSet.add(b);
+      }
+    }
+    const fresh = afterExisting.filter(c => !contactedSet.has(last10(c.phone)));
     const skipped = candidates.length - fresh.length + (dataRows.length - candidates.length);
 
     // Background task: classify in parallel batches and insert
