@@ -249,7 +249,7 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'warn', 'iMessage new-contact cap hit — cooling down');
       break;
     }
-    if (channel === 'sms' && smsSentToday >= SMS_CAP) {
+    if (!testMode && channel === 'sms' && smsSentToday >= SMS_CAP) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
