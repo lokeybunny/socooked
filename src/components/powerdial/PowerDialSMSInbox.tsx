@@ -2053,6 +2053,61 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         })()}
       </DialogContent>
     </Dialog>
+
+    {/* Carrier Audit Dialog */}
+    <Dialog open={auditOpen} onOpenChange={(o) => { if (!o && !auditLoading) { setAuditOpen(false); setAuditResult(null); setAuditQuote(null); } }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Smartphone className="h-4 w-4" /> Carrier Audit</DialogTitle>
+          <DialogDescription>
+            Identify whether <span className="font-mono">{formatPhone(auditPhone)}</span> is an iPhone or Android. Result is permanent.
+          </DialogDescription>
+        </DialogHeader>
+        {!auditQuote && !auditResult && (
+          <div className="flex items-center justify-center py-6 text-muted-foreground text-sm gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" /> Fetching quote…
+          </div>
+        )}
+        {auditQuote && !auditResult && (
+          <div className="space-y-3 py-2">
+            {auditQuote.already_audited ? (
+              <div className="rounded border border-border bg-muted/40 p-3 text-sm">
+                Already audited as <span className="font-semibold">{auditQuote.device_type}</span>. No charge.
+              </div>
+            ) : (
+              <div className="rounded border border-indigo-500/40 bg-indigo-500/5 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span>Twilio Lookup (line type intelligence)</span><span className="font-mono font-semibold">${auditQuote.cost_usd.toFixed(3)}</span></div>
+                <div className="text-xs text-muted-foreground">Billed by Twilio. Includes iMessage validation. Tag is permanent.</div>
+              </div>
+            )}
+          </div>
+        )}
+        {auditResult && (
+          <div className="py-3 text-center space-y-2">
+            <div className="text-3xl">
+              {auditResult.device_type === 'iphone' ? '📱' : auditResult.device_type === 'android' ? '🤖' : auditResult.device_type === 'landline' ? '☎️' : auditResult.device_type === 'voip' ? '🌐' : '❓'}
+            </div>
+            <div className="font-semibold capitalize">{auditResult.device_type}</div>
+            <div className="text-xs text-muted-foreground">Charged ${(auditResult.cost_usd ?? 0.008).toFixed(3)} — name tagged permanently</div>
+          </div>
+        )}
+        <DialogFooter>
+          {!auditResult ? (
+            <>
+              <Button variant="outline" onClick={() => setAuditOpen(false)} disabled={auditLoading}>{auditQuote?.already_audited ? 'Close' : 'Deny'}</Button>
+              {!auditQuote?.already_audited && (
+                <Button onClick={runAudit} disabled={!auditQuote || auditLoading} className="bg-indigo-500 hover:bg-indigo-600 text-white">
+                  {auditLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Approve & Charge ${auditQuote?.cost_usd?.toFixed(3) ?? '0.008'}
+                </Button>
+              )}
+            </>
+          ) : (
+            <Button onClick={() => setAuditOpen(false)}>Done</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
