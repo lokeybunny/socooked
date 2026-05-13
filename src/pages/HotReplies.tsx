@@ -257,6 +257,17 @@ export default function HotReplies() {
           <StatCard icon={<Clock />} label="Today" value={stats.calledToday} />
         </div>
 
+        {/* Warm Welcome Campaign — audits device, sends iMessage/SMS to current filtered contacts */}
+        <WarmWelcomeCampaignPanel
+          contacts={filtered.map(r => ({
+            hot_reply_id: r.id,
+            phone: r.phone,
+            name: [r.first_name, r.last_name].filter(Boolean).join(' ') || null,
+            reply_text: r.reply_text,
+            reply_at: r.imported_at,
+          }))}
+        />
+
         {/* Filters */}
         <Card>
           <CardContent className="p-4 flex flex-wrap items-center gap-3">
