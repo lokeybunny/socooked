@@ -139,7 +139,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const sheetUrl: string | undefined = body.sheet_url;
     const sheetName: string | undefined = body.sheet_name;
-    const limit: number = Math.min(Number(body.limit) || 200, 500);
+    const limit: number = Math.min(Number(body.limit) || 5000, 10000);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
