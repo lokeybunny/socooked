@@ -580,7 +580,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!result.ok) return json({ ok: false, error: result.error }, result.status || 500);
+    if (!result.ok) {
+      // Normalize VoidFix upstream errors into short codes so the client UI shows a friendly toast
+      // instead of a runtime-error overlay. Always return 200 so supabase.functions.invoke()
+      // doesn't throw — the caller checks data.ok.
+      const rawErr = typeof result.error === "string"
+        ? result.error
+        : ((result.error as any)?.message || JSON.stringify(result.error));
+      let friendly = rawErr || "send_failed";
+      if (/fcm\.googleapis\.com|Could not resolve host/i.test(rawErr || "")) {
+        friendly = "voidfix_device_offline: VoidFix Android device cannot reach Google FCM. Check device internet/Wi-Fi.";
+      } else if (/voidfix_timeout/i.test(rawErr || "")) {
+        friendly = "voidfix_slow_response: VoidFix server stalled. Message may still queue on the device.";
+      }
+      return json({ ok: false, error: friendly, raw_error: rawErr }, 200);
+    }
     tStamp("returning success to caller");
     return json({ ok: true, id: result.id, timing_ms: result.timing });
   }
