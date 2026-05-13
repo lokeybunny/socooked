@@ -44,17 +44,44 @@ Deno.serve(async (req) => {
     return json({ ok: true, skipped: "not_inbound", event });
   }
 
-  const message = String(d?.content ?? d?.message ?? d?.body ?? "").trim();
+  let message = String(d?.content ?? d?.message ?? d?.body ?? "").trim();
+
+  // Extract media attachments. VoidFix may send under various field names.
+  const collectUrls = (val: any): string[] => {
+    if (!val) return [];
+    if (typeof val === "string") return [val];
+    if (Array.isArray(val)) {
+      return val.flatMap((v) => {
+        if (typeof v === "string") return [v];
+        if (v && typeof v === "object") return [v.url, v.uri, v.href, v.publicUrl, v.downloadUrl].filter(Boolean);
+        return [];
+      });
+    }
+    if (typeof val === "object") return [val.url, val.uri, val.href, val.publicUrl, val.downloadUrl].filter(Boolean);
+    return [];
+  };
+  const mediaCandidates = [
+    d?.attachments, d?.attachment, d?.media, d?.mediaUrls, d?.media_urls,
+    d?.mediaUrl, d?.media_url, d?.images, d?.files, d?.assets,
+  ];
+  const media_urls = Array.from(new Set(
+    mediaCandidates.flatMap(collectUrls).filter((u: any) => typeof u === "string" && /^https?:\/\//i.test(u))
+  ));
+
+  // If body is an empty/placeholder like "[Image]" or "[Attachment]" but media exists, drop it.
+  if (media_urls.length && /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker)\]\s*$/i.test(message)) {
+    message = "";
+  }
+
   // Inbound: sender = recipient field on conversation (the person who messaged us).
-  // VoidFix conversation list shows `recipient` = the other party for both directions.
   const fromRaw = d?.from ?? d?.sender ?? d?.recipient ?? d?.phoneNumber ?? d?.phone;
   const toRaw = d?.to ?? d?.lineNumber ?? d?.iMessageNumber ?? null;
   const from_address = normalizeE164(fromRaw);
   const to_address = normalizeE164(toRaw);
   const externalId = d?.id || d?.messageId || payload?.id || null;
 
-  if (!from_address || !message) {
-    console.warn("[voidfix-imessage-inbound] missing from/message", { from_address, hasMessage: !!message, payload });
+  if (!from_address || (!message && media_urls.length === 0)) {
+    console.warn("[voidfix-imessage-inbound] missing from/message", { from_address, hasMessage: !!message, hasMedia: media_urls.length, payload });
     return json({ ok: false, error: "missing_from_or_message" }, 400);
   }
 
@@ -76,7 +103,8 @@ Deno.serve(async (req) => {
     status: "received",
     provider: "voidfix-imessage",
     external_id: externalId,
-    metadata: { voidfix_imessage: true, event, raw: d },
+    media_urls: media_urls.length ? media_urls : null,
+    metadata: { voidfix_imessage: true, event, raw: d, has_media: media_urls.length > 0 },
   }).select("id").single();
 
   if (error) {

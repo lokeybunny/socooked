@@ -69,6 +69,8 @@ function stripImageUrls(body: string | null | undefined): string {
   if (!body) return '';
   return body.replace(IMAGE_URL_REGEX, '').replace(/\s{2,}/g, ' ').trim();
 }
+// VoidFix iMessage placeholder for media-only inbound messages — hide in UI.
+const MEDIA_PLACEHOLDER_RE = /^\s*\[(image|images|attachment|attachments|photo|video|media|gif|sticker)\]\s*$/i;
 
 export default function PowerDialSMSInbox() {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
@@ -1723,7 +1725,10 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             const bodyImgs = extractImageUrls(m.body);
                             const colImgs = Array.isArray(m.media_urls) ? m.media_urls.filter(Boolean) : [];
                             const imgs = Array.from(new Set([...colImgs, ...bodyImgs]));
-                            const text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
+                            let text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
+                            // If we have media (or even when not, when body is just a placeholder), hide "[Image]" style placeholders.
+                            if (text && MEDIA_PLACEHOLDER_RE.test(text)) text = '';
+                            const showMissingMediaHint = !text && imgs.length === 0;
                             return (
                               <>
                                 {text && <p className={textCls}>{text}</p>}
@@ -1732,6 +1737,11 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                                     <MediaImage url={url} />
                                   </div>
                                 ))}
+                                {showMissingMediaHint && (
+                                  <p className={`${textCls} italic opacity-70 flex items-center gap-1`}>
+                                    <ImageIcon className="h-3.5 w-3.5" /> Attachment (not retrievable)
+                                  </p>
+                                )}
                               </>
                             );
                           })()}
