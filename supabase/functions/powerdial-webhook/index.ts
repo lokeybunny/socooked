@@ -973,16 +973,11 @@ Deno.serve(async (req) => {
       let vmDropOnlyHumanHangup = false;
 
       if (vmDropOnlyForAmd) {
-        // Voicemail-ready states: any "machine_end_*" classification means
-        // Twilio's DetectMessageEnd determined the greeting finished — this
-        // includes machine_end_beep, machine_end_silence, AND
-        // machine_end_other (greetings that don't fit the beep/silence
-        // pattern but still ended cleanly). Also accept plain "machine"
-        // family results since DetectMessageEnd reliably signals end-of-
-        // greeting before firing.
+        // Voicemail-ready states: only "machine_end_*" means Twilio has heard
+        // the mailbox greeting finish / beep. Do NOT drop on machine_start —
+        // that fires at the start of the greeting and plays over the mailbox.
         const isConfidentVoicemailReady =
           answeredBy.startsWith("machine_end") ||
-          answeredBy === "machine_start" ||
           answeredBy === "fax";
         if (isConfidentVoicemailReady) {
           amdResult = "voicemail";
@@ -1004,9 +999,13 @@ Deno.serve(async (req) => {
         amdResult = "human";
         connectVapi = true;
         intendedAction = `redirect_to_vapi_assistant (sustained human speech >=${HUMAN_SPEECH_MIN_AUDIO_MS}ms after ${POST_PICKUP_DEBOUNCE_MS}ms debounce)`;
-      } else if (answeredBy.includes("machine") || answeredBy === "fax") {
+      } else if (answeredBy.startsWith("machine_end") || answeredBy === "fax") {
         amdResult = "voicemail";
         intendedAction = `voicemail_drop_play_mp3 (AMD=${answeredBy})`;
+      } else if (answeredBy === "machine_start" || answeredBy === "machine") {
+        amdResult = "unknown";
+        connectVapi = false;
+        intendedAction = `wait_for_machine_end_before_vm_drop (AMD=${answeredBy})`;
       } else if (answeredBy === "unknown") {
         amdResult = "unknown";
         connectVapi = false;
