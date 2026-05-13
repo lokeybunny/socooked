@@ -179,7 +179,44 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Positive or neutral → schedule 72h follow-up
+  // Special branch: voidfix first-time auto-reply ("Busy in a meeting…can I send my IG reel?")
+  // → on positive reply, send the IG link immediately and close the thread.
+  const threadSource = (thread as any)?.meta?.source || "";
+  if (threadSource === "voidfix-first-time-auto-reply" && sentiment === "positive") {
+    const igMessage = "https://instagram.com/@W4RR3NGuru";
+    try {
+      const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({
+          action: "send",
+          to: phone,
+          body: igMessage,
+          source: "voidfix-first-reply-ig-followup",
+        }),
+      });
+      const sendJson = await sendRes.json().catch(() => ({}));
+      await sb
+        .from("hook_reply_threads")
+        .update({
+          sentiment: "positive",
+          status: "completed",
+          followup_send_at: null,
+          inbound_message_id: messageId,
+          inbound_body: body,
+          inbound_at: messageCreatedAt.toISOString(),
+          meta: { ...(thread as any).meta, ig_followup_sent_at: new Date().toISOString(), ig_send_ok: !!sendJson?.ok },
+        })
+        .eq("id", thread.id);
+      return new Response(JSON.stringify({ ok: true, action: "ig_link_sent", send: sendJson }), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      console.error("[hook-reply-classifier] IG send error", e);
+    }
+  }
+
+  // Positive or neutral → schedule 72h follow-up (default behavior)
   const followupAt = new Date(messageCreatedAt.getTime() + 72 * 60 * 60 * 1000);
 
   await sb

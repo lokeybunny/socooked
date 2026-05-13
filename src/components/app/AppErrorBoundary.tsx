@@ -10,22 +10,15 @@ interface State {
   details: string;
 }
 
+// React error boundary ONLY. We intentionally do NOT subscribe to global
+// window.error / unhandledrejection events — those fire for any async failure
+// (failed fetch, third-party script error, ResizeObserver loop, etc.) and were
+// flipping the whole app into the "App recovered from a crash" overlay even
+// when React was rendering fine.
 export class AppErrorBoundary extends Component<Props, State> {
   state: State = {
     error: null,
     details: "",
-  };
-
-  private handleWindowError = (event: ErrorEvent) => {
-    if (event.target && event.target !== window) return;
-    const nextError = event.error instanceof Error ? event.error : new Error(event.message || "Unexpected application error");
-    this.setState({ error: nextError, details: event.message || nextError.message });
-  };
-
-  private handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-    const reason = event.reason;
-    const nextError = reason instanceof Error ? reason : new Error(typeof reason === "string" ? reason : "Unhandled promise rejection");
-    this.setState({ error: nextError, details: nextError.message });
   };
 
   static getDerivedStateFromError(error: Error): State {
@@ -33,16 +26,6 @@ export class AppErrorBoundary extends Component<Props, State> {
       error,
       details: error.message,
     };
-  }
-
-  componentDidMount() {
-    window.addEventListener("error", this.handleWindowError);
-    window.addEventListener("unhandledrejection", this.handleUnhandledRejection);
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener("error", this.handleWindowError);
-    window.removeEventListener("unhandledrejection", this.handleUnhandledRejection);
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
