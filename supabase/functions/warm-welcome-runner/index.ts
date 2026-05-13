@@ -243,8 +243,9 @@ async function processCampaign(campaign: any) {
   }
 
   let processed = 0;
-  let imSentToday = campaign.imessage_new_sent_today || 0;
-  let smsSentToday = campaign.sms_sent_today || 0;
+  // Counters by API bucket (NOT by channel). Each bucket has its own 50/day cap.
+  let imessageApiSentToday = campaign.imessage_new_sent_today || 0; // VoidFix iMessage API
+  let androidApiSentToday  = campaign.sms_sent_today          || 0; // VoidFix Android SMS API
   let totalSent = campaign.total_sent || 0;
   let totalFailed = campaign.total_failed || 0;
   let totalSkipped = campaign.total_skipped || 0;
@@ -258,42 +259,50 @@ async function processCampaign(campaign: any) {
       await logEvt(campaign.id, t.id, 'info', `Audit: ${t.phone_e164} -> ${device}`);
     }
 
-    const channel = device === 'iphone' ? 'imessage' : 'sms';
+    // Channel + API routing:
+    //   iPhone -> VoidFix iMessage API (channel = imessage)
+    //   Android/unknown -> VoidFix Android SMS API (channel = sms)
+    // The iMessage API can also deliver as SMS-fallback; if that happens it
+    // still counts toward the "imessage_api" bucket because the SAME API was used.
+    const channel  = device === 'iphone' ? 'imessage' : 'sms';
+    const apiBucket: 'imessage_api' | 'android_api' =
+      channel === 'imessage' ? 'imessage_api' : 'android_api';
     const isNew = await isNewContact(t.phone_last10);
 
-    // Cap check — only NEW contacts (no prior CRM thread) count toward caps
-    if (!testMode && isNew && channel === 'imessage' && imSentToday >= IMESSAGE_NEW_CAP) {
+    // Cap check — per API bucket. Only NEW contacts count toward caps.
+    const bucketSent = apiBucket === 'imessage_api' ? imessageApiSentToday : androidApiSentToday;
+    const bucketCap  = apiBucket === 'imessage_api' ? IMESSAGE_NEW_CAP    : SMS_CAP;
+    if (!testMode && isNew && bucketSent >= bucketCap) {
       await sb.from("warm_welcome_targets").update({
         status: 'pending', device_type: device, channel,
         next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
       }).eq("id", t.id);
-      const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
-      await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
-      await logEvt(campaign.id, t.id, 'warn', 'iMessage new-contact cap hit — cooling down');
-      break;
-    }
-    if (!testMode && isNew && channel === 'sms' && smsSentToday >= SMS_CAP) {
-      await sb.from("warm_welcome_targets").update({
-        status: 'pending', device_type: device, channel,
-        next_attempt_at: new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString(),
-      }).eq("id", t.id);
-      const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
-      await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
-      await logEvt(campaign.id, t.id, 'warn', 'SMS new-contact cap hit — cooling down');
-      break;
+      // Only cool the campaign down when BOTH API buckets are full; otherwise
+      // skip this target and continue — there might still be room on the other API.
+      const otherBucketSent = apiBucket === 'imessage_api' ? androidApiSentToday : imessageApiSentToday;
+      const otherBucketCap  = apiBucket === 'imessage_api' ? SMS_CAP             : IMESSAGE_NEW_CAP;
+      if (otherBucketSent >= otherBucketCap) {
+        const until = new Date(Date.now() + COOLDOWN_HOURS * 3600 * 1000).toISOString();
+        await sb.from("warm_welcome_campaigns").update({ status: 'cooldown', cooldown_until: until }).eq("id", campaign.id);
+        await logEvt(campaign.id, t.id, 'warn', `Both API caps reached (${apiBucket}=${bucketSent}/${bucketCap}) — cooling down`);
+        break;
+      } else {
+        await logEvt(campaign.id, t.id, 'info', `${apiBucket} cap reached (${bucketSent}/${bucketCap}) — skipping; other API still open`);
+        continue;
+      }
     }
 
     // 2. Generate message
     const messageText = await aiGenerateMessage(t, channel);
 
-    // 3. Send
+    // 3. Send via the API bucket selected above
     await sb.from("warm_welcome_targets").update({
       status: 'sending', device_type: device, channel,
       message_text: messageText, is_new_imessage_contact: isNew,
       attempt_count: (t.attempt_count || 0) + 1,
     }).eq("id", t.id);
 
-    const send = channel === 'imessage'
+    const send = apiBucket === 'imessage_api'
       ? await sendImessage(t.phone_e164, messageText)
       : await sendSms(t.phone_e164, messageText);
 
@@ -301,18 +310,21 @@ async function processCampaign(campaign: any) {
       await sb.from("warm_welcome_targets").update({
         status: 'sent', sent_at: new Date().toISOString(), error: null,
       }).eq("id", t.id);
-      // Only NEW contacts (never previously in CRM) count toward daily caps
-      if (isNew && channel === 'imessage') imSentToday += 1;
-      if (isNew && channel === 'sms') smsSentToday += 1;
+      // Increment the API bucket that actually sent it. Only NEW contacts count.
+      if (isNew && apiBucket === 'imessage_api') imessageApiSentToday += 1;
+      if (isNew && apiBucket === 'android_api')  androidApiSentToday  += 1;
       totalSent += 1;
       await logEvt(campaign.id, t.id, 'success',
-        `Sent via ${channel} to ${t.phone_e164}${isNew ? ' (NEW contact, +1 cap)' : ' (existing CRM contact, no cap)'}`);
+        `Sent via ${apiBucket} (${channel}) to ${t.phone_e164}` +
+        (isNew
+          ? ` — NEW contact, ${apiBucket}=${apiBucket === 'imessage_api' ? imessageApiSentToday : androidApiSentToday}/${bucketCap}`
+          : ' — existing CRM contact, no cap'));
     } else {
       await sb.from("warm_welcome_targets").update({
         status: 'failed', error: JSON.stringify(send.raw || {}).slice(0, 500),
       }).eq("id", t.id);
       totalFailed += 1;
-      await logEvt(campaign.id, t.id, 'error', `Send failed via ${channel}`, send.raw);
+      await logEvt(campaign.id, t.id, 'error', `Send failed via ${apiBucket} (${channel})`, send.raw);
     }
     processed += 1;
 
