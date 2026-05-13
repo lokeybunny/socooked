@@ -123,8 +123,8 @@ Deno.serve(async (req) => {
 
     let device_type: "iphone" | "android" | "landline" | "voip" | "unknown" = "unknown";
     if (lookup.line_type === "landline" || lookup.line_type === "fixed") device_type = "landline";
-    else if (lookup.line_type === "voip") device_type = isIMessage ? "iphone" : "voip";
-    else if (lookup.line_type === "mobile") device_type = isIMessage ? "iphone" : "android";
+    else if (lookup.line_type === "voip") device_type = isIMessage === true ? "iphone" : isIMessage === false ? "voip" : "unknown";
+    else if (lookup.line_type === "mobile") device_type = isIMessage === true ? "iphone" : isIMessage === false ? "android" : "unknown";
 
     const auditedAt = new Date().toISOString();
     const meta = {
