@@ -249,6 +249,9 @@ export default function HotReplies() {
           </div>
         </div>
 
+        {/* Global VoidFix API cooldown — caps are 50 NEW contacts/day per API across ALL campaigns */}
+        <GlobalApiCooldownPanel />
+
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
           <StatCard icon={<Phone />} label="Total" value={stats.total} />
