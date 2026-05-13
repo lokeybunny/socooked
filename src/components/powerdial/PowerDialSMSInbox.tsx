@@ -719,12 +719,17 @@ export default function PowerDialSMSInbox() {
     try {
       const uploads: { url: string; name: string }[] = [];
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name} is not an image`);
+        const isImessageRoute = (showCompose ? composeRoute : (activeThread ? threadRoutes[activeThread] : 'sms')) === 'imessage';
+        const isImg = file.type.startsWith('image/');
+        const isVid = file.type.startsWith('video/');
+        const isAud = file.type.startsWith('audio/');
+        if (!isImg && !(isImessageRoute && (isVid || isAud))) {
+          toast.error(`${file.name}: ${isImessageRoute ? 'images, videos & audio supported' : 'only images supported on SMS'}`);
           continue;
         }
-        if (file.size > 10 * 1024 * 1024) {
-          toast.error(`${file.name} exceeds 10MB`);
+        const maxMb = isImessageRoute ? 100 : 10;
+        if (file.size > maxMb * 1024 * 1024) {
+          toast.error(`${file.name} exceeds ${maxMb}MB`);
           continue;
         }
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
