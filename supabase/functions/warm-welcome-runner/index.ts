@@ -256,10 +256,22 @@ async function processCampaign(campaign: any) {
   let totalSkipped = campaign.total_skipped || 0;
 
   for (const t of targets) {
+    // ATOMIC CLAIM: prevent concurrent runners from double-sending the same target.
+    // Only one worker can transition pending|audited -> auditing.
+    const { data: claimed } = await sb.from("warm_welcome_targets")
+      .update({ status: 'auditing', updated_at: new Date().toISOString() })
+      .eq("id", t.id)
+      .in("status", ["pending", "audited"])
+      .select("id")
+      .maybeSingle();
+    if (!claimed) {
+      await logEvt(campaign.id, t.id, 'info', `Skipped ${t.phone_e164} — already claimed by another worker`);
+      continue;
+    }
+
     // 1. Audit (if not already done)
     let device = t.device_type;
     if (!device || t.status === 'pending') {
-      await sb.from("warm_welcome_targets").update({ status: 'auditing' }).eq("id", t.id);
       device = await auditDevice(t.phone_e164);
       await logEvt(campaign.id, t.id, 'info', `Audit: ${t.phone_e164} -> ${device}`);
     }
