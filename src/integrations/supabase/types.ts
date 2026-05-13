@@ -8821,6 +8821,182 @@ export type Database = {
         }
         Relationships: []
       }
+      warm_welcome_campaigns: {
+        Row: {
+          cooldown_until: string | null
+          counters_day: string
+          created_at: string
+          created_by: string | null
+          filter_snapshot: Json | null
+          id: string
+          imessage_new_sent_today: number
+          last_processed_at: string | null
+          name: string
+          sms_sent_today: number
+          status: string
+          total_failed: number
+          total_sent: number
+          total_skipped: number
+          total_targets: number
+          updated_at: string
+        }
+        Insert: {
+          cooldown_until?: string | null
+          counters_day?: string
+          created_at?: string
+          created_by?: string | null
+          filter_snapshot?: Json | null
+          id?: string
+          imessage_new_sent_today?: number
+          last_processed_at?: string | null
+          name?: string
+          sms_sent_today?: number
+          status?: string
+          total_failed?: number
+          total_sent?: number
+          total_skipped?: number
+          total_targets?: number
+          updated_at?: string
+        }
+        Update: {
+          cooldown_until?: string | null
+          counters_day?: string
+          created_at?: string
+          created_by?: string | null
+          filter_snapshot?: Json | null
+          id?: string
+          imessage_new_sent_today?: number
+          last_processed_at?: string | null
+          name?: string
+          sms_sent_today?: number
+          status?: string
+          total_failed?: number
+          total_sent?: number
+          total_skipped?: number
+          total_targets?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      warm_welcome_logs: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          level: string
+          message: string
+          meta: Json | null
+          target_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          meta?: Json | null
+          target_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          target_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warm_welcome_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "warm_welcome_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warm_welcome_logs_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "warm_welcome_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warm_welcome_targets: {
+        Row: {
+          attempt_count: number
+          campaign_id: string
+          channel: string | null
+          created_at: string
+          device_type: string | null
+          error: string | null
+          hot_reply_id: string | null
+          id: string
+          is_new_imessage_contact: boolean | null
+          message_text: string | null
+          name: string | null
+          next_attempt_at: string
+          phone_e164: string
+          phone_last10: string
+          reply_at: string | null
+          reply_text: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          campaign_id: string
+          channel?: string | null
+          created_at?: string
+          device_type?: string | null
+          error?: string | null
+          hot_reply_id?: string | null
+          id?: string
+          is_new_imessage_contact?: boolean | null
+          message_text?: string | null
+          name?: string | null
+          next_attempt_at?: string
+          phone_e164: string
+          phone_last10: string
+          reply_at?: string | null
+          reply_text?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          campaign_id?: string
+          channel?: string | null
+          created_at?: string
+          device_type?: string | null
+          error?: string | null
+          hot_reply_id?: string | null
+          id?: string
+          is_new_imessage_contact?: boolean | null
+          message_text?: string | null
+          name?: string | null
+          next_attempt_at?: string
+          phone_e164?: string
+          phone_last10?: string
+          reply_at?: string | null
+          reply_text?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warm_welcome_targets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "warm_welcome_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_events: {
         Row: {
           created_at: string

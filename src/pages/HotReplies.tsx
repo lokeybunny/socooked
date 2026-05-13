@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
 
 function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   // Mirror CampaignManualDialer protocol — open the in-browser Twilio keypad on /phone
@@ -255,6 +256,17 @@ export default function HotReplies() {
           <StatCard icon={<PhoneOff />} label="Not Called" value={stats.notCalled} />
           <StatCard icon={<Clock />} label="Today" value={stats.calledToday} />
         </div>
+
+        {/* Warm Welcome Campaign — audits device, sends iMessage/SMS to current filtered contacts */}
+        <WarmWelcomeCampaignPanel
+          contacts={filtered.map(r => ({
+            hot_reply_id: r.id,
+            phone: r.phone,
+            name: [r.first_name, r.last_name].filter(Boolean).join(' ') || null,
+            reply_text: r.reply_text,
+            reply_at: r.imported_at,
+          }))}
+        />
 
         {/* Filters */}
         <Card>
