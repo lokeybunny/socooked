@@ -794,7 +794,7 @@ export default function PowerDialSMSInbox() {
         body: { action: 'run', phone: auditPhone },
       });
       if (error || !(data as any)?.ok) {
-        toast.error((data as any)?.error || error?.message || 'Audit failed');
+        toast.error(toErrMsg((data as any)?.error || error, 'Audit failed'));
         return;
       }
       const r = data as any;
