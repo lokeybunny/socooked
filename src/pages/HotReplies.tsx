@@ -284,8 +284,8 @@ export default function HotReplies() {
                 <SelectItem value="needs_review">Needs Review</SelectItem>
                 <SelectItem value="pricing">Pricing Questions</SelectItem>
                 <SelectItem value="callback">Callback Requests</SelectItem>
-                <SelectItem value="not_called">Not Called Yet</SelectItem>
-                <SelectItem value="called">Already Called</SelectItem>
+                <SelectItem value="not_called">Not Called/Texted Yet</SelectItem>
+                <SelectItem value="called">Already Called/Texted</SelectItem>
                 <SelectItem value="opt_outs">Opt-Outs (do not call)</SelectItem>
                 <SelectItem value="all">All Replies</SelectItem>
               </SelectContent>
