@@ -1531,6 +1531,12 @@ Deno.serve(async (req) => {
             vmDropped = true;
             await sb.from("powerdial_call_logs").update({ voicemail_drop_completed_at: new Date().toISOString() }).eq("id", callLogId);
             console.log(`[powerdial-webhook] Voicemail drop sent for call ${callSid}: ${vmDropUrl}`);
+            existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_redirect_success", {
+              call_sid: callSid || null,
+              playback_url: vmDropUrl,
+              selected_recording_id: selectedRecording?.id || null,
+              selected_recording_name: selectedRecording?.name || null,
+            });
           } else {
             const errText = await redirectResp.text();
             console.error(`[powerdial-webhook] Voicemail drop redirect failed:`, errText);
