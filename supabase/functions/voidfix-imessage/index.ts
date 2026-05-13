@@ -81,7 +81,14 @@ async function actionValidate(to: string) {
     method: "POST",
     body: JSON.stringify({ phone: recipient, recipient }),
   });
-  const isImessage = !!(res.body?.data?.isImessage ?? res.body?.data?.iMessage ?? res.body?.isImessage ?? res.body?.data?.is_imessage);
+  const isImessage = !!(
+    res.body?.data?.isImessage ??
+    res.body?.data?.hasIMessage ??
+    res.body?.data?.iMessage ??
+    res.body?.isImessage ??
+    res.body?.hasIMessage ??
+    res.body?.data?.is_imessage
+  );
   return json({ ok: res.ok, isImessage, raw: res.body });
 }
 
