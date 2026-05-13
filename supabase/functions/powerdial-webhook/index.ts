@@ -1555,6 +1555,10 @@ Deno.serve(async (req) => {
       if (!vmDropped) {
         // Fallback: hang up immediately
         try {
+          existingMeta = appendVmdTimeline(existingMeta, "voicemail_drop_fallback_hangup", {
+            call_sid: callSid || null,
+            reason: "drop_not_confirmed",
+          });
           await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls/${callSid}.json`,
             {
