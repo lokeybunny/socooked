@@ -320,6 +320,32 @@ async function processCampaign(campaign: any) {
       await sb.from("warm_welcome_targets").update({
         status: 'sent', sent_at: new Date().toISOString(), error: null,
       }).eq("id", t.id);
+      // Mark matching hot_reply_imports as called/texted so they leave the
+      // "Hot Only" / "Not Called/Texted Yet" buckets and appear in
+      // "Already Called/Texted".
+      try {
+        await sb.rpc as any; // no-op typing guard
+      } catch {}
+      try {
+        const last10 = String(t.phone_last10 || '').replace(/\D/g, '').slice(-10);
+        if (last10.length === 10) {
+          // Update by last-10 match — phones may be stored with various formats.
+          const { data: hrRows } = await sb
+            .from('hot_reply_imports')
+            .select('id, phone, call_status')
+            .eq('call_status', 'not_called');
+          const ids = (hrRows || [])
+            .filter((r: any) => String(r.phone || '').replace(/\D/g, '').slice(-10) === last10)
+            .map((r: any) => r.id);
+          if (ids.length) {
+            await sb.from('hot_reply_imports')
+              .update({ call_status: 'called', updated_at: new Date().toISOString() })
+              .in('id', ids);
+          }
+        }
+      } catch (e) {
+        console.error('hot_reply_imports flip failed', e);
+      }
       // Increment GLOBAL counters and this campaign's local counters. Only NEW contacts count.
       if (isNew && apiBucket === 'imessage_api') { globalImessageSent += 1; campaignImessageSent += 1; }
       if (isNew && apiBucket === 'android_api')  { globalAndroidSent  += 1; campaignAndroidSent  += 1; }
