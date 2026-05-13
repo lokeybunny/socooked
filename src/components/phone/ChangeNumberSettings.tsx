@@ -83,7 +83,9 @@ export default function ChangeNumberSettings() {
       toast.error("Enter a valid phone number");
       return;
     }
-    if (newNumber === numbers[role]) {
+    const newDigits = newNumber.replace(/\D/g, "").slice(-10);
+    const curDigits = (numbers[role] || "").replace(/\D/g, "").slice(-10);
+    if (newDigits && newDigits === curDigits) {
       toast.info("Number unchanged");
       return;
     }
