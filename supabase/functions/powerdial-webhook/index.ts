@@ -982,6 +982,10 @@ Deno.serve(async (req) => {
         if (isConfidentVoicemailReady) {
           amdResult = "voicemail";
           intendedAction = `vm_drop_only_voicemail_drop (AMD=${answeredBy})`;
+        } else if (answeredBy === "machine_start" || answeredBy === "machine") {
+          amdResult = "unknown";
+          connectVapi = false;
+          intendedAction = `vm_drop_only_wait_for_machine_end_before_drop (AMD=${answeredBy})`;
         } else {
           amdResult = answeredBy === "human" || hasConfirmedHumanSpeech(answeredBy, machineDetectionDuration)
             ? "human"
