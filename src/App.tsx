@@ -77,8 +77,6 @@ const CourseFunnel = lazyWithRetry(() => import("./pages/CourseFunnel"), "page-c
 const CourseLogin = lazyWithRetry(() => import("./pages/CourseLogin"), "page-course-login");
 const CourseLearn = lazyWithRetry(() => import("./pages/CourseLearn"), "page-course-learn");
 const PayMe = lazyWithRetry(() => import("./pages/PayMe"), "page-pay-me");
-const PowerDial = lazyWithRetry(() => import("./pages/PowerDial"), "page-powerdial");
-const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
 
 
 const SMSPage = lazyWithRetry(() => import("./pages/SMS"), "page-sms");
@@ -147,8 +145,6 @@ const App = () => (
                 <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
                 <Route path="/phone" element={<PhonePage />} />
                 <Route path="/hot-replies" element={<HotReplies />} />
-                <Route path="/powerdial" element={<WarrenOnlyGate><PowerDial /></WarrenOnlyGate>} />
-                <Route path="/powerdial/voicemails" element={<WarrenOnlyGate><PowerDialVoicemails /></WarrenOnlyGate>} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
                 <Route path="/transcribe" element={<WarrenOnlyGate><Transcribe /></WarrenOnlyGate>} />
 
