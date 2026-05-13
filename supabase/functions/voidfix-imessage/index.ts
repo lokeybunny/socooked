@@ -123,7 +123,8 @@ async function actionSend(payload: any) {
     await sb.from("communications").insert({
       type: "sms",
       direction: "outbound",
-      body: message,
+      body: attachments.length ? `${message}${message ? "\n" : ""}${attachments.join("\n")}` : message,
+      media_urls: attachments.length ? attachments : null,
       from_address: data.from || data.lineNumber || null,
       to_address: recipient,
       phone_number: recipient,
