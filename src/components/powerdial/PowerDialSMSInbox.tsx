@@ -1727,7 +1727,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             const imgs = Array.from(new Set([...colImgs, ...bodyImgs]));
                             let text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
                             // If we have media (or even when not, when body is just a placeholder), hide "[Image]" style placeholders.
-                            if (text && MEDIA_PLACEHOLDER_RE.test(text)) text = imgs.length ? '' : text;
+                            if (text && MEDIA_PLACEHOLDER_RE.test(text)) text = '';
                             return (
                               <>
                                 {text && <p className={textCls}>{text}</p>}
