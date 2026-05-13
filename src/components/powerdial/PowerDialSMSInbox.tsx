@@ -1550,12 +1550,25 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             </div>
             <ScrollArea ref={scrollAreaRef as any} className="flex-1 p-3 h-[calc(100vh-420px)] min-h-[300px]">
               <div className="space-y-2">
-                {activeMessages.map(m => {
+                {(() => {
+                  const isImessageThread = activeThread ? (threadRoutes[activeThread] === 'imessage') : false;
+                  return activeMessages.map(m => {
                   const errMsg = m.metadata?.error || m.metadata?.twilio_error_message;
                   const isFailed = ['failed', 'undelivered'].includes(String(m.status).toLowerCase()) || !!errMsg;
+                  const imessageOut = "bg-[#0A84FF] text-white shadow-sm";
+                  const imessageIn = "bg-[#3a3a3c] text-white shadow-sm";
+                  const stdOut = isFailed ? 'bg-red-500/20 border border-red-500/40 text-foreground' : 'bg-purple-500/20 text-foreground';
+                  const stdIn = isLandlineReply(m) ? 'bg-amber-500/15 border border-amber-500/40 text-foreground' : 'bg-muted text-foreground';
+                  const bubbleCls = isImessageThread
+                    ? (m.direction === 'outbound' ? imessageOut : imessageIn)
+                    : (m.direction === 'outbound' ? stdOut : stdIn);
+                  const textCls = isImessageThread
+                    ? "text-[15px] leading-snug font-medium tracking-[-0.01em] whitespace-pre-wrap break-words"
+                    : "text-sm whitespace-pre-wrap break-words";
+                  const metaCls = isImessageThread ? "text-[10px] opacity-70 mt-1" : "text-[9px] text-muted-foreground mt-1";
                   return (
                     <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${m.direction === 'outbound' ? (isFailed ? 'bg-red-500/20 border border-red-500/40' : 'bg-purple-500/20') : isLandlineReply(m) ? 'bg-amber-500/15 border border-amber-500/40' : 'bg-muted'} text-foreground`}>
+                      <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${bubbleCls}`} style={isImessageThread ? { fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif' } : undefined}>
                         {isLandlineReply(m) && (
                           <Badge variant="outline" className="text-[9px] px-1.5 mb-1 bg-amber-500/20 text-amber-400 border-amber-500/40">
                             LANDLINE REPLY · needs follow-up from VoidFix
@@ -1568,7 +1581,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                           const text = bodyImgs.length ? stripImageUrls(m.body) : m.body;
                           return (
                             <>
-                              {text && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
+                              {text && <p className={textCls}>{text}</p>}
                               {imgs.map((url) => (
                                 <div key={url} className="mt-1">
                                   <MediaImage url={url} />
@@ -1577,17 +1590,18 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                             </>
                           );
                         })()}
-                        <p className="text-[9px] text-muted-foreground mt-1">
+                        <p className={metaCls}>
                           {format(new Date(m.created_at), 'MMM d, h:mm a')} · {m.status}
                         </p>
 
                         {isFailed && errMsg && (
-                          <p className="text-[10px] text-red-400 mt-1">{errMsg}</p>
+                          <p className="text-[10px] text-red-300 mt-1">{errMsg}</p>
                         )}
                       </div>
                     </div>
                   );
-                })}
+                  });
+                })()}
                 {activePendingJobs.map(job => (
                   <div key={`pending-${job.id}`} className="flex justify-end">
                     <div className="max-w-[75%] rounded-2xl px-3 py-2 bg-[#0A84FF] text-white shadow-sm relative">
