@@ -62,6 +62,23 @@ async function alreadyLogged(sid: string): Promise<boolean> {
 async function sendVoidfixAutoReply(from: string, sid: string, twilioNumber: string, inboundBody: string, cfg: AutoReplyConfig) {
   // KILL SWITCH (2026-05-14): poll-based auto-reply permanently disabled (spam flag).
   console.log(`[twilio-inbound-poll] auto-reply kill-switch active — skipping SMS to ${from}`);
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/auto_reply_kill_log`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        source: "twilio-inbound-poll",
+        phone: from,
+        reason: "inbound poll auto-reply blocked",
+        meta: { sid, twilio_number: twilioNumber },
+      }),
+    });
+  } catch (e) { console.error("[kill-log]", e); }
   return;
   // eslint-disable-next-line no-unreachable
   const replyBody = buildAutoReply(inboundBody, cfg);
