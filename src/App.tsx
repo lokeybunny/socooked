@@ -58,6 +58,7 @@ const ArbitragePage = lazyWithRetry(() => import("./pages/Arbitrage"), "page-arb
 const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquidate");
 const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
 const PhoneAudit = lazyWithRetry(() => import("./pages/PhoneAudit"), "page-phone-audit");
+const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
 const CampaignLeader = lazyWithRetry(() => import("./pages/CampaignLeader"), "page-campaign-leader");
 const EmailDeliverability = lazyWithRetry(() => import("./pages/EmailDeliverability"), "page-email-deliverability");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
