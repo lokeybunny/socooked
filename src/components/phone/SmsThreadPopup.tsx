@@ -448,6 +448,7 @@ export function SmsThreadPopup({
                     </span>
                   )}
                 </Button>
+              </div>
             </div>
           </DialogHeader>
 
