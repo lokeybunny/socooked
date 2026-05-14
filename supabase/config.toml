@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.agentflow-validate-phones]
 verify_jwt = false
+
+[functions.auto-callback-dispatch]
+verify_jwt = false
+
+[functions.auto-callback-twiml]
+verify_jwt = false
