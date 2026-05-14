@@ -478,7 +478,7 @@ function buildCallParams(args: {
 // HARD PIN: all PowerDial outbound calls (including VMD campaigns) MUST
 // originate from this verified Twilio caller ID. Overrides campaign
 // settings and env vars to guarantee a single consistent outbound number.
-const PINNED_VERIFIED_CALLER_ID = "+17253771478";
+const PINNED_VERIFIED_CALLER_ID = "+17028298105";
 
 export async function resolveTwilioFromNumber(_configuredFrom = TWILIO_FROM) {
   const availableFromNumbers = await listAvailableTwilioFromNumbers();
