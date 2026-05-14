@@ -104,6 +104,11 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
 }
 
 async function sendVoidfixAutoReply(toPhone: string, message: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  // KILL SWITCH (2026-05-14): Missed-call auto-reply SMS permanently disabled —
+  // was causing Warren's number to be flagged as spam. Do not re-enable.
+  console.log(`[twilio-dial-complete] auto-reply kill-switch active — skipping SMS to ${toPhone}`);
+  return { ok: true, id: undefined };
+  // eslint-disable-next-line no-unreachable
   try {
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
       method: "POST",
