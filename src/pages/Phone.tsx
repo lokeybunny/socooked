@@ -1534,6 +1534,22 @@ export default function PhonePage() {
           </SheetHeader>
           <div className="mt-6 space-y-6">
             <ChangeNumberSettings />
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Voicemail Greeting</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Upload, preview, and activate the recording callers hear before the AI assistant takes over.
+                  </div>
+                </div>
+                <a
+                  href="/powerdial/voicemails"
+                  className="shrink-0 inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted"
+                >
+                  Manage Recordings →
+                </a>
+              </div>
+            </div>
             <MissedCallSettings section="settings" />
             <VoidFixFirstReplySettings />
             <VoidFixActivityTab />
