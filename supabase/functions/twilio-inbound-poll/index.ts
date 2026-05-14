@@ -60,6 +60,10 @@ async function alreadyLogged(sid: string): Promise<boolean> {
 
 
 async function sendVoidfixAutoReply(from: string, sid: string, twilioNumber: string, inboundBody: string, cfg: AutoReplyConfig) {
+  // KILL SWITCH (2026-05-14): poll-based auto-reply permanently disabled (spam flag).
+  console.log(`[twilio-inbound-poll] auto-reply kill-switch active — skipping SMS to ${from}`);
+  return;
+  // eslint-disable-next-line no-unreachable
   const replyBody = buildAutoReply(inboundBody, cfg);
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
     method: "POST",
