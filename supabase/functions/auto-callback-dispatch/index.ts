@@ -15,7 +15,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-const TWILIO_FROM = Deno.env.get("TWILIO_FROM_NUMBER") || "";
+// Hardcoded caller ID for ALL auto-callback outbound calls.
+// Per user policy: outbound auto-callbacks must always show (702) 786-4139.
+const TWILIO_FROM = "+17027864139";
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
