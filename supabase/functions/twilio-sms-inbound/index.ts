@@ -155,6 +155,23 @@ async function sendVoidfixAutoReply(
   // permanently disabled — they were causing Warren's number to be flagged as spam.
   // Do not re-enable without explicit instruction.
   console.log("[twilio-sms-inbound] auto-reply kill-switch active — skipping send");
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/auto_reply_kill_log`, {
+      method: "POST",
+      headers: {
+        apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        source: "twilio-sms-inbound",
+        phone: from,
+        reason: "inbound SMS auto-reply blocked",
+        meta: { sid, twilio_number: twilioNumber, customer_id: customerId },
+      }),
+    });
+  } catch (e) { console.error("[kill-log]", e); }
   return;
   // eslint-disable-next-line no-unreachable
   const to = normalizePhone(from);
