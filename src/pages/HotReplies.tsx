@@ -381,7 +381,7 @@ export default function HotReplies() {
                               size="sm"
                               variant="outline"
                               className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-                              onClick={() => setSmsThread({ phone: r.phone, name: [r.first_name, r.last_name].filter(Boolean).join(" ") || null })}
+                              onClick={() => setSmsThread({ phone: r.phone, name: [r.first_name, r.last_name].filter(Boolean).join(" ") || null, replyText: r.reply_text || null, replyAt: r.imported_at || null })}
                               title="View SMS thread"
                             >
                               <MessageSquare className="h-3 w-3" /> Text
