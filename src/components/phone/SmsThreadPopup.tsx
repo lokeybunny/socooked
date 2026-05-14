@@ -176,6 +176,51 @@ export function SmsThreadPopup({
   // Effective route: explicit override wins; otherwise default to SMS for existing/new threads.
   const useImessageRoute = routeOverride ? routeOverride === "imessage" : false;
 
+  // Last inbound message + relative timeframe
+  const lastInbound = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].direction === "inbound") return messages[i];
+    }
+    return null;
+  }, [messages]);
+
+  const lastInboundAgo = useMemo(() => {
+    if (!lastInbound) return "";
+    const ms = Date.now() - new Date(lastInbound.created_at).getTime();
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    return `${d}d ago`;
+  }, [lastInbound]);
+
+  const generateQuickReply = async () => {
+    if (!lastInbound) { toast.error("No inbound message to reply to"); return; }
+    const inboundText = stripImageUrls(lastInbound.body) || lastInbound.body || "";
+    if (!inboundText.trim()) { toast.error("Last reply has no text"); return; }
+    setQuickReplyLoading(true);
+    try {
+      const recent = messages.slice(-10).map((m) => ({
+        direction: m.direction,
+        body: stripImageUrls(m.body) || m.body || "",
+      }));
+      const { data, error } = await supabase.functions.invoke("sms-quick-reply", {
+        body: { inboundMessage: inboundText, contactName, recentMessages: recent },
+      });
+      if (error || !(data as any)?.reply) {
+        toast.error((data as any)?.error || error?.message || "Failed to generate reply");
+        return;
+      }
+      setBody((data as any).reply);
+      toast.success("Quick reply drafted — review and hit send");
+    } finally {
+      setQuickReplyLoading(false);
+    }
+  };
+
+
   // Auto-scroll to bottom whenever messages change while open
   useEffect(() => {
     if (!open) return;
