@@ -235,7 +235,10 @@ Deno.serve(async (req) => {
         .maybeSingle();
       const interludeId = (setting?.value as any)?.recording_id;
       if (interludeId && typeof interludeId === "string") {
-        preVapiAudioUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${encodeURIComponent(interludeId)}&v=${Date.now()}`;
+        // NOTE: do NOT add extra query params here — this URL is embedded directly
+        // in TwiML. Any unescaped `&` makes the XML invalid and Twilio plays
+        // "an application error has occurred." Keep it to a single param.
+        preVapiAudioUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${encodeURIComponent(interludeId)}`;
       }
     } catch (e) {
       console.warn("[twilio-dial-complete] interlude lookup failed", (e as Error).message);
