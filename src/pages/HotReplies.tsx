@@ -502,6 +502,8 @@ export default function HotReplies() {
           onOpenChange={(o) => !o && setSmsThread(null)}
           phone={smsThread.phone}
           contactName={smsThread.name}
+          seedReplyText={smsThread.replyText}
+          seedReplyAt={smsThread.replyAt}
         />
       )}
     </AppLayout>
