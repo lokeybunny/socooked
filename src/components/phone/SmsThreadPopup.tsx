@@ -213,16 +213,30 @@ export function SmsThreadPopup({
   const useImessageRoute = routeOverride ? routeOverride === "imessage" : false;
 
   // Last inbound message + relative timeframe
+  // Last inbound: prefer messages from communications, fall back to seed (e.g. hot reply spreadsheet row)
   const lastInbound = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].direction === "inbound") return messages[i];
     }
+    if (seedReplyText && seedReplyText.trim()) {
+      return {
+        id: "seed",
+        direction: "inbound" as const,
+        body: seedReplyText,
+        from_address: phone,
+        to_address: null,
+        status: "received",
+        created_at: seedReplyAt || new Date().toISOString(),
+      } as SMSMessage;
+    }
     return null;
-  }, [messages]);
+  }, [messages, seedReplyText, seedReplyAt, phone]);
 
   const lastInboundAgo = useMemo(() => {
     if (!lastInbound) return "";
-    const ms = Date.now() - new Date(lastInbound.created_at).getTime();
+    const t = new Date(lastInbound.created_at).getTime();
+    if (!Number.isFinite(t)) return "";
+    const ms = Date.now() - t;
     const m = Math.floor(ms / 60000);
     if (m < 1) return "just now";
     if (m < 60) return `${m}m ago`;
@@ -230,6 +244,13 @@ export function SmsThreadPopup({
     if (h < 24) return `${h}h ago`;
     const d = Math.floor(h / 24);
     return `${d}d ago`;
+  }, [lastInbound]);
+
+  const lastInboundWhen = useMemo(() => {
+    if (!lastInbound) return "";
+    const t = new Date(lastInbound.created_at).getTime();
+    if (!Number.isFinite(t)) return "";
+    return new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }, [lastInbound]);
 
   const generateQuickReply = async () => {
@@ -242,6 +263,10 @@ export function SmsThreadPopup({
         direction: m.direction,
         body: stripImageUrls(m.body) || m.body || "",
       }));
+      // Ensure the seed reply is always included as the most recent inbound for context
+      if (lastInbound.id === "seed" && !recent.some((m) => m.body === inboundText)) {
+        recent.push({ direction: "inbound", body: inboundText });
+      }
       const { data, error } = await supabase.functions.invoke("sms-quick-reply", {
         body: { inboundMessage: inboundText, contactName, recentMessages: recent },
       });
@@ -255,6 +280,7 @@ export function SmsThreadPopup({
       setQuickReplyLoading(false);
     }
   };
+
 
 
   // Auto-scroll to bottom whenever messages change while open
