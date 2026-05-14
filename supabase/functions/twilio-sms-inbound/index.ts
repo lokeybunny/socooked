@@ -151,6 +151,12 @@ async function sendVoidfixAutoReply(
   inboundBody: string,
   cfg: AutoReplyConfig,
 ) {
+  // KILL SWITCH (2026-05-14): All "Busy in a meeting / IG reel" auto-replies are
+  // permanently disabled — they were causing Warren's number to be flagged as spam.
+  // Do not re-enable without explicit instruction.
+  console.log("[twilio-sms-inbound] auto-reply kill-switch active — skipping send");
+  return;
+  // eslint-disable-next-line no-unreachable
   const to = normalizePhone(from);
   if (!to) return;
   const replyBody = buildAutoReply(inboundBody, cfg);

@@ -773,19 +773,12 @@ serve(async (req) => {
           }
         }
 
-        // ─── Dropped-call auto SMS ───
-        const AUTO_REPLY_BODY = "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
+        // ─── Dropped-call auto SMS — KILL SWITCH (2026-05-14) ───
+        // The "Busy in a meeting / IG reel" auto-reply is permanently disabled
+        // because it was getting Warren's number flagged as spam.
+        // Do not re-enable without explicit instruction.
         const toPhone = normalizePhone(customerLead.phone || customerPhone);
-        const shouldSendAutoReply = messageType === "end-of-call-report" && toPhone && !callFailed && ["customer-ended-call", "customer-hung-up", "user-ended-call"].includes(endedReason);
-        if (shouldSendAutoReply) {
-          try {
-            await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
-              body: JSON.stringify({ action: "send", to: toPhone, body: AUTO_REPLY_BODY, customer_id: customerLead.id, source: "vapi-auto-reply" }),
-            }).catch(() => null);
-          } catch (_) { /* noop */ }
-        }
+        console.log(`[vapi-webhook] auto-reply kill-switch active — would have texted ${toPhone}`);
 
         // Log to communications table for audit trail
         await sb.from("communications").insert({
