@@ -16,8 +16,11 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Use the powerdial-voicemail-audio host (serves WAV / pcm_mulaw / 8000Hz / mono
+// with proper audio/wav Content-Type). The raw MP3 in storage is served as
+// application/octet-stream which causes Twilio to play STATIC.
 const DEFAULT_AUDIO =
-  "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/content-uploads/audio/auto-callback-drop.mp3";
+  "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=auto-callback-drop";
 
 function xml(body: string) {
   return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, {
