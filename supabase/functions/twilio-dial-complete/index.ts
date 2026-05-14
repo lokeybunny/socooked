@@ -223,8 +223,25 @@ Deno.serve(async (req) => {
     // Acknowledge XML — empty when answered, forward to Vapi AI agent when missed
     const ackXml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
     const VAPI_FORWARD_NUMBER = "+17474949386"; // Vapi AI agent (29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38)
-    const PRE_VAPI_AUDIO_URL = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?file=vvm-incoming`;
-    const vapiXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Play>${PRE_VAPI_AUDIO_URL}</Play><Dial answerOnBridge="true" timeout="30">${VAPI_FORWARD_NUMBER}</Dial></Response>`;
+
+    // Pre-AI interlude: admin-selected recording from voicemail_recordings,
+    // falls back to the embedded `vvm-incoming` file if none configured.
+    let preVapiAudioUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?file=vvm-incoming`;
+    try {
+      const { data: setting } = await sb
+        .from("app_settings")
+        .select("value")
+        .eq("key", "inbound_interlude_recording_id")
+        .maybeSingle();
+      const interludeId = (setting?.value as any)?.recording_id;
+      if (interludeId && typeof interludeId === "string") {
+        preVapiAudioUrl = `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?id=${encodeURIComponent(interludeId)}&v=${Date.now()}`;
+      }
+    } catch (e) {
+      console.warn("[twilio-dial-complete] interlude lookup failed", (e as Error).message);
+    }
+
+    const vapiXml = `<?xml version="1.0" encoding="UTF-8"?><Response><Play>${preVapiAudioUrl}</Play><Dial answerOnBridge="true" timeout="30">${VAPI_FORWARD_NUMBER}</Dial></Response>`;
     const ackResp = new Response(ackXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
     const voicemailResp = () => new Response(vapiXml, { status: 200, headers: { ...CORS, "Content-Type": "text/xml; charset=utf-8" } });
 

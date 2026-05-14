@@ -1537,9 +1537,10 @@ export default function PhonePage() {
             <div className="rounded-lg border border-border bg-muted/30 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold">Voicemail Greeting</div>
+                  <div className="text-sm font-semibold">Voicemail & Pre-AI Interlude Audio</div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    Upload, preview, and activate the recording callers hear before the AI assistant takes over.
+                    Upload, preview, and choose which recording plays as the voicemail drop and which short message
+                    callers hear right before the AI assistant picks up on missed calls.
                   </div>
                 </div>
                 <a
