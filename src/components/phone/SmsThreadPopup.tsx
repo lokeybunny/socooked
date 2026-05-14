@@ -370,6 +370,22 @@ export function SmsThreadPopup({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="h-7 gap-1 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10"
+                  onClick={generateQuickReply}
+                  disabled={quickReplyLoading || !lastInbound}
+                  title={lastInbound ? `AI reply to last message (${lastInboundAgo})` : "No inbound message to reply to"}
+                >
+                  {quickReplyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Quick Reply
+                  {lastInbound && (
+                    <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[10px] font-semibold px-1.5 py-0.5">
+                      <Clock className="h-2.5 w-2.5" />{lastInboundAgo}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="h-7 gap-1 text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
                   onClick={() => moveToVideographyFunnel({ phone, name: contactName || null })}
                   title="Create a videography funnel lead from this contact"
