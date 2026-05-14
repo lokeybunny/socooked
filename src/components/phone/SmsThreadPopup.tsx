@@ -268,7 +268,7 @@ export function SmsThreadPopup({
         recent.push({ direction: "inbound", body: inboundText });
       }
       const { data, error } = await supabase.functions.invoke("sms-quick-reply", {
-        body: { inboundMessage: inboundText, contactName, recentMessages: recent },
+        body: { inboundMessage: inboundText, contactName, recentMessages: recent, inboundAt: lastInbound.created_at },
       });
       if (error || !(data as any)?.reply) {
         toast.error((data as any)?.error || error?.message || "Failed to generate reply");
