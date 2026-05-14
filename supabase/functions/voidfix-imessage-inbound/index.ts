@@ -112,22 +112,28 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: error.message }, 500);
   }
 
-  // "How much" pricing auto-reply — fires on any inbound containing the phrase.
-  const HOW_MUCH_RE = /how\s*much/i;
-  const PRICING_REPLY = "The first client deal is no deposit whatsoever. However, if you do like what we have to offer, at the end of everything it'll be $200 — that's 50% off our original video package.";
+  // KILL SWITCH (2026-05-14): "How much" pricing auto-reply permanently disabled (spam flag).
   let pricingPromise: Promise<unknown> | null = null;
+  const HOW_MUCH_RE = /how\s*much/i;
   if (message && HOW_MUCH_RE.test(message)) {
-    pricingPromise = fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
-      body: JSON.stringify({
-        action: "send",
-        to: from_address,
-        body: PRICING_REPLY,
-        source: "voidfix-imessage-how-much",
-        metadata: { source: "voidfix-imessage-how-much", inbound_external_id: externalId, inbound_body: message },
-      }),
-    }).then(r => r.text()).catch(e => console.error("[voidfix-imessage-inbound] pricing reply error", e));
+    console.log(`[voidfix-imessage-inbound] auto-reply kill-switch active — skipping pricing reply to ${from_address}`);
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/auto_reply_kill_log`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SERVICE_KEY,
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          source: "voidfix-imessage-inbound",
+          from_phone: from_address,
+          reason: "iMessage how-much auto-reply blocked",
+          metadata: { inbound_external_id: externalId, inbound_body: message },
+        }),
+      }).catch(() => {});
+    } catch {}
   }
 
   // Fire-and-forget: auto-audit the sender's device so the SMS thread
