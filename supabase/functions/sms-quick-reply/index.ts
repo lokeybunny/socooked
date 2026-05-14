@@ -72,7 +72,10 @@ Total under 480 chars. Do NOT add anything before, after, or around these blocks
     }
 
     const data = await r.json();
-    const reply = data?.choices?.[0]?.message?.content?.trim() || '';
+    let reply = data?.choices?.[0]?.message?.content?.trim() || '';
+    if (reply && !reply.includes(LINK)) {
+      reply = reply.replace(/\s+$/, '') + `\n\n${LINK}`;
+    }
     return new Response(JSON.stringify({ reply }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
