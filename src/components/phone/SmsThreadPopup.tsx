@@ -482,6 +482,35 @@ export function SmsThreadPopup({
             </div>
           </DialogHeader>
 
+          {lastInbound && (
+            <div className="px-4 py-2 border-b bg-sky-500/5 shrink-0">
+              <div className="flex items-start gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-sky-400 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-wide text-sky-300 font-semibold flex items-center gap-1.5">
+                    Their last reply
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-1.5 py-0.5 normal-case tracking-normal">
+                      <Clock className="h-2.5 w-2.5" /> {lastInboundWhen} · {lastInboundAgo}
+                    </span>
+                  </div>
+                  <div className="text-sm text-foreground/90 mt-0.5 line-clamp-3 whitespace-pre-wrap">
+                    {stripImageUrls(lastInbound.body) || lastInbound.body}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 shrink-0"
+                  onClick={generateQuickReply}
+                  disabled={quickReplyLoading}
+                >
+                  {quickReplyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  AI Reply
+                </Button>
+              </div>
+            </div>
+          )}
+
           <ScrollArea ref={scrollRef as any} className="flex-1 min-h-[300px] px-4 py-3 bg-muted/10">
             {loading ? (
               <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
