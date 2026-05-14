@@ -147,6 +147,7 @@ const App = () => (
                 <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
                 <Route path="/phone" element={<PhonePage />} />
                 <Route path="/powerdial/voicemails" element={<RestrictedGate><PowerDialVoicemails /></RestrictedGate>} />
+                <Route path="/powerdial/auto-callback" element={<RestrictedGate><AutoCallbackMonitor /></RestrictedGate>} />
                 <Route path="/hot-replies" element={<HotReplies />} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
                 <Route path="/transcribe" element={<WarrenOnlyGate><Transcribe /></WarrenOnlyGate>} />
