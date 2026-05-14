@@ -11,7 +11,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown } from "lucide-react";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare } from "lucide-react";
+import SmsThreadPopup from "@/components/phone/SmsThreadPopup";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
