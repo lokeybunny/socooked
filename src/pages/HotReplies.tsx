@@ -494,6 +494,16 @@ export default function HotReplies() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* SMS thread popup */}
+      {smsThread && (
+        <SmsThreadPopup
+          open={!!smsThread}
+          onOpenChange={(o) => !o && setSmsThread(null)}
+          phone={smsThread.phone}
+          contactName={smsThread.name}
+        />
+      )}
     </AppLayout>
   );
 }
