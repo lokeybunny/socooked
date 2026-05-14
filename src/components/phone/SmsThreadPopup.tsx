@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap, Paperclip, X, Sparkles, Clock } from "lucide-react";
+import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap, Paperclip, X, Sparkles, Clock, Search } from "lucide-react";
 import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
@@ -76,6 +76,8 @@ export function SmsThreadPopup({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [quickReplyLoading, setQuickReplyLoading] = useState(false);
+  const [auditing, setAuditing] = useState(false);
+  const [deviceType, setDeviceType] = useState<string | null>(null);
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -121,31 +123,61 @@ export function SmsThreadPopup({
   //   iphone        -> iMessage
   //   android/voip/landline -> SMS (VoidFix)
   //   unknown/null  -> fall back to user's saved localStorage choice, else SMS
+  const resolveRoute = useCallback(async () => {
+    if (last10.length !== 10) return;
+    const { data } = await supabase
+      .from("sms_contacts")
+      .select("device_type, name")
+      .eq("phone_last10", last10)
+      .maybeSingle();
+    const dt = (data?.device_type || "").toLowerCase();
+    setDeviceType(data?.device_type || null);
+    const nameTag = data?.name || "";
+    const isIphone = dt === "iphone" || /_iPhone$/i.test(nameTag);
+    const isNonImsg = dt === "android" || dt === "voip" || dt === "landline"
+      || /_(Android|VoIP|Landline)$/i.test(nameTag);
+    if (isIphone) { setRouteOverride("imessage"); return; }
+    if (isNonImsg) { setRouteOverride("sms"); return; }
+    try {
+      const v = localStorage.getItem(`sms-thread-route-${last10}`);
+      if (v === "imessage" || v === "sms") { setRouteOverride(v); return; }
+    } catch {}
+    setRouteOverride(null);
+  }, [last10]);
+
   useEffect(() => {
-    if (!open || last10.length !== 10) return;
+    if (!open) return;
     let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("sms_contacts")
-        .select("device_type, name")
-        .eq("phone_last10", last10)
-        .maybeSingle();
-      if (cancelled) return;
-      const dt = (data?.device_type || "").toLowerCase();
-      const nameTag = data?.name || "";
-      const isIphone = dt === "iphone" || /_iPhone$/i.test(nameTag);
-      const isNonImsg = dt === "android" || dt === "voip" || dt === "landline"
-        || /_(Android|VoIP|Landline)$/i.test(nameTag);
-      if (isIphone) { setRouteOverride("imessage"); return; }
-      if (isNonImsg) { setRouteOverride("sms"); return; }
-      try {
-        const v = localStorage.getItem(`sms-thread-route-${last10}`);
-        if (v === "imessage" || v === "sms") { setRouteOverride(v); return; }
-      } catch {}
-      setRouteOverride(null);
-    })();
+    (async () => { if (!cancelled) await resolveRoute(); })();
     return () => { cancelled = true; };
-  }, [open, last10]);
+  }, [open, resolveRoute]);
+
+  const auditPhone = async () => {
+    if (last10.length !== 10) { toast.error("Invalid phone"); return; }
+    setAuditing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("phone-device-audit", {
+        body: { action: "run", phone: e164 },
+      });
+      if (error || !(data as any)?.ok) {
+        toast.error((data as any)?.error || error?.message || "Audit failed");
+        return;
+      }
+      const dt = (data as any)?.device_type || "unknown";
+      const locked = (data as any)?.locked;
+      toast.success(
+        dt === "iphone" ? `📱 iPhone — routing as iMessage${locked ? " (cached)" : ""}`
+        : dt === "android" ? `🤖 Android — routing as SMS${locked ? " (cached)" : ""}`
+        : dt === "landline" ? `☎️ Landline${locked ? " (cached)" : ""}`
+        : dt === "voip" ? `📞 VoIP — routing as SMS${locked ? " (cached)" : ""}`
+        : `Audit complete — device unknown`
+      );
+      await resolveRoute();
+    } finally {
+      setAuditing(false);
+    }
+  };
+
 
   // Detect iMessage suggestion: VIP route, existing customer, or prior iMessage thread.
   // This is informational only — actual routing follows routeOverride (default SMS).
@@ -399,6 +431,22 @@ export function SmsThreadPopup({
                   onClick={() => setNotesOpen(true)}
                 >
                   <StickyNote className="h-3.5 w-3.5" /> Notes
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                  onClick={auditPhone}
+                  disabled={auditing}
+                  title={deviceType ? `Already audited: ${deviceType} — re-check` : "Detect iMessage vs SMS via Twilio Lookup"}
+                >
+                  {auditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  Audit
+                  {deviceType && (
+                    <span className="ml-1 inline-flex items-center rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-semibold px-1.5 py-0.5 capitalize">
+                      {deviceType}
+                    </span>
+                  )}
                 </Button>
               </div>
             </div>
