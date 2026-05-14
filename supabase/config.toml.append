@@ -1,0 +1,6 @@
+
+[functions.auto-callback-dispatch]
+verify_jwt = false
+
+[functions.auto-callback-twiml]
+verify_jwt = false
