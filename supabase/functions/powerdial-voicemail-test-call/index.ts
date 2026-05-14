@@ -28,7 +28,7 @@ const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
 // Pinned verified caller ID — VMD test calls must come from the same
 // verified outbound number as the live PowerDial dialer.
-const VERIFIED_CALLER_ID = "+17253771478";
+const VERIFIED_CALLER_ID = "+17028298105";
 const TWILIO_FROM_NUMBER = VERIFIED_CALLER_ID;
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
