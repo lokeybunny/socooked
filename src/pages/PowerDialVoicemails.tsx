@@ -428,9 +428,10 @@ export default function PowerDialVoicemails() {
               <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 flex-wrap">
                       {rec.name}
-                      {rec.is_active && <Badge>ACTIVE</Badge>}
+                      {rec.is_active && <Badge>ACTIVE DROP</Badge>}
+                      {interludeId === rec.id && <Badge variant="secondary">PRE-AI INTERLUDE</Badge>}
                     </CardTitle>
                     <CardDescription className="mt-1 space-x-2 text-xs">
                       <span>{rec.codec}</span>
@@ -444,9 +445,14 @@ export default function PowerDialVoicemails() {
                       <span>{rec.file_size ? `${(rec.file_size / 1024).toFixed(1)} KB` : "?"}</span>
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     {!rec.is_active && (
-                      <Button size="sm" variant="outline" onClick={() => setActive(rec.id)}>Set active</Button>
+                      <Button size="sm" variant="outline" onClick={() => setActive(rec.id)}>Set as drop</Button>
+                    )}
+                    {interludeId === rec.id ? (
+                      <Button size="sm" variant="outline" onClick={clearInterlude}>Unset interlude</Button>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => setAsInterlude(rec)}>Use as Pre-AI Interlude</Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => remove(rec)}>
                       <Trash2 className="w-4 h-4" />
