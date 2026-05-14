@@ -4,7 +4,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { inboundMessage, contactName, recentMessages } = await req.json();
+    const { inboundMessage, contactName, recentMessages, inboundAt } = await req.json();
     if (!inboundMessage || typeof inboundMessage !== 'string') {
       return new Response(JSON.stringify({ error: 'inboundMessage required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -14,14 +14,42 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-    const system = `You are Warren, an AI drone videographer reaching out to real estate agents and property owners. Draft a SHORT, friendly, casual SMS reply (1-3 sentences max, under 320 chars) directly answering or responding to the lead's last message. Be human, warm, no emojis unless the lead used them, no signatures, no greetings like "Hi [Name]". Just the reply text — nothing else.`;
+    // Format the lead's reply timestamp into a friendly string (PST)
+    let whenLabel = '';
+    try {
+      const t = inboundAt ? new Date(inboundAt) : null;
+      if (t && !isNaN(t.getTime())) {
+        whenLabel = t.toLocaleString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          month: 'short', day: 'numeric',
+          hour: 'numeric', minute: '2-digit',
+        }) + ' PST';
+      }
+    } catch {}
+
+    const LINK = 'https://instagram.com/w4rr3nguru';
+
+    const system = `You are Warren, an AI drone videographer texting back real estate agents and property owners.
+
+OUTPUT FORMAT — follow EXACTLY, three short blocks separated by blank lines:
+
+Block 1 — quote their question with timestamp:
+> "<their exact message, trimmed if long>" — ${whenLabel || 'earlier'}
+
+Block 2 — your friendly, direct answer (1-3 sentences, casual, human, no greetings, no "Hi [name]", no signatures, no emojis unless they used them).
+
+Block 3 — exactly this link on its own line:
+${LINK}
+
+Total under 480 chars. Do NOT add anything before, after, or around these blocks. Do NOT use square-bracket placeholders.`;
 
     const history = (Array.isArray(recentMessages) ? recentMessages : [])
       .slice(-8)
       .map((m: any) => `${m.direction === 'outbound' ? 'Me' : (contactName || 'Lead')}: ${m.body || ''}`)
       .join('\n');
 
-    const userPrompt = `Conversation so far:\n${history}\n\nThe lead just said: "${inboundMessage}"\n\nDraft my reply.`;
+    const userPrompt = `Conversation so far:\n${history || '(no prior thread)'}\n\nThe lead said${whenLabel ? ` at ${whenLabel}` : ''}: "${inboundMessage}"\n\nDraft the 3-block reply now.`;
+
 
     const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
