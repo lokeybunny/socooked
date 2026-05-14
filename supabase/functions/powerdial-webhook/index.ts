@@ -1663,42 +1663,27 @@ Deno.serve(async (req) => {
         twilio_status: dialCallStatus,
       }).eq("id", callLogId);
 
-      // Auto-reply SMS for human-connected dropped calls
+      // KILL SWITCH (2026-05-14): Dropped-call auto-reply SMS permanently disabled (spam flag).
+      // Was: "Hi this is Warren... Busy in a meeting..." — replaced by 2-min auto-callback voicemail drop.
       if (dialCallStatus === "completed" || dialCallStatus === "no-answer") {
+        console.log(`[powerdial-webhook] auto-reply kill-switch active — skipping dropped-call SMS (status=${dialCallStatus})`);
         try {
-          const { data: qItem } = await sb
-            .from("powerdial_queue")
-            .select("phone, customer_id")
-            .eq("id", queueItemId)
-            .single();
-          const leadPhone = qItem?.phone || params.get("To") || "";
-          if (leadPhone && SUPABASE_SERVICE_ROLE_KEY) {
-            const AUTO_REPLY_BODY = "Hi this is Warren, AI Videographer / Director, Busy in a meeting, will call you back, can I send you my IG reel in the mean time?";
-            await fetch(`${SUPABASE_URL}/functions/v1/powerdial-sms`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              },
-              body: JSON.stringify({
-                action: "send",
-                to: normalizePhone(leadPhone),
-                body: AUTO_REPLY_BODY,
-                customer_id: qItem?.customer_id || null,
-                source: "powerdial-dropped-call-sms",
-                metadata: {
-                  source: "powerdial-dropped-call-sms",
-                  campaign_id: campaignId,
-                  call_log_id: callLogId,
-                  dial_call_status: dialCallStatus,
-                  trigger: "human_call_dropped",
-                },
-              }),
-            }).catch((err) => console.error("[powerdial-webhook] dropped-call auto-reply failed:", err));
-          }
-        } catch (err) {
-          console.error("[powerdial-webhook] dropped-call auto-reply exception:", err);
-        }
+          await fetch(`${SUPABASE_URL}/rest/v1/auto_reply_kill_log`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              Prefer: "return=minimal",
+            },
+            body: JSON.stringify({
+              source: "powerdial-webhook",
+              call_sid: callSid || null,
+              reason: "powerdial dropped-call auto-reply blocked",
+              metadata: { campaign_id: campaignId, call_log_id: callLogId, dial_call_status: dialCallStatus },
+            }),
+          }).catch(() => {});
+        } catch {}
       }
 
       const advanceResult = await handleCallCompletion(campaignId, queueItemId, callLogId, "dial-complete");
