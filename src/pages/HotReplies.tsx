@@ -89,7 +89,7 @@ export default function HotReplies() {
     try { return (localStorage.getItem('hot-replies-sort-dir') as 'latest' | 'earliest') || 'latest'; } catch { return 'latest'; }
   });
   const [selected, setSelected] = useState<Reply | null>(null);
-  const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null } | null>(null);
+  const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null; replyText: string | null; replyAt: string | null } | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [noteList, setNoteList] = useState<any[]>([]);
 
@@ -381,7 +381,7 @@ export default function HotReplies() {
                               size="sm"
                               variant="outline"
                               className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-                              onClick={() => setSmsThread({ phone: r.phone, name: [r.first_name, r.last_name].filter(Boolean).join(" ") || null })}
+                              onClick={() => setSmsThread({ phone: r.phone, name: [r.first_name, r.last_name].filter(Boolean).join(" ") || null, replyText: r.reply_text || null, replyAt: r.imported_at || null })}
                               title="View SMS thread"
                             >
                               <MessageSquare className="h-3 w-3" /> Text
@@ -502,6 +502,8 @@ export default function HotReplies() {
           onOpenChange={(o) => !o && setSmsThread(null)}
           phone={smsThread.phone}
           contactName={smsThread.name}
+          seedReplyText={smsThread.replyText}
+          seedReplyAt={smsThread.replyAt}
         />
       )}
     </AppLayout>

@@ -58,12 +58,16 @@ export function SmsThreadPopup({
   phone,
   contactName,
   initialBody,
+  seedReplyText,
+  seedReplyAt,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   phone: string;
   contactName?: string | null;
   initialBody?: string;
+  seedReplyText?: string | null;
+  seedReplyAt?: string | null;
 }) {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -209,16 +213,30 @@ export function SmsThreadPopup({
   const useImessageRoute = routeOverride ? routeOverride === "imessage" : false;
 
   // Last inbound message + relative timeframe
+  // Last inbound: prefer messages from communications, fall back to seed (e.g. hot reply spreadsheet row)
   const lastInbound = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].direction === "inbound") return messages[i];
     }
+    if (seedReplyText && seedReplyText.trim()) {
+      return {
+        id: "seed",
+        direction: "inbound" as const,
+        body: seedReplyText,
+        from_address: phone,
+        to_address: null,
+        status: "received",
+        created_at: seedReplyAt || new Date().toISOString(),
+      } as SMSMessage;
+    }
     return null;
-  }, [messages]);
+  }, [messages, seedReplyText, seedReplyAt, phone]);
 
   const lastInboundAgo = useMemo(() => {
     if (!lastInbound) return "";
-    const ms = Date.now() - new Date(lastInbound.created_at).getTime();
+    const t = new Date(lastInbound.created_at).getTime();
+    if (!Number.isFinite(t)) return "";
+    const ms = Date.now() - t;
     const m = Math.floor(ms / 60000);
     if (m < 1) return "just now";
     if (m < 60) return `${m}m ago`;
@@ -226,6 +244,13 @@ export function SmsThreadPopup({
     if (h < 24) return `${h}h ago`;
     const d = Math.floor(h / 24);
     return `${d}d ago`;
+  }, [lastInbound]);
+
+  const lastInboundWhen = useMemo(() => {
+    if (!lastInbound) return "";
+    const t = new Date(lastInbound.created_at).getTime();
+    if (!Number.isFinite(t)) return "";
+    return new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }, [lastInbound]);
 
   const generateQuickReply = async () => {
@@ -238,6 +263,10 @@ export function SmsThreadPopup({
         direction: m.direction,
         body: stripImageUrls(m.body) || m.body || "",
       }));
+      // Ensure the seed reply is always included as the most recent inbound for context
+      if (lastInbound.id === "seed" && !recent.some((m) => m.body === inboundText)) {
+        recent.push({ direction: "inbound", body: inboundText });
+      }
       const { data, error } = await supabase.functions.invoke("sms-quick-reply", {
         body: { inboundMessage: inboundText, contactName, recentMessages: recent },
       });
@@ -251,6 +280,7 @@ export function SmsThreadPopup({
       setQuickReplyLoading(false);
     }
   };
+
 
 
   // Auto-scroll to bottom whenever messages change while open
@@ -451,6 +481,35 @@ export function SmsThreadPopup({
               </div>
             </div>
           </DialogHeader>
+
+          {lastInbound && (
+            <div className="px-4 py-2 border-b bg-sky-500/5 shrink-0">
+              <div className="flex items-start gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-sky-400 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] uppercase tracking-wide text-sky-300 font-semibold flex items-center gap-1.5">
+                    Their last reply
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-1.5 py-0.5 normal-case tracking-normal">
+                      <Clock className="h-2.5 w-2.5" /> {lastInboundWhen} · {lastInboundAgo}
+                    </span>
+                  </div>
+                  <div className="text-sm text-foreground/90 mt-0.5 line-clamp-3 whitespace-pre-wrap">
+                    {stripImageUrls(lastInbound.body) || lastInbound.body}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 shrink-0"
+                  onClick={generateQuickReply}
+                  disabled={quickReplyLoading}
+                >
+                  {quickReplyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  AI Reply
+                </Button>
+              </div>
+            </div>
+          )}
 
           <ScrollArea ref={scrollRef as any} className="flex-1 min-h-[300px] px-4 py-3 bg-muted/10">
             {loading ? (
