@@ -339,17 +339,12 @@ Deno.serve(async (req) => {
     const cfg = await loadConfig();
     tStamp("config loaded");
 
-    // "How much" pricing auto-reply — fires on any inbound containing the phrase, not DND.
+    // KILL SWITCH (2026-05-14): "How much" pricing auto-reply permanently disabled (spam flag).
     const HOW_MUCH_RE = /how\s*much/i;
     const matchedHowMuch = !isDnd && HOW_MUCH_RE.test(body || "");
-    const PRICING_REPLY = "The first client deal is no deposit whatsoever. However, if you do like what we have to offer, at the end of everything it'll be $200 — that's 50% off our original video package.";
     if (matchedHowMuch) {
-      void logEvent('auto-reply:how-much', { from: normalizedFrom, to: normalizedTo, sid });
-      runAfterResponse(
-        "how-much-pricing-reply",
-        sendVoidfixAutoReply(from, to, sid || null, customerId, body, { ...cfg, prefix: PRICING_REPLY, include_quoted: false }),
-        { from: normalizedFrom, to: normalizedTo, sid },
-      );
+      console.log(`[twilio-sms-inbound] auto-reply kill-switch active — skipping pricing reply to ${normalizedFrom}`);
+      void logEvent('auto-reply:how-much:killed', { from: normalizedFrom, to: normalizedTo, sid });
     }
 
     // Send the canned reply ONLY when Twilio's webhook `To` is the 8105 landline AND not DND.
