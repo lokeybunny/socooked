@@ -780,6 +780,42 @@ serve(async (req) => {
         const toPhone = normalizePhone(customerLead.phone || customerPhone);
         console.log(`[vapi-webhook] auto-reply kill-switch active — would have texted ${toPhone}`);
 
+        // ─── Auto-callback drop (replaces the killed SMS) ───
+        // If the caller hit the AI but didn't engage (short call OR no transcript),
+        // schedule a Twilio outbound call ~2 min later that only plays the drop
+        // MP3 if a HUMAN answers (AMD).  See auto-callback-dispatch / -twiml.
+        if (callFailed && toPhone) {
+          try {
+            const { data: cbCfg } = await sb
+              .from("app_settings").select("value").eq("key", "auto_callback_drop").maybeSingle();
+            const cb = (cbCfg?.value as any) || {};
+            if (cb.enabled !== false) {
+              const delayMin = Number(cb.delay_minutes) > 0 ? Number(cb.delay_minutes) : 2;
+              const last10 = toPhone.replace(/\D/g, "").slice(-10);
+              // Don't double-queue if a recent pending row exists for this number
+              const { data: dup } = await sb
+                .from("auto_callback_queue")
+                .select("id")
+                .eq("phone_last10", last10)
+                .in("status", ["pending", "dialing"])
+                .limit(1);
+              if (!dup?.length) {
+                await sb.from("auto_callback_queue").insert({
+                  phone: toPhone,
+                  phone_last10: last10,
+                  customer_id: customerLead.id,
+                  source_vapi_call_id: callId,
+                  scheduled_at: new Date(Date.now() + delayMin * 60_000).toISOString(),
+                  meta: { ended_reason: endedReason, duration, transcript_chars: (transcript || "").length },
+                });
+                console.log(`[vapi-webhook] auto-callback queued for ${toPhone} in ${delayMin}m`);
+              }
+            }
+          } catch (cbErr) {
+            console.error("[vapi-webhook] auto-callback enqueue failed:", (cbErr as Error).message);
+          }
+        }
+
         // Log to communications table for audit trail
         await sb.from("communications").insert({
           customer_id: customerLead.id,
