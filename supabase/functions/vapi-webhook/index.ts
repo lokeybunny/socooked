@@ -789,10 +789,11 @@ serve(async (req) => {
         } catch (e) { console.error("[kill-log]", e); }
 
         // ─── Auto-callback drop (replaces the killed SMS) ───
-        // If the caller hit the AI but didn't engage (short call OR no transcript),
-        // schedule a Twilio outbound call ~2 min later that only plays the drop
-        // MP3 if a HUMAN answers (AMD).  See auto-callback-dispatch / -twiml.
-        if (callFailed && toPhone) {
+        // Per spec: trigger if EITHER condition hits — short call (<15s) OR no
+        // usable transcript. Independent of `callFailed` (which requires both).
+        const transcriptChars = (transcript || "").trim().length;
+        const noUsableInfo = duration < 15 || transcriptChars < 20;
+        if (noUsableInfo && toPhone) {
           try {
             const { data: cbCfg } = await sb
               .from("app_settings").select("value").eq("key", "auto_callback_drop").maybeSingle();
