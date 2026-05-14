@@ -58,12 +58,16 @@ export function SmsThreadPopup({
   phone,
   contactName,
   initialBody,
+  seedReplyText,
+  seedReplyAt,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   phone: string;
   contactName?: string | null;
   initialBody?: string;
+  seedReplyText?: string | null;
+  seedReplyAt?: string | null;
 }) {
   const [messages, setMessages] = useState<SMSMessage[]>([]);
   const [loading, setLoading] = useState(false);
