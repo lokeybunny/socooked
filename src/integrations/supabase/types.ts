@@ -749,6 +749,63 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_callback_queue: {
+        Row: {
+          answered_by: string | null
+          attempts: number
+          created_at: string
+          customer_id: string | null
+          delivered_at: string | null
+          id: string
+          last_error: string | null
+          meta: Json
+          phone: string
+          phone_last10: string
+          scheduled_at: string
+          source_missed_call_event_id: string | null
+          source_vapi_call_id: string | null
+          status: string
+          twilio_call_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          answered_by?: string | null
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          delivered_at?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json
+          phone: string
+          phone_last10: string
+          scheduled_at?: string
+          source_missed_call_event_id?: string | null
+          source_vapi_call_id?: string | null
+          status?: string
+          twilio_call_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answered_by?: string | null
+          attempts?: number
+          created_at?: string
+          customer_id?: string | null
+          delivered_at?: string | null
+          id?: string
+          last_error?: string | null
+          meta?: Json
+          phone?: string
+          phone_last10?: string
+          scheduled_at?: string
+          source_missed_call_event_id?: string | null
+          source_vapi_call_id?: string | null
+          status?: string
+          twilio_call_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           actions: Json
