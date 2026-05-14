@@ -127,17 +127,41 @@ export default function PowerDialVoicemails() {
   // (WAV / pcm_mulaw / 8000Hz / mono) — the only format Twilio plays cleanly.
   const codec = "pcm_mulaw" as const;
   const [testPhone, setTestPhone] = useState("+14244658105");
+  const [interludeId, setInterludeId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("voicemail_recordings")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: setting }] = await Promise.all([
+      supabase.from("voicemail_recordings").select("*").order("created_at", { ascending: false }),
+      supabase.from("app_settings").select("value").eq("key", "inbound_interlude_recording_id").maybeSingle(),
+    ]);
     if (error) toast.error(error.message);
     else setRecordings((data as Recording[]) || []);
+    setInterludeId(((setting?.value as any)?.recording_id as string) || null);
     setLoading(false);
+  }
+
+  async function setAsInterlude(rec: Recording) {
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "inbound_interlude_recording_id", value: { recording_id: rec.id } }, { onConflict: "key" });
+    if (error) toast.error(error.message);
+    else {
+      setInterludeId(rec.id);
+      toast.success(`"${rec.name}" is now the pre-AI interlude`);
+    }
+  }
+
+  async function clearInterlude() {
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "inbound_interlude_recording_id", value: { recording_id: null } }, { onConflict: "key" });
+    if (error) toast.error(error.message);
+    else {
+      setInterludeId(null);
+      toast.success("Reverted to default interlude");
+    }
   }
 
   useEffect(() => {
