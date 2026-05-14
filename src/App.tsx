@@ -59,6 +59,7 @@ const Liquidate = lazyWithRetry(() => import("./pages/Liquidate"), "page-liquida
 const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
 const PhoneAudit = lazyWithRetry(() => import("./pages/PhoneAudit"), "page-phone-audit");
 const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
+const AutoCallbackMonitor = lazyWithRetry(() => import("./pages/AutoCallbackMonitor"), "page-auto-callback-monitor");
 const CampaignLeader = lazyWithRetry(() => import("./pages/CampaignLeader"), "page-campaign-leader");
 const EmailDeliverability = lazyWithRetry(() => import("./pages/EmailDeliverability"), "page-email-deliverability");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
@@ -146,6 +147,7 @@ const App = () => (
                 <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
                 <Route path="/phone" element={<PhonePage />} />
                 <Route path="/powerdial/voicemails" element={<RestrictedGate><PowerDialVoicemails /></RestrictedGate>} />
+                <Route path="/powerdial/auto-callback" element={<RestrictedGate><AutoCallbackMonitor /></RestrictedGate>} />
                 <Route path="/hot-replies" element={<HotReplies />} />
                 <Route path="/sms" element={<WarrenOnlyGate><SMSPage /></WarrenOnlyGate>} />
                 <Route path="/transcribe" element={<WarrenOnlyGate><Transcribe /></WarrenOnlyGate>} />

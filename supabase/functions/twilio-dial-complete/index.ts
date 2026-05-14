@@ -107,6 +107,23 @@ async function sendVoidfixAutoReply(toPhone: string, message: string): Promise<{
   // KILL SWITCH (2026-05-14): Missed-call auto-reply SMS permanently disabled —
   // was causing Warren's number to be flagged as spam. Do not re-enable.
   console.log(`[twilio-dial-complete] auto-reply kill-switch active — skipping SMS to ${toPhone}`);
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/auto_reply_kill_log`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        source: "twilio-dial-complete",
+        phone: toPhone,
+        reason: "missed-call auto-reply blocked",
+        meta: { message_preview: (message || "").slice(0, 80) },
+      }),
+    });
+  } catch (e) { console.error("[kill-log]", e); }
   return { ok: true, id: undefined };
   // eslint-disable-next-line no-unreachable
   try {
