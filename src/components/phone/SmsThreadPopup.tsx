@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap, Paperclip, X } from "lucide-react";
+import { Loader2, Send, MessageSquare, StickyNote, Workflow, Zap, Paperclip, X, Sparkles, Clock } from "lucide-react";
 import { toast } from "sonner";
 import EmojiButton from "@/components/sms/EmojiButton";
 import CallNotesPopup from "@/components/phone/CallNotesPopup";
@@ -75,6 +75,7 @@ export function SmsThreadPopup({
   const [routeOverride, setRouteOverride] = useState<"imessage" | "sms" | null>(null);
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [quickReplyLoading, setQuickReplyLoading] = useState(false);
 
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -174,6 +175,51 @@ export function SmsThreadPopup({
 
   // Effective route: explicit override wins; otherwise default to SMS for existing/new threads.
   const useImessageRoute = routeOverride ? routeOverride === "imessage" : false;
+
+  // Last inbound message + relative timeframe
+  const lastInbound = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].direction === "inbound") return messages[i];
+    }
+    return null;
+  }, [messages]);
+
+  const lastInboundAgo = useMemo(() => {
+    if (!lastInbound) return "";
+    const ms = Date.now() - new Date(lastInbound.created_at).getTime();
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    return `${d}d ago`;
+  }, [lastInbound]);
+
+  const generateQuickReply = async () => {
+    if (!lastInbound) { toast.error("No inbound message to reply to"); return; }
+    const inboundText = stripImageUrls(lastInbound.body) || lastInbound.body || "";
+    if (!inboundText.trim()) { toast.error("Last reply has no text"); return; }
+    setQuickReplyLoading(true);
+    try {
+      const recent = messages.slice(-10).map((m) => ({
+        direction: m.direction,
+        body: stripImageUrls(m.body) || m.body || "",
+      }));
+      const { data, error } = await supabase.functions.invoke("sms-quick-reply", {
+        body: { inboundMessage: inboundText, contactName, recentMessages: recent },
+      });
+      if (error || !(data as any)?.reply) {
+        toast.error((data as any)?.error || error?.message || "Failed to generate reply");
+        return;
+      }
+      setBody((data as any).reply);
+      toast.success("Quick reply drafted — review and hit send");
+    } finally {
+      setQuickReplyLoading(false);
+    }
+  };
+
 
   // Auto-scroll to bottom whenever messages change while open
   useEffect(() => {
@@ -320,6 +366,22 @@ export function SmsThreadPopup({
                   title="Insert quick pitch shortcut"
                 >
                   <Zap className="h-3.5 w-3.5" /> Quick Pitch
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10"
+                  onClick={generateQuickReply}
+                  disabled={quickReplyLoading || !lastInbound}
+                  title={lastInbound ? `AI reply to last message (${lastInboundAgo})` : "No inbound message to reply to"}
+                >
+                  {quickReplyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Quick Reply
+                  {lastInbound && (
+                    <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[10px] font-semibold px-1.5 py-0.5">
+                      <Clock className="h-2.5 w-2.5" />{lastInboundAgo}
+                    </span>
+                  )}
                 </Button>
                 <Button
                   size="sm"
