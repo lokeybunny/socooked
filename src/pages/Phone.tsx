@@ -1551,14 +1551,6 @@ export default function PhonePage() {
                 </a>
               </div>
             </div>
-                <a
-                  href="/powerdial/voicemails"
-                  className="shrink-0 inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted"
-                >
-                  Manage Recordings →
-                </a>
-              </div>
-            </div>
             <MissedCallSettings section="settings" />
             <VoidFixFirstReplySettings />
             <VoidFixActivityTab />
