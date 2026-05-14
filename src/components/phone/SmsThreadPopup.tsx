@@ -432,7 +432,22 @@ export function SmsThreadPopup({
                 >
                   <StickyNote className="h-3.5 w-3.5" /> Notes
                 </Button>
-              </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                  onClick={auditPhone}
+                  disabled={auditing}
+                  title={deviceType ? `Already audited: ${deviceType} — re-check` : "Detect iMessage vs SMS via Twilio Lookup"}
+                >
+                  {auditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                  Audit
+                  {deviceType && (
+                    <span className="ml-1 inline-flex items-center rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-semibold px-1.5 py-0.5 capitalize">
+                      {deviceType}
+                    </span>
+                  )}
+                </Button>
             </div>
           </DialogHeader>
 
