@@ -779,6 +779,14 @@ serve(async (req) => {
         // Do not re-enable without explicit instruction.
         const toPhone = normalizePhone(customerLead.phone || customerPhone);
         console.log(`[vapi-webhook] auto-reply kill-switch active — would have texted ${toPhone}`);
+        try {
+          await sb.from("auto_reply_kill_log").insert({
+            source: "vapi-webhook",
+            phone: toPhone,
+            reason: "post-Vapi auto-reply blocked",
+            meta: { call_id: callId, ended_reason: endedReason, duration, call_failed: callFailed },
+          });
+        } catch (e) { console.error("[kill-log]", e); }
 
         // ─── Auto-callback drop (replaces the killed SMS) ───
         // If the caller hit the AI but didn't engage (short call OR no transcript),
