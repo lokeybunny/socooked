@@ -377,6 +377,15 @@ export default function HotReplies() {
                             <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                              onClick={() => setSmsThread({ phone: r.phone, name: [r.first_name, r.last_name].filter(Boolean).join(" ") || null })}
+                              title="View SMS thread"
+                            >
+                              <MessageSquare className="h-3 w-3" /> Text
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
                           </div>
                         )}
