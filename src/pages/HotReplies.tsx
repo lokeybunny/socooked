@@ -89,7 +89,7 @@ export default function HotReplies() {
     try { return (localStorage.getItem('hot-replies-sort-dir') as 'latest' | 'earliest') || 'latest'; } catch { return 'latest'; }
   });
   const [selected, setSelected] = useState<Reply | null>(null);
-  const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null } | null>(null);
+  const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null; replyText: string | null; replyAt: string | null } | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [noteList, setNoteList] = useState<any[]>([]);
 
