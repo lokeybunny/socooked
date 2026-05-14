@@ -806,6 +806,33 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_reply_kill_log: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json | null
+          phone: string | null
+          reason: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          phone?: string | null
+          reason?: string | null
+          source: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          phone?: string | null
+          reason?: string | null
+          source?: string
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           actions: Json
