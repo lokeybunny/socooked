@@ -20,7 +20,16 @@ const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // with proper audio/wav Content-Type). The raw MP3 in storage is served as
 // application/octet-stream which causes Twilio to play STATIC.
 const DEFAULT_AUDIO =
-  "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=auto-callback-drop";
+  "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/powerdial-voicemail-audio?file=vvm-incoming";
+
+function isTwilioSafeVoicemailUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    return parsed.pathname.endsWith("/functions/v1/powerdial-voicemail-audio");
+  } catch {
+    return false;
+  }
+}
 
 function xml(body: string) {
   return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, {
@@ -68,7 +77,9 @@ Deno.serve(async (req) => {
     const { data: setting } = await sb
       .from("app_settings").select("value").eq("key", "auto_callback_drop").maybeSingle();
     const cfg = (setting?.value as any) || {};
-    if (typeof cfg.audio_url === "string" && cfg.audio_url) audioUrl = cfg.audio_url;
+    if (typeof cfg.audio_url === "string" && cfg.audio_url && isTwilioSafeVoicemailUrl(cfg.audio_url)) {
+      audioUrl = cfg.audio_url;
+    }
   } catch { /* fall back to default */ }
 
   // Treat human + unknown as "play". Machine variants → hang up.
