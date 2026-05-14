@@ -11,7 +11,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown } from "lucide-react";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare } from "lucide-react";
+import SmsThreadPopup from "@/components/phone/SmsThreadPopup";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import WarmWelcomeCampaignPanel from "@/components/hot-replies/WarmWelcomeCampaignPanel";
@@ -88,6 +89,7 @@ export default function HotReplies() {
     try { return (localStorage.getItem('hot-replies-sort-dir') as 'latest' | 'earliest') || 'latest'; } catch { return 'latest'; }
   });
   const [selected, setSelected] = useState<Reply | null>(null);
+  const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null } | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [noteList, setNoteList] = useState<any[]>([]);
 
@@ -375,6 +377,15 @@ export default function HotReplies() {
                             <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                              onClick={() => setSmsThread({ phone: r.phone, name: [r.first_name, r.last_name].filter(Boolean).join(" ") || null })}
+                              title="View SMS thread"
+                            >
+                              <MessageSquare className="h-3 w-3" /> Text
+                            </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
                           </div>
                         )}
@@ -483,6 +494,16 @@ export default function HotReplies() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* SMS thread popup */}
+      {smsThread && (
+        <SmsThreadPopup
+          open={!!smsThread}
+          onOpenChange={(o) => !o && setSmsThread(null)}
+          phone={smsThread.phone}
+          contactName={smsThread.name}
+        />
+      )}
     </AppLayout>
   );
 }
