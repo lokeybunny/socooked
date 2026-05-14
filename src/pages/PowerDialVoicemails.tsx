@@ -242,19 +242,25 @@ export default function PowerDialVoicemails() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Mic className="w-5 h-5 text-primary" /> Currently Playing
-              {current && <Badge>LIVE</Badge>}
+              <Badge>LIVE</Badge>
             </CardTitle>
             <CardDescription>
               {current
                 ? `"${current.name}" — ${current.duration_sec?.toFixed(1) ?? "?"}s · ${current.codec} / ${current.sample_rate}Hz`
-                : "No custom interlude set — Twilio is playing the built-in default clip."}
+                : "Built-in default clip (vvm-incoming) — exactly what callers hear today before the AI picks up. Upload a new file below to replace it."}
             </CardDescription>
           </CardHeader>
-          {current && (
-            <CardContent>
-              <audio controls src={current.public_url} className="w-full" />
-            </CardContent>
-          )}
+          <CardContent>
+            <audio
+              controls
+              src={
+                current
+                  ? current.public_url
+                  : `${SUPABASE_URL}/functions/v1/powerdial-voicemail-audio?file=vvm-incoming`
+              }
+              className="w-full"
+            />
+          </CardContent>
         </Card>
 
         {/* Upload (auto-activates) */}
