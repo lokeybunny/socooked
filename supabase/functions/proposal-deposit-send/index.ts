@@ -163,17 +163,42 @@ Deno.serve(async (req) => {
     let thankYouChannel: string | null = (meta as any).thank_you_sms_channel || null;
     if (p.client_phone && !meta.thank_you_sms_sent_at) {
       try {
-        const firstName = (p.client_name || "").split(" ")[0] || "there";
+        // Resolve a real first name — never use generic "Direct Caller (...)" placeholder
+        const digits = String(p.client_phone).replace(/\D/g, "").slice(-10);
+        const isGenericName = (n: string) =>
+          !n || /^direct caller/i.test(n) || /^unknown/i.test(n) || /^caller$/i.test(n) || /^\+?\d[\d\s().-]*$/.test(n);
+
+        let resolvedName: string = isGenericName(p.client_name || "") ? "" : (p.client_name || "");
+        if (!resolvedName && digits) {
+          try {
+            const { data: c } = await supabase
+              .from("sms_contacts").select("name").eq("phone_last10", digits).not("name", "is", null).limit(1);
+            if (c?.[0]?.name && !isGenericName(c[0].name)) resolvedName = c[0].name;
+          } catch { /* ignore */ }
+          if (!resolvedName) {
+            try {
+              const { data: cu } = await supabase
+                .from("customers").select("full_name").ilike("phone", `%${digits}`).not("full_name", "is", null).limit(1);
+              if (cu?.[0]?.full_name && !isGenericName(cu[0].full_name)) resolvedName = cu[0].full_name;
+            } catch { /* ignore */ }
+          }
+          if (!resolvedName) {
+            try {
+              const { data: l } = await supabase
+                .from("leads").select("name").ilike("phone", `%${digits}`).not("name", "is", null).limit(1);
+              if (l?.[0]?.name && !isGenericName(l[0].name)) resolvedName = l[0].name;
+            } catch { /* ignore */ }
+          }
+        }
+        const firstName = (resolvedName || "").trim().split(/\s+/)[0] || "there";
+
         const smsBody = `Hi ${firstName}, this is Warren — thank you for signing the agreement for "${p.title}"! To kick off production, please send the $${amountStr} deposit:
 
 • Zelle: Warren@stu25.com
 • Cash App: $ITSWARR
-• Card: reply here and I'll send a secure payment link.
 
 Once received we'll have your update within 24–72 hours. Reply with any questions.`;
 
-        // Channel detection: look at recent SMS-type messages for this phone
-        const digits = String(p.client_phone).replace(/\D/g, "").slice(-10);
         let useImessage = false;
         try {
           const { data: lastMsgs } = await supabase
