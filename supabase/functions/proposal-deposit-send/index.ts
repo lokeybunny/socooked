@@ -158,25 +158,65 @@ Deno.serve(async (req) => {
       })
       .eq("id", proposalId);
 
-    // Send thank-you SMS via VoidFix (idempotent)
+    // Send thank-you + deposit-info text (channel-aware: iMessage if existing thread is iMessage, else SMS)
     let thankYouSmsSentAt: string | null = meta.thank_you_sms_sent_at || null;
+    let thankYouChannel: string | null = (meta as any).thank_you_sms_channel || null;
     if (p.client_phone && !meta.thank_you_sms_sent_at) {
       try {
         const firstName = (p.client_name || "").split(" ")[0] || "there";
-        const smsBody = `Hi ${firstName}, this is Warren — thank you for signing! We're starting work on your project right away and you'll have an update within 24–72 hours. Reply here anytime with questions.`;
-        const smsUrl = `${SUPABASE_URL}/functions/v1/powerdial-sms?action=send`;
-        const smsRes = await fetch(smsUrl, {
+        const smsBody = `Hi ${firstName}, this is Warren — thank you for signing the agreement for "${p.title}"! To kick off production, please send the $${amountStr} deposit:
+
+• Zelle: Warren@stu25.com
+• Cash App: $ITSWARR
+• Card: reply here and I'll send a secure payment link.
+
+Once received we'll have your update within 24–72 hours. Reply with any questions.`;
+
+        // Channel detection: look at recent SMS-type messages for this phone
+        const digits = String(p.client_phone).replace(/\D/g, "").slice(-10);
+        let useImessage = false;
+        try {
+          const { data: lastMsgs } = await supabase
+            .from("communications")
+            .select("provider, created_at")
+            .eq("type", "sms")
+            .or(`phone_number.ilike.%${digits},to_address.ilike.%${digits},from_address.ilike.%${digits}`)
+            .order("created_at", { ascending: false })
+            .limit(10);
+          if (Array.isArray(lastMsgs) && lastMsgs.length > 0) {
+            // If any recent message was iMessage and the most-recent isn't an explicit SMS fallback, route to iMessage
+            const anyImessage = lastMsgs.some((m: any) =>
+              String(m.provider || "").toLowerCase().includes("imessage") &&
+              !String(m.provider || "").toLowerCase().endsWith("-sms")
+            );
+            useImessage = anyImessage;
+          }
+        } catch (e) {
+          console.error("[deposit-send] channel detect failed:", (e as any)?.message || e);
+        }
+
+        const endpoint = useImessage ? "voidfix-imessage" : "powerdial-sms";
+        const sendUrl = `${SUPABASE_URL}/functions/v1/${endpoint}`;
+        const sendPayload = useImessage
+          ? { action: "send", to: p.client_phone, body: smsBody, source: "proposal-signed-deposit" }
+          : { action: "send", to: p.client_phone, body: smsBody, source: "proposal-signed-deposit" };
+        const smsRes = await fetch(sendUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${ANON_KEY}`,
             apikey: ANON_KEY,
           },
-          body: JSON.stringify({ action: "send", to: p.client_phone, body: smsBody, source: "proposal-signed-thankyou" }),
+          body: JSON.stringify(sendPayload),
         });
-        if (smsRes.ok) thankYouSmsSentAt = new Date().toISOString();
+        if (smsRes.ok) {
+          thankYouSmsSentAt = new Date().toISOString();
+          thankYouChannel = useImessage ? "imessage" : "sms";
+        } else {
+          console.error("[deposit-send] text send non-OK", smsRes.status, await smsRes.text().catch(() => ""));
+        }
       } catch (e) {
-        console.error("thank-you SMS failed:", e);
+        console.error("thank-you text failed:", e);
       }
     }
 
@@ -198,6 +238,7 @@ Deno.serve(async (req) => {
           deposit_email_message_id: latestMeta.deposit_email_message_id || sendJson.id || null,
           deposit_email_auto: latestMeta.deposit_email_auto ?? (!!body?.record || !!body?.auto),
           thank_you_sms_sent_at: thankYouSmsSentAt,
+          thank_you_sms_channel: thankYouChannel,
         },
       })
       .eq("id", proposalId);
