@@ -238,6 +238,7 @@ Once received we'll have your update within 24–72 hours. Reply with any questi
           deposit_email_message_id: latestMeta.deposit_email_message_id || sendJson.id || null,
           deposit_email_auto: latestMeta.deposit_email_auto ?? (!!body?.record || !!body?.auto),
           thank_you_sms_sent_at: thankYouSmsSentAt,
+          thank_you_sms_channel: thankYouChannel,
         },
       })
       .eq("id", proposalId);
