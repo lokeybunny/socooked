@@ -1122,10 +1122,15 @@ export default function PowerDialSMSInbox() {
       const expDate = exp.toISOString().slice(0, 10);
 
       let payload: Record<string, any>;
-      if (kind === '399' || kind === '199') {
+      if (kind === '399' || kind === '199' || kind === '399-net') {
         const isHalf = kind === '199';
+        const isNet = kind === '399-net';
         const price = isHalf ? 199 : 399;
-        const titleSuffix = isHalf ? ' (50% OFF — Limited Offer)' : '';
+        const titleSuffix = isHalf
+          ? ' (50% OFF — Limited Offer)'
+          : isNet
+            ? ' — Pay on Delivery (No Deposit)'
+            : '';
         payload = {
           title: `Real Estate Listing Video — $${price} Package${titleSuffix}`,
           client_name: clientName,
@@ -1133,10 +1138,16 @@ export default function PowerDialSMSInbox() {
           client_phone: e164,
           amount: price,
           currency: 'USD',
-          line_items: [{ description: `Real Estate Listing Video — $${price} Package (up to 4 bedrooms)${isHalf ? ' — 50% OFF promotional pricing' : ''}`, quantity: 1, unit_price: price }],
-          notes: `Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.${isHalf ? ' This proposal reflects a 50% promotional discount off the standard $399 package.' : ''}`,
-          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
-          proposal_body: `Real Estate Listing Video — $${price} Package${isHalf ? '\n\n*** 50% OFF — Limited promotional pricing (regularly $399, now $199) ***' : ''}
+          line_items: [{
+            description: `Real Estate Listing Video — $${price} Package (up to 4 bedrooms)${isHalf ? ' — 50% OFF promotional pricing' : isNet ? ' — Pay-on-Delivery (no deposit required)' : ''}`,
+            quantity: 1,
+            unit_price: price,
+          }],
+          notes: `Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.${isHalf ? ' This proposal reflects a 50% promotional discount off the standard $399 package.' : ''}${isNet ? ' NO DEPOSIT REQUIRED — full $399 is due upon delivery of the finished video.' : ''}`,
+          terms: isNet
+            ? 'NO DEPOSIT REQUIRED. The full $399 is due upon delivery of the finished video. Payment must be made via Zelle, Cash App, or Debit/Credit through the /payme page within 24 hours of delivery. Two (2) free revisions included. Additional revisions billed at $50 each.'
+            : 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
+          proposal_body: `Real Estate Listing Video — $${price} Package${isHalf ? '\n\n*** 50% OFF — Limited promotional pricing (regularly $399, now $199) ***' : ''}${isNet ? '\n\n*** NO DEPOSIT REQUIRED — Pay the full $399 only after your finished video is delivered ***' : ''}
 
 What's included:
 • 1 cinematic AI-enhanced listing video
@@ -1151,15 +1162,20 @@ Bedroom add-ons:
 • Properties with more than 4 bedrooms: +$50 per additional bedroom
 
 Payment Terms:
-• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
+${isNet
+  ? `• NO DEPOSIT REQUIRED — work begins immediately upon signing.
+• Full payment of $${price} is due upon delivery of the finished video.
+• Payment must be made via Zelle, Cash App, or Debit/Credit through the /payme page within 24 hours of delivery.`
+  : `• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
 • All payments must be made via Zelle or Cash App  OR Debit/Credit.
-• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.`}
 
 By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
           expiration_date: expDate,
           signature_required: true,
           customer_id: customerId,
           status: 'draft',
+          meta: isNet ? { no_deposit: true, payment_model: 'pay_on_delivery' } : {},
         };
       } else {
         payload = {
