@@ -1095,7 +1095,7 @@ export default function PowerDialSMSInbox() {
     setProposalStep('choose');
   };
 
-  const sendProposalTemplate = async (kind: '399' | '199' | '3000') => {
+  const sendProposalTemplate = async (kind: '399' | '199' | '399-net' | '3000') => {
     if (!proposalPhoneKey) return;
     const email = proposalEmail.trim();
     if (!email) { toast.error('Email required'); return; }
