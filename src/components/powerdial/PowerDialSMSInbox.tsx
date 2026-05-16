@@ -2057,6 +2057,18 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             <button
               type="button"
               disabled={proposalSending}
+              onClick={() => sendProposalTemplate('399-net')}
+              className="w-full text-left p-4 rounded-lg border border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500/70 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm">$399 Listing Video Package</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-500">No Deposit</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">Same $399 package — no money down. Full $399 due after the finished video is delivered.</div>
+            </button>
+            <button
+              type="button"
+              disabled={proposalSending}
               onClick={() => sendProposalTemplate('3000')}
               className="w-full text-left p-4 rounded-lg border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors disabled:opacity-50"
             >
