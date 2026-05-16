@@ -123,6 +123,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Skip the entire deposit + thank-you flow for "Pay on Delivery" proposals
+    if ((meta as any).no_deposit === true || (meta as any).payment_model === "pay_on_delivery") {
+      return new Response(
+        JSON.stringify({ skipped: true, reason: "no_deposit_proposal" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const amount = 199.50;
     const amountStr = amount.toFixed(2);
     const subject = `Deposit to start your video — $${amountStr}`;

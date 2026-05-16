@@ -1095,7 +1095,7 @@ export default function PowerDialSMSInbox() {
     setProposalStep('choose');
   };
 
-  const sendProposalTemplate = async (kind: '399' | '199' | '3000') => {
+  const sendProposalTemplate = async (kind: '399' | '199' | '399-net' | '3000') => {
     if (!proposalPhoneKey) return;
     const email = proposalEmail.trim();
     if (!email) { toast.error('Email required'); return; }
@@ -1122,10 +1122,15 @@ export default function PowerDialSMSInbox() {
       const expDate = exp.toISOString().slice(0, 10);
 
       let payload: Record<string, any>;
-      if (kind === '399' || kind === '199') {
+      if (kind === '399' || kind === '199' || kind === '399-net') {
         const isHalf = kind === '199';
+        const isNet = kind === '399-net';
         const price = isHalf ? 199 : 399;
-        const titleSuffix = isHalf ? ' (50% OFF — Limited Offer)' : '';
+        const titleSuffix = isHalf
+          ? ' (50% OFF — Limited Offer)'
+          : isNet
+            ? ' — Pay on Delivery (No Deposit)'
+            : '';
         payload = {
           title: `Real Estate Listing Video — $${price} Package${titleSuffix}`,
           client_name: clientName,
@@ -1133,10 +1138,16 @@ export default function PowerDialSMSInbox() {
           client_phone: e164,
           amount: price,
           currency: 'USD',
-          line_items: [{ description: `Real Estate Listing Video — $${price} Package (up to 4 bedrooms)${isHalf ? ' — 50% OFF promotional pricing' : ''}`, quantity: 1, unit_price: price }],
-          notes: `Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.${isHalf ? ' This proposal reflects a 50% promotional discount off the standard $399 package.' : ''}`,
-          terms: 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
-          proposal_body: `Real Estate Listing Video — $${price} Package${isHalf ? '\n\n*** 50% OFF — Limited promotional pricing (regularly $399, now $199) ***' : ''}
+          line_items: [{
+            description: `Real Estate Listing Video — $${price} Package (up to 4 bedrooms)${isHalf ? ' — 50% OFF promotional pricing' : isNet ? ' — Pay-on-Delivery (no deposit required)' : ''}`,
+            quantity: 1,
+            unit_price: price,
+          }],
+          notes: `Single AI-cinematic listing video for a real estate property. Full edit included, delivered in 9:16 Instagram/Reels format, up to 1 minute max length, covers up to 4 bedrooms. Additional bedrooms billed at $50/bedroom over 4. 48–72 hour turnaround.${isHalf ? ' This proposal reflects a 50% promotional discount off the standard $399 package.' : ''}${isNet ? ' NO DEPOSIT REQUIRED — full $399 is due upon delivery of the finished video.' : ''}`,
+          terms: isNet
+            ? 'NO DEPOSIT REQUIRED. The full $399 is due upon delivery of the finished video. Payment must be made via Zelle, Cash App, or Debit/Credit through the /payme page within 24 hours of delivery. Two (2) free revisions included. Additional revisions billed at $50 each.'
+            : 'FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Two (2) free revisions included. Additional revisions billed at $50 each.',
+          proposal_body: `Real Estate Listing Video — $${price} Package${isHalf ? '\n\n*** 50% OFF — Limited promotional pricing (regularly $399, now $199) ***' : ''}${isNet ? '\n\n*** NO DEPOSIT REQUIRED — Pay the full $399 only after your finished video is delivered ***' : ''}
 
 What's included:
 • 1 cinematic AI-enhanced listing video
@@ -1151,15 +1162,20 @@ Bedroom add-ons:
 • Properties with more than 4 bedrooms: +$50 per additional bedroom
 
 Payment Terms:
-• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
+${isNet
+  ? `• NO DEPOSIT REQUIRED — work begins immediately upon signing.
+• Full payment of $${price} is due upon delivery of the finished video.
+• Payment must be made via Zelle, Cash App, or Debit/Credit through the /payme page within 24 hours of delivery.`
+  : `• FULL PAYMENT IS REQUIRED BEFORE WORK IS RENDERED.
 • All payments must be made via Zelle or Cash App  OR Debit/Credit.
-• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.`}
 
 By signing below, the client agrees to the scope, pricing, and payment terms outlined above.`,
           expiration_date: expDate,
           signature_required: true,
           customer_id: customerId,
           status: 'draft',
+          meta: isNet ? { no_deposit: true, payment_model: 'pay_on_delivery' } : {},
         };
       } else {
         payload = {
@@ -1223,7 +1239,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
-      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : '$3,000/mo';
+      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : kind === '399-net' ? '$399 (pay on delivery)' : '$3,000/mo';
       toast.success(`${label} proposal sent to ${email}`);
       setProposalOpen(false);
       setProposalPhoneKey(null);
@@ -2037,6 +2053,18 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
                 <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500">50% OFF</span>
               </div>
               <div className="text-xs text-muted-foreground mt-1">Same $399 package — 50% promotional discount. Limited offer to close the deal.</div>
+            </button>
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('399-net')}
+              className="w-full text-left p-4 rounded-lg border border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500/70 hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm">$399 Listing Video Package</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-500">No Deposit</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">Same $399 package — no money down. Full $399 due after the finished video is delivered.</div>
             </button>
             <button
               type="button"
