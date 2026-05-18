@@ -168,6 +168,7 @@ export function StudioCreate({ projectId, prefill, onPrefillConsumed }: StudioCr
         negative_prompt: negPrompt.trim() || undefined,
         settings_json: fullSettings,
         input_image_url,
+        project_id: projectId ?? null,
       });
 
       toast({ title: 'Job submitted!', description: 'Check the queue for progress.' });
