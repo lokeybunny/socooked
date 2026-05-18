@@ -193,11 +193,7 @@ const App = () => (
                 <Route path="/sell/:slug" element={<SellerLanding />} />
                 <Route path="/usa-map" element={<WarrenOnlyGate><AuthLayoutGate><UsaMap /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/phone-audit" element={<WarrenOnlyGate><AuthLayoutGate><PhoneAudit /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/campaign-leader" element={<WarrenOnlyGate><AuthLayoutGate><CampaignLeader /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/email-deliverability" element={<WarrenOnlyGate><AuthLayoutGate><EmailDeliverability /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/video" element={<VideographyLanding />} />
-                <Route path="/videography" element={<Navigate to="/video" replace />} />
                 <Route path="/web" element={<WebDesignLanding />} />
                 <Route path="/webdesign" element={<Navigate to="/web" replace />} />
                 <Route path="/liquidate" element={<Liquidate />} />
