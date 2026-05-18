@@ -72,8 +72,8 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recent.map(job => <JobCard key={job.id} job={job} />)}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {recent.map(job => <VideoTile key={job.id} job={job} />)}
           </div>
         )}
       </div>
@@ -90,44 +90,6 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
           <span className="text-xs text-muted-foreground">{label}</span>
         </div>
         <p className="text-2xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function JobCard({ job }: { job: GenerationJob }) {
-  return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur overflow-hidden group hover:border-violet-500/30 transition-colors">
-      <div className="aspect-video bg-muted/30 relative flex items-center justify-center">
-        {job.output_thumbnail_url ? (
-          <img src={job.output_thumbnail_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-        ) : job.output_video_url ? (
-          <Film className="w-8 h-8 text-muted-foreground/30" />
-        ) : (
-          <Film className="w-8 h-8 text-muted-foreground/30" />
-        )}
-        {job.status === 'running' && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-1 text-violet-400" />
-              <span className="text-xs text-violet-300">{job.progress}%</span>
-            </div>
-          </div>
-        )}
-      </div>
-      <CardContent className="p-3">
-        <p className="text-sm font-medium truncate">{job.prompt}</p>
-        <div className="flex items-center gap-2 mt-2">
-          <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[job.status]}`}>
-            {job.status}
-          </Badge>
-          <Badge variant="outline" className="text-[10px]">
-            {TASK_LABELS[job.task_type]}
-          </Badge>
-        </div>
-        <p className="text-[10px] text-muted-foreground mt-1">
-          {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-        </p>
       </CardContent>
     </Card>
   );
