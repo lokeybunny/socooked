@@ -170,6 +170,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         settings_json: fullSettings,
         input_image_url,
         project_id: projectId ?? null,
+        subproject_id: subprojectId ?? null,
       });
 
       toast({ title: 'Job submitted!', description: 'Check the queue for progress.' });
