@@ -145,16 +145,18 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
 
     setSubmitting(true);
     try {
-      let input_image_url: string | undefined;
-
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop() || 'png';
+      const uploadOne = async (file: File) => {
+        const ext = file.name.split('.').pop() || 'png';
         const path = `inputs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, imageFile);
+        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
         if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-        const { data: urlData } = supabase.storage.from('studio-outputs').getPublicUrl(path);
-        input_image_url = urlData.publicUrl;
-      }
+        return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
+      };
+
+      let input_image_url: string | undefined;
+      let last_frame_image_url: string | undefined;
+      if (imageFile) input_image_url = await uploadOne(imageFile);
+      if (imageFileB) last_frame_image_url = await uploadOne(imageFileB);
 
       const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
       const seedanceModel = seedanceActive
@@ -167,6 +169,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         style_preset: selectedStyles.join(', ') || undefined,
         provider: seedanceActive ? 'seedance' : undefined,
         seedance_model: seedanceModel,
+        last_frame_image_url: last_frame_image_url || undefined,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
