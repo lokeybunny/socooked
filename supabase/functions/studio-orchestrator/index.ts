@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
       let job: any, insertErr: any;
       try {
         const res: any = await withTimeout(
-          supabase.from("generation_jobs").insert({
+          adminClient().from("generation_jobs").insert({
             user_id: userId,
             task_type: payload.task_type,
             prompt: payload.prompt,
@@ -329,7 +329,7 @@ Deno.serve(async (req) => {
             status: "queued",
             progress: 0,
           }).select().single(),
-          10000,
+          15000,
           "insert generation_jobs",
         );
         job = res.data;
