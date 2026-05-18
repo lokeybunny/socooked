@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { GenerationJob, WorkerHealth } from './types';
+import type { GenerationJob, StudioProject, WorkerHealth } from './types';
 
-const JOB_SELECT = 'id,user_id,task_type,prompt,negative_prompt,settings_json,input_image_url,input_audio_url,output_video_url,output_thumbnail_url,status,progress,worker_job_id,backend_logs,error_message,created_at,updated_at';
+const JOB_SELECT = 'id,user_id,task_type,prompt,negative_prompt,settings_json,input_image_url,input_audio_url,output_video_url,output_thumbnail_url,status,progress,worker_job_id,backend_logs,error_message,created_at,updated_at,project_id';
 
 let jobsCache: GenerationJob[] = [];
 let jobsLoaded = false;
@@ -129,6 +129,7 @@ export async function submitJob(payload: {
   settings_json?: Record<string, unknown>;
   input_image_url?: string;
   input_audio_url?: string;
+  project_id?: string | null;
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
@@ -194,4 +195,71 @@ export async function retryJob(jobId: string) {
     const err = await res.json();
     throw new Error(err.error || 'Failed to retry');
   }
+}
+
+// ============ Projects ============
+let projectsCache: StudioProject[] = [];
+let projectsLoaded = false;
+let projectsFetchPromise: Promise<void> | null = null;
+const projectListeners = new Set<() => void>();
+const notifyProjectListeners = () => projectListeners.forEach(l => l());
+
+async function fetchStudioProjects(force = false) {
+  if (projectsFetchPromise) return projectsFetchPromise;
+  if (!force && projectsLoaded) return;
+  projectsFetchPromise = (async () => {
+    const { data, error } = await supabase
+      .from('studio_projects')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error) projectsCache = (data as unknown as StudioProject[]) || [];
+    else console.error('Failed to fetch projects:', error.message);
+    projectsLoaded = true;
+    notifyProjectListeners();
+  })().finally(() => { projectsFetchPromise = null; });
+  return projectsFetchPromise;
+}
+
+export function useStudioProjects() {
+  const [projects, setProjects] = useState<StudioProject[]>(projectsCache);
+  const [loading, setLoading] = useState(!projectsLoaded);
+
+  const refetch = useCallback(async () => {
+    await fetchStudioProjects(true);
+    setProjects(projectsCache);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const listener = () => {
+      if (active) { setProjects(projectsCache); setLoading(false); }
+    };
+    projectListeners.add(listener);
+    fetchStudioProjects(!projectsLoaded).finally(listener);
+    return () => { active = false; projectListeners.delete(listener); };
+  }, []);
+
+  return { projects, loading, refetch };
+}
+
+export async function createStudioProject(input: { name: string; kind?: string | null; description?: string | null }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  const { data, error } = await supabase
+    .from('studio_projects')
+    .insert({ user_id: user.id, name: input.name, kind: input.kind ?? null, description: input.description ?? null })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  projectsCache = [data as unknown as StudioProject, ...projectsCache];
+  notifyProjectListeners();
+  return data as unknown as StudioProject;
+}
+
+export async function deleteStudioProject(id: string) {
+  const { error } = await supabase.from('studio_projects').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  projectsCache = projectsCache.filter(p => p.id !== id);
+  notifyProjectListeners();
 }

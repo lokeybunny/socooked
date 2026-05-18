@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { CreatePrefill } from '@/pages/AIGen';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +31,13 @@ const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   animate: <UserCircle className="w-3.5 h-3.5" />,
 };
 
-export function StudioCreate() {
+interface StudioCreateProps {
+  projectId?: string | null;
+  prefill?: CreatePrefill | null;
+  onPrefillConsumed?: () => void;
+}
+
+export function StudioCreate({ projectId, prefill, onPrefillConsumed }: StudioCreateProps = {}) {
   const { toast } = useToast();
   const [taskType, setTaskType] = useState<TaskType>('t2v');
   const [prompt, setPrompt] = useState('');
@@ -56,6 +63,22 @@ export function StudioCreate() {
 
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
+
+  // Apply prefill (from "Modify Video" action elsewhere)
+  useEffect(() => {
+    if (!prefill) return;
+    if (prefill.task_type) setTaskType(prefill.task_type);
+    if (typeof prefill.prompt === 'string') setPrompt(prefill.prompt);
+    if (typeof prefill.negative_prompt === 'string' || prefill.negative_prompt === null) {
+      setNegPrompt(prefill.negative_prompt ?? '');
+    }
+    if (prefill.settings_json) setSettings(s => ({ ...s, ...prefill.settings_json }));
+    if (prefill.input_image_url) setImagePreview(prefill.input_image_url);
+    toast({ title: 'Loaded for editing', description: 'Tweak the prompt and resubmit.' });
+    onPrefillConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
+
 
   const toggleStyle = (s: string) => {
     setSelectedStyles(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
@@ -145,6 +168,7 @@ export function StudioCreate() {
         negative_prompt: negPrompt.trim() || undefined,
         settings_json: fullSettings,
         input_image_url,
+        project_id: projectId ?? null,
       });
 
       toast({ title: 'Job submitted!', description: 'Check the queue for progress.' });

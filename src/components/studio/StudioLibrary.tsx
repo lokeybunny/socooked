@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,11 +9,15 @@ import { useStudioJobs } from '@/lib/studio/hooks';
 import { TASK_LABELS, STATUS_COLORS, type GenerationJob, type TaskType, type JobStatus } from '@/lib/studio/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
-import { Film, Search, Download, Copy, Trash2, Loader2, Play, X, Send } from 'lucide-react';
+import { Film, Search, Download, Copy, Trash2, Loader2, Pencil } from 'lucide-react';
 import { VideoTile } from './VideoTile';
 
-export function StudioLibrary() {
+interface Props {
+  projectId?: string | null;
+  onModify?: (job: GenerationJob) => void;
+}
+
+export function StudioLibrary({ projectId, onModify }: Props) {
   const { jobs, loading, refetch } = useStudioJobs();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
@@ -21,47 +25,17 @@ export function StudioLibrary() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortDir, setSortDir] = useState<'newest' | 'oldest'>('newest');
   const [selected, setSelected] = useState<GenerationJob | null>(null);
-  const [sending, setSending] = useState<string | null>(null);
 
-  const handleSendToTelegram = async (job: GenerationJob) => {
-    if (!job.output_video_url) {
-      toast({ title: 'No video to send', variant: 'destructive' });
-      return;
-    }
-    setSending(job.id);
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/studio-telegram-deliver`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-          },
-          body: JSON.stringify({ job_id: job.id, force: true }),
-        }
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      toast({ title: 'Sent to Telegram 📨' });
-    } catch (e) {
-      toast({ title: 'Send failed', description: (e as Error).message, variant: 'destructive' });
-    } finally {
-      setSending(null);
-    }
-  };
-
-  const filtered = jobs
+  const filtered = useMemo(() => jobs
     .filter(j => j.status !== 'failed' && j.status !== 'cancelled')
+    .filter(j => !projectId || j.project_id === projectId)
     .filter(j => filterType === 'all' || j.task_type === filterType)
     .filter(j => filterStatus === 'all' || j.status === filterStatus)
     .filter(j => !search || j.prompt.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortDir === 'newest'
       ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    ), [jobs, projectId, filterType, filterStatus, search, sortDir]);
 
   const handleDelete = async (id: string) => {
     await supabase.from('generation_jobs').delete().eq('id', id);
@@ -113,7 +87,7 @@ export function StudioLibrary() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filtered.map(job => (
-            <VideoTile key={job.id} job={job} onOpen={setSelected} />
+            <VideoTile key={job.id} job={job} onOpen={setSelected} onModify={onModify} />
           ))}
         </div>
       )}
@@ -160,22 +134,15 @@ export function StudioLibrary() {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 flex-wrap">
                 {selected.output_video_url && (
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => window.open(selected.output_video_url!, '_blank')}>
                     <Download className="w-3 h-3" /> Download
                   </Button>
                 )}
-                {selected.output_video_url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    disabled={sending === selected.id}
-                    onClick={() => handleSendToTelegram(selected)}
-                  >
-                    {sending === selected.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                    Send to Telegram
+                {onModify && (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => { onModify(selected); setSelected(null); }}>
+                    <Pencil className="w-3 h-3" /> Modify Video
                   </Button>
                 )}
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(selected.prompt); toast({ title: 'Prompt copied' }); }}>

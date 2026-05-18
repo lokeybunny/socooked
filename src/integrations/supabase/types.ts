@@ -2494,6 +2494,7 @@ export type Database = {
           output_thumbnail_url: string | null
           output_video_url: string | null
           progress: number
+          project_id: string | null
           prompt: string
           settings_json: Json
           status: string
@@ -2513,6 +2514,7 @@ export type Database = {
           output_thumbnail_url?: string | null
           output_video_url?: string | null
           progress?: number
+          project_id?: string | null
           prompt: string
           settings_json?: Json
           status?: string
@@ -2532,6 +2534,7 @@ export type Database = {
           output_thumbnail_url?: string | null
           output_video_url?: string | null
           progress?: number
+          project_id?: string | null
           prompt?: string
           settings_json?: Json
           status?: string
@@ -2540,7 +2543,15 @@ export type Database = {
           user_id?: string
           worker_job_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "generation_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       generation_presets: {
         Row: {
@@ -8084,6 +8095,39 @@ export type Database = {
           state?: string
           total_leads?: number
           total_unique_numbers?: number
+        }
+        Relationships: []
+      }
+      studio_projects: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          kind: string | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string | null
+          name?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

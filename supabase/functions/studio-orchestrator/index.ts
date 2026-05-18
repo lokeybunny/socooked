@@ -13,6 +13,7 @@ type JobPayload = {
   settings_json?: Record<string, unknown> | null;
   input_image_url?: string | null;
   input_audio_url?: string | null;
+  project_id?: string | null;
 };
 
 const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), {
@@ -311,6 +312,7 @@ Deno.serve(async (req) => {
         settings_json: body.settings_json || {},
         input_image_url: body.input_image_url || null,
         input_audio_url: body.input_audio_url || null,
+        project_id: body.project_id || null,
       };
 
       if (!payload.prompt || !payload.task_type) return json({ error: "prompt and task_type are required" }, 400);
@@ -326,6 +328,7 @@ Deno.serve(async (req) => {
             settings_json: payload.settings_json,
             input_image_url: payload.input_image_url,
             input_audio_url: payload.input_audio_url,
+            project_id: payload.project_id,
             status: "queued",
             progress: 0,
           }).select().single(),
