@@ -11,10 +11,6 @@ import { Film, Sparkles, Grid3X3, ListOrdered, Settings } from 'lucide-react';
 
 export default function AIGen() {
   const [tab, setTab] = useState('dashboard');
-  const { jobs } = useStudioJobs();
-  const latestVideo = jobs.find(j => j.status === 'completed' && j.output_video_url);
-  const spotlightSrc = latestVideo?.output_video_url || '/videos/spotlight.mov';
-  const spotlightPoster = latestVideo?.output_thumbnail_url || '';
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,26 +27,6 @@ export default function AIGen() {
             </div>
           </div>
           <StudioCreditsBadge />
-        </div>
-
-        {/* Spotlight Video */}
-        <div className="mb-8 rounded-xl overflow-hidden border border-border/50 bg-card/50 shadow-lg">
-          <div className="relative">
-            <video
-              key={spotlightSrc}
-              src={spotlightSrc}
-              controls
-              playsInline
-              preload="metadata"
-              className="w-full aspect-video bg-black"
-              poster={spotlightPoster}
-            />
-            <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-violet-600/90 backdrop-blur-sm">
-              <span className="text-[10px] font-semibold tracking-widest uppercase text-white flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3" /> Spotlight
-              </span>
-            </div>
-          </div>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
