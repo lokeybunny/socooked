@@ -786,26 +786,26 @@ Deno.serve(async (req) => {
       if (v === "failed" || v === "error") return "failed";
       return null;
     };
-    // ---- Outbound delivery-status sync (parallelized) ----
-    await Promise.all(messages.map(async (m) => {
+    // ---- Outbound delivery-status sync (bounded background work) ----
+    const syncOutboundStatuses = async () => Promise.all(messages.map(async (m) => {
       const vfStatus = String(m.status || "");
       if (vfStatus === "Received") return;
       const externalId = m.ID ? String(m.ID) : null;
       if (!externalId) return;
       const mapped = mapVoidfixStatus(vfStatus);
       if (!mapped) return;
-      const { data: existing } = await sb
+      const { data: existing } = await dbWithTimeout(sb
         .from("communications")
         .select("id, status, metadata")
         .eq("external_id", externalId)
         .eq("direction", "outbound")
-        .limit(1);
+        .limit(1), 2500, "poll_status_lookup");
       const row = existing?.[0];
       if (!row) return;
       const prevMeta = (row.metadata as any) || {};
       const prevStatus = prevMeta?.voidfix_status;
       if (row.status === mapped && prevStatus === vfStatus) return;
-      await sb.from("communications").update({
+      await dbWithTimeout(sb.from("communications").update({
         status: mapped,
         metadata: {
           ...prevMeta,
@@ -814,9 +814,11 @@ Deno.serve(async (req) => {
           voidfix_delivered_date: m.deliveredDate || prevMeta?.voidfix_delivered_date || null,
           voidfix_status_synced_at: new Date().toISOString(),
         },
-      }).eq("id", row.id);
+      }).eq("id", row.id), 2500, "poll_status_update");
       statusUpdated += 1;
     }));
+    const statusSync = await withTimeout(syncOutboundStatuses(), 10000, "poll_status_sync");
+    if (statusSync.timedOut) runInBackground(syncOutboundStatuses(), "poll-status-sync");
 
     // ---- Inbound import (parallelized; downstream calls fire-and-forget) ----
     const inboundResults = await Promise.all(messages.map(async (m) => {
