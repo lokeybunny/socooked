@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useStudioJobs, cancelJob, retryJob } from '@/lib/studio/hooks';
-import { STATUS_COLORS, TASK_LABELS, type GenerationJob } from '@/lib/studio/types';
+import { STATUS_COLORS, TASK_LABELS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -112,6 +112,7 @@ function JobRow({
   const isActive = ACTIVE.has(job.status);
   const isDone = job.status === 'completed';
   const isFailed = job.status === 'failed' || job.status === 'cancelled';
+  const prompt = getJobPrompt(job);
 
   return (
     <div className="rounded-lg border border-border/40 bg-background/40 p-2.5 space-y-1.5">
@@ -125,7 +126,7 @@ function JobRow({
         </Badge>
       </div>
 
-      <p className="text-xs line-clamp-2 leading-snug">{job.prompt}</p>
+      <p className="text-xs line-clamp-2 leading-snug">{prompt}</p>
 
       {isActive && (
         <div className="space-y-1">
