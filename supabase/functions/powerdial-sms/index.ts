@@ -755,17 +755,17 @@ Deno.serve(async (req) => {
     if (!VOIDFIX_API_KEY || !VOIDFIX_DEVICE_ID) {
       return json({ ok: false, error: "missing_voidfix_credentials" }, 500);
     }
-    const limit = Math.min(Number(payload?.limit) || 50, 200);
+    const limit = Math.min(Number(payload?.limit) || 25, 50);
     const form = new URLSearchParams({
       key: VOIDFIX_API_KEY,
       devices: VOIDFIX_DEVICE_ID,
       limit: String(limit),
     });
-    const resp = await fetch(VOIDFIX_READ_URL, {
+    const resp = await fetchWithTimeout(VOIDFIX_READ_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form,
-    });
+    }, 12000, "voidfix_read");
     const text = await resp.text();
     let data: any = {};
     try { data = JSON.parse(text); } catch { return json({ ok: false, error: "voidfix_invalid_json", raw: text.slice(0, 300) }, 500); }
