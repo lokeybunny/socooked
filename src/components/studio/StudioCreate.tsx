@@ -278,6 +278,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 className="min-h-[60px] bg-background/50 mt-1"
               />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+              <Checkbox checked={noMusic} onCheckedChange={(v) => setNoMusic(v === true)} />
+              <span className="text-xs text-muted-foreground">
+                No music — appends <span className="text-foreground font-medium">"No music in background."</span> to the prompt
+              </span>
+            </label>
           </CardContent>
         </Card>
 
