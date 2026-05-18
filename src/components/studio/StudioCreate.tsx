@@ -31,7 +31,13 @@ const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   animate: <UserCircle className="w-3.5 h-3.5" />,
 };
 
-export function StudioCreate() {
+interface StudioCreateProps {
+  projectId?: string | null;
+  prefill?: CreatePrefill | null;
+  onPrefillConsumed?: () => void;
+}
+
+export function StudioCreate({ projectId, prefill, onPrefillConsumed }: StudioCreateProps = {}) {
   const { toast } = useToast();
   const [taskType, setTaskType] = useState<TaskType>('t2v');
   const [prompt, setPrompt] = useState('');
