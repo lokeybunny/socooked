@@ -20,7 +20,7 @@ export default function AIGen() {
     <div className="min-h-screen bg-background">
       <div className="max-w-[1600px] mx-auto p-4 sm:p-6 md:p-8">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-6 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center">
               <Film className="w-5 h-5 text-white" />
@@ -30,6 +30,7 @@ export default function AIGen() {
               <p className="text-sm text-muted-foreground">Cinematic AI video generation, powered by your own model stack.</p>
             </div>
           </div>
+          <StudioCreditsBadge />
         </div>
 
         {/* Spotlight Video */}
