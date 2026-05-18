@@ -20,6 +20,37 @@ export function StudioLibrary() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortDir, setSortDir] = useState<'newest' | 'oldest'>('newest');
   const [selected, setSelected] = useState<GenerationJob | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
+
+  const handleSendToTelegram = async (job: GenerationJob) => {
+    if (!job.output_video_url) {
+      toast({ title: 'No video to send', variant: 'destructive' });
+      return;
+    }
+    setSending(job.id);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/studio-telegram-deliver`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ job_id: job.id, force: true }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast({ title: 'Sent to Telegram 📨' });
+    } catch (e) {
+      toast({ title: 'Send failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSending(null);
+    }
+  };
 
   const filtered = jobs
     .filter(j => filterType === 'all' || j.task_type === filterType)
