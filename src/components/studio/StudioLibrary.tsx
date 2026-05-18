@@ -191,6 +191,18 @@ export function StudioLibrary() {
                     <Download className="w-3 h-3" /> Download
                   </Button>
                 )}
+                {selected.output_video_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    disabled={sending === selected.id}
+                    onClick={() => handleSendToTelegram(selected)}
+                  >
+                    {sending === selected.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    Send to Telegram
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(selected.prompt); toast({ title: 'Prompt copied' }); }}>
                   <Copy className="w-3 h-3" /> Copy Prompt
                 </Button>
