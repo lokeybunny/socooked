@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudioJobs } from '@/lib/studio/hooks';
 import { TASK_LABELS, STATUS_COLORS, type GenerationJob, type TaskType, type JobStatus } from '@/lib/studio/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,9 +114,11 @@ export function StudioLibrary() {
             <Card key={job.id} className="border-border/50 bg-card/50 overflow-hidden group hover:border-violet-500/30 transition-colors cursor-pointer" onClick={() => setSelected(job)}>
               <div className="aspect-video bg-muted/30 relative flex items-center justify-center">
                 {job.output_thumbnail_url ? (
-                  <img src={job.output_thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  <img src={job.output_thumbnail_url} alt="" loading="lazy" className="w-full h-full object-cover" />
                 ) : job.output_video_url ? (
-                  <video src={job.output_video_url} className="w-full h-full object-cover" muted />
+                  <div className="w-full h-full bg-muted/40 flex items-center justify-center">
+                    <Film className="w-8 h-8 text-muted-foreground/30" />
+                  </div>
                 ) : (
                   <Film className="w-8 h-8 text-muted-foreground/20" />
                 )}
@@ -154,11 +156,12 @@ export function StudioLibrary() {
                   <Badge variant="outline" className={STATUS_COLORS[selected.status]}>{selected.status}</Badge>
                   <span className="truncate">{selected.prompt.slice(0, 60)}</span>
                 </DialogTitle>
+                <DialogDescription>{TASK_LABELS[selected.task_type]} generation details and download actions.</DialogDescription>
               </DialogHeader>
 
               {/* Video Preview */}
               {selected.output_video_url ? (
-                <video src={selected.output_video_url} controls className="w-full rounded-lg aspect-video bg-black" />
+                <video src={selected.output_video_url} controls preload="metadata" className="w-full rounded-lg aspect-video bg-black" />
               ) : selected.output_thumbnail_url ? (
                 <img src={selected.output_thumbnail_url} alt="" className="w-full rounded-lg" />
               ) : (

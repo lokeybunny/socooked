@@ -103,9 +103,9 @@ function JobCard({ job }: { job: GenerationJob }) {
     <Card className="border-border/50 bg-card/50 backdrop-blur overflow-hidden group hover:border-violet-500/30 transition-colors">
       <div className="aspect-video bg-muted/30 relative flex items-center justify-center">
         {job.output_thumbnail_url ? (
-          <img src={job.output_thumbnail_url} alt="" className="w-full h-full object-cover" />
+          <img src={job.output_thumbnail_url} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : job.output_video_url ? (
-          <video src={job.output_video_url} className="w-full h-full object-cover" muted />
+          <Film className="w-8 h-8 text-muted-foreground/30" />
         ) : (
           <Film className="w-8 h-8 text-muted-foreground/30" />
         )}

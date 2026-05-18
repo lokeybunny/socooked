@@ -5,6 +5,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const telegramPost = async (token: string, method: string, body: Record<string, unknown>) => {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  return { ok: Boolean(json?.ok), status: res.status, description: json?.description || null };
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -60,39 +70,44 @@ Deno.serve(async (req) => {
     }
 
     const chatIds = String(TELEGRAM_CHAT_ID).split(",").map((s) => s.trim()).filter(Boolean);
-    const promptPreview = (job.prompt || "").slice(0, 300);
-    const caption = `🎬 *AI Gen Complete* — \`${job.task_type}\`\n\n${promptPreview}\n\n[Download](${job.output_video_url})`;
+    const promptPreview = (job.prompt || "").replace(/\s+/g, " ").trim().slice(0, 260);
+    const caption = `🎬 AI Gen Complete — ${job.task_type}\n\n${promptPreview}`.slice(0, 900);
 
     const results: any[] = [];
     for (const chat_id of chatIds) {
-      // Try sendVideo first
-      const videoRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id,
-          video: job.output_video_url,
-          caption,
-          parse_mode: "Markdown",
-          supports_streaming: true,
-        }),
+      const videoJson = await telegramPost(TELEGRAM_BOT_TOKEN, "sendVideo", {
+        chat_id,
+        video: job.output_video_url,
+        caption,
+        supports_streaming: true,
       });
-      const videoJson = await videoRes.json().catch(() => ({}));
-      results.push({ chat_id, method: "sendVideo", ok: videoJson?.ok });
+      results.push({ chat_id, method: "sendVideo", ...videoJson });
 
-      // Fallback to message with link if video upload fails (file too big, unreachable, etc.)
-      if (!videoJson?.ok) {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id,
-            text: `🎬 *AI Gen Complete* — \`${job.task_type}\`\n\n${promptPreview}\n\n[Download Video](${job.output_video_url})`,
-            parse_mode: "Markdown",
-            disable_web_page_preview: false,
-          }),
+      if (!videoJson.ok) {
+        const documentJson = await telegramPost(TELEGRAM_BOT_TOKEN, "sendDocument", {
+          chat_id,
+          document: job.output_video_url,
+          caption,
         });
+        results.push({ chat_id, method: "sendDocument", ...documentJson });
       }
+
+      if (!results.some((result) => result.chat_id === chat_id && result.ok)) {
+        const messageJson = await telegramPost(TELEGRAM_BOT_TOKEN, "sendMessage", {
+          chat_id,
+          text: `${caption}\n\nDownload Video: ${job.output_video_url}`,
+          disable_web_page_preview: false,
+        });
+        results.push({ chat_id, method: "sendMessage", ...messageJson });
+      }
+    }
+
+    if (!results.some((result) => result.ok)) {
+      console.error("studio-telegram-deliver failed", JSON.stringify(results));
+      return new Response(JSON.stringify({ error: "telegram send failed", results }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Mark delivered
