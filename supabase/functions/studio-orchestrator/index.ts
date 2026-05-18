@@ -14,6 +14,7 @@ type JobPayload = {
   input_image_url?: string | null;
   input_audio_url?: string | null;
   project_id?: string | null;
+  subproject_id?: string | null;
 };
 
 const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.stringify(body), {
