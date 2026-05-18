@@ -221,9 +221,10 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       };
 
       const basePrompt = prompt.trim();
-      let finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
-        ? `${basePrompt} No music in background.`
-        : basePrompt;
+      let finalPrompt = basePrompt;
+      if (noMusic && !/no music in background/i.test(finalPrompt)) {
+        finalPrompt = `${finalPrompt} No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track.`;
+      }
       if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
         finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
       }
@@ -328,7 +329,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
             <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
               <Checkbox checked={noMusic} onCheckedChange={(v) => setNoMusic(v === true)} />
               <span className="text-xs text-muted-foreground">
-                No music — appends <span className="text-foreground font-medium">"No music in background."</span> to the prompt
+                No music & no ambient sound — appends <span className="text-foreground font-medium">"No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track."</span> to the prompt
               </span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer select-none">
