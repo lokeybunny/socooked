@@ -124,6 +124,10 @@ export function StudioCreate() {
       const fullSettings = {
         ...settings,
         style_preset: selectedStyles.join(', ') || undefined,
+        provider: useSeedance && taskType === 'i2v' ? 'seedance' : undefined,
+        duration: useSeedance && taskType === 'i2v'
+          ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
+          : settings.duration,
       };
 
       await submitJob({
