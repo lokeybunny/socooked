@@ -1,22 +1,36 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useStudioJobs, useWorkerHealth } from '@/lib/studio/hooks';
 import { Loader2, CheckCircle, XCircle, Clock, Cpu, Plus, Film } from 'lucide-react';
 import { VideoTile } from './VideoTile';
 import type { GenerationJob } from '@/lib/studio/types';
 
-export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
+interface Props {
+  onNavigate: (tab: string) => void;
+  projectId?: string | null;
+  onModify?: (job: GenerationJob) => void;
+}
+
+export function StudioDashboard({ onNavigate, projectId, onModify }: Props) {
   const { jobs, loading } = useStudioJobs();
   const { health } = useWorkerHealth();
   const [selected, setSelected] = useState<GenerationJob | null>(null);
 
-  const queued = jobs.filter(j => j.status === 'queued' || j.status === 'provisioning').length;
-  const running = jobs.filter(j => j.status === 'running').length;
-  const completed = jobs.filter(j => j.status === 'completed').length;
-  const failed = jobs.filter(j => j.status === 'failed').length;
-  const recent = jobs.filter(j => j.status !== 'failed' && j.status !== 'cancelled').slice(0, 6);
+  const scopedJobs = useMemo(
+    () => (projectId ? jobs.filter(j => j.project_id === projectId) : jobs),
+    [jobs, projectId],
+  );
+
+  const queued = scopedJobs.filter(j => j.status === 'queued' || j.status === 'provisioning').length;
+  const running = scopedJobs.filter(j => j.status === 'running').length;
+  const completed = scopedJobs.filter(j => j.status === 'completed').length;
+  const failed = scopedJobs.filter(j => j.status === 'failed').length;
+  const recent = scopedJobs.filter(j => j.status !== 'failed' && j.status !== 'cancelled').slice(0, 6);
+
+  // Render cache immediately; only block with spinner if we have nothing at all yet.
+  const showSpinner = loading && scopedJobs.length === 0;
 
   return (
     <div className="space-y-6">
@@ -25,7 +39,7 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
         <StatCard icon={<Clock className="w-4 h-4 text-yellow-400" />} label="In Queue" value={queued + running} />
         <StatCard icon={<CheckCircle className="w-4 h-4 text-green-400" />} label="Completed" value={completed} />
         <StatCard icon={<XCircle className="w-4 h-4 text-red-400" />} label="Failed" value={failed} />
-        <StatCard icon={<Film className="w-4 h-4 text-violet-400" />} label="Total Jobs" value={jobs.length} />
+        <StatCard icon={<Film className="w-4 h-4 text-violet-400" />} label="Total Jobs" value={scopedJobs.length} />
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -48,7 +62,9 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
         <CardContent className="p-6 flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-lg">Create New Generation</h3>
-            <p className="text-sm text-muted-foreground">Text-to-video, image-to-video, and more</p>
+            <p className="text-sm text-muted-foreground">
+              {projectId ? 'Will be added to the selected project' : 'Pick or create a project to keep things organized'}
+            </p>
           </div>
           <Button onClick={() => onNavigate('create')} className="gap-2 bg-violet-600 hover:bg-violet-700">
             <Plus className="w-4 h-4" /> New Generation
@@ -59,12 +75,15 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
       {/* Recent Generations */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">Recent Generations</h3>
-          {jobs.length > 6 && (
+          <h3 className="font-semibold">
+            Recent Generations
+            {projectId && <span className="text-xs text-muted-foreground ml-2">(this project)</span>}
+          </h3>
+          {scopedJobs.length > 6 && (
             <Button variant="ghost" size="sm" onClick={() => onNavigate('library')}>View All</Button>
           )}
         </div>
-        {loading ? (
+        {showSpinner ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
@@ -77,7 +96,7 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
           </Card>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {recent.map(job => <VideoTile key={job.id} job={job} onOpen={setSelected} />)}
+            {recent.map(job => <VideoTile key={job.id} job={job} onOpen={setSelected} onModify={onModify} />)}
           </div>
         )}
       </div>
@@ -89,6 +108,7 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
             <>
               <DialogHeader>
                 <DialogTitle className="truncate">{selected.prompt.slice(0, 80)}</DialogTitle>
+                <DialogDescription className="sr-only">Video preview</DialogDescription>
               </DialogHeader>
               {selected.output_video_url ? (
                 <video src={selected.output_video_url} controls autoPlay preload="metadata" className="w-full rounded-lg aspect-video bg-black" />

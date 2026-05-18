@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,11 +9,15 @@ import { useStudioJobs } from '@/lib/studio/hooks';
 import { TASK_LABELS, STATUS_COLORS, type GenerationJob, type TaskType, type JobStatus } from '@/lib/studio/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { formatDistanceToNow } from 'date-fns';
-import { Film, Search, Download, Copy, Trash2, Loader2, Play, X, Send } from 'lucide-react';
+import { Film, Search, Download, Copy, Trash2, Loader2, Pencil } from 'lucide-react';
 import { VideoTile } from './VideoTile';
 
-export function StudioLibrary() {
+interface Props {
+  projectId?: string | null;
+  onModify?: (job: GenerationJob) => void;
+}
+
+export function StudioLibrary({ projectId, onModify }: Props) {
   const { jobs, loading, refetch } = useStudioJobs();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
