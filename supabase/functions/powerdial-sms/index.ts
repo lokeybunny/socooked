@@ -428,12 +428,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
   // texts to the VoidFix cell.
 
-  // First-time texter auto-reply (configurable in /sms → VoidFix Auto-Reply)
-  await maybeSendFirstTimeAutoReply(from);
-
-  // Hook Reply classifier — awaited so the fetch survives in edge runtime
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+  // Downstream processing must never hold the webhook open long enough to hit the edge idle timeout.
+  runInBackground(maybeSendFirstTimeAutoReply(from), "first-time-auto-reply");
+  runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
       body: JSON.stringify({
@@ -442,24 +439,15 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
         message_id: insertedRow?.id || null,
         message_created_at: insertedRow?.created_at || new Date().toISOString(),
       }),
-    });
-  } catch (e) {
-    console.error("[powerdial-sms] hook classifier error", e);
-  }
-
-  // Forward to sequence engine to advance any active enrollments
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+    }, 8000, "hook_reply_classifier").then((r) => r.text()), "hook-classifier");
+  runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
       body: JSON.stringify({ action: "process_inbound", phone: normalizePhone(from), body }),
-    });
-  } catch (e) {
-    console.error("[powerdial-sms] sequence forward error", e);
-  }
+    }, 8000, "sms_sequence_engine").then((r) => r.text()), "sequence-engine");
 }
 
 Deno.serve(async (req) => {
