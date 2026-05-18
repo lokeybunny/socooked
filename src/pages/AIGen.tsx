@@ -5,10 +5,11 @@ import { StudioCreate } from '@/components/studio/StudioCreate';
 import { StudioLibrary } from '@/components/studio/StudioLibrary';
 import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
+import { StudioReferences } from '@/components/studio/StudioReferences';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
-import { Film, Sparkles, Grid3X3, ListOrdered, Settings } from 'lucide-react';
+import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon } from 'lucide-react';
 import type { GenerationJob } from '@/lib/studio/types';
 
 export interface CreatePrefill {
