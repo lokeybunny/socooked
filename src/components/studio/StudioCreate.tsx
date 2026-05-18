@@ -221,9 +221,10 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       };
 
       const basePrompt = prompt.trim();
-      let finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
-        ? `${basePrompt} No music in background.`
-        : basePrompt;
+      let finalPrompt = basePrompt;
+      if (noMusic && !/no music in background/i.test(finalPrompt)) {
+        finalPrompt = `${finalPrompt} No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track.`;
+      }
       if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
         finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
       }
