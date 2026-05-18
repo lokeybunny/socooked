@@ -361,8 +361,10 @@ Deno.serve(async (req) => {
       const jobId = path.replace("/cancel/", "");
       const { data: job } = await supabase.from("generation_jobs").select("worker_job_id, status").eq("id", jobId).single();
       if (!job) return json({ error: "Job not found" }, 404);
-      if (job.status !== "queued" && job.status !== "provisioning") {
-        return json({ error: "Can only cancel queued/provisioning jobs" }, 400);
+      const TERMINAL = ["completed", "failed", "cancelled", "timeout"];
+      if (TERMINAL.includes(job.status)) {
+        // Idempotent: already in a terminal state — nothing to cancel.
+        return json({ ok: true, already: job.status });
       }
 
       const workerUrl = Deno.env.get("STUDIO_WORKER_URL");
