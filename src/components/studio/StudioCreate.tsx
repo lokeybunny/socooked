@@ -32,6 +32,8 @@ const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   animate: <UserCircle className="w-3.5 h-3.5" />,
 };
 
+const PROPERTY_TRUTH_LOCK_PROMPT = `\n\n[PROPERTY TRUTH LOCK]\nYou are generating a real estate video from a real client property reference image. The home must be treated as an existing physical property, not a creative concept. Do not redesign or reinterpret the property.\n\nSTRICT PROPERTY ACCURACY RULES:\n1. Do not invent new rooms.\n2. Do not move the camera into a room that is not clearly visible in the reference image.\n3. Do not replace the actual room with a generated room.\n4. Do not change the layout of the home.\n5. Do not change wall placement, door placement, window placement, ceiling height, flooring, fixtures, cabinetry, furniture, or décor.\n6. Do not add new architectural features unless the user explicitly requests them.\n7. Do not remove important architectural details from the reference image.\n8. Do not change the style of the home.\n9. Do not turn the property into a different house.\n10. Do not create fake angles that reveal areas not present in the reference image.\n11. Do not generate imaginary hallways, extra doors, extra windows, extra staircases, extra rooms, or fake outdoor areas.\n12. Do not alter the client's actual staging, furniture, lighting fixtures, countertops, cabinets, appliances, pool area, backyard, landscaping, or exterior design.\n13. Do not change the size, shape, or material of visible surfaces.\n14. Do not replace the real estate photography with an AI-designed fantasy version.\n15. Do not "beautify" the property by changing its structure. Only enhance lighting, cinematic tone, realism, motion, and depth.\n\nCAMERA MOVEMENT RULES:\nAllowed: push-in, pull-back, pan left/right, tilt up/down, slow dolly, slight orbit within the visible room, smooth robotic arm style movement, depth-of-field focus pulls, cinematic parallax using only visible property geometry.\nNot allowed: traveling into a fake room, turning around to reveal a room not provided, creating a new reverse angle that invents missing architecture, passing through walls, moving through doors unless the next room is clearly shown in a provided reference, expanding the home beyond the uploaded reference.\n\nREFERENCE IMAGE PRIORITY: If the creative prompt conflicts with the reference image, the reference image wins. Restrict movement to visible areas only and preserve the exact property. Only transition Room A → Room B when both reference images are provided.\n\nSTYLE ALLOWED: cinematic lighting, camera smoothness, lens depth, motion blur, color grade, luxury commercial tone, presenter movement, natural reflections, realistic shadows, smooth transitions. Do NOT improve by changing the actual home.\n\nNEGATIVE: no fake rooms, no invented architecture, no changed layout, no extra windows, no extra doors, no new furniture, no new staging, no changed floors, no changed cabinets, no changed ceiling beams, no changed lighting fixtures, no fake backyard, no fake pool, no fake mountain view, no imaginary hallway, no unrealistic expansion, no alternate house, no redesigned interior, no AI-generated replacement room, no fantasy real estate design, no structural changes.\n\nFINAL: Generate the video as if a real cinematographer filmed the exact property shown in the uploaded reference image. Preserve the home exactly. Only animate the camera, presenter, lighting, and cinematic movement while keeping the real property locked.`;
+
 interface StudioCreateProps {
   projectId?: string | null;
   subprojectId?: string | null;
@@ -65,6 +67,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [submitting, setSubmitting] = useState(false);
   const [showDirector, setShowDirector] = useState(false);
   const [noMusic, setNoMusic] = useState(true);
+  const [propertyLock, setPropertyLock] = useState(true);
 
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
@@ -178,9 +181,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       };
 
       const basePrompt = prompt.trim();
-      const finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
+      let finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
         ? `${basePrompt} No music in background.`
         : basePrompt;
+      if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
+        finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
+      }
 
       await submitJob({
         task_type: taskType,
@@ -285,8 +291,15 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 No music — appends <span className="text-foreground font-medium">"No music in background."</span> to the prompt
               </span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={propertyLock} onCheckedChange={(v) => setPropertyLock(v === true)} />
+              <span className="text-xs text-muted-foreground">
+                Lock Property Constraints — appends the <span className="text-foreground font-medium">Property Truth Lock</span> rules so the AI never invents or redesigns the real estate reference
+              </span>
+            </label>
           </CardContent>
         </Card>
+
 
         {/* Director Panel */}
         {showDirector && (
