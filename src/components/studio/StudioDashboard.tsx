@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useStudioJobs, useWorkerHealth } from '@/lib/studio/hooks';
 import { Loader2, CheckCircle, XCircle, Clock, Cpu, Plus, Film } from 'lucide-react';
 import { VideoTile } from './VideoTile';
-import type { GenerationJob } from '@/lib/studio/types';
+import { getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 
 interface Props {
   onNavigate: (tab: string) => void;
@@ -112,7 +112,7 @@ export function StudioDashboard({ onNavigate, projectId, subprojectId, onModify 
           {selected && (
             <>
               <DialogHeader>
-                <DialogTitle className="truncate">{selected.prompt.slice(0, 80)}</DialogTitle>
+                <DialogTitle className="truncate">{getJobPrompt(selected).slice(0, 80)}</DialogTitle>
                 <DialogDescription className="sr-only">Video preview</DialogDescription>
               </DialogHeader>
               {selected.output_video_url ? (
