@@ -314,6 +314,7 @@ Deno.serve(async (req) => {
         input_image_url: body.input_image_url || null,
         input_audio_url: body.input_audio_url || null,
         project_id: body.project_id || null,
+        subproject_id: body.subproject_id || null,
       };
 
       if (!payload.prompt || !payload.task_type) return json({ error: "prompt and task_type are required" }, 400);
