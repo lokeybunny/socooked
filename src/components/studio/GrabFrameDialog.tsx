@@ -136,21 +136,28 @@ export function GrabFrameDialog({ open, onOpenChange, videoUrl, jobId }: Props) 
           <DialogTitle>Grab frame</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col items-center">
-          {videoUrl ? (
+        <div className="flex flex-col items-center relative">
+          {loadingBlob && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground bg-black/50 rounded-lg z-10">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading video…
+            </div>
+          )}
+          {blobUrl ? (
             <video
               ref={videoRef}
-              src={videoUrl}
-              crossOrigin="anonymous"
+              src={blobUrl}
               preload="auto"
               onLoadedMetadata={handleLoaded}
+              onSeeked={(e) => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
               onTimeUpdate={(e) => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
               className="max-h-[55vh] w-auto rounded-lg bg-black"
             />
-          ) : (
+          ) : !loadingBlob ? (
             <div className="aspect-video w-full bg-black rounded-lg flex items-center justify-center text-muted-foreground">
               No video
             </div>
+          ) : (
+            <div className="aspect-video w-full bg-black rounded-lg" />
           )}
           <canvas ref={canvasRef} className="hidden" />
         </div>
