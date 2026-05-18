@@ -873,7 +873,7 @@ Deno.serve(async (req) => {
         media_urls: mediaUrls,
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status, ...(strippedMms ? { voidfix_mms_stripped: true } : {}) },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
-      }).select("id, created_at").single();
+      }).select("id, created_at").single(), 2500, "poll_inbound_insert");
 
       if (insertError) {
         if ((insertError as any).code === "23505") return 0;
