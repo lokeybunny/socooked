@@ -120,7 +120,14 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
       generate_audio: settings.generate_audio !== false,
       watermark: false,
     };
-    if (isImageToVideo) seedancePayload.image = payload.input_image_url;
+    if (isImageToVideo) {
+      seedancePayload.image = payload.input_image_url;
+      const lastFrame = (settings as any).last_frame_image_url;
+      if (lastFrame) {
+        seedancePayload.last_frame_image = lastFrame;
+        seedancePayload.end_image = lastFrame;
+      }
+    }
 
     try {
       await admin.from("generation_jobs").update({ status: "provisioning", progress: 3 }).eq("id", jobId);
