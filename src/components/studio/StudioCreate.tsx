@@ -59,6 +59,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFileB, setImageFileB] = useState<File | null>(null);
+  const [imagePreviewB, setImagePreviewB] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDirector, setShowDirector] = useState(false);
 
