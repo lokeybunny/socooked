@@ -54,6 +54,7 @@ export function StudioLibrary() {
   };
 
   const filtered = jobs
+    .filter(j => j.status !== 'failed' && j.status !== 'cancelled')
     .filter(j => filterType === 'all' || j.task_type === filterType)
     .filter(j => filterStatus === 'all' || j.status === filterStatus)
     .filter(j => !search || j.prompt.toLowerCase().includes(search.toLowerCase()))

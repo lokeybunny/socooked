@@ -15,17 +15,59 @@ interface Props {
 export function GrabFrameDialog({ open, onOpenChange, videoUrl, jobId }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loadingBlob, setLoadingBlob] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [ready, setReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
+  // Fetch the video as a blob so canvas isn't tainted by CORS.
+  useEffect(() => {
+    if (!open || !videoUrl) return;
+    let cancelled = false;
+    setLoadingBlob(true);
+    setReady(false);
+    setBlobUrl(null);
+
+    (async () => {
+      try {
+        const res = await fetch(videoUrl, { mode: 'cors' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        setBlobUrl(url);
+      } catch {
+        // Fall back to direct URL — Download may fail if CORS is missing, but seek/preview still works.
+        if (!cancelled) setBlobUrl(videoUrl);
+      } finally {
+        if (!cancelled) setLoadingBlob(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, [open, videoUrl]);
+
   useEffect(() => {
     if (!open) {
       setReady(false);
       setDuration(0);
       setCurrentTime(0);
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+      setBlobUrl(null);
     }
   }, [open]);
 
@@ -53,26 +95,36 @@ export function GrabFrameDialog({ open, onOpenChange, videoUrl, jobId }: Props) 
     if (!v || !c) return;
     setDownloading(true);
     try {
-      c.width = v.videoWidth;
-      c.height = v.videoHeight;
+      // Wait one tick to ensure frame for currentTime is painted
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      c.width = v.videoWidth || 1080;
+      c.height = v.videoHeight || 1920;
       const ctx = c.getContext('2d');
       if (!ctx) throw new Error('Canvas unsupported');
       ctx.drawImage(v, 0, 0, c.width, c.height);
-      const dataUrl = c.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = `frame-${jobId || 'video'}-${v.currentTime.toFixed(2)}s.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      toast({ title: 'Frame downloaded' });
+      c.toBlob((blob) => {
+        if (!blob) {
+          toast({ title: 'Download failed', description: 'Could not export frame.', variant: 'destructive' });
+          setDownloading(false);
+          return;
+        }
+        const a = document.createElement('a');
+        const dl = URL.createObjectURL(blob);
+        a.href = dl;
+        a.download = `frame-${jobId || 'video'}-${v.currentTime.toFixed(2)}s.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(dl);
+        toast({ title: 'Frame downloaded' });
+        setDownloading(false);
+      }, 'image/png');
     } catch (e) {
       toast({
         title: 'Download failed',
-        description: (e as Error).message + ' — video may be cross-origin protected.',
+        description: (e as Error).message,
         variant: 'destructive',
       });
-    } finally {
       setDownloading(false);
     }
   };
@@ -84,21 +136,28 @@ export function GrabFrameDialog({ open, onOpenChange, videoUrl, jobId }: Props) 
           <DialogTitle>Grab frame</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col items-center">
-          {videoUrl ? (
+        <div className="flex flex-col items-center relative">
+          {loadingBlob && (
+            <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground bg-black/50 rounded-lg z-10">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading video…
+            </div>
+          )}
+          {blobUrl ? (
             <video
               ref={videoRef}
-              src={videoUrl}
-              crossOrigin="anonymous"
+              src={blobUrl}
               preload="auto"
               onLoadedMetadata={handleLoaded}
+              onSeeked={(e) => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
               onTimeUpdate={(e) => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
               className="max-h-[55vh] w-auto rounded-lg bg-black"
             />
-          ) : (
+          ) : !loadingBlob ? (
             <div className="aspect-video w-full bg-black rounded-lg flex items-center justify-center text-muted-foreground">
               No video
             </div>
+          ) : (
+            <div className="aspect-video w-full bg-black rounded-lg" />
           )}
           <canvas ref={canvasRef} className="hidden" />
         </div>

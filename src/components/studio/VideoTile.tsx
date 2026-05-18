@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, Sparkles } from 'lucide-react';
+import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, Send } from 'lucide-react';
 import { STATUS_COLORS, type GenerationJob } from '@/lib/studio/types';
 import { GrabFrameDialog } from './GrabFrameDialog';
 import { submitJob } from '@/lib/studio/hooks';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Props {
@@ -39,18 +40,28 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
     }
   };
 
-  const handleUpscale = async () => {
+  const handleSendToTelegram = async () => {
     if (!job.output_video_url) return;
     setBusy(true);
     try {
-      await submitJob({
-        task_type: job.task_type,
-        prompt: `[upscale] ${job.prompt}`,
-        settings_json: { ...(job.settings_json ?? {}), upscale: true, source_video_url: job.output_video_url },
-      });
-      toast({ title: 'Upscale queued' });
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/studio-telegram-deliver`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ job_id: job.id, force: true }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast({ title: 'Sent to Telegram 📨' });
     } catch (e) {
-      toast({ title: 'Upscale failed', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: 'Send failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -121,8 +132,8 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
                   <DropdownMenuItem onClick={() => setGrabOpen(true)} className="gap-2 cursor-pointer">
                     <Crop className="w-4 h-4" /> Grab a frame
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleUpscale} className="gap-2 cursor-pointer">
-                    <Sparkles className="w-4 h-4" /> Upscale video
+                  <DropdownMenuItem onClick={handleSendToTelegram} className="gap-2 cursor-pointer">
+                    <Send className="w-4 h-4" /> Send to TG
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
