@@ -269,6 +269,92 @@ export function StudioCreate() {
           </Card>
         )}
 
+        {/* Seedance Fast (image-to-video) */}
+        {taskType === 'i2v' && (
+          <Card className={`border ${useSeedance ? 'border-[#00ff88]/50 bg-[#00ff88]/5' : 'border-border/50 bg-card/50'} backdrop-blur`}>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className={`w-4 h-4 ${useSeedance ? 'text-[#00ff88]' : 'text-muted-foreground'}`} />
+                    <Label className="text-sm font-medium">Seedance 2.0 Fast (with audio)</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ByteDance Atlas Cloud · image→video, native synced audio, 4–15s.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={useSeedance ? 'default' : 'outline'}
+                  className={useSeedance ? 'bg-[#00ff88] text-black hover:bg-[#00ff88]/90' : ''}
+                  onClick={() => setUseSeedance(v => !v)}
+                >
+                  {useSeedance ? 'On' : 'Off'}
+                </Button>
+              </div>
+
+              {useSeedance && (
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div>
+                    <Label className="text-xs">Resolution</Label>
+                    <Select
+                      value={settings.seedance_resolution}
+                      onValueChange={v => setSettings(s => ({ ...s, seedance_resolution: v }))}
+                    >
+                      <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['480p','720p','720p-SR','1080p-SR','1440p-SR'].map(r => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Aspect</Label>
+                    <Select
+                      value={settings.seedance_ratio}
+                      onValueChange={v => setSettings(s => ({ ...s, seedance_ratio: v }))}
+                    >
+                      <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['adaptive','16:9','9:16','1:1','4:3','3:4','21:9'].map(r => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Duration (s)</Label>
+                    <Select
+                      value={String(settings.duration || 5)}
+                      onValueChange={v => setSettings(s => ({ ...s, duration: Number(v) }))}
+                    >
+                      <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[4,5,6,7,8,9,10,11,12,13,14,15].map(d => (
+                          <SelectItem key={d} value={String(d)}>{d}s</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={settings.generate_audio !== false}
+                        onChange={e => setSettings(s => ({ ...s, generate_audio: e.target.checked }))}
+                        className="accent-[#00ff88]"
+                      />
+                      Generate synced audio
+                    </label>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Style Presets */}
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardContent className="p-5">
