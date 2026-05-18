@@ -19,8 +19,9 @@ export function useStudioJobs() {
   useEffect(() => {
     fetchJobs();
 
+    const channelName = `studio-jobs-${Math.random().toString(36).slice(2, 10)}`;
     const channel = supabase
-      .channel('studio-jobs')
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'generation_jobs' }, () => {
         fetchJobs();
       })
