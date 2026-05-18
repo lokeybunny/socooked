@@ -64,6 +64,22 @@ export function StudioCreate({ projectId, prefill, onPrefillConsumed }: StudioCr
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
 
+  // Apply prefill (from "Modify Video" action elsewhere)
+  useEffect(() => {
+    if (!prefill) return;
+    if (prefill.task_type) setTaskType(prefill.task_type);
+    if (typeof prefill.prompt === 'string') setPrompt(prefill.prompt);
+    if (typeof prefill.negative_prompt === 'string' || prefill.negative_prompt === null) {
+      setNegPrompt(prefill.negative_prompt ?? '');
+    }
+    if (prefill.settings_json) setSettings(s => ({ ...s, ...prefill.settings_json }));
+    if (prefill.input_image_url) setImagePreview(prefill.input_image_url);
+    toast({ title: 'Loaded for editing', description: 'Tweak the prompt and resubmit.' });
+    onPrefillConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill]);
+
+
   const toggleStyle = (s: string) => {
     setSelectedStyles(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
