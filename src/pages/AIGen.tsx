@@ -10,7 +10,7 @@ import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
 import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon } from 'lucide-react';
-import type { GenerationJob } from '@/lib/studio/types';
+import { getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 
 export interface CreatePrefill {
   task_type?: GenerationJob['task_type'];
@@ -34,7 +34,7 @@ export default function AIGen() {
   const openModify = useCallback((job: GenerationJob) => {
     setPrefill({
       task_type: job.task_type,
-      prompt: job.prompt,
+      prompt: getJobPrompt(job),
       negative_prompt: job.negative_prompt,
       settings_json: job.settings_json,
       input_image_url: job.input_image_url,

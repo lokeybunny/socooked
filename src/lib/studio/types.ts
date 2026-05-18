@@ -104,6 +104,14 @@ export const STATUS_COLORS: Record<JobStatus, string> = {
   cancelled: 'bg-muted text-muted-foreground',
 };
 
+export const getJobPrompt = (
+  job: Pick<GenerationJob, 'prompt'> | null | undefined,
+  fallback = 'Untitled generation',
+) => {
+  const prompt = typeof job?.prompt === 'string' ? job.prompt.trim() : '';
+  return prompt || fallback;
+};
+
 export const STYLE_PRESETS = [
   'cinematic', 'music video', 'realistic', 'surreal', 'product ad',
   'anime-inspired', 'dramatic lighting', 'luxury commercial',

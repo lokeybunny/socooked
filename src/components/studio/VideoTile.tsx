@@ -3,7 +3,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop } from 'lucide-react';
-import { STATUS_COLORS, type GenerationJob } from '@/lib/studio/types';
+import { STATUS_COLORS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { GrabFrameDialog } from './GrabFrameDialog';
 import { submitJob } from '@/lib/studio/hooks';
 import { useToast } from '@/hooks/use-toast';
@@ -19,13 +19,14 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
   const isReady = job.status === 'completed' && !!job.output_video_url;
+  const prompt = getJobPrompt(job);
 
   const handleRecreate = async () => {
     setBusy(true);
     try {
       await submitJob({
         task_type: job.task_type,
-        prompt: job.prompt,
+        prompt,
         negative_prompt: job.negative_prompt ?? undefined,
         settings_json: { ...(job.settings_json ?? {}), seed: Math.floor(Math.random() * 1e9) },
         input_image_url: job.input_image_url ?? undefined,
