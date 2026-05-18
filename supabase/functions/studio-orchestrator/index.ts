@@ -211,10 +211,10 @@ Deno.serve(async (req) => {
           }
         };
 
-        // @ts-ignore EdgeRuntime is available in Supabase edge runtime
-        EdgeRuntime.waitUntil(pollSeedance());
-
-        await adminClient.from("generation_jobs").update({ status: "provisioning" }).eq("id", job.id);
+        runBg(async () => {
+          await adminClient.from("generation_jobs").update({ status: "provisioning" }).eq("id", job.id);
+          await pollSeedance();
+        });
 
         return new Response(JSON.stringify({ job }), {
           status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
