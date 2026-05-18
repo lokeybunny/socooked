@@ -35,15 +35,15 @@ export function StudioCreate() {
   const [prompt, setPrompt] = useState('');
   const [negPrompt, setNegPrompt] = useState('');
   const [settings, setSettings] = useState<GenerationSettings & { provider?: string; seedance_model?: string; seedance_resolution?: string; seedance_ratio?: string; generate_audio?: boolean }>({
-    resolution: '1280x720',
-    duration: 4,
+    resolution: '720x1280',
+    duration: 15,
     fps: 24,
-    aspect_ratio: '16:9',
+    aspect_ratio: '9:16',
     guidance_scale: 7,
     motion_intensity: 50,
     seedance_model: 'bytedance/seedance-2.0-fast/image-to-video',
     seedance_resolution: '720p',
-    seedance_ratio: 'adaptive',
+    seedance_ratio: '9:16',
     generate_audio: true,
   });
   const [useSeedance, setUseSeedance] = useState(true);
