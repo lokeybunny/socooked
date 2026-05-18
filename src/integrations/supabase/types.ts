@@ -2498,6 +2498,7 @@ export type Database = {
           prompt: string
           settings_json: Json
           status: string
+          subproject_id: string | null
           task_type: string
           updated_at: string
           user_id: string
@@ -2518,6 +2519,7 @@ export type Database = {
           prompt: string
           settings_json?: Json
           status?: string
+          subproject_id?: string | null
           task_type?: string
           updated_at?: string
           user_id: string
@@ -2538,6 +2540,7 @@ export type Database = {
           prompt?: string
           settings_json?: Json
           status?: string
+          subproject_id?: string | null
           task_type?: string
           updated_at?: string
           user_id?: string
@@ -2549,6 +2552,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generation_jobs_subproject_id_fkey"
+            columns: ["subproject_id"]
+            isOneToOne: false
+            referencedRelation: "studio_subprojects"
             referencedColumns: ["id"]
           },
         ]
@@ -8160,6 +8170,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      studio_subprojects: {
+        Row: {
+          color: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_subprojects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppression_list: {
         Row: {

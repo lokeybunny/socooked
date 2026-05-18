@@ -10,17 +10,22 @@ import type { GenerationJob } from '@/lib/studio/types';
 interface Props {
   onNavigate: (tab: string) => void;
   projectId?: string | null;
+  subprojectId?: string | null;
   onModify?: (job: GenerationJob) => void;
 }
 
-export function StudioDashboard({ onNavigate, projectId, onModify }: Props) {
+export function StudioDashboard({ onNavigate, projectId, subprojectId, onModify }: Props) {
   const { jobs, loading } = useStudioJobs();
   const { health } = useWorkerHealth();
   const [selected, setSelected] = useState<GenerationJob | null>(null);
 
   const scopedJobs = useMemo(
-    () => (projectId ? jobs.filter(j => j.project_id === projectId) : jobs),
-    [jobs, projectId],
+    () => jobs.filter(j => {
+      if (projectId && j.project_id !== projectId) return false;
+      if (subprojectId && j.subproject_id !== subprojectId) return false;
+      return true;
+    }),
+    [jobs, projectId, subprojectId],
   );
 
   const queued = scopedJobs.filter(j => j.status === 'queued' || j.status === 'provisioning').length;

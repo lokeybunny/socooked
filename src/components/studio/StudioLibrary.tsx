@@ -14,10 +14,11 @@ import { VideoTile } from './VideoTile';
 
 interface Props {
   projectId?: string | null;
+  subprojectId?: string | null;
   onModify?: (job: GenerationJob) => void;
 }
 
-export function StudioLibrary({ projectId, onModify }: Props) {
+export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
   const { jobs, loading, refetch } = useStudioJobs();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
@@ -29,13 +30,14 @@ export function StudioLibrary({ projectId, onModify }: Props) {
   const filtered = useMemo(() => jobs
     .filter(j => j.status !== 'failed' && j.status !== 'cancelled')
     .filter(j => !projectId || j.project_id === projectId)
+    .filter(j => !subprojectId || j.subproject_id === subprojectId)
     .filter(j => filterType === 'all' || j.task_type === filterType)
     .filter(j => filterStatus === 'all' || j.status === filterStatus)
     .filter(j => !search || j.prompt.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortDir === 'newest'
       ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ), [jobs, projectId, filterType, filterStatus, search, sortDir]);
+    ), [jobs, projectId, subprojectId, filterType, filterStatus, search, sortDir]);
 
   const handleDelete = async (id: string) => {
     await supabase.from('generation_jobs').delete().eq('id', id);
