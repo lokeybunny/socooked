@@ -143,7 +143,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'Prompt required', variant: 'destructive' });
       return;
     }
-    if ((taskType === 'i2v' || taskType === 'ti2v') && !imageFile) {
+    if ((taskType === 'i2v' || taskType === 'ti2v') && !imageFile && !imagePreview) {
       toast({ title: 'Image required for this mode', variant: 'destructive' });
       return;
     }
