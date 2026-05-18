@@ -132,8 +132,8 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
                   <DropdownMenuItem onClick={() => setGrabOpen(true)} className="gap-2 cursor-pointer">
                     <Crop className="w-4 h-4" /> Grab a frame
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleUpscale} className="gap-2 cursor-pointer">
-                    <Sparkles className="w-4 h-4" /> Upscale video
+                  <DropdownMenuItem onClick={handleSendToTelegram} className="gap-2 cursor-pointer">
+                    <Send className="w-4 h-4" /> Send to TG
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
