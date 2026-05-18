@@ -63,6 +63,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [imagePreviewB, setImagePreviewB] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDirector, setShowDirector] = useState(false);
+  const [noMusic, setNoMusic] = useState(true);
 
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
