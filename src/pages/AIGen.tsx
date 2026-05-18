@@ -85,6 +85,9 @@ export default function AIGen() {
             <TabsTrigger value="references" className="gap-1.5 data-[state=active]:bg-background">
               <ImageIcon className="w-3.5 h-3.5" /> References
             </TabsTrigger>
+            <TabsTrigger value="shrink" className="gap-1.5 data-[state=active]:bg-background">
+              <Minimize2 className="w-3.5 h-3.5" /> Shrink
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-background">
               <Settings className="w-3.5 h-3.5" /> Settings
             </TabsTrigger>
