@@ -25,11 +25,38 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
-    Promise.race([
-      p,
-      new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)),
-    ]);
+  const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+    let timeoutId: number | undefined;
+    const timeout = new Promise<T>((_, rej) => {
+      timeoutId = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms);
+    });
+    return Promise.race([p, timeout]).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    });
+  };
+
+  const fetchWithTimeout = async (url: string, init: RequestInit, ms: number, label: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(`${label} timed out after ${ms}ms`), ms);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  const readUserIdFromJwt = (jwt: string): string | null => {
+    try {
+      const [, payload] = jwt.split(".");
+      if (!payload) return null;
+      const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const decoded = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=")));
+      if (!decoded?.sub || (decoded?.exp && decoded.exp * 1000 < Date.now())) return null;
+      return decoded.sub;
+    } catch {
+      return null;
+    }
+  };
 
   const runBg = (fn: () => Promise<unknown>) => {
     try {
@@ -44,23 +71,10 @@ Deno.serve(async (req) => {
   };
 
   const token = authHeader.replace("Bearer ", "");
-  let userId: string;
-  try {
-    // getClaims verifies the JWT locally — no upstream /auth/v1/user call
-    const { data: claimsData, error: claimsError } = await withTimeout(
-      supabase.auth.getClaims(token), 5000, "auth.getClaims"
-    );
-    const sub = claimsData?.claims?.sub as string | undefined;
-    if (claimsError || !sub) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    userId = sub;
-  } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 504,
+  const userId = readUserIdFromJwt(token);
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
