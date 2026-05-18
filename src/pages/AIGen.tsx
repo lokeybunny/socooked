@@ -100,6 +100,7 @@ export default function AIGen() {
           </TabsContent>
           <TabsContent value="library"><StudioLibrary projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
           <TabsContent value="queue"><StudioQueue /></TabsContent>
+          <TabsContent value="references"><StudioReferences projectId={projectId} /></TabsContent>
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
       </div>
