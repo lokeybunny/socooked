@@ -291,8 +291,15 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 No music — appends <span className="text-foreground font-medium">"No music in background."</span> to the prompt
               </span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={propertyLock} onCheckedChange={(v) => setPropertyLock(v === true)} />
+              <span className="text-xs text-muted-foreground">
+                Lock Property Constraints — appends the <span className="text-foreground font-medium">Property Truth Lock</span> rules so the AI never invents or redesigns the real estate reference
+              </span>
+            </label>
           </CardContent>
         </Card>
+
 
         {/* Director Panel */}
         {showDirector && (
