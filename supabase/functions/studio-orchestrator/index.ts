@@ -70,6 +70,108 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ---- Provider routing: Seedance (Atlas Cloud) ----
+      const provider = (settings_json?.provider || "").toString().toLowerCase();
+      const atlasKey = Deno.env.get("ATLASCLOUD_API_KEY");
+
+      if (provider === "seedance" && atlasKey) {
+        const adminClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+
+        if (!input_image_url) {
+          await adminClient.from("generation_jobs").update({
+            status: "failed",
+            error_message: "Seedance image-to-video requires an input image.",
+          }).eq("id", job.id);
+          return new Response(JSON.stringify({ job }), {
+            status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const seedancePayload = {
+          model: "bytedance/seedance-2.0-fast/image-to-video",
+          image: input_image_url,
+          prompt: prompt || "The scene comes alive with gentle motion and cinematic lighting",
+          duration: Number(settings_json?.duration) || 5,
+          resolution: settings_json?.seedance_resolution || "720p",
+          ratio: settings_json?.seedance_ratio || "adaptive",
+          generate_audio: settings_json?.generate_audio !== false,
+          watermark: false,
+        };
+
+        // Background poll so we don't hold the request open
+        const pollSeedance = async () => {
+          try {
+            const sub = await fetch("https://api.atlascloud.ai/api/v1/model/generateVideo", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${atlasKey}`,
+              },
+              body: JSON.stringify(seedancePayload),
+            });
+            const subJson = await sub.json();
+            const predictionId = subJson?.data?.id;
+            if (!predictionId) {
+              throw new Error(subJson?.error || subJson?.message || "Seedance: no prediction id");
+            }
+            await adminClient.from("generation_jobs").update({
+              status: "running",
+              worker_job_id: predictionId,
+              progress: 5,
+            }).eq("id", job.id);
+
+            const deadline = Date.now() + 15 * 60 * 1000; // 15 min cap
+            while (Date.now() < deadline) {
+              await new Promise(r => setTimeout(r, 4000));
+              const pollRes = await fetch(
+                `https://api.atlascloud.ai/api/v1/model/prediction/${predictionId}`,
+                { headers: { Authorization: `Bearer ${atlasKey}` } }
+              );
+              const pollJson = await pollRes.json();
+              const status = pollJson?.data?.status;
+              if (status === "completed" || status === "succeeded") {
+                const outputs: string[] = pollJson?.data?.outputs || [];
+                await adminClient.from("generation_jobs").update({
+                  status: "completed",
+                  progress: 100,
+                  output_video_url: outputs[0] || null,
+                  output_thumbnail_url: outputs[1] || null,
+                }).eq("id", job.id);
+                return;
+              }
+              if (status === "failed" || status === "timeout") {
+                await adminClient.from("generation_jobs").update({
+                  status: "failed",
+                  error_message: pollJson?.data?.error || `Seedance status: ${status}`,
+                }).eq("id", job.id);
+                return;
+              }
+            }
+            await adminClient.from("generation_jobs").update({
+              status: "failed",
+              error_message: "Seedance polling timed out after 15 min",
+            }).eq("id", job.id);
+          } catch (e) {
+            await adminClient.from("generation_jobs").update({
+              status: "failed",
+              error_message: `Seedance error: ${(e as Error).message}`,
+            }).eq("id", job.id);
+          }
+        };
+
+        // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+        EdgeRuntime.waitUntil(pollSeedance());
+
+        await adminClient.from("generation_jobs").update({ status: "provisioning" }).eq("id", job.id);
+
+        return new Response(JSON.stringify({ job }), {
+          status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Forward to GPU worker if configured
       const workerUrl = Deno.env.get("STUDIO_WORKER_URL");
       const workerKey = Deno.env.get("STUDIO_WORKER_API_KEY");
