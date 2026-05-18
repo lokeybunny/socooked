@@ -25,47 +25,17 @@ export function StudioLibrary({ projectId, onModify }: Props) {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortDir, setSortDir] = useState<'newest' | 'oldest'>('newest');
   const [selected, setSelected] = useState<GenerationJob | null>(null);
-  const [sending, setSending] = useState<string | null>(null);
 
-  const handleSendToTelegram = async (job: GenerationJob) => {
-    if (!job.output_video_url) {
-      toast({ title: 'No video to send', variant: 'destructive' });
-      return;
-    }
-    setSending(job.id);
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/studio-telegram-deliver`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
-          },
-          body: JSON.stringify({ job_id: job.id, force: true }),
-        }
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      toast({ title: 'Sent to Telegram 📨' });
-    } catch (e) {
-      toast({ title: 'Send failed', description: (e as Error).message, variant: 'destructive' });
-    } finally {
-      setSending(null);
-    }
-  };
-
-  const filtered = jobs
+  const filtered = useMemo(() => jobs
     .filter(j => j.status !== 'failed' && j.status !== 'cancelled')
+    .filter(j => !projectId || j.project_id === projectId)
     .filter(j => filterType === 'all' || j.task_type === filterType)
     .filter(j => filterStatus === 'all' || j.status === filterStatus)
     .filter(j => !search || j.prompt.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortDir === 'newest'
       ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+    ), [jobs, projectId, filterType, filterStatus, search, sortDir]);
 
   const handleDelete = async (id: string) => {
     await supabase.from('generation_jobs').delete().eq('id', id);
