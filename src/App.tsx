@@ -42,7 +42,7 @@ const ManageBooking = lazyWithRetry(() => import("./pages/ManageBooking"), "page
 const SharedContent = lazyWithRetry(() => import("./pages/SharedContent"), "page-shared-content");
 const ResearchRoute = lazyWithRetry(() => import("./pages/ResearchRoute"), "page-research-route");
 const ThankYou = lazyWithRetry(() => import("./pages/ThankYou"), "page-thank-you");
-const ThankYouVideography = lazyWithRetry(() => import("./pages/ThankYouVideography"), "page-thank-you-videography");
+
 const ThankYouSeller = lazyWithRetry(() => import("./pages/ThankYouSeller"), "page-thank-you-seller");
 const ThankYouWebDesign = lazyWithRetry(() => import("./pages/ThankYouWebDesign"), "page-thank-you-webdesign");
 const WarrenLanding = lazyWithRetry(() => import("./pages/WarrenLanding"), "page-warren-landing");
@@ -60,12 +60,9 @@ const UsaMap = lazyWithRetry(() => import("./pages/UsaMap"), "page-usa-map");
 const PhoneAudit = lazyWithRetry(() => import("./pages/PhoneAudit"), "page-phone-audit");
 const PowerDialVoicemails = lazyWithRetry(() => import("./pages/PowerDialVoicemails"), "page-powerdial-voicemails");
 const AutoCallbackMonitor = lazyWithRetry(() => import("./pages/AutoCallbackMonitor"), "page-auto-callback-monitor");
-const CampaignLeader = lazyWithRetry(() => import("./pages/CampaignLeader"), "page-campaign-leader");
 const EmailDeliverability = lazyWithRetry(() => import("./pages/EmailDeliverability"), "page-email-deliverability");
 const Funnels = lazyWithRetry(() => import("./pages/Funnels"), "page-funnels");
 const SellerLanding = lazyWithRetry(() => import("./pages/SellerLanding"), "page-seller-landing");
-const VideographyHub = lazyWithRetry(() => import("./pages/VideographyHub"), "page-videography-hub");
-const VideographyLanding = lazyWithRetry(() => import("./pages/VideographyLanding"), "page-videography");
 const WebDesignLanding = lazyWithRetry(() => import("./pages/WebDesignLanding"), "page-webdesign");
 const Terms = lazyWithRetry(() => import("./pages/Terms"), "page-terms");
 const Stream = lazyWithRetry(() => import("./pages/Stream"), "page-stream");
@@ -173,7 +170,7 @@ const App = () => (
                 <Route path="/shared/:token" element={<SharedContent />} />
                 <Route path="/research" element={<ResearchRoute />} />
                 <Route path="/thankyou" element={<ThankYou />} />
-                <Route path="/thankyou-videography" element={<ThankYouVideography />} />
+                
                 <Route path="/thankyou-seller" element={<ThankYouSeller />} />
                 <Route path="/thankyou-webdesign" element={<ThankYouWebDesign />} />
                 <Route path="/warren-landing" element={<WarrenLanding />} />
@@ -193,11 +190,7 @@ const App = () => (
                 <Route path="/sell/:slug" element={<SellerLanding />} />
                 <Route path="/usa-map" element={<WarrenOnlyGate><AuthLayoutGate><UsaMap /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/phone-audit" element={<WarrenOnlyGate><AuthLayoutGate><PhoneAudit /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/campaign-leader" element={<WarrenOnlyGate><AuthLayoutGate><CampaignLeader /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/email-deliverability" element={<WarrenOnlyGate><AuthLayoutGate><EmailDeliverability /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/videography-hub" element={<WarrenOnlyGate><AuthLayoutGate><VideographyHub /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/video" element={<VideographyLanding />} />
-                <Route path="/videography" element={<Navigate to="/video" replace />} />
                 <Route path="/web" element={<WebDesignLanding />} />
                 <Route path="/webdesign" element={<Navigate to="/web" replace />} />
                 <Route path="/liquidate" element={<Liquidate />} />

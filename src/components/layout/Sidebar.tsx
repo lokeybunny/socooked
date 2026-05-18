@@ -60,17 +60,15 @@ const navEntries: NavEntry[] = [
   },
   { to: '/usa-map', icon: Crosshair, label: 'USA Map', green: true },
   { to: '/phone-audit', icon: Phone, label: 'Phone Audit', green: true },
-  { to: '/campaign-leader', icon: Megaphone, label: 'Campaign Leader', green: true },
   { to: '/zillow', icon: Building2, label: 'Zillow', green: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
   { to: '/', icon: Home, label: 'HOME' },
   { to: '/arbitrage', icon: ShoppingBag, label: 'Arbitrage', divider: 'Services', green: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
-  { to: '/videography-hub', icon: Video, label: 'Videography', green: true },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
-  
-  
-  { to: '/ai-gen', icon: Film, label: 'AI Gen', divider: 'Studio', highlight: true },
+
+
+  { to: '/ai-gen', icon: Film, label: 'Studio', divider: 'Studio', highlight: true },
 ];
 
 export function Sidebar() {
