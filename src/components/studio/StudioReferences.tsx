@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects } from '@/lib/studio/hooks';
-import { Image as ImageIcon, Upload, Trash2, Loader2, Globe, Folder, Copy } from 'lucide-react';
+import { Image as ImageIcon, Upload, Trash2, Loader2, Globe, Folder, Copy, Download } from 'lucide-react';
 
 interface Ref {
   id: string;
@@ -155,6 +155,26 @@ export function StudioReferences({ projectId }: Props) {
     toast({ title: 'URL copied' });
   };
 
+  const downloadRef = async (ref: Ref) => {
+    try {
+      const res = await fetch(ref.image_url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const ext = (ref.storage_path?.split('.').pop() || blob.type.split('/')[1] || 'png').split('?')[0];
+      const safeName = (ref.name || 'reference').replace(/[^\w.-]+/g, '_');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({ title: 'Download failed', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
   const visible = refs.filter(r => {
     if (filter === 'global') return r.project_id === null;
     if (filter === 'project') return projectId ? r.project_id === projectId : false;
@@ -224,6 +244,13 @@ export function StudioReferences({ projectId }: Props) {
                       aria-label="Copy URL"
                     >
                       <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => downloadRef(ref)}
+                      className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white"
+                      aria-label="Download"
+                    >
+                      <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDelete(ref)}
