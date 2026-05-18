@@ -79,25 +79,38 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create job record
-      const { data: job, error: insertErr } = await supabase
-        .from("generation_jobs")
-        .insert({
-          user_id: userId,
-          task_type,
-          prompt,
-          negative_prompt: negative_prompt || null,
-          settings_json: settings_json || {},
-          input_image_url: input_image_url || null,
-          input_audio_url: input_audio_url || null,
-          status: "queued",
-          progress: 0,
-        })
-        .select()
-        .single();
+      // Create job record (with timeout)
+      let job: any, insertErr: any;
+      try {
+        const res: any = await withTimeout(
+          supabase
+            .from("generation_jobs")
+            .insert({
+              user_id: userId,
+              task_type,
+              prompt,
+              negative_prompt: negative_prompt || null,
+              settings_json: settings_json || {},
+              input_image_url: input_image_url || null,
+              input_audio_url: input_audio_url || null,
+              status: "queued",
+              progress: 0,
+            })
+            .select()
+            .single(),
+          10000,
+          "insert generation_jobs"
+        );
+        job = res.data; insertErr = res.error;
+      } catch (e) {
+        return new Response(JSON.stringify({ error: (e as Error).message }), {
+          status: 504,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      if (insertErr) {
-        return new Response(JSON.stringify({ error: insertErr.message }), {
+      if (insertErr || !job) {
+        return new Response(JSON.stringify({ error: insertErr?.message || "insert failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
