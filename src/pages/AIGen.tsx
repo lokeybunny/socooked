@@ -6,10 +6,11 @@ import { StudioLibrary } from '@/components/studio/StudioLibrary';
 import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
 import { StudioReferences } from '@/components/studio/StudioReferences';
+import { StudioShrink } from '@/components/studio/StudioShrink';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
-import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon } from 'lucide-react';
+import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon, Minimize2 } from 'lucide-react';
 import { getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 
 export interface CreatePrefill {
@@ -84,6 +85,9 @@ export default function AIGen() {
             <TabsTrigger value="references" className="gap-1.5 data-[state=active]:bg-background">
               <ImageIcon className="w-3.5 h-3.5" /> References
             </TabsTrigger>
+            <TabsTrigger value="shrink" className="gap-1.5 data-[state=active]:bg-background">
+              <Minimize2 className="w-3.5 h-3.5" /> Shrink
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-background">
               <Settings className="w-3.5 h-3.5" /> Settings
             </TabsTrigger>
@@ -101,6 +105,7 @@ export default function AIGen() {
           <TabsContent value="library"><StudioLibrary projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
           <TabsContent value="queue"><StudioQueue /></TabsContent>
           <TabsContent value="references"><StudioReferences projectId={projectId} /></TabsContent>
+          <TabsContent value="shrink"><StudioShrink /></TabsContent>
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
       </div>
