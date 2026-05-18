@@ -244,11 +244,12 @@ export function useStudioProjects() {
 }
 
 export async function createStudioProject(input: { name: string; kind?: string | null; description?: string | null }) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error('Not authenticated');
   const { data, error } = await supabase
     .from('studio_projects')
-    .insert({ user_id: user.id, name: input.name, kind: input.kind ?? null, description: input.description ?? null })
+    .insert({ user_id: userId, name: input.name, kind: input.kind ?? null, description: input.description ?? null })
     .select()
     .single();
   if (error) throw new Error(error.message);
