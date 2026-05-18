@@ -246,6 +246,13 @@ export function StudioReferences({ projectId }: Props) {
                       <Copy className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      onClick={() => downloadRef(ref)}
+                      className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white"
+                      aria-label="Download"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(ref)}
                       className="p-1.5 rounded-md bg-black/60 hover:bg-red-600/80 text-white"
                       aria-label="Delete"
