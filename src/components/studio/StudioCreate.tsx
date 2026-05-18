@@ -176,9 +176,14 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           : settings.duration,
       };
 
+      const basePrompt = prompt.trim();
+      const finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
+        ? `${basePrompt} No music in background.`
+        : basePrompt;
+
       await submitJob({
         task_type: taskType,
-        prompt: prompt.trim(),
+        prompt: finalPrompt,
         negative_prompt: negPrompt.trim() || undefined,
         settings_json: fullSettings,
         input_image_url,
