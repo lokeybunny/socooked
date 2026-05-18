@@ -266,6 +266,11 @@ Deno.serve(async (req) => {
   const path = url.pathname.split("/studio-orchestrator")[1] || "";
 
   if (req.method === "POST" && path === "/callback") {
+    const callbackKey = Deno.env.get("STUDIO_WORKER_API_KEY");
+    if (callbackKey && req.headers.get("Authorization") !== `Bearer ${callbackKey}`) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+
     const body = await req.json();
     const { job_id, status, progress, output_video_url, output_thumbnail_url, logs, error_message } = body;
     if (!job_id) return json({ error: "job_id required" }, 400);
