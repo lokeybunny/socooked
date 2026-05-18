@@ -108,6 +108,21 @@ async function fetchWithTimeout(url: string, init: RequestInit, ms: number, labe
   }
 }
 
+async function dbWithTimeout<T = any>(query: any, ms: number, label: string): Promise<T> {
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), ms);
+  try {
+    const executable = typeof query?.abortSignal === "function" ? query.abortSignal(ac.signal) : query;
+    return await executable;
+  } catch (e: any) {
+    const message = e?.name === "AbortError" ? `${label}_timeout` : (e?.message || String(e));
+    console.error(`[powerdial-sms] ${label} DB query failed`, message);
+    return { data: null, error: { message, code: e?.name === "AbortError" ? "TIMEOUT" : e?.code } } as T;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function normalizePhone(raw: string | null | undefined): string {
   if (!raw) return "";
   const digits = String(raw).replace(/\D/g, "");
