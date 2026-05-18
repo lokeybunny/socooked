@@ -10,7 +10,7 @@ import { TASK_LABELS, STATUS_COLORS, type GenerationJob, type TaskType, type Job
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Film, Search, Download, Copy, Trash2, Loader2, Play, X } from 'lucide-react';
+import { Film, Search, Download, Copy, Trash2, Loader2, Play, X, Send } from 'lucide-react';
 
 export function StudioLibrary() {
   const { jobs, loading, refetch } = useStudioJobs();
