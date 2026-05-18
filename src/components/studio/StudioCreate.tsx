@@ -34,18 +34,19 @@ export function StudioCreate() {
   const [taskType, setTaskType] = useState<TaskType>('t2v');
   const [prompt, setPrompt] = useState('');
   const [negPrompt, setNegPrompt] = useState('');
-  const [settings, setSettings] = useState<GenerationSettings & { provider?: string; seedance_resolution?: string; seedance_ratio?: string; generate_audio?: boolean }>({
+  const [settings, setSettings] = useState<GenerationSettings & { provider?: string; seedance_model?: string; seedance_resolution?: string; seedance_ratio?: string; generate_audio?: boolean }>({
     resolution: '1280x720',
     duration: 4,
     fps: 24,
     aspect_ratio: '16:9',
     guidance_scale: 7,
     motion_intensity: 50,
+    seedance_model: 'bytedance/seedance-2.0-fast/image-to-video',
     seedance_resolution: '720p',
     seedance_ratio: 'adaptive',
     generate_audio: true,
   });
-  const [useSeedance, setUseSeedance] = useState(false);
+  const [useSeedance, setUseSeedance] = useState(true);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
