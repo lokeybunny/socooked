@@ -25,15 +25,43 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } }
   );
 
+  const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)),
+    ]);
+
+  const runBg = (fn: () => Promise<unknown>) => {
+    try {
+      // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(fn().catch((e) => console.error("bg error:", e)));
+      } else {
+        fn().catch((e) => console.error("bg error:", e));
+      }
+    } catch (e) { console.error("runBg error:", e); }
+  };
+
   const token = authHeader.replace("Bearer ", "");
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData?.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
+  let userId: string;
+  try {
+    const { data: userData, error: userError } = await withTimeout(
+      supabase.auth.getUser(token), 8000, "auth.getUser"
+    );
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    userId = userData.user.id;
+  } catch (e) {
+    return new Response(JSON.stringify({ error: (e as Error).message }), {
+      status: 504,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const userId = userData.user.id;
 
   const url = new URL(req.url);
   const path = url.pathname.split("/studio-orchestrator")[1] || "";
