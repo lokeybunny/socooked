@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,6 +64,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [imagePreviewB, setImagePreviewB] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDirector, setShowDirector] = useState(false);
+  const [noMusic, setNoMusic] = useState(true);
 
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
@@ -175,9 +177,14 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           : settings.duration,
       };
 
+      const basePrompt = prompt.trim();
+      const finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
+        ? `${basePrompt} No music in background.`
+        : basePrompt;
+
       await submitJob({
         task_type: taskType,
-        prompt: prompt.trim(),
+        prompt: finalPrompt,
         negative_prompt: negPrompt.trim() || undefined,
         settings_json: fullSettings,
         input_image_url,
@@ -272,6 +279,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 className="min-h-[60px] bg-background/50 mt-1"
               />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+              <Checkbox checked={noMusic} onCheckedChange={(v) => setNoMusic(v === true)} />
+              <span className="text-xs text-muted-foreground">
+                No music — appends <span className="text-foreground font-medium">"No music in background."</span> to the prompt
+              </span>
+            </label>
           </CardContent>
         </Card>
 
