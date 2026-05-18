@@ -21,6 +21,7 @@ export interface GenerationJob {
   created_at: string;
   updated_at: string;
   project_id?: string | null;
+  subproject_id?: string | null;
 }
 
 export interface StudioProject {
@@ -30,6 +31,18 @@ export interface StudioProject {
   kind: string | null;
   description: string | null;
   cover_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudioSubproject {
+  id: string;
+  project_id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  cover_url: string | null;
+  color: string | null;
   created_at: string;
   updated_at: string;
 }
