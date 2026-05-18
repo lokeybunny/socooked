@@ -35,12 +35,13 @@ export default function AIGen() {
         <div className="mb-8 rounded-xl overflow-hidden border border-border/50 bg-card/50 shadow-lg">
           <div className="relative">
             <video
-              src="/videos/spotlight.mov"
+              key={spotlightSrc}
+              src={spotlightSrc}
               controls
               playsInline
               preload="metadata"
               className="w-full aspect-video bg-black"
-              poster=""
+              poster={spotlightPoster}
             />
             <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-violet-600/90 backdrop-blur-sm">
               <span className="text-[10px] font-semibold tracking-widest uppercase text-white flex items-center gap-1.5">
