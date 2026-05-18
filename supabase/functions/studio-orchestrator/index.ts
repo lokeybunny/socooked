@@ -331,6 +331,7 @@ Deno.serve(async (req) => {
             input_image_url: payload.input_image_url,
             input_audio_url: payload.input_audio_url,
             project_id: payload.project_id,
+            subproject_id: payload.subproject_id,
             status: "queued",
             progress: 0,
           }).select().single(),
