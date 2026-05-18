@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Film, Search, Download, Copy, Trash2, Loader2, Play, X, Send } from 'lucide-react';
+import { VideoTile } from './VideoTile';
 
 export function StudioLibrary() {
   const { jobs, loading, refetch } = useStudioJobs();
