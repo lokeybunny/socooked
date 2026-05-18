@@ -40,18 +40,28 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
     }
   };
 
-  const handleUpscale = async () => {
+  const handleSendToTelegram = async () => {
     if (!job.output_video_url) return;
     setBusy(true);
     try {
-      await submitJob({
-        task_type: job.task_type,
-        prompt: `[upscale] ${job.prompt}`,
-        settings_json: { ...(job.settings_json ?? {}), upscale: true, source_video_url: job.output_video_url },
-      });
-      toast({ title: 'Upscale queued' });
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/studio-telegram-deliver`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ job_id: job.id, force: true }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast({ title: 'Sent to Telegram 📨' });
     } catch (e) {
-      toast({ title: 'Upscale failed', description: (e as Error).message, variant: 'destructive' });
+      toast({ title: 'Send failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setBusy(false);
     }
