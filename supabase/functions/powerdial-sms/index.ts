@@ -41,14 +41,14 @@ async function sendTwilioMms(to: string, body: string, mediaUrls: string[]): Pro
   for (const u of mediaUrls.slice(0, 10)) form.append("MediaUrl", u);
 
   try {
-    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+    const resp = await fetchWithTimeout(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: form,
-    });
+    }, 15000, "twilio_mms");
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) return { ok: false, status: resp.status, error: data?.message || `twilio_${resp.status}`, raw: data };
     return { ok: true, id: data?.sid || null, raw: data };
@@ -62,6 +62,65 @@ function json(data: unknown, status = 200) {
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
+}
+
+function runInBackground(work: Promise<unknown>, label: string) {
+  const guarded = work.catch((e) => console.error(`[powerdial-sms] ${label} background error`, e));
+  try {
+    (globalThis as any).EdgeRuntime?.waitUntil?.(guarded);
+  } catch {
+    // ignore; the promise is already guarded
+  }
+}
+
+async function withTimeout<T>(work: PromiseLike<T>, ms: number, label: string): Promise<{ value: T | null; timedOut: boolean; error: any | null }> {
+  let timeoutId: number | undefined;
+  try {
+    const value = await Promise.race([
+      Promise.resolve(work),
+      new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+    if (value === null) {
+      console.warn(`[powerdial-sms] ${label} timed out after ${ms}ms`);
+      return { value: null, timedOut: true, error: null };
+    }
+    return { value: value as T, timedOut: false, error: null };
+  } catch (e) {
+    console.error(`[powerdial-sms] ${label} failed`, e);
+    return { value: null, timedOut: false, error: e };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number, label: string): Promise<Response> {
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ac.signal });
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(`${label}_timeout`);
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function dbWithTimeout<T = any>(query: any, ms: number, label: string): Promise<T> {
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), ms);
+  try {
+    const executable = typeof query?.abortSignal === "function" ? query.abortSignal(ac.signal) : query;
+    return await executable;
+  } catch (e: any) {
+    const message = e?.name === "AbortError" ? `${label}_timeout` : (e?.message || String(e));
+    console.error(`[powerdial-sms] ${label} DB query failed`, message);
+    return { data: null, error: { message, code: e?.name === "AbortError" ? "TIMEOUT" : e?.code } } as T;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 function normalizePhone(raw: string | null | undefined): string {
@@ -133,20 +192,16 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
 
   const t0 = performance.now();
   console.log(`[powerdial-sms][TIMING] → POST VoidFix send.php to=${toNum} bytes=${body.length}`);
-  const ac = new AbortController();
-  const TIMEOUT_MS = 45000; // 45s — VoidFix send.php occasionally stalls past 20s
-  const timeoutId = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  const TIMEOUT_MS = 12000; // Keep edge calls well below the 150s idle timeout.
   let resp: Response;
   try {
-    resp = await fetch(VOIDFIX_SEND_URL, {
+    resp = await fetchWithTimeout(VOIDFIX_SEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formBody,
-      signal: ac.signal,
-    });
+    }, TIMEOUT_MS, "voidfix_send");
   } catch (e: any) {
-    clearTimeout(timeoutId);
-    const isAbort = e?.name === "AbortError";
+    const isAbort = e?.name === "AbortError" || /timeout/i.test(String(e?.message || e));
     const elapsed = Math.round(performance.now() - t0);
     console.error(`[powerdial-sms][TIMING] VoidFix fetch ${isAbort ? "TIMEOUT" : "FAIL"} after ${elapsed}ms`);
     // Soft-success on timeout: VoidFix typically still queues the SMS on its Android relay
@@ -156,7 +211,6 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
     }
     return { ok: false, error: e?.message || "voidfix_fetch_failed" };
   }
-  clearTimeout(timeoutId);
   const tHeaders = performance.now();
 
   const text = await resp.text();
@@ -389,12 +443,9 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
   // Twilio landline webhook (twilio-sms-inbound), never for direct inbound
   // texts to the VoidFix cell.
 
-  // First-time texter auto-reply (configurable in /sms → VoidFix Auto-Reply)
-  await maybeSendFirstTimeAutoReply(from);
-
-  // Hook Reply classifier — awaited so the fetch survives in edge runtime
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+  // Downstream processing must never hold the webhook open long enough to hit the edge idle timeout.
+  runInBackground(maybeSendFirstTimeAutoReply(from), "first-time-auto-reply");
+  runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
       body: JSON.stringify({
@@ -403,24 +454,15 @@ async function handleInbound(payload: { from?: string; to?: string; body?: strin
         message_id: insertedRow?.id || null,
         message_created_at: insertedRow?.created_at || new Date().toISOString(),
       }),
-    });
-  } catch (e) {
-    console.error("[powerdial-sms] hook classifier error", e);
-  }
-
-  // Forward to sequence engine to advance any active enrollments
-  try {
-    await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+    }, 8000, "hook_reply_classifier").then((r) => r.text()), "hook-classifier");
+  runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       },
       body: JSON.stringify({ action: "process_inbound", phone: normalizePhone(from), body }),
-    });
-  } catch (e) {
-    console.error("[powerdial-sms] sequence forward error", e);
-  }
+    }, 8000, "sms_sequence_engine").then((r) => r.text()), "sequence-engine");
 }
 
 Deno.serve(async (req) => {
@@ -713,17 +755,17 @@ Deno.serve(async (req) => {
     if (!VOIDFIX_API_KEY || !VOIDFIX_DEVICE_ID) {
       return json({ ok: false, error: "missing_voidfix_credentials" }, 500);
     }
-    const limit = Math.min(Number(payload?.limit) || 50, 200);
+    const limit = Math.min(Number(payload?.limit) || 25, 50);
     const form = new URLSearchParams({
       key: VOIDFIX_API_KEY,
       devices: VOIDFIX_DEVICE_ID,
       limit: String(limit),
     });
-    const resp = await fetch(VOIDFIX_READ_URL, {
+    const resp = await fetchWithTimeout(VOIDFIX_READ_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: form,
-    });
+    }, 12000, "voidfix_read");
     const text = await resp.text();
     let data: any = {};
     try { data = JSON.parse(text); } catch { return json({ ok: false, error: "voidfix_invalid_json", raw: text.slice(0, 300) }, 500); }
@@ -744,26 +786,26 @@ Deno.serve(async (req) => {
       if (v === "failed" || v === "error") return "failed";
       return null;
     };
-    // ---- Outbound delivery-status sync (parallelized) ----
-    await Promise.all(messages.map(async (m) => {
+    // ---- Outbound delivery-status sync (bounded background work) ----
+    const syncOutboundStatuses = async () => Promise.all(messages.map(async (m) => {
       const vfStatus = String(m.status || "");
       if (vfStatus === "Received") return;
       const externalId = m.ID ? String(m.ID) : null;
       if (!externalId) return;
       const mapped = mapVoidfixStatus(vfStatus);
       if (!mapped) return;
-      const { data: existing } = await sb
+      const { data: existing } = await dbWithTimeout(sb
         .from("communications")
         .select("id, status, metadata")
         .eq("external_id", externalId)
         .eq("direction", "outbound")
-        .limit(1);
+        .limit(1), 2500, "poll_status_lookup");
       const row = existing?.[0];
       if (!row) return;
       const prevMeta = (row.metadata as any) || {};
       const prevStatus = prevMeta?.voidfix_status;
       if (row.status === mapped && prevStatus === vfStatus) return;
-      await sb.from("communications").update({
+      await dbWithTimeout(sb.from("communications").update({
         status: mapped,
         metadata: {
           ...prevMeta,
@@ -772,25 +814,27 @@ Deno.serve(async (req) => {
           voidfix_delivered_date: m.deliveredDate || prevMeta?.voidfix_delivered_date || null,
           voidfix_status_synced_at: new Date().toISOString(),
         },
-      }).eq("id", row.id);
+      }).eq("id", row.id), 2500, "poll_status_update");
       statusUpdated += 1;
     }));
+    const statusSync = await withTimeout(syncOutboundStatuses(), 10000, "poll_status_sync");
+    if (statusSync.timedOut) runInBackground(syncOutboundStatuses(), "poll-status-sync");
 
     // ---- Inbound import (parallelized; downstream calls fire-and-forget) ----
-    const inboundResults = await Promise.all(messages.map(async (m) => {
-      if (String(m.status) !== "Received") return 0;
+    const inboundMessages = messages.filter((m) => String(m.status) === "Received").slice(0, 10);
+    const processInboundMessages = async () => Promise.all(inboundMessages.map(async (m) => {
       const externalId = String(m.ID);
-      const { data: blocked } = await sb
+      const { data: blocked } = await dbWithTimeout(sb
         .from("sms_deleted_external_ids")
         .select("external_id")
         .eq("external_id", externalId)
-        .limit(1);
+        .limit(1), 2500, "poll_deleted_lookup");
       if (blocked && blocked[0]) return 0;
-      const { data: existing } = await sb
+      const { data: existing } = await dbWithTimeout(sb
         .from("communications")
         .select("id")
         .eq("external_id", externalId)
-        .limit(1);
+        .limit(1), 2500, "poll_existing_lookup");
       if (existing && existing[0]) return 0;
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
@@ -802,7 +846,7 @@ Deno.serve(async (req) => {
         const messageAt = createdAt ? new Date(createdAt).getTime() : Date.now();
         const duplicateWindowStart = new Date(messageAt - 2 * 60_000).toISOString();
         const duplicateWindowEnd = new Date(messageAt + 2 * 60_000).toISOString();
-        const { data: sameRecent } = await sb
+        const { data: sameRecent } = await dbWithTimeout(sb
           .from("communications")
           .select("id")
           .eq("type", "sms")
@@ -812,10 +856,10 @@ Deno.serve(async (req) => {
           .eq("body", body)
           .gte("created_at", duplicateWindowStart)
           .lte("created_at", duplicateWindowEnd)
-          .limit(1);
+          .limit(1), 2500, "poll_duplicate_lookup");
         if (sameRecent?.[0]) return 0;
       }
-      const { data: insertedRow, error: insertError } = await sb.from("communications").insert({
+      const { data: insertedRow, error: insertError } = await dbWithTimeout(sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
         body,
@@ -829,7 +873,7 @@ Deno.serve(async (req) => {
         media_urls: mediaUrls,
         metadata: { source: "voidfix-poll", device_id: m.deviceID, voidfix_status: m.status, ...(strippedMms ? { voidfix_mms_stripped: true } : {}) },
         ...(createdAt ? { created_at: new Date(createdAt).toISOString() } : {}),
-      }).select("id, created_at").single();
+      }).select("id, created_at").single(), 2500, "poll_inbound_insert");
 
       if (insertError) {
         if ((insertError as any).code === "23505") return 0;
@@ -839,7 +883,7 @@ Deno.serve(async (req) => {
 
       if (strippedMms) {
         const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
-        await sb.from("communications").insert({
+        await dbWithTimeout(sb.from("communications").insert({
           type: "sms",
           direction: "outbound",
           body: MMS_RESEND_MESSAGE,
@@ -851,14 +895,12 @@ Deno.serve(async (req) => {
           status: result.ok ? "sent" : "failed",
           customer_id: customerId,
           metadata: { source: "voidfix-mms-resend-instruction", device_id: VOIDFIX_DEVICE_ID, triggered_by: externalId, ...(result.error ? { error: result.error } : {}) },
-        });
+        }), 2500, "poll_mms_resend_log");
       }
 
       // Fire-and-forget downstream work — don't block the response
-      const downstream = (async () => {
-        try { await maybeSendFirstTimeAutoReply(from); } catch (e) { console.error("[poll] auto-reply error", e); }
-        try {
-          await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+      runInBackground(maybeSendFirstTimeAutoReply(from), "poll-auto-reply");
+      runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
             body: JSON.stringify({
@@ -867,22 +909,19 @@ Deno.serve(async (req) => {
               message_id: insertedRow?.id || null,
               message_created_at: insertedRow?.created_at || new Date().toISOString(),
             }),
-          });
-        } catch (e) { console.error("[powerdial-sms/poll] hook classifier error", e); }
-        try {
-          await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+          }, 8000, "poll_hook_reply_classifier").then((r) => r.text()), "poll-hook-classifier");
+      runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
             body: JSON.stringify({ action: "process_inbound", phone: from, body }),
-          });
-        } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
-      })();
-      try { (globalThis as any).EdgeRuntime?.waitUntil?.(downstream); } catch { /* noop */ }
+          }, 8000, "poll_sms_sequence_engine").then((r) => r.text()), "poll-sequence-engine");
       return 1;
     }));
-    imported = inboundResults.reduce((a, b) => a + b, 0);
+    const inboundResult = await withTimeout(processInboundMessages(), 20000, "poll_inbound_import");
+    if (inboundResult.timedOut) runInBackground(processInboundMessages(), "poll-inbound-import");
+    imported = inboundResult.value?.reduce((a, b) => a + b, 0) || 0;
 
-    return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length });
+    return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length, deferred: !!(statusSync.timedOut || inboundResult.timedOut) });
   }
 
 
