@@ -41,14 +41,14 @@ async function sendTwilioMms(to: string, body: string, mediaUrls: string[]): Pro
   for (const u of mediaUrls.slice(0, 10)) form.append("MediaUrl", u);
 
   try {
-    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+    const resp = await fetchWithTimeout(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: form,
-    });
+    }, 15000, "twilio_mms");
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) return { ok: false, status: resp.status, error: data?.message || `twilio_${resp.status}`, raw: data };
     return { ok: true, id: data?.sid || null, raw: data };
@@ -177,20 +177,16 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
 
   const t0 = performance.now();
   console.log(`[powerdial-sms][TIMING] → POST VoidFix send.php to=${toNum} bytes=${body.length}`);
-  const ac = new AbortController();
-  const TIMEOUT_MS = 45000; // 45s — VoidFix send.php occasionally stalls past 20s
-  const timeoutId = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  const TIMEOUT_MS = 12000; // Keep edge calls well below the 150s idle timeout.
   let resp: Response;
   try {
-    resp = await fetch(VOIDFIX_SEND_URL, {
+    resp = await fetchWithTimeout(VOIDFIX_SEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formBody,
-      signal: ac.signal,
-    });
+    }, TIMEOUT_MS, "voidfix_send");
   } catch (e: any) {
-    clearTimeout(timeoutId);
-    const isAbort = e?.name === "AbortError";
+    const isAbort = e?.name === "AbortError" || /timeout/i.test(String(e?.message || e));
     const elapsed = Math.round(performance.now() - t0);
     console.error(`[powerdial-sms][TIMING] VoidFix fetch ${isAbort ? "TIMEOUT" : "FAIL"} after ${elapsed}ms`);
     // Soft-success on timeout: VoidFix typically still queues the SMS on its Android relay
@@ -200,7 +196,6 @@ async function sendVoidfixSms(to: string, body: string): Promise<{ ok: boolean; 
     }
     return { ok: false, error: e?.message || "voidfix_fetch_failed" };
   }
-  clearTimeout(timeoutId);
   const tHeaders = performance.now();
 
   const text = await resp.text();
