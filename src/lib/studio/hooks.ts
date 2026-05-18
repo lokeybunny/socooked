@@ -130,6 +130,7 @@ export async function submitJob(payload: {
   input_image_url?: string;
   input_audio_url?: string;
   project_id?: string | null;
+  subproject_id?: string | null;
 }) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Not authenticated');
