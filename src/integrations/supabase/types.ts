@@ -8141,6 +8141,50 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_references: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          name: string | null
+          notes: string | null
+          project_id: string | null
+          storage_path: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          name?: string | null
+          notes?: string | null
+          project_id?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          name?: string | null
+          notes?: string | null
+          project_id?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_references_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studio_settings: {
         Row: {
           backend_config_json: Json
