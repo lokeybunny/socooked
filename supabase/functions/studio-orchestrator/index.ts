@@ -115,7 +115,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
       model: seedanceModel,
       prompt: payload.prompt || "The scene comes alive with gentle motion and cinematic lighting",
       duration: Math.max(4, Math.min(15, Number(settings.duration) || 5)),
-      resolution: settings.seedance_resolution || "720p",
+      resolution: settings.seedance_resolution || "480p",
       ratio: settings.seedance_ratio || settings.aspect_ratio || "adaptive",
       generate_audio: settings.generate_audio !== false,
       watermark: false,

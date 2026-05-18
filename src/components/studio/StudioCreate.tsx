@@ -51,7 +51,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     guidance_scale: 7,
     motion_intensity: 50,
     seedance_model: 'bytedance/seedance-2.0-fast/text-to-video',
-    seedance_resolution: '720p',
+    seedance_resolution: '480p',
     seedance_ratio: '9:16',
     generate_audio: true,
   });
