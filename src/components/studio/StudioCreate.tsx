@@ -87,7 +87,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setSelectedStyles(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const makeImageHandler = (slot: 'A' | 'B') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -99,9 +99,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'File too large', description: 'Max 20MB', variant: 'destructive' });
       return;
     }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  }, [toast]);
+    if (slot === 'A') {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    } else {
+      setImageFileB(file);
+      setImagePreviewB(URL.createObjectURL(file));
+    }
+  };
+  const handleImageUpload = makeImageHandler('A');
+  const handleImageUploadB = makeImageHandler('B');
 
   const applyDirector = () => {
     const parts = [
