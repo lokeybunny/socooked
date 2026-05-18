@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { GenerationJob, StudioProject, WorkerHealth } from './types';
+import type { GenerationJob, StudioProject, StudioSubproject, WorkerHealth } from './types';
 
-const JOB_SELECT = 'id,user_id,task_type,prompt,negative_prompt,settings_json,input_image_url,input_audio_url,output_video_url,output_thumbnail_url,status,progress,worker_job_id,backend_logs,error_message,created_at,updated_at,project_id';
+const JOB_SELECT = 'id,user_id,task_type,prompt,negative_prompt,settings_json,input_image_url,input_audio_url,output_video_url,output_thumbnail_url,status,progress,worker_job_id,backend_logs,error_message,created_at,updated_at,project_id,subproject_id';
 
 let jobsCache: GenerationJob[] = [];
 let jobsLoaded = false;
