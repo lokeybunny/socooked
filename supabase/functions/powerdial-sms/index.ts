@@ -64,6 +64,50 @@ function json(data: unknown, status = 200) {
   });
 }
 
+function runInBackground(work: Promise<unknown>, label: string) {
+  const guarded = work.catch((e) => console.error(`[powerdial-sms] ${label} background error`, e));
+  try {
+    (globalThis as any).EdgeRuntime?.waitUntil?.(guarded);
+  } catch {
+    // ignore; the promise is already guarded
+  }
+}
+
+async function withTimeout<T>(work: PromiseLike<T>, ms: number, label: string): Promise<{ value: T | null; timedOut: boolean; error: any | null }> {
+  let timeoutId: number | undefined;
+  try {
+    const value = await Promise.race([
+      Promise.resolve(work),
+      new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+    if (value === null) {
+      console.warn(`[powerdial-sms] ${label} timed out after ${ms}ms`);
+      return { value: null, timedOut: true, error: null };
+    }
+    return { value: value as T, timedOut: false, error: null };
+  } catch (e) {
+    console.error(`[powerdial-sms] ${label} failed`, e);
+    return { value: null, timedOut: false, error: e };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number, label: string): Promise<Response> {
+  const ac = new AbortController();
+  const timeoutId = setTimeout(() => ac.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ac.signal });
+  } catch (e: any) {
+    if (e?.name === "AbortError") throw new Error(`${label}_timeout`);
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function normalizePhone(raw: string | null | undefined): string {
   if (!raw) return "";
   const digits = String(raw).replace(/\D/g, "");
