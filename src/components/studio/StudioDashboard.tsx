@@ -1,11 +1,8 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useStudioJobs, useWorkerHealth } from '@/lib/studio/hooks';
-import { TASK_LABELS, STATUS_COLORS } from '@/lib/studio/types';
-import type { GenerationJob } from '@/lib/studio/types';
 import { Loader2, CheckCircle, XCircle, Clock, Cpu, Plus, Film } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { VideoTile } from './VideoTile';
 
 export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const { jobs, loading } = useStudioJobs();
