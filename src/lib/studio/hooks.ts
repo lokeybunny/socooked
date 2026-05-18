@@ -265,3 +265,99 @@ export async function deleteStudioProject(id: string) {
   projectsCache = projectsCache.filter(p => p.id !== id);
   notifyProjectListeners();
 }
+
+// ============ Subprojects ============
+const subprojectsCache = new Map<string, StudioSubproject[]>();
+const subprojectsLoaded = new Set<string>();
+const subprojectListeners = new Map<string, Set<() => void>>();
+
+function notifySubListeners(projectId: string) {
+  subprojectListeners.get(projectId)?.forEach(l => l());
+}
+
+async function fetchStudioSubprojects(projectId: string, force = false) {
+  if (!force && subprojectsLoaded.has(projectId)) return;
+  const { data, error } = await supabase
+    .from('studio_subprojects')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+  if (!error) subprojectsCache.set(projectId, (data as unknown as StudioSubproject[]) || []);
+  else console.error('Failed to fetch subprojects:', error.message);
+  subprojectsLoaded.add(projectId);
+  notifySubListeners(projectId);
+}
+
+export function useStudioSubprojects(projectId: string | null) {
+  const [subprojects, setSubprojects] = useState<StudioSubproject[]>(
+    projectId ? subprojectsCache.get(projectId) || [] : []
+  );
+  const [loading, setLoading] = useState(!!projectId && !subprojectsLoaded.has(projectId));
+
+  const refetch = useCallback(async () => {
+    if (!projectId) return;
+    await fetchStudioSubprojects(projectId, true);
+    setSubprojects(subprojectsCache.get(projectId) || []);
+    setLoading(false);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) {
+      setSubprojects([]);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    const listener = () => {
+      if (active) {
+        setSubprojects(subprojectsCache.get(projectId) || []);
+        setLoading(false);
+      }
+    };
+    if (!subprojectListeners.has(projectId)) subprojectListeners.set(projectId, new Set());
+    subprojectListeners.get(projectId)!.add(listener);
+    fetchStudioSubprojects(projectId, !subprojectsLoaded.has(projectId)).finally(listener);
+    return () => {
+      active = false;
+      subprojectListeners.get(projectId)?.delete(listener);
+    };
+  }, [projectId]);
+
+  return { subprojects, loading, refetch };
+}
+
+export async function createStudioSubproject(input: {
+  project_id: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error('Not authenticated');
+  const { data, error } = await supabase
+    .from('studio_subprojects')
+    .insert({
+      user_id: userId,
+      project_id: input.project_id,
+      name: input.name,
+      description: input.description ?? null,
+      color: input.color ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  const row = data as unknown as StudioSubproject;
+  const existing = subprojectsCache.get(input.project_id) || [];
+  subprojectsCache.set(input.project_id, [row, ...existing]);
+  notifySubListeners(input.project_id);
+  return row;
+}
+
+export async function deleteStudioSubproject(id: string, projectId: string) {
+  const { error } = await supabase.from('studio_subprojects').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  const existing = subprojectsCache.get(projectId) || [];
+  subprojectsCache.set(projectId, existing.filter(s => s.id !== id));
+  notifySubListeners(projectId);
+}
