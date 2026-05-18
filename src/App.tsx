@@ -173,7 +173,7 @@ const App = () => (
                 <Route path="/shared/:token" element={<SharedContent />} />
                 <Route path="/research" element={<ResearchRoute />} />
                 <Route path="/thankyou" element={<ThankYou />} />
-                <Route path="/thankyou-videography" element={<ThankYouVideography />} />
+                
                 <Route path="/thankyou-seller" element={<ThankYouSeller />} />
                 <Route path="/thankyou-webdesign" element={<ThankYouWebDesign />} />
                 <Route path="/warren-landing" element={<WarrenLanding />} />
