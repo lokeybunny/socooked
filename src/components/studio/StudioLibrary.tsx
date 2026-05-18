@@ -10,7 +10,7 @@ import { TASK_LABELS, STATUS_COLORS, type GenerationJob, type TaskType, type Job
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Film, Search, Download, Copy, Trash2, Loader2, Play, X } from 'lucide-react';
+import { Film, Search, Download, Copy, Trash2, Loader2, Play, X, Send } from 'lucide-react';
 
 export function StudioLibrary() {
   const { jobs, loading, refetch } = useStudioJobs();
@@ -20,6 +20,37 @@ export function StudioLibrary() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortDir, setSortDir] = useState<'newest' | 'oldest'>('newest');
   const [selected, setSelected] = useState<GenerationJob | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
+
+  const handleSendToTelegram = async (job: GenerationJob) => {
+    if (!job.output_video_url) {
+      toast({ title: 'No video to send', variant: 'destructive' });
+      return;
+    }
+    setSending(job.id);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/studio-telegram-deliver`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ job_id: job.id, force: true }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast({ title: 'Sent to Telegram 📨' });
+    } catch (e) {
+      toast({ title: 'Send failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSending(null);
+    }
+  };
 
   const filtered = jobs
     .filter(j => filterType === 'all' || j.task_type === filterType)
@@ -158,6 +189,18 @@ export function StudioLibrary() {
                 {selected.output_video_url && (
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => window.open(selected.output_video_url!, '_blank')}>
                     <Download className="w-3 h-3" /> Download
+                  </Button>
+                )}
+                {selected.output_video_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    disabled={sending === selected.id}
+                    onClick={() => handleSendToTelegram(selected)}
+                  >
+                    {sending === selected.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                    Send to Telegram
                   </Button>
                 )}
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(selected.prompt); toast({ title: 'Prompt copied' }); }}>
