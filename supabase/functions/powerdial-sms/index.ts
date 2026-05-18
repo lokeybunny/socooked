@@ -883,7 +883,7 @@ Deno.serve(async (req) => {
 
       if (strippedMms) {
         const result = await sendVoidfixSms(from, MMS_RESEND_MESSAGE);
-        await sb.from("communications").insert({
+        await dbWithTimeout(sb.from("communications").insert({
           type: "sms",
           direction: "outbound",
           body: MMS_RESEND_MESSAGE,
@@ -895,14 +895,12 @@ Deno.serve(async (req) => {
           status: result.ok ? "sent" : "failed",
           customer_id: customerId,
           metadata: { source: "voidfix-mms-resend-instruction", device_id: VOIDFIX_DEVICE_ID, triggered_by: externalId, ...(result.error ? { error: result.error } : {}) },
-        });
+        }), 2500, "poll_mms_resend_log");
       }
 
       // Fire-and-forget downstream work — don't block the response
-      const downstream = (async () => {
-        try { await maybeSendFirstTimeAutoReply(from); } catch (e) { console.error("[poll] auto-reply error", e); }
-        try {
-          await fetch(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
+      runInBackground(maybeSendFirstTimeAutoReply(from), "poll-auto-reply");
+      runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/hook-reply-classifier`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
             body: JSON.stringify({
@@ -911,22 +909,19 @@ Deno.serve(async (req) => {
               message_id: insertedRow?.id || null,
               message_created_at: insertedRow?.created_at || new Date().toISOString(),
             }),
-          });
-        } catch (e) { console.error("[powerdial-sms/poll] hook classifier error", e); }
-        try {
-          await fetch(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
+          }, 8000, "poll_hook_reply_classifier").then((r) => r.text()), "poll-hook-classifier");
+      runInBackground(fetchWithTimeout(`${SUPABASE_URL}/functions/v1/sms-sequence-engine`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
             body: JSON.stringify({ action: "process_inbound", phone: from, body }),
-          });
-        } catch (e) { console.error("[powerdial-sms/poll] sequence forward error", e); }
-      })();
-      try { (globalThis as any).EdgeRuntime?.waitUntil?.(downstream); } catch { /* noop */ }
+          }, 8000, "poll_sms_sequence_engine").then((r) => r.text()), "poll-sequence-engine");
       return 1;
     }));
-    imported = inboundResults.reduce((a, b) => a + b, 0);
+    const inboundResult = await withTimeout(processInboundMessages(), 20000, "poll_inbound_import");
+    if (inboundResult.timedOut) runInBackground(processInboundMessages(), "poll-inbound-import");
+    imported = inboundResult.value?.reduce((a, b) => a + b, 0) || 0;
 
-    return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length });
+    return json({ ok: true, imported, status_updated: statusUpdated, scanned: messages.length, deferred: !!(statusSync.timedOut || inboundResult.timedOut) });
   }
 
 
