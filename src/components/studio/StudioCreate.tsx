@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { submitJob } from '@/lib/studio/hooks';
+import { JobStatusPanel } from './JobStatusPanel';
 import {
   STYLE_PRESETS, RESOLUTIONS, ASPECT_RATIOS, DURATIONS, FPS_OPTIONS,
   CAMERA_MOVES, LIGHTING_STYLES, SHOT_TYPES, TASK_LABELS,
@@ -412,6 +413,7 @@ export function StudioCreate() {
 
       {/* Right Sidebar — Settings */}
       <div className="space-y-4">
+        <JobStatusPanel />
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardContent className="p-4 space-y-4">
             <h4 className="text-sm font-semibold">Generation Settings</h4>
