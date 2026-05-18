@@ -25,15 +25,43 @@ Deno.serve(async (req) => {
     { global: { headers: { Authorization: authHeader } } }
   );
 
+  const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)),
+    ]);
+
+  const runBg = (fn: () => Promise<unknown>) => {
+    try {
+      // @ts-ignore EdgeRuntime is available in Supabase edge runtime
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(fn().catch((e) => console.error("bg error:", e)));
+      } else {
+        fn().catch((e) => console.error("bg error:", e));
+      }
+    } catch (e) { console.error("runBg error:", e); }
+  };
+
   const token = authHeader.replace("Bearer ", "");
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-  if (userError || !userData?.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
+  let userId: string;
+  try {
+    const { data: userData, error: userError } = await withTimeout(
+      supabase.auth.getUser(token), 8000, "auth.getUser"
+    );
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    userId = userData.user.id;
+  } catch (e) {
+    return new Response(JSON.stringify({ error: (e as Error).message }), {
+      status: 504,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  const userId = userData.user.id;
 
   const url = new URL(req.url);
   const path = url.pathname.split("/studio-orchestrator")[1] || "";
@@ -51,25 +79,38 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Create job record
-      const { data: job, error: insertErr } = await supabase
-        .from("generation_jobs")
-        .insert({
-          user_id: userId,
-          task_type,
-          prompt,
-          negative_prompt: negative_prompt || null,
-          settings_json: settings_json || {},
-          input_image_url: input_image_url || null,
-          input_audio_url: input_audio_url || null,
-          status: "queued",
-          progress: 0,
-        })
-        .select()
-        .single();
+      // Create job record (with timeout)
+      let job: any, insertErr: any;
+      try {
+        const res: any = await withTimeout(
+          supabase
+            .from("generation_jobs")
+            .insert({
+              user_id: userId,
+              task_type,
+              prompt,
+              negative_prompt: negative_prompt || null,
+              settings_json: settings_json || {},
+              input_image_url: input_image_url || null,
+              input_audio_url: input_audio_url || null,
+              status: "queued",
+              progress: 0,
+            })
+            .select()
+            .single(),
+          10000,
+          "insert generation_jobs"
+        );
+        job = res.data; insertErr = res.error;
+      } catch (e) {
+        return new Response(JSON.stringify({ error: (e as Error).message }), {
+          status: 504,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      if (insertErr) {
-        return new Response(JSON.stringify({ error: insertErr.message }), {
+      if (insertErr || !job) {
+        return new Response(JSON.stringify({ error: insertErr?.message || "insert failed" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -170,10 +211,10 @@ Deno.serve(async (req) => {
           }
         };
 
-        // @ts-ignore EdgeRuntime is available in Supabase edge runtime
-        EdgeRuntime.waitUntil(pollSeedance());
-
-        await adminClient.from("generation_jobs").update({ status: "provisioning" }).eq("id", job.id);
+        runBg(async () => {
+          await adminClient.from("generation_jobs").update({ status: "provisioning" }).eq("id", job.id);
+          await pollSeedance();
+        });
 
         return new Response(JSON.stringify({ job }), {
           status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
