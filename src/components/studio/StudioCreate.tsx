@@ -59,6 +59,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFileB, setImageFileB] = useState<File | null>(null);
+  const [imagePreviewB, setImagePreviewB] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showDirector, setShowDirector] = useState(false);
 
@@ -85,7 +87,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setSelectedStyles(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
-  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const makeImageHandler = (slot: 'A' | 'B') => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -97,9 +99,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'File too large', description: 'Max 20MB', variant: 'destructive' });
       return;
     }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  }, [toast]);
+    if (slot === 'A') {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    } else {
+      setImageFileB(file);
+      setImagePreviewB(URL.createObjectURL(file));
+    }
+  };
+  const handleImageUpload = makeImageHandler('A');
+  const handleImageUploadB = makeImageHandler('B');
 
   const applyDirector = () => {
     const parts = [
@@ -136,16 +145,18 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
 
     setSubmitting(true);
     try {
-      let input_image_url: string | undefined;
-
-      if (imageFile) {
-        const ext = imageFile.name.split('.').pop() || 'png';
+      const uploadOne = async (file: File) => {
+        const ext = file.name.split('.').pop() || 'png';
         const path = `inputs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, imageFile);
+        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
         if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-        const { data: urlData } = supabase.storage.from('studio-outputs').getPublicUrl(path);
-        input_image_url = urlData.publicUrl;
-      }
+        return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
+      };
+
+      let input_image_url: string | undefined;
+      let last_frame_image_url: string | undefined;
+      if (imageFile) input_image_url = await uploadOne(imageFile);
+      if (imageFileB) last_frame_image_url = await uploadOne(imageFileB);
 
       const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
       const seedanceModel = seedanceActive
@@ -158,6 +169,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         style_preset: selectedStyles.join(', ') || undefined,
         provider: seedanceActive ? 'seedance' : undefined,
         seedance_model: seedanceModel,
+        last_frame_image_url: last_frame_image_url || undefined,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
@@ -178,6 +190,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setNegPrompt('');
       setImageFile(null);
       setImagePreview(null);
+      setImageFileB(null);
+      setImagePreviewB(null);
       setSelectedStyles([]);
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
@@ -293,23 +307,39 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           </Card>
         )}
 
-        {/* Image Upload */}
+        {/* Image Upload — supports up to 2 frames (A = first frame, B = optional end frame) */}
         {needsImage && (
           <Card className="border-border/50 bg-card/50 backdrop-blur">
-            <CardContent className="p-5">
-              <Label className="text-sm font-medium mb-3 block">Input Image</Label>
-              {imagePreview ? (
-                <div className="relative">
-                  <img src={imagePreview} alt="Preview" className="rounded-lg max-h-[300px] object-contain mx-auto" />
-                  <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => { setImageFile(null); setImagePreview(null); }}>Remove</Button>
-                </div>
-              ) : (
-                <label className="border-2 border-dashed border-border/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors">
-                  <Upload className="w-8 h-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">Drop an image or click to upload</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, WebP — max 20MB</p>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageUpload} />
-                </label>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Input Images</Label>
+                <p className="text-xs text-muted-foreground">A = first frame · B = end frame (optional)</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([
+                  { slot: 'A' as const, label: 'Frame A (start)', preview: imagePreview, onChange: handleImageUpload, clear: () => { setImageFile(null); setImagePreview(null); } },
+                  { slot: 'B' as const, label: 'Frame B (end, optional)', preview: imagePreviewB, onChange: handleImageUploadB, clear: () => { setImageFileB(null); setImagePreviewB(null); } },
+                ]).map(({ slot, label, preview, onChange, clear }) => (
+                  <div key={slot} className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">{label}</Label>
+                    {preview ? (
+                      <div className="relative">
+                        <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" />
+                        <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clear}>Remove</Button>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors min-h-[180px]">
+                        <Upload className="w-7 h-7 text-muted-foreground/50 mb-2" />
+                        <p className="text-xs text-muted-foreground">Upload Frame {slot}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">JPG / PNG / WebP · 20MB</p>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onChange} />
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {imagePreviewB && !imagePreview && (
+                <p className="text-xs text-amber-400">Frame A is required when using an end frame.</p>
               )}
             </CardContent>
           </Card>
