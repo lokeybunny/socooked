@@ -181,9 +181,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       };
 
       const basePrompt = prompt.trim();
-      const finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
+      let finalPrompt = noMusic && !/no music in background/i.test(basePrompt)
         ? `${basePrompt} No music in background.`
         : basePrompt;
+      if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
+        finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
+      }
 
       await submitJob({
         task_type: taskType,
