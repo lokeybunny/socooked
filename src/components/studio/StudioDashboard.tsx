@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudioJobs, useWorkerHealth } from '@/lib/studio/hooks';
 import { Loader2, CheckCircle, XCircle, Clock, Cpu, Plus, Film } from 'lucide-react';
 import { VideoTile } from './VideoTile';
+import type { GenerationJob } from '@/lib/studio/types';
 
 export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const { jobs, loading } = useStudioJobs();
   const { health } = useWorkerHealth();
+  const [selected, setSelected] = useState<GenerationJob | null>(null);
 
   const queued = jobs.filter(j => j.status === 'queued' || j.status === 'provisioning').length;
   const running = jobs.filter(j => j.status === 'running').length;
