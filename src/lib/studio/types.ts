@@ -20,7 +20,30 @@ export interface GenerationJob {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  project_id?: string | null;
 }
+
+export interface StudioProject {
+  id: string;
+  user_id: string;
+  name: string;
+  kind: string | null;
+  description: string | null;
+  cover_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const PROJECT_KINDS = [
+  'Realty',
+  'TikTok Series',
+  'Music Video',
+  'Commercial',
+  'Social Reel',
+  'Course / Educational',
+  'Personal',
+  'Other',
+] as const;
 
 export interface GenerationSettings {
   resolution?: string;
