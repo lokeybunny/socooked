@@ -46,16 +46,18 @@ Deno.serve(async (req) => {
   const token = authHeader.replace("Bearer ", "");
   let userId: string;
   try {
-    const { data: userData, error: userError } = await withTimeout(
-      supabase.auth.getUser(token), 8000, "auth.getUser"
+    // getClaims verifies the JWT locally — no upstream /auth/v1/user call
+    const { data: claimsData, error: claimsError } = await withTimeout(
+      supabase.auth.getClaims(token), 5000, "auth.getClaims"
     );
-    if (userError || !userData?.user) {
+    const sub = claimsData?.claims?.sub as string | undefined;
+    if (claimsError || !sub) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    userId = userData.user.id;
+    userId = sub;
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), {
       status: 504,
