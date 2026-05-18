@@ -28,8 +28,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+    // Prefer dedicated studio bot (e.g. @stu25followupbot) when configured.
+    const TELEGRAM_BOT_TOKEN = Deno.env.get("STUDIO_TG_BOT_TOKEN") || Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const TELEGRAM_CHAT_ID = Deno.env.get("STUDIO_TG_CHAT_ID") || Deno.env.get("TELEGRAM_CHAT_ID");
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
       return new Response(JSON.stringify({ error: "telegram not configured" }), {
         status: 500,

@@ -5,6 +5,9 @@ import { Slider } from '@/components/ui/slider';
 import { Download, SkipForward, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,17 +36,28 @@ export function GrabFrameDialog({ open, onOpenChange, videoUrl, jobId }: Props) 
     setBlobUrl(null);
 
     (async () => {
-      try {
-        const res = await fetch(videoUrl, { mode: 'cors' });
+      const tryFetch = async (u: string) => {
+        const res = await fetch(u, { mode: 'cors' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
+        return res.blob();
+      };
+      try {
+        let blob: Blob;
+        try {
+          blob = await tryFetch(videoUrl);
+        } catch {
+          // Fallback: route through our CORS-safe proxy so canvas isn't tainted.
+          const proxied = `${SUPABASE_URL}/functions/v1/studio-video-proxy?url=${encodeURIComponent(videoUrl)}`;
+          blob = await tryFetch(proxied);
+        }
         if (cancelled) return;
         const url = URL.createObjectURL(blob);
         objectUrlRef.current = url;
         setBlobUrl(url);
-      } catch {
-        // Fall back to direct URL — Download may fail if CORS is missing, but seek/preview still works.
-        if (!cancelled) setBlobUrl(videoUrl);
+      } catch (e) {
+        if (!cancelled) {
+          toast({ title: 'Could not load video', description: (e as Error).message, variant: 'destructive' });
+        }
       } finally {
         if (!cancelled) setLoadingBlob(false);
       }
