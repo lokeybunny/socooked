@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useStudioJobs, cancelJob, retryJob } from '@/lib/studio/hooks';
-import { TASK_LABELS, STATUS_COLORS, type GenerationJob } from '@/lib/studio/types';
+import { TASK_LABELS, STATUS_COLORS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, RotateCcw, XCircle, ChevronDown, ChevronUp, ListOrdered } from 'lucide-react';
@@ -77,6 +77,7 @@ export function StudioQueue() {
 
 function QueueRow({ job, onCancel, onRetry }: { job: GenerationJob; onCancel: (id: string) => void; onRetry: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const prompt = getJobPrompt(job);
 
   return (
     <Card className="border-border/50 bg-card/50">
@@ -84,7 +85,7 @@ function QueueRow({ job, onCancel, onRetry }: { job: GenerationJob; onCancel: (i
         <div className="flex items-center gap-3">
           <Badge variant="outline" className={`text-[10px] shrink-0 ${STATUS_COLORS[job.status]}`}>{job.status}</Badge>
           <div className="flex-1 min-w-0">
-            <p className="text-sm truncate">{job.prompt}</p>
+            <p className="text-sm truncate">{prompt}</p>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[10px] text-muted-foreground">{TASK_LABELS[job.task_type]}</span>
               <span className="text-[10px] text-muted-foreground">•</span>
