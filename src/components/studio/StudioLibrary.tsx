@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { Film, Search, Download, Copy, Trash2, Loader2, Play, X, Send } from 'lucide-react';
+import { VideoTile } from './VideoTile';
 
 export function StudioLibrary() {
   const { jobs, loading, refetch } = useStudioJobs();
@@ -109,39 +110,9 @@ export function StudioLibrary() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filtered.map(job => (
-            <Card key={job.id} className="border-border/50 bg-card/50 overflow-hidden group hover:border-violet-500/30 transition-colors cursor-pointer" onClick={() => setSelected(job)}>
-              <div className="aspect-video bg-muted/30 relative flex items-center justify-center">
-                {job.output_thumbnail_url ? (
-                  <img src={job.output_thumbnail_url} alt="" loading="lazy" className="w-full h-full object-cover" />
-                ) : job.output_video_url ? (
-                  <div className="w-full h-full bg-muted/40 flex items-center justify-center">
-                    <Film className="w-8 h-8 text-muted-foreground/30" />
-                  </div>
-                ) : (
-                  <Film className="w-8 h-8 text-muted-foreground/20" />
-                )}
-                {job.status === 'running' && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
-                  </div>
-                )}
-                {job.status === 'completed' && job.output_video_url && (
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                    <Play className="w-10 h-10 text-white" />
-                  </div>
-                )}
-              </div>
-              <CardContent className="p-3">
-                <p className="text-sm truncate">{job.prompt}</p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[job.status]}`}>{job.status}</Badge>
-                  <Badge variant="outline" className="text-[10px]">{TASK_LABELS[job.task_type]}</Badge>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">{formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}</p>
-              </CardContent>
-            </Card>
+            <VideoTile key={job.id} job={job} onOpen={setSelected} />
           ))}
         </div>
       )}
