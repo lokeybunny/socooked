@@ -77,10 +77,32 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
           </Card>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {recent.map(job => <VideoTile key={job.id} job={job} />)}
+            {recent.map(job => <VideoTile key={job.id} job={job} onOpen={setSelected} />)}
           </div>
         )}
       </div>
+
+      {/* Video Preview Modal */}
+      <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
+        <DialogContent className="max-w-3xl bg-zinc-950 border-white/10">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="truncate">{selected.prompt.slice(0, 80)}</DialogTitle>
+              </DialogHeader>
+              {selected.output_video_url ? (
+                <video src={selected.output_video_url} controls autoPlay preload="metadata" className="w-full rounded-lg aspect-video bg-black" />
+              ) : selected.output_thumbnail_url ? (
+                <img src={selected.output_thumbnail_url} alt="" className="w-full rounded-lg" />
+              ) : (
+                <div className="aspect-video bg-muted/30 rounded-lg flex items-center justify-center">
+                  <Film className="w-12 h-12 text-muted-foreground/20" />
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
