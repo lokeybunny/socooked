@@ -80,19 +80,21 @@ Deno.serve(async (req) => {
           Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
-        if (!input_image_url) {
+        const seedanceModel = (settings_json?.seedance_model || "bytedance/seedance-2.0-fast/image-to-video").toString();
+        const isImageToVideo = seedanceModel.includes("image-to-video");
+
+        if (isImageToVideo && !input_image_url) {
           await adminClient.from("generation_jobs").update({
             status: "failed",
-            error_message: "Seedance image-to-video requires an input image.",
+            error_message: `${seedanceModel} requires an input image.`,
           }).eq("id", job.id);
           return new Response(JSON.stringify({ job }), {
             status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
 
-        const seedancePayload = {
-          model: "bytedance/seedance-2.0-fast/image-to-video",
-          image: input_image_url,
+        const seedancePayload: Record<string, unknown> = {
+          model: seedanceModel,
           prompt: prompt || "The scene comes alive with gentle motion and cinematic lighting",
           duration: Number(settings_json?.duration) || 5,
           resolution: settings_json?.seedance_resolution || "720p",
@@ -100,6 +102,7 @@ Deno.serve(async (req) => {
           generate_audio: settings_json?.generate_audio !== false,
           watermark: false,
         };
+        if (isImageToVideo) seedancePayload.image = input_image_url;
 
         // Background poll so we don't hold the request open
         const pollSeedance = async () => {

@@ -34,18 +34,19 @@ export function StudioCreate() {
   const [taskType, setTaskType] = useState<TaskType>('t2v');
   const [prompt, setPrompt] = useState('');
   const [negPrompt, setNegPrompt] = useState('');
-  const [settings, setSettings] = useState<GenerationSettings & { provider?: string; seedance_resolution?: string; seedance_ratio?: string; generate_audio?: boolean }>({
+  const [settings, setSettings] = useState<GenerationSettings & { provider?: string; seedance_model?: string; seedance_resolution?: string; seedance_ratio?: string; generate_audio?: boolean }>({
     resolution: '1280x720',
     duration: 4,
     fps: 24,
     aspect_ratio: '16:9',
     guidance_scale: 7,
     motion_intensity: 50,
+    seedance_model: 'bytedance/seedance-2.0-fast/image-to-video',
     seedance_resolution: '720p',
     seedance_ratio: 'adaptive',
     generate_audio: true,
   });
-  const [useSeedance, setUseSeedance] = useState(false);
+  const [useSeedance, setUseSeedance] = useState(true);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -121,11 +122,12 @@ export function StudioCreate() {
         input_image_url = urlData.publicUrl;
       }
 
+      const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
       const fullSettings = {
         ...settings,
         style_preset: selectedStyles.join(', ') || undefined,
-        provider: useSeedance && taskType === 'i2v' ? 'seedance' : undefined,
-        duration: useSeedance && taskType === 'i2v'
+        provider: seedanceActive ? 'seedance' : undefined,
+        duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
       };
@@ -269,18 +271,18 @@ export function StudioCreate() {
           </Card>
         )}
 
-        {/* Seedance Fast (image-to-video) */}
-        {taskType === 'i2v' && (
+        {/* Seedance / Atlas Cloud */}
+        {(taskType === 'i2v' || taskType === 't2v') && (
           <Card className={`border ${useSeedance ? 'border-[#00ff88]/50 bg-[#00ff88]/5' : 'border-border/50 bg-card/50'} backdrop-blur`}>
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <Sparkles className={`w-4 h-4 ${useSeedance ? 'text-[#00ff88]' : 'text-muted-foreground'}`} />
-                    <Label className="text-sm font-medium">Seedance 2.0 Fast (with audio)</Label>
+                    <Label className="text-sm font-medium">Atlas Cloud · Seedance</Label>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    ByteDance Atlas Cloud · image→video, native synced audio, 4–15s.
+                    ByteDance Seedance models with native synced audio. 4–15s clips.
                   </p>
                 </div>
                 <Button
@@ -296,6 +298,29 @@ export function StudioCreate() {
 
               {useSeedance && (
                 <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs">Model</Label>
+                    <Select
+                      value={settings.seedance_model}
+                      onValueChange={v => setSettings(s => ({ ...s, seedance_model: v }))}
+                    >
+                      <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[
+                          { v: 'bytedance/seedance-2.0-fast/image-to-video', l: 'Seedance 2.0 Fast · image→video (default)' },
+                          { v: 'bytedance/seedance-2.0-fast/text-to-video', l: 'Seedance 2.0 Fast · text→video' },
+                          { v: 'bytedance/seedance-2.0-pro/image-to-video', l: 'Seedance 2.0 Pro · image→video' },
+                          { v: 'bytedance/seedance-2.0-pro/text-to-video', l: 'Seedance 2.0 Pro · text→video' },
+                          { v: 'bytedance/seedance-1.0-lite/image-to-video', l: 'Seedance 1.0 Lite · image→video' },
+                          { v: 'bytedance/seedance-1.0-lite/text-to-video', l: 'Seedance 1.0 Lite · text→video' },
+                          { v: 'bytedance/seedance-1.0-pro/image-to-video', l: 'Seedance 1.0 Pro · image→video' },
+                          { v: 'bytedance/seedance-1.0-pro/text-to-video', l: 'Seedance 1.0 Pro · text→video' },
+                        ].map(m => (
+                          <SelectItem key={m.v} value={m.v}>{m.l}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label className="text-xs">Resolution</Label>
                     <Select
