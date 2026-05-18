@@ -134,22 +134,15 @@ export function StudioLibrary({ projectId, onModify }: Props) {
               </div>
 
               {/* Actions */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-2 flex-wrap">
                 {selected.output_video_url && (
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => window.open(selected.output_video_url!, '_blank')}>
                     <Download className="w-3 h-3" /> Download
                   </Button>
                 )}
-                {selected.output_video_url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    disabled={sending === selected.id}
-                    onClick={() => handleSendToTelegram(selected)}
-                  >
-                    {sending === selected.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                    Send to Telegram
+                {onModify && (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => { onModify(selected); setSelected(null); }}>
+                    <Pencil className="w-3 h-3" /> Modify Video
                   </Button>
                 )}
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(selected.prompt); toast({ title: 'Prompt copied' }); }}>
