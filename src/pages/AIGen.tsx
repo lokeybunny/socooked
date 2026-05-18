@@ -5,10 +5,11 @@ import { StudioCreate } from '@/components/studio/StudioCreate';
 import { StudioLibrary } from '@/components/studio/StudioLibrary';
 import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
+import { StudioReferences } from '@/components/studio/StudioReferences';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
-import { Film, Sparkles, Grid3X3, ListOrdered, Settings } from 'lucide-react';
+import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon } from 'lucide-react';
 import type { GenerationJob } from '@/lib/studio/types';
 
 export interface CreatePrefill {
@@ -80,6 +81,9 @@ export default function AIGen() {
             <TabsTrigger value="queue" className="gap-1.5 data-[state=active]:bg-background">
               <ListOrdered className="w-3.5 h-3.5" /> Queue
             </TabsTrigger>
+            <TabsTrigger value="references" className="gap-1.5 data-[state=active]:bg-background">
+              <ImageIcon className="w-3.5 h-3.5" /> References
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 data-[state=active]:bg-background">
               <Settings className="w-3.5 h-3.5" /> Settings
             </TabsTrigger>
@@ -96,6 +100,7 @@ export default function AIGen() {
           </TabsContent>
           <TabsContent value="library"><StudioLibrary projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
           <TabsContent value="queue"><StudioQueue /></TabsContent>
+          <TabsContent value="references"><StudioReferences projectId={projectId} /></TabsContent>
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
       </div>
