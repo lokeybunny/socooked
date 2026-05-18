@@ -150,10 +150,48 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
 
     setSubmitting(true);
     try {
+      // Seedance / most providers cap inputs around ~2048px. Auto-shrink anything bigger.
+      const MAX_DIM = 1920;
+      const downscaleIfNeeded = (file: File): Promise<File> =>
+        new Promise((resolve, reject) => {
+          if (!file.type.startsWith('image/')) return resolve(file);
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+              const maxSide = Math.max(img.width, img.height);
+              if (maxSide <= MAX_DIM) return resolve(file);
+              const scale = MAX_DIM / maxSide;
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.round(img.width * scale);
+              canvas.height = Math.round(img.height * scale);
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return resolve(file);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob(
+                (blob) => {
+                  if (!blob) return resolve(file);
+                  const newName = file.name.replace(/\.(png|webp|jpe?g|bmp|tiff?)$/i, '') + '_resized.jpg';
+                  const shrunk = new File([blob], newName, { type: 'image/jpeg' });
+                  toast({ title: 'Image auto-shrunk', description: `${img.width}×${img.height} → ${canvas.width}×${canvas.height} to fit API limits.` });
+                  resolve(shrunk);
+                },
+                'image/jpeg',
+                0.92
+              );
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target?.result as string;
+          };
+          reader.onerror = () => reject(new Error('Failed to read image'));
+          reader.readAsDataURL(file);
+        });
+
       const uploadOne = async (file: File) => {
-        const ext = file.name.split('.').pop() || 'png';
+        const safe = await downscaleIfNeeded(file);
+        const ext = safe.name.split('.').pop() || 'png';
         const path = `inputs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
+        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, safe);
         if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
         return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
       };
