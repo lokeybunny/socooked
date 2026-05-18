@@ -122,11 +122,12 @@ export function StudioCreate() {
         input_image_url = urlData.publicUrl;
       }
 
+      const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
       const fullSettings = {
         ...settings,
         style_preset: selectedStyles.join(', ') || undefined,
-        provider: useSeedance && taskType === 'i2v' ? 'seedance' : undefined,
-        duration: useSeedance && taskType === 'i2v'
+        provider: seedanceActive ? 'seedance' : undefined,
+        duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
       };
