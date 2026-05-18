@@ -190,6 +190,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setNegPrompt('');
       setImageFile(null);
       setImagePreview(null);
+      setImageFileB(null);
+      setImagePreviewB(null);
       setSelectedStyles([]);
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
