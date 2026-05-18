@@ -57,8 +57,11 @@ export default function AIGen() {
               <p className="text-sm text-muted-foreground">Cinematic AI video generation, organized by project.</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ProjectSelector value={projectId} onChange={setProjectId} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <ProjectSelector value={projectId} onChange={handleProjectChange} />
+            {projectId && (
+              <SubprojectSelector projectId={projectId} value={subprojectId} onChange={setSubprojectId} />
+            )}
             <StudioCreditsBadge />
           </div>
         </div>
