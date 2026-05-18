@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudioJobs } from '@/lib/studio/hooks';
-import { TASK_LABELS, STATUS_COLORS, type GenerationJob, type TaskType, type JobStatus } from '@/lib/studio/types';
+import { TASK_LABELS, STATUS_COLORS, getJobPrompt, type GenerationJob, type TaskType, type JobStatus } from '@/lib/studio/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Film, Search, Download, Copy, Trash2, Loader2, Pencil } from 'lucide-react';
@@ -33,7 +33,7 @@ export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
     .filter(j => !subprojectId || j.subproject_id === subprojectId)
     .filter(j => filterType === 'all' || j.task_type === filterType)
     .filter(j => filterStatus === 'all' || j.status === filterStatus)
-    .filter(j => !search || j.prompt.toLowerCase().includes(search.toLowerCase()))
+    .filter(j => !search || getJobPrompt(j).toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortDir === 'newest'
       ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -102,7 +102,7 @@ export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Badge variant="outline" className={STATUS_COLORS[selected.status]}>{selected.status}</Badge>
-                  <span className="truncate">{selected.prompt.slice(0, 60)}</span>
+                  <span className="truncate">{getJobPrompt(selected).slice(0, 60)}</span>
                 </DialogTitle>
                 <DialogDescription>{TASK_LABELS[selected.task_type]} generation details and download actions.</DialogDescription>
               </DialogHeader>
@@ -122,7 +122,7 @@ export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Type:</span> {TASK_LABELS[selected.task_type]}</div>
                 <div><span className="text-muted-foreground">Progress:</span> {selected.progress}%</div>
-                <div className="col-span-2"><span className="text-muted-foreground">Prompt:</span> {selected.prompt}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Prompt:</span> {getJobPrompt(selected)}</div>
                 {selected.negative_prompt && <div className="col-span-2"><span className="text-muted-foreground">Negative:</span> {selected.negative_prompt}</div>}
                 {selected.error_message && (
                   <div className="col-span-2 p-2 bg-red-950/30 border border-red-500/30 rounded text-xs text-red-300">{selected.error_message}</div>
@@ -147,7 +147,7 @@ export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
                     <Pencil className="w-3 h-3" /> Modify Video
                   </Button>
                 )}
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(selected.prompt); toast({ title: 'Prompt copied' }); }}>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => { navigator.clipboard.writeText(getJobPrompt(selected)); toast({ title: 'Prompt copied' }); }}>
                   <Copy className="w-3 h-3" /> Copy Prompt
                 </Button>
                 <Button variant="destructive" size="sm" className="gap-1 ml-auto" onClick={() => handleDelete(selected.id)}>
