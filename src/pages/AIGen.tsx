@@ -85,15 +85,16 @@ export default function AIGen() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard"><StudioDashboard onNavigate={setTab} projectId={projectId} onModify={openModify} /></TabsContent>
+          <TabsContent value="dashboard"><StudioDashboard onNavigate={setTab} projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
           <TabsContent value="create">
             <StudioCreate
               projectId={projectId}
+              subprojectId={subprojectId}
               prefill={prefill}
               onPrefillConsumed={() => setPrefill(null)}
             />
           </TabsContent>
-          <TabsContent value="library"><StudioLibrary projectId={projectId} onModify={openModify} /></TabsContent>
+          <TabsContent value="library"><StudioLibrary projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
           <TabsContent value="queue"><StudioQueue /></TabsContent>
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
