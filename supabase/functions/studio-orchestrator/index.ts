@@ -242,73 +242,72 @@ Deno.serve(async (req) => {
       const workerKey = Deno.env.get("STUDIO_WORKER_API_KEY");
 
       if (workerUrl) {
-        try {
-          const workerPayload = {
-            job_id: job.id,
-            task_type,
-            prompt,
-            negative_prompt,
-            settings: settings_json || {},
-            input_image_url: input_image_url || null,
-            input_audio_url: input_audio_url || null,
-            callback_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/studio-orchestrator/callback`,
-          };
+        const adminClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
 
-          const headers: Record<string, string> = { "Content-Type": "application/json" };
-          if (workerKey) headers["Authorization"] = `Bearer ${workerKey}`;
-
-          const workerRes = await fetch(`${workerUrl}/jobs`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(workerPayload),
-          });
-
-          if (workerRes.ok) {
-            const workerData = await workerRes.json();
-            // Update job with worker_job_id
-            const adminClient = createClient(
-              Deno.env.get("SUPABASE_URL")!,
-              Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-            );
+        runBg(async () => {
+          try {
             await adminClient
               .from("generation_jobs")
-              .update({
-                worker_job_id: workerData.job_id || workerData.id || null,
-                status: "provisioning",
-              })
+              .update({ status: "provisioning", progress: 2 })
               .eq("id", job.id);
-          } else {
-            const errText = await workerRes.text();
-            const adminClient = createClient(
-              Deno.env.get("SUPABASE_URL")!,
-              Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-            );
+
+            const workerPayload = {
+              job_id: job.id,
+              task_type,
+              prompt,
+              negative_prompt,
+              settings: settings_json || {},
+              input_image_url: input_image_url || null,
+              input_audio_url: input_audio_url || null,
+              callback_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/studio-orchestrator/callback`,
+            };
+
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (workerKey) headers["Authorization"] = `Bearer ${workerKey}`;
+
+            const workerRes = await fetchWithTimeout(`${workerUrl}/jobs`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify(workerPayload),
+            }, 12000, "worker submission");
+
+            if (workerRes.ok) {
+              const workerData = await workerRes.json();
+              await adminClient
+                .from("generation_jobs")
+                .update({
+                  worker_job_id: workerData.job_id || workerData.id || null,
+                  status: "provisioning",
+                })
+                .eq("id", job.id);
+            } else {
+              const errText = await workerRes.text();
+              await adminClient
+                .from("generation_jobs")
+                .update({
+                  status: "failed",
+                  error_message: `Worker error ${workerRes.status}: ${errText}`,
+                })
+                .eq("id", job.id);
+            }
+          } catch (workerErr) {
+            console.error("Worker submission error:", workerErr);
             await adminClient
               .from("generation_jobs")
               .update({
                 status: "failed",
-                error_message: `Worker error ${workerRes.status}: ${errText}`,
+                error_message: `Worker unreachable: ${(workerErr as Error).message}`,
               })
               .eq("id", job.id);
           }
-        } catch (workerErr) {
-          console.error("Worker submission error:", workerErr);
-          const adminClient = createClient(
-            Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-          );
-          await adminClient
-            .from("generation_jobs")
-            .update({
-              status: "failed",
-              error_message: `Worker unreachable: ${(workerErr as Error).message}`,
-            })
-            .eq("id", job.id);
-        }
+        });
       }
 
       return new Response(JSON.stringify({ job }), {
-        status: 201,
+        status: 202,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
