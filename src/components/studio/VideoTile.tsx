@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, Sparkles } from 'lucide-react';
+import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, Send } from 'lucide-react';
 import { STATUS_COLORS, type GenerationJob } from '@/lib/studio/types';
 import { GrabFrameDialog } from './GrabFrameDialog';
 import { submitJob } from '@/lib/studio/hooks';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface Props {
