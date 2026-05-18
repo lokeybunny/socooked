@@ -307,23 +307,39 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           </Card>
         )}
 
-        {/* Image Upload */}
+        {/* Image Upload — supports up to 2 frames (A = first frame, B = optional end frame) */}
         {needsImage && (
           <Card className="border-border/50 bg-card/50 backdrop-blur">
-            <CardContent className="p-5">
-              <Label className="text-sm font-medium mb-3 block">Input Image</Label>
-              {imagePreview ? (
-                <div className="relative">
-                  <img src={imagePreview} alt="Preview" className="rounded-lg max-h-[300px] object-contain mx-auto" />
-                  <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => { setImageFile(null); setImagePreview(null); }}>Remove</Button>
-                </div>
-              ) : (
-                <label className="border-2 border-dashed border-border/50 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors">
-                  <Upload className="w-8 h-8 text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">Drop an image or click to upload</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, WebP — max 20MB</p>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImageUpload} />
-                </label>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Input Images</Label>
+                <p className="text-xs text-muted-foreground">A = first frame · B = end frame (optional)</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {([
+                  { slot: 'A' as const, label: 'Frame A (start)', preview: imagePreview, onChange: handleImageUpload, clear: () => { setImageFile(null); setImagePreview(null); } },
+                  { slot: 'B' as const, label: 'Frame B (end, optional)', preview: imagePreviewB, onChange: handleImageUploadB, clear: () => { setImageFileB(null); setImagePreviewB(null); } },
+                ]).map(({ slot, label, preview, onChange, clear }) => (
+                  <div key={slot} className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">{label}</Label>
+                    {preview ? (
+                      <div className="relative">
+                        <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" />
+                        <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clear}>Remove</Button>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors min-h-[180px]">
+                        <Upload className="w-7 h-7 text-muted-foreground/50 mb-2" />
+                        <p className="text-xs text-muted-foreground">Upload Frame {slot}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">JPG / PNG / WebP · 20MB</p>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onChange} />
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {imagePreviewB && !imagePreview && (
+                <p className="text-xs text-amber-400">Frame A is required when using an end frame.</p>
               )}
             </CardContent>
           </Card>
