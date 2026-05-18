@@ -157,7 +157,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           if (!file.type.startsWith('image/')) return resolve(file);
           const reader = new FileReader();
           reader.onload = (e) => {
-            const img = new Image();
+            const img = new window.Image();
             img.onload = () => {
               const maxSide = Math.max(img.width, img.height);
               if (maxSide <= MAX_DIM) return resolve(file);
