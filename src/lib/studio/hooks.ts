@@ -1,36 +1,98 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { GenerationJob, WorkerHealth } from './types';
 
-export function useStudioJobs() {
-  const [jobs, setJobs] = useState<GenerationJob[]>([]);
-  const [loading, setLoading] = useState(true);
+const JOB_SELECT = 'id,user_id,task_type,prompt,negative_prompt,settings_json,input_image_url,input_audio_url,output_video_url,output_thumbnail_url,status,progress,worker_job_id,backend_logs,error_message,created_at,updated_at';
 
-  const fetchJobs = async () => {
-    const { data } = await supabase
+let jobsCache: GenerationJob[] = [];
+let jobsLoaded = false;
+let lastJobsFetchAt = 0;
+let jobsFetchPromise: Promise<void> | null = null;
+let jobsChannel: ReturnType<typeof supabase.channel> | null = null;
+const jobListeners = new Set<() => void>();
+
+const notifyJobListeners = () => jobListeners.forEach(listener => listener());
+
+const sortJobs = (jobs: GenerationJob[]) =>
+  [...jobs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+async function fetchStudioJobs(force = false) {
+  if (jobsFetchPromise) return jobsFetchPromise;
+  if (!force && jobsLoaded && Date.now() - lastJobsFetchAt < 15_000) return;
+
+  jobsFetchPromise = (async () => {
+    const { data, error } = await supabase
       .from('generation_jobs')
-      .select('*')
+      .select(JOB_SELECT)
       .order('created_at', { ascending: false })
-      .limit(200);
-    setJobs((data as unknown as GenerationJob[]) || []);
+      .limit(100);
+
+    if (!error) {
+      jobsCache = (data as unknown as GenerationJob[]) || [];
+      lastJobsFetchAt = Date.now();
+    } else {
+      console.error('Failed to fetch studio jobs:', error.message);
+    }
+    jobsLoaded = true;
+    notifyJobListeners();
+  })().finally(() => {
+    jobsFetchPromise = null;
+  });
+
+  return jobsFetchPromise;
+}
+
+function ensureJobsRealtime() {
+  if (jobsChannel) return;
+
+  jobsChannel = supabase
+    .channel('studio-jobs-shared')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'generation_jobs' }, payload => {
+      if (payload.eventType === 'DELETE') {
+        const oldJob = payload.old as Pick<GenerationJob, 'id'>;
+        jobsCache = jobsCache.filter(job => job.id !== oldJob.id);
+      } else {
+        const nextJob = payload.new as GenerationJob;
+        jobsCache = sortJobs([
+          nextJob,
+          ...jobsCache.filter(job => job.id !== nextJob.id),
+        ]).slice(0, 100);
+      }
+      notifyJobListeners();
+    })
+    .subscribe();
+}
+
+export function useStudioJobs() {
+  const [jobs, setJobs] = useState<GenerationJob[]>(jobsCache);
+  const [loading, setLoading] = useState(!jobsLoaded);
+
+  const refetch = useCallback(async () => {
+    await fetchStudioJobs(true);
+    setJobs(jobsCache);
     setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchJobs();
-
-    const channelName = `studio-jobs-${Math.random().toString(36).slice(2, 10)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'generation_jobs' }, () => {
-        fetchJobs();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  return { jobs, loading, refetch: fetchJobs };
+  useEffect(() => {
+    let active = true;
+    const listener = () => {
+      if (active) {
+        setJobs(jobsCache);
+        setLoading(false);
+      }
+    };
+
+    jobListeners.add(listener);
+    ensureJobsRealtime();
+    fetchStudioJobs(!jobsLoaded).finally(listener);
+
+    return () => {
+      active = false;
+      jobListeners.delete(listener);
+    };
+  }, []);
+
+  return { jobs, loading, refetch };
 }
 
 export function useWorkerHealth() {
