@@ -5,10 +5,15 @@ import { StudioCreate } from '@/components/studio/StudioCreate';
 import { StudioLibrary } from '@/components/studio/StudioLibrary';
 import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
+import { useStudioJobs } from '@/lib/studio/hooks';
 import { Film, Sparkles, Grid3X3, ListOrdered, Settings } from 'lucide-react';
 
 export default function AIGen() {
   const [tab, setTab] = useState('dashboard');
+  const { jobs } = useStudioJobs();
+  const latestVideo = jobs.find(j => j.status === 'completed' && j.output_video_url);
+  const spotlightSrc = latestVideo?.output_video_url || '/videos/spotlight.mov';
+  const spotlightPoster = latestVideo?.output_thumbnail_url || '';
 
   return (
     <div className="min-h-screen bg-background">
