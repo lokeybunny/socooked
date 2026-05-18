@@ -821,20 +821,20 @@ Deno.serve(async (req) => {
     if (statusSync.timedOut) runInBackground(syncOutboundStatuses(), "poll-status-sync");
 
     // ---- Inbound import (parallelized; downstream calls fire-and-forget) ----
-    const inboundResults = await Promise.all(messages.map(async (m) => {
-      if (String(m.status) !== "Received") return 0;
+    const inboundMessages = messages.filter((m) => String(m.status) === "Received").slice(0, 10);
+    const processInboundMessages = async () => Promise.all(inboundMessages.map(async (m) => {
       const externalId = String(m.ID);
-      const { data: blocked } = await sb
+      const { data: blocked } = await dbWithTimeout(sb
         .from("sms_deleted_external_ids")
         .select("external_id")
         .eq("external_id", externalId)
-        .limit(1);
+        .limit(1), 2500, "poll_deleted_lookup");
       if (blocked && blocked[0]) return 0;
-      const { data: existing } = await sb
+      const { data: existing } = await dbWithTimeout(sb
         .from("communications")
         .select("id")
         .eq("external_id", externalId)
-        .limit(1);
+        .limit(1), 2500, "poll_existing_lookup");
       if (existing && existing[0]) return 0;
       const from = normalizePhone(String(m.number || ""));
       const customerId = await findCustomerByPhone(from);
@@ -846,7 +846,7 @@ Deno.serve(async (req) => {
         const messageAt = createdAt ? new Date(createdAt).getTime() : Date.now();
         const duplicateWindowStart = new Date(messageAt - 2 * 60_000).toISOString();
         const duplicateWindowEnd = new Date(messageAt + 2 * 60_000).toISOString();
-        const { data: sameRecent } = await sb
+        const { data: sameRecent } = await dbWithTimeout(sb
           .from("communications")
           .select("id")
           .eq("type", "sms")
@@ -856,10 +856,10 @@ Deno.serve(async (req) => {
           .eq("body", body)
           .gte("created_at", duplicateWindowStart)
           .lte("created_at", duplicateWindowEnd)
-          .limit(1);
+          .limit(1), 2500, "poll_duplicate_lookup");
         if (sameRecent?.[0]) return 0;
       }
-      const { data: insertedRow, error: insertError } = await sb.from("communications").insert({
+      const { data: insertedRow, error: insertError } = await dbWithTimeout(sb.from("communications").insert({
         type: "sms",
         direction: "inbound",
         body,
