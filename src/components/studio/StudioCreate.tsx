@@ -143,7 +143,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'Prompt required', variant: 'destructive' });
       return;
     }
-    if ((taskType === 'i2v' || taskType === 'ti2v') && !imageFile) {
+    if ((taskType === 'i2v' || taskType === 'ti2v') && !imageFile && !imagePreview) {
       toast({ title: 'Image required for this mode', variant: 'destructive' });
       return;
     }
@@ -161,7 +161,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       let input_image_url: string | undefined;
       let last_frame_image_url: string | undefined;
       if (imageFile) input_image_url = await uploadOne(imageFile);
+      else if (imagePreview) input_image_url = imagePreview;
       if (imageFileB) last_frame_image_url = await uploadOne(imageFileB);
+      else if (imagePreviewB) last_frame_image_url = imagePreviewB;
 
       const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
       const seedanceModel = seedanceActive
