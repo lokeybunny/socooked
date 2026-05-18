@@ -155,6 +155,26 @@ export function StudioReferences({ projectId }: Props) {
     toast({ title: 'URL copied' });
   };
 
+  const downloadRef = async (ref: Ref) => {
+    try {
+      const res = await fetch(ref.image_url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const ext = (ref.storage_path?.split('.').pop() || blob.type.split('/')[1] || 'png').split('?')[0];
+      const safeName = (ref.name || 'reference').replace(/[^\w.-]+/g, '_');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast({ title: 'Download failed', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
   const visible = refs.filter(r => {
     if (filter === 'global') return r.project_id === null;
     if (filter === 'project') return projectId ? r.project_id === projectId : false;
