@@ -7,6 +7,7 @@ import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
+import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
 import { Film, Sparkles, Grid3X3, ListOrdered, Settings } from 'lucide-react';
 import type { GenerationJob } from '@/lib/studio/types';
 
@@ -21,7 +22,13 @@ export interface CreatePrefill {
 export default function AIGen() {
   const [tab, setTab] = useState('dashboard');
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [subprojectId, setSubprojectId] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<CreatePrefill | null>(null);
+
+  const handleProjectChange = useCallback((id: string | null) => {
+    setProjectId(id);
+    setSubprojectId(null);
+  }, []);
 
   const openModify = useCallback((job: GenerationJob) => {
     setPrefill({
@@ -32,6 +39,7 @@ export default function AIGen() {
       input_image_url: job.input_image_url,
     });
     if (job.project_id) setProjectId(job.project_id);
+    if (job.subproject_id !== undefined) setSubprojectId(job.subproject_id ?? null);
     setTab('create');
   }, []);
 
