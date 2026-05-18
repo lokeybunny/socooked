@@ -12,7 +12,7 @@ export function StudioDashboard({ onNavigate }: { onNavigate: (tab: string) => v
   const running = jobs.filter(j => j.status === 'running').length;
   const completed = jobs.filter(j => j.status === 'completed').length;
   const failed = jobs.filter(j => j.status === 'failed').length;
-  const recent = jobs.slice(0, 6);
+  const recent = jobs.filter(j => j.status !== 'failed' && j.status !== 'cancelled').slice(0, 6);
 
   return (
     <div className="space-y-6">
