@@ -42,7 +42,7 @@ export function StudioCreate() {
     aspect_ratio: '9:16',
     guidance_scale: 7,
     motion_intensity: 50,
-    seedance_model: 'bytedance/seedance-2.0-fast/image-to-video',
+    seedance_model: 'bytedance/seedance-2.0-fast/text-to-video',
     seedance_resolution: '720p',
     seedance_ratio: '9:16',
     generate_audio: true,
@@ -124,10 +124,16 @@ export function StudioCreate() {
       }
 
       const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
+      const seedanceModel = seedanceActive
+        ? taskType === 't2v'
+          ? (settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video').replace('image-to-video', 'text-to-video')
+          : (settings.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video')
+        : settings.seedance_model;
       const fullSettings = {
         ...settings,
         style_preset: selectedStyles.join(', ') || undefined,
         provider: seedanceActive ? 'seedance' : undefined,
+        seedance_model: seedanceModel,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
@@ -161,7 +167,18 @@ export function StudioCreate() {
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
       <div className="space-y-6">
         {/* Task Type Tabs */}
-        <Tabs value={taskType} onValueChange={v => setTaskType(v as TaskType)}>
+        <Tabs
+          value={taskType}
+          onValueChange={v => {
+            const next = v as TaskType;
+            setTaskType(next);
+            if (next === 't2v') {
+              setSettings(s => ({ ...s, seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video').replace('image-to-video', 'text-to-video') }));
+            } else if (next === 'i2v') {
+              setSettings(s => ({ ...s, seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video') }));
+            }
+          }}
+        >
           <TabsList className="bg-muted/50 border border-border/50 flex-wrap h-auto p-1">
             {(Object.keys(TASK_LABELS) as TaskType[]).map(t => (
               <TabsTrigger key={t} value={t} className="gap-1.5 text-xs data-[state=active]:bg-background">
