@@ -42,7 +42,7 @@ const ManageBooking = lazyWithRetry(() => import("./pages/ManageBooking"), "page
 const SharedContent = lazyWithRetry(() => import("./pages/SharedContent"), "page-shared-content");
 const ResearchRoute = lazyWithRetry(() => import("./pages/ResearchRoute"), "page-research-route");
 const ThankYou = lazyWithRetry(() => import("./pages/ThankYou"), "page-thank-you");
-const ThankYouVideography = lazyWithRetry(() => import("./pages/ThankYouVideography"), "page-thank-you-videography");
+
 const ThankYouSeller = lazyWithRetry(() => import("./pages/ThankYouSeller"), "page-thank-you-seller");
 const ThankYouWebDesign = lazyWithRetry(() => import("./pages/ThankYouWebDesign"), "page-thank-you-webdesign");
 const WarrenLanding = lazyWithRetry(() => import("./pages/WarrenLanding"), "page-warren-landing");
