@@ -33,11 +33,12 @@ const TASK_ICONS: Record<TaskType, React.ReactNode> = {
 
 interface StudioCreateProps {
   projectId?: string | null;
+  subprojectId?: string | null;
   prefill?: CreatePrefill | null;
   onPrefillConsumed?: () => void;
 }
 
-export function StudioCreate({ projectId, prefill, onPrefillConsumed }: StudioCreateProps = {}) {
+export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsumed }: StudioCreateProps = {}) {
   const { toast } = useToast();
   const [taskType, setTaskType] = useState<TaskType>('t2v');
   const [prompt, setPrompt] = useState('');
