@@ -5,7 +5,6 @@ import { StudioCreate } from '@/components/studio/StudioCreate';
 import { StudioLibrary } from '@/components/studio/StudioLibrary';
 import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
-import { useStudioJobs } from '@/lib/studio/hooks';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { Film, Sparkles, Grid3X3, ListOrdered, Settings } from 'lucide-react';
 
