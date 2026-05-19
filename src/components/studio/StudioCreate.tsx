@@ -68,6 +68,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [showDirector, setShowDirector] = useState(false);
   const [noMusic, setNoMusic] = useState(true);
   const [propertyLock, setPropertyLock] = useState(true);
+  // Reference-to-video assets (up to 9 images, 3 videos, 3 audios)
+  const [refImages, setRefImages] = useState<File[]>([]);
+  const [refVideos, setRefVideos] = useState<File[]>([]);
+  const [refAudios, setRefAudios] = useState<File[]>([]);
+  const [returnLastFrame, setReturnLastFrame] = useState(false);
+  const isRefToVideo = (settings.seedance_model || '').includes('reference-to-video');
 
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
