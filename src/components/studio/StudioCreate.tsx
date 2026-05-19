@@ -161,6 +161,62 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setRefAudios(prev => [...prev, ...files].slice(0, 3));
   };
 
+  // ---------- Reorder helpers (drag-to-reorder existing assets) ----------
+  const REORDER_MIME = 'application/x-studio-reorder';
+  const onReorderStart = (kind: 'img' | 'vid' | 'aud', index: number) => (e: React.DragEvent) => {
+    e.dataTransfer.setData(REORDER_MIME, `${kind}:${index}`);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const isReorderEvent = (e: React.DragEvent, kind: string) => {
+    const types = Array.from(e.dataTransfer.types || []);
+    return types.includes(REORDER_MIME);
+  };
+  const onReorderOver = (e: React.DragEvent) => {
+    if (Array.from(e.dataTransfer.types || []).includes(REORDER_MIME)) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+  const reorderArray = <T,>(arr: T[], from: number, to: number): T[] => {
+    if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return arr;
+    const next = arr.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    return next;
+  };
+  const onReorderDropImg = (toIndex: number) => (e: React.DragEvent) => {
+    const data = e.dataTransfer.getData(REORDER_MIME);
+    if (!data || !data.startsWith('img:')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const from = parseInt(data.split(':')[1], 10);
+    // combined list: urls first, then files
+    const combined = [
+      ...refImageUrls.map(v => ({ k: 'u' as const, v })),
+      ...refImages.map(v => ({ k: 'f' as const, v })),
+    ];
+    const next = reorderArray(combined, from, toIndex);
+    setRefImageUrls(next.filter(x => x.k === 'u').map(x => x.v as string));
+    setRefImages(next.filter(x => x.k === 'f').map(x => x.v as File));
+  };
+  const onReorderDropVid = (toIndex: number) => (e: React.DragEvent) => {
+    const data = e.dataTransfer.getData(REORDER_MIME);
+    if (!data || !data.startsWith('vid:')) return;
+    e.preventDefault(); e.stopPropagation();
+    const from = parseInt(data.split(':')[1], 10);
+    setRefVideos(prev => reorderArray(prev, from, toIndex));
+  };
+  const onReorderDropAud = (toIndex: number) => (e: React.DragEvent) => {
+    const data = e.dataTransfer.getData(REORDER_MIME);
+    if (!data || !data.startsWith('aud:')) return;
+    e.preventDefault(); e.stopPropagation();
+    const from = parseInt(data.split(':')[1], 10);
+    setRefAudios(prev => reorderArray(prev, from, toIndex));
+  };
+
+
+
 
   const applyDirector = () => {
     const parts = [
@@ -657,20 +713,33 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 rounded-md transition-colors" onDragOver={preventDrag} onDrop={dropRefImages}>
                   {refImageUrls.map((url, i) => (
-                    <div key={`u-${i}`} className="relative group">
-                      <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
+                    <div key={`u-${i}`} className="relative group cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('img', i)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropImg(i)}
+                      title="Drag to reorder">
+                      <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
                       <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImageUrls(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
                   ))}
-                  {refImages.map((f, i) => (
-                    <div key={`f-${i}`} className="relative group">
-                      <img src={URL.createObjectURL(f)} alt={`ref ${refImageUrls.length + i + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
-                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{refImageUrls.length + i + 1}</span>
+                  {refImages.map((f, i) => {
+                    const combinedIdx = refImageUrls.length + i;
+                    return (
+                    <div key={`f-${i}`} className="relative group cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('img', combinedIdx)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropImg(combinedIdx)}
+                      title="Drag to reorder">
+                      <img src={URL.createObjectURL(f)} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{combinedIdx + 1}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
-                  ))}
+                  );})}
+
                   {(refImages.length + refImageUrls.length) < 9 && (
                     <label className="border-2 border-dashed border-border/50 rounded-md h-20 flex flex-col items-center justify-center cursor-pointer hover:border-[#00ff88]/50 transition-colors">
                       <Upload className="w-4 h-4 text-muted-foreground/50" />
@@ -697,7 +766,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
                 <div className="grid grid-cols-3 gap-2" onDragOver={preventDrag} onDrop={dropRefVideos}>
                   {refVideos.map((f, i) => (
-                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('vid', i)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropVid(i)}
+                      title="Drag to reorder">
                       <span className="block truncate">{i+1}. {f.name}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefVideos(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
@@ -725,7 +799,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
                 <div className="grid grid-cols-3 gap-2" onDragOver={preventDrag} onDrop={dropRefAudios}>
                   {refAudios.map((f, i) => (
-                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('aud', i)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropAud(i)}
+                      title="Drag to reorder">
                       <span className="block truncate">{i+1}. {f.name}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefAudios(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
