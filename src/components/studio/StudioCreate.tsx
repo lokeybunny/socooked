@@ -28,6 +28,7 @@ import {
 import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
+import { AssetLibraryPicker } from './AssetLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
 
@@ -79,6 +80,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refImages, setRefImages] = useState<File[]>([]);
   const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
+  const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const [promptGuideOpen, setPromptGuideOpen] = useState(false);
   const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
@@ -788,6 +790,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     >
                       <Image className="w-3 h-3" /> From Library
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs gap-1 border-[#00ff88]/40 text-[#00ff88] hover:bg-[#00ff88]/10"
+                      onClick={() => setAssetLibraryOpen(true)}
+                      disabled={refImages.length + refImageUrls.length >= 9}
+                    >
+                      <Image className="w-3 h-3" /> From Assets
+                    </Button>
                     {(refImages.length > 0 || refImageUrls.length > 0) && (
                       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setRefImages([]); setRefImageUrls([]); }}>Clear</Button>
                     )}
@@ -1084,6 +1096,15 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       open={refLibraryOpen}
       onOpenChange={setRefLibraryOpen}
       projectId={projectId}
+      maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
+      onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+    />
+
+    <AssetLibraryPicker
+      open={assetLibraryOpen}
+      onOpenChange={setAssetLibraryOpen}
+      projectId={projectId}
+      subprojectId={subprojectId}
       maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
     />
