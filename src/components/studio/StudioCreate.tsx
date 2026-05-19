@@ -1100,6 +1100,15 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
     />
 
+    <AssetLibraryPicker
+      open={assetLibraryOpen}
+      onOpenChange={setAssetLibraryOpen}
+      projectId={projectId}
+      subprojectId={subprojectId}
+      maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
+      onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+    />
+
     <PromptGuideDialog
       open={promptGuideOpen}
       onOpenChange={setPromptGuideOpen}
