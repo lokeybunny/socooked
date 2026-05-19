@@ -115,7 +115,16 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
               file = dataUrlToBlob(emptied.imageDataUrl);
               contentType = file.type || 'image/png';
               ext = contentType.split('/')[1] || 'png';
-              nameBase = `${nameBase}-empty`;
+              const roomType = (emptied?.roomType as string | undefined)?.trim();
+              if (roomType) {
+                // Pretty-case: KITCHEN -> Kitchen, MASTER_BEDROOM -> Master Bedroom
+                const pretty = roomType.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                // Ensure unique within batch by appending #N if needed
+                const existingSameRoom = [...assets, ...Array(i).fill(null)].filter((x: any) => x?.name?.startsWith(pretty)).length;
+                nameBase = existingSameRoom > 0 ? `${pretty} ${existingSameRoom + 1}` : pretty;
+              } else {
+                nameBase = `${nameBase}-empty`;
+              }
             } else {
               throw new Error('AI did not return an image');
             }
