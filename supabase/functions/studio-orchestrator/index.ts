@@ -556,13 +556,15 @@ Deno.serve(async (req) => {
       if (!job) return json({ error: "Job not found" }, 404);
 
       const payload: JobPayload = {
-        user_id: userId,
+        user_id: job.user_id || userId,
         task_type: job.task_type,
         prompt: job.prompt,
         negative_prompt: job.negative_prompt,
         settings_json: (job.settings_json as Record<string, unknown>) || {},
         input_image_url: job.input_image_url,
         input_audio_url: job.input_audio_url,
+        project_id: job.project_id,
+        subproject_id: job.subproject_id,
       };
 
       await supabase.from("generation_jobs").update({
