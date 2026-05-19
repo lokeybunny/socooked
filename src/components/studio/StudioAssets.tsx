@@ -4,8 +4,26 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
-import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers } from 'lucide-react';
+import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers, Sparkles } from 'lucide-react';
 import { lightboxProps } from './ImageLightbox';
+import { Checkbox } from '@/components/ui/checkbox';
+
+// Read a File as data URL
+const fileToDataUrl = (file: Blob): Promise<string> => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result as string);
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [head, body] = dataUrl.split(',');
+  const mime = /data:([^;]+)/.exec(head)?.[1] || 'image/png';
+  const bin = atob(body);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+};
 
 interface Asset {
   id: string;
