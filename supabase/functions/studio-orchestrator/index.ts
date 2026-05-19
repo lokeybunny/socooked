@@ -23,7 +23,7 @@ const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+const withTimeout = <T,>(p: PromiseLike<T>, ms: number, label: string): Promise<T> => {
   let timeoutId: number | undefined;
   const timeout = new Promise<T>((_, rej) => {
     timeoutId = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms);
