@@ -845,5 +845,14 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         </Card>
       </div>
     </div>
+
+    <ReferenceLibraryPicker
+      open={refLibraryOpen}
+      onOpenChange={setRefLibraryOpen}
+      projectId={projectId}
+      maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
+      onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+    />
+  </>
   );
 }
