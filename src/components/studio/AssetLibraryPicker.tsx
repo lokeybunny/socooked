@@ -43,7 +43,7 @@ export function AssetLibraryPicker({ open, onOpenChange, projectId, subprojectId
       setLoading(true);
       const { data, error } = await supabase
         .from('studio_assets')
-        .select('id, project_id, subproject_id, name, image_url')
+        .select('id, project_id, subproject_id, name, image_url, pair_id, variant')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
       if (error) {
