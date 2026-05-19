@@ -101,10 +101,13 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
       let done = 0;
       for (let i = 0; i < images.length; i++) {
         const original = images[i];
-        let file: Blob = original;
-        let ext = (original.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
-        let contentType = original.type;
-        let nameBase = original.name.replace(/\.[^.]+$/, '');
+        const origExt = (original.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+        const origContentType = original.type || 'image/jpeg';
+        const baseName = original.name.replace(/\.[^.]+$/, '');
+        let processedBlob: Blob | null = null;
+        let processedExt = 'png';
+        let processedContentType = 'image/png';
+        let processedName = baseName;
 
         if (autoEmpty) {
           try {
@@ -112,18 +115,16 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
             const { data: emptied, error: fnErr } = await supabase.functions.invoke('empty-room', { body: { imageDataUrl: dataUrl } });
             if (fnErr) throw fnErr;
             if (emptied?.imageDataUrl) {
-              file = dataUrlToBlob(emptied.imageDataUrl);
-              contentType = file.type || 'image/png';
-              ext = contentType.split('/')[1] || 'png';
+              processedBlob = dataUrlToBlob(emptied.imageDataUrl);
+              processedContentType = processedBlob.type || 'image/png';
+              processedExt = processedContentType.split('/')[1] || 'png';
               const roomType = (emptied?.roomType as string | undefined)?.trim();
               if (roomType) {
-                // Pretty-case: KITCHEN -> Kitchen, MASTER_BEDROOM -> Master Bedroom
                 const pretty = roomType.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                // Ensure unique within batch by appending #N if needed
                 const existingSameRoom = [...assets, ...Array(i).fill(null)].filter((x: any) => x?.name?.startsWith(pretty)).length;
-                nameBase = existingSameRoom > 0 ? `${pretty} ${existingSameRoom + 1}` : pretty;
+                processedName = existingSameRoom > 0 ? `${pretty} ${existingSameRoom + 1}` : pretty;
               } else {
-                nameBase = `${nameBase}-empty`;
+                processedName = `${baseName}-empty`;
               }
             } else {
               throw new Error('AI did not return an image');
@@ -134,19 +135,34 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
           }
         }
 
-        const path = `${userId}/${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, file, { contentType, upsert: false });
-        if (upErr) { console.error(upErr); continue; }
-        const { data: pub } = supabase.storage.from('studio-assets').getPublicUrl(path);
-        await supabase.from('studio_assets').insert({
-          user_id: userId,
-          project_id: uploadProjectId,
-          subproject_id: uploadSubprojectId,
-          name: nameBase,
-          image_url: pub.publicUrl,
-          storage_path: path,
-          sort_order: baseOrder + i,
-        });
+        const pairId = processedBlob ? crypto.randomUUID() : null;
+        const variants: Array<{ blob: Blob; ext: string; contentType: string; name: string; variant: 'original' | 'processed' | null; order: number }> = [];
+
+        if (processedBlob) {
+          // Save original first (before), then processed (after) — adjacent sort_order
+          variants.push({ blob: original, ext: origExt, contentType: origContentType, name: `${baseName} (original)`, variant: 'original', order: baseOrder + i * 2 });
+          variants.push({ blob: processedBlob, ext: processedExt, contentType: processedContentType, name: processedName, variant: 'processed', order: baseOrder + i * 2 + 1 });
+        } else {
+          variants.push({ blob: original, ext: origExt, contentType: origContentType, name: baseName, variant: null, order: baseOrder + i });
+        }
+
+        for (const v of variants) {
+          const path = `${userId}/${Date.now()}-${i}-${v.variant ?? 'single'}-${Math.random().toString(36).slice(2, 8)}.${v.ext}`;
+          const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, v.blob, { contentType: v.contentType, upsert: false });
+          if (upErr) { console.error(upErr); continue; }
+          const { data: pub } = supabase.storage.from('studio-assets').getPublicUrl(path);
+          await supabase.from('studio_assets').insert({
+            user_id: userId,
+            project_id: uploadProjectId,
+            subproject_id: uploadSubprojectId,
+            name: v.name,
+            image_url: pub.publicUrl,
+            storage_path: path,
+            sort_order: v.order,
+            pair_id: pairId,
+            variant: v.variant,
+          } as any);
+        }
         done++;
         setProgress({ done, total: images.length });
       }
