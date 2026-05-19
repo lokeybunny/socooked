@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
 import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers } from 'lucide-react';
+import { lightboxProps } from './ImageLightbox';
 
 interface Asset {
   id: string;
