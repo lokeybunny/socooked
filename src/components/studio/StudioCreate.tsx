@@ -73,6 +73,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [propertyLock, setPropertyLock] = useState(true);
   // Reference-to-video assets (up to 9 images, 3 videos, 3 audios)
   const [refImages, setRefImages] = useState<File[]>([]);
+  const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
+  const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [refVideos, setRefVideos] = useState<File[]>([]);
   const [refAudios, setRefAudios] = useState<File[]>([]);
   const [returnLastFrame, setReturnLastFrame] = useState(false);
