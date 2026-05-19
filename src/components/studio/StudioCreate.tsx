@@ -508,7 +508,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     >
                       <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {['480p','720p','720p-SR','1080p-SR','1440p-SR'].map(r => (
+                        {['480p','720p','720p-SR','1080p','1080p-SR','1440p-SR'].map(r => (
                           <SelectItem key={r} value={r}>{r}</SelectItem>
                         ))}
                       </SelectContent>
