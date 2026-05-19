@@ -110,6 +110,7 @@ export function PromptGuideDialog({ open, onOpenChange, images, onApply }: Props
       try { await navigator.clipboard.writeText(out); setCopied(true); } catch {}
       onApply(out);
       toast({ title: 'Prompt ready', description: 'Inserted into prompt & copied to clipboard' });
+      onOpenChange(false);
     } catch (e: any) {
       toast({ title: 'Failed to build prompt', description: e?.message || String(e), variant: 'destructive' });
     } finally {

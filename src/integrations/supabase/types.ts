@@ -8108,6 +8108,63 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_assets: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          name: string | null
+          notes: string | null
+          project_id: string | null
+          sort_order: number
+          storage_path: string | null
+          subproject_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          name?: string | null
+          notes?: string | null
+          project_id?: string | null
+          sort_order?: number
+          storage_path?: string | null
+          subproject_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          name?: string | null
+          notes?: string | null
+          project_id?: string | null
+          sort_order?: number
+          storage_path?: string | null
+          subproject_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_assets_subproject_id_fkey"
+            columns: ["subproject_id"]
+            isOneToOne: false
+            referencedRelation: "studio_subprojects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studio_projects: {
         Row: {
           cover_url: string | null
