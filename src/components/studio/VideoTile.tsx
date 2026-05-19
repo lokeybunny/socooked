@@ -32,6 +32,7 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
         input_image_url: job.input_image_url ?? undefined,
         input_audio_url: job.input_audio_url ?? undefined,
         project_id: job.project_id ?? null,
+        subproject_id: job.subproject_id ?? null,
       });
       toast({ title: 'Recreating video', description: 'New job queued with a fresh seed.' });
     } catch (e) {
