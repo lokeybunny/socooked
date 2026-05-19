@@ -27,6 +27,7 @@ import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
+import { lightboxProps, openImageLightbox } from './ImageLightbox';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
@@ -578,7 +579,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                         onDragOver={preventDrag}
                         onDrop={acceptImageDrop(slot)}
                       >
-                        <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" />
+                        <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" {...lightboxProps(preview, `Frame ${slot}`)} />
                         <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clear}>Remove</Button>
                         <div className="absolute inset-0 rounded-lg ring-2 ring-transparent hover:ring-violet-500/40 transition pointer-events-none" />
                       </div>
@@ -756,7 +757,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                       onDragStart={onReorderStart('img', i)}
                       onDragOver={onReorderOver}
                       onDrop={onReorderDropImg(i)}
-                      title="Drag to reorder">
+                      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); openImageLightbox(url, `Reference ${i+1}`); }}
+                      title="Double-click to enlarge · Drag to reorder"
+                      style={{ cursor: 'zoom-in' }}>
                       <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
                       <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
@@ -765,14 +768,17 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   ))}
                   {refImages.map((f, i) => {
                     const combinedIdx = refImageUrls.length + i;
+                    const objUrl = URL.createObjectURL(f);
                     return (
                     <div key={`f-${i}`} className="relative group cursor-move"
                       draggable
                       onDragStart={onReorderStart('img', combinedIdx)}
                       onDragOver={onReorderOver}
                       onDrop={onReorderDropImg(combinedIdx)}
-                      title="Drag to reorder">
-                      <img src={URL.createObjectURL(f)} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
+                      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); openImageLightbox(objUrl, `Reference ${combinedIdx + 1}`); }}
+                      title="Double-click to enlarge · Drag to reorder"
+                      style={{ cursor: 'zoom-in' }}>
+                      <img src={objUrl} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{combinedIdx + 1}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>

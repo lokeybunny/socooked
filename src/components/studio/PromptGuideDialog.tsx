@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Mic, Square, Loader2, Sparkles, Copy, Check } from 'lucide-react';
+import { lightboxProps } from './ImageLightbox';
 
 interface Props {
   open: boolean;
@@ -139,7 +140,7 @@ export function PromptGuideDialog({ open, onOpenChange, images, onApply }: Props
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {images.map((img, i) => (
                 <div key={i} className="relative shrink-0">
-                  <img src={img.url} alt={img.label} className="h-14 w-14 object-cover rounded-md border border-border/50" />
+                  <img src={img.url} alt={img.label} className="h-14 w-14 object-cover rounded-md border border-border/50" {...lightboxProps(img.url, img.label)} />
                   <Badge variant="secondary" className="absolute -bottom-1 -right-1 text-[9px] px-1 py-0 h-4">img {i + 1}</Badge>
                 </div>
               ))}
