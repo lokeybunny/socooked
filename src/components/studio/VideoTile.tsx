@@ -131,6 +131,9 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
                   <DropdownMenuItem onClick={handleRecreate} className="gap-2 cursor-pointer">
                     <RotateCw className="w-4 h-4" /> Recreate video
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategorizeOpen(true)} className="gap-2 cursor-pointer">
+                    <FolderOpen className="w-4 h-4" /> Categorize
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setGrabOpen(true)} className="gap-2 cursor-pointer">
                     <Crop className="w-4 h-4" /> Grab a frame
                   </DropdownMenuItem>
