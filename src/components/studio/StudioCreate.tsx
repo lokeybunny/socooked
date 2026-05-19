@@ -23,6 +23,8 @@ import {
   Type, Image, Layers, Mic, UserCircle, Upload, Sparkles, Loader2,
   Wand2, Dice5, ChevronRight, Info,
 } from 'lucide-react';
+import { DirectorCameraStyles } from './DirectorCameraStyles';
+import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
@@ -73,6 +75,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refVideos, setRefVideos] = useState<File[]>([]);
   const [refAudios, setRefAudios] = useState<File[]>([]);
   const [returnLastFrame, setReturnLastFrame] = useState(false);
+  const [directorStyleIds, setDirectorStyleIds] = useState<string[]>([]);
   const isRefToVideo = (settings.seedance_model || '').includes('reference-to-video');
 
   // Prompt Director fields
@@ -249,13 +252,17 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         reference_videos_urls: reference_videos_urls.length ? reference_videos_urls : undefined,
         reference_audios_urls: reference_audios_urls.length ? reference_audios_urls : undefined,
         return_last_frame: isRef ? returnLastFrame : undefined,
+        director_style_ids: directorStyleIds.length ? directorStyleIds : undefined,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
       };
 
       const basePrompt = prompt.trim();
-      let finalPrompt = basePrompt;
+      const chosenDirectorStyles = DIRECTOR_STYLES.filter(s => directorStyleIds.includes(s.id));
+      let finalPrompt = chosenDirectorStyles.length
+        ? buildInjectedPrompt(basePrompt, chosenDirectorStyles)
+        : basePrompt;
       if (noMusic && !/no music in background/i.test(finalPrompt)) {
         finalPrompt = `${finalPrompt} No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track.`;
       }
@@ -284,6 +291,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setRefVideos([]);
       setRefAudios([]);
       setSelectedStyles([]);
+      setDirectorStyleIds([]);
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
@@ -687,6 +695,14 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
             </div>
           </CardContent>
         </Card>
+
+        {/* Director Camera Styles — Movie Camera Language Engine */}
+        <DirectorCameraStyles
+          basePrompt={prompt}
+          selectedIds={directorStyleIds}
+          onSelectedChange={setDirectorStyleIds}
+          onApplyFinalPrompt={(finalPrompt) => setPrompt(finalPrompt)}
+        />
 
         {/* Generate Button */}
         <Button
