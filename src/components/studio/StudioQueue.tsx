@@ -6,10 +6,14 @@ import { useStudioJobs, cancelJob, retryJob } from '@/lib/studio/hooks';
 import { TASK_LABELS, STATUS_COLORS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, RotateCcw, XCircle, ChevronDown, ChevronUp, ListOrdered } from 'lucide-react';
+import { Loader2, RotateCcw, XCircle, ChevronDown, ChevronUp, ListOrdered, Pencil } from 'lucide-react';
 import { useState } from 'react';
 
-export function StudioQueue() {
+interface StudioQueueProps {
+  onModify?: (job: GenerationJob) => void;
+}
+
+export function StudioQueue({ onModify }: StudioQueueProps = {}) {
   const { jobs, loading, refetch } = useStudioJobs();
   const { toast } = useToast();
 
