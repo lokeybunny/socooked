@@ -113,6 +113,11 @@ function QueueRow({ job, onCancel, onRetry, onModify }: { job: GenerationJob; on
                 <RotateCcw className="w-3 h-3" /> Retry
               </Button>
             )}
+            {onModify && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-violet-300 hover:text-violet-200" onClick={() => onModify(job)} title="Open creation details in Create tab">
+                <Pencil className="w-3 h-3" /> View
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded(!expanded)}>
               {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </Button>
