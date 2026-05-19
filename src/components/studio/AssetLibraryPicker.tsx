@@ -65,6 +65,36 @@ export function AssetLibraryPicker({ open, onOpenChange, projectId, subprojectId
     return true;
   });
 
+  // Group visible rows so original + processed pairs render side-by-side
+  type Group = { kind: 'single'; row: AssetRow } | { kind: 'pair'; original: AssetRow; processed: AssetRow };
+  const groups: Group[] = (() => {
+    const out: Group[] = [];
+    const seen = new Set<string>();
+    const byPair = new Map<string, AssetRow[]>();
+    for (const r of visible) {
+      if (r.pair_id) {
+        const arr = byPair.get(r.pair_id) || [];
+        arr.push(r);
+        byPair.set(r.pair_id, arr);
+      }
+    }
+    for (const r of visible) {
+      if (seen.has(r.id)) continue;
+      if (r.pair_id && byPair.get(r.pair_id)?.length === 2) {
+        const pair = byPair.get(r.pair_id)!;
+        const original = pair.find(p => p.variant === 'original') || pair[0];
+        const processed = pair.find(p => p.variant === 'processed') || pair[1];
+        out.push({ kind: 'pair', original, processed });
+        seen.add(original.id);
+        seen.add(processed.id);
+      } else {
+        out.push({ kind: 'single', row: r });
+        seen.add(r.id);
+      }
+    }
+    return out;
+  })();
+
   const toggle = (id: string) => {
     setPicked(prev => {
       const next = new Set(prev);
