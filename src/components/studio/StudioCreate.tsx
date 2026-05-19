@@ -768,14 +768,17 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   ))}
                   {refImages.map((f, i) => {
                     const combinedIdx = refImageUrls.length + i;
+                    const objUrl = URL.createObjectURL(f);
                     return (
                     <div key={`f-${i}`} className="relative group cursor-move"
                       draggable
                       onDragStart={onReorderStart('img', combinedIdx)}
                       onDragOver={onReorderOver}
                       onDrop={onReorderDropImg(combinedIdx)}
-                      title="Drag to reorder">
-                      <img src={URL.createObjectURL(f)} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
+                      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); openImageLightbox(objUrl, `Reference ${combinedIdx + 1}`); }}
+                      title="Double-click to enlarge · Drag to reorder"
+                      style={{ cursor: 'zoom-in' }}>
+                      <img src={objUrl} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{combinedIdx + 1}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
