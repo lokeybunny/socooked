@@ -116,7 +116,6 @@ export default function AIGen() {
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
       </div>
-      </div>
       <ImageLightbox />
       <BatchDrawer projectId={projectId} subprojectId={subprojectId} />
     </div>
