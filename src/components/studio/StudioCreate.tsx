@@ -68,6 +68,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [showDirector, setShowDirector] = useState(false);
   const [noMusic, setNoMusic] = useState(true);
   const [propertyLock, setPropertyLock] = useState(true);
+  // Reference-to-video assets (up to 9 images, 3 videos, 3 audios)
+  const [refImages, setRefImages] = useState<File[]>([]);
+  const [refVideos, setRefVideos] = useState<File[]>([]);
+  const [refAudios, setRefAudios] = useState<File[]>([]);
+  const [returnLastFrame, setReturnLastFrame] = useState(false);
+  const isRefToVideo = (settings.seedance_model || '').includes('reference-to-video');
 
   // Prompt Director fields
   const [director, setDirector] = useState({ subject: '', action: '', scene: '', camera: '', lighting: '', tone: '' });
@@ -143,8 +149,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'Prompt required', variant: 'destructive' });
       return;
     }
-    if ((taskType === 'i2v' || taskType === 'ti2v') && !imageFile && !imagePreview) {
+    if ((taskType === 'i2v' || taskType === 'ti2v') && !isRefToVideo && !imageFile && !imagePreview) {
       toast({ title: 'Image required for this mode', variant: 'destructive' });
+      return;
+    }
+    if (isRefToVideo && refImages.length === 0) {
+      toast({ title: 'At least 1 reference image required', description: 'Upload 1–9 reference images for reference-to-video.', variant: 'destructive' });
       return;
     }
 
@@ -204,17 +214,41 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       else if (imagePreviewB) last_frame_image_url = imagePreviewB;
 
       const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
-      const seedanceModel = seedanceActive
+      const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
+      const isRef = currentModel.includes('reference-to-video');
+      const seedanceModel = seedanceActive && !isRef
         ? taskType === 't2v'
-          ? (settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video').replace('image-to-video', 'text-to-video')
-          : (settings.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video')
-        : settings.seedance_model;
+          ? currentModel.replace('image-to-video', 'text-to-video')
+          : currentModel.replace('text-to-video', 'image-to-video')
+        : currentModel;
+
+      // Upload reference-to-video assets
+      let reference_images_urls: string[] = [];
+      let reference_videos_urls: string[] = [];
+      let reference_audios_urls: string[] = [];
+      const uploadAsset = async (file: File, kind: 'img' | 'vid' | 'aud') => {
+        const ext = file.name.split('.').pop() || (kind === 'img' ? 'jpg' : kind === 'vid' ? 'mp4' : 'mp3');
+        const path = `inputs/${kind}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
+        if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+        return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
+      };
+      if (seedanceActive && isRef) {
+        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
+        for (const f of refVideos) reference_videos_urls.push(await uploadAsset(f, 'vid'));
+        for (const f of refAudios) reference_audios_urls.push(await uploadAsset(f, 'aud'));
+      }
+
       const fullSettings = {
         ...settings,
         style_preset: selectedStyles.join(', ') || undefined,
         provider: seedanceActive ? 'seedance' : undefined,
         seedance_model: seedanceModel,
         last_frame_image_url: last_frame_image_url || undefined,
+        reference_images_urls: reference_images_urls.length ? reference_images_urls : undefined,
+        reference_videos_urls: reference_videos_urls.length ? reference_videos_urls : undefined,
+        reference_audios_urls: reference_audios_urls.length ? reference_audios_urls : undefined,
+        return_last_frame: isRef ? returnLastFrame : undefined,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
@@ -246,6 +280,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setImagePreview(null);
       setImageFileB(null);
       setImagePreviewB(null);
+      setRefImages([]);
+      setRefVideos([]);
+      setRefAudios([]);
       setSelectedStyles([]);
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
@@ -254,7 +291,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     }
   };
 
-  const needsImage = taskType === 'i2v' || taskType === 'ti2v';
+  const needsImage = (taskType === 'i2v' || taskType === 'ti2v') && !isRefToVideo;
   const isAdvanced = taskType === 's2v' || taskType === 'animate';
 
   return (
@@ -452,6 +489,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                           { v: 'bytedance/seedance-2.0-fast/text-to-video', l: 'Seedance 2.0 Fast · text→video' },
                           { v: 'bytedance/seedance-2.0-pro/image-to-video', l: 'Seedance 2.0 Pro · image→video' },
                           { v: 'bytedance/seedance-2.0-pro/text-to-video', l: 'Seedance 2.0 Pro · text→video' },
+                          { v: 'bytedance/seedance-2.0/reference-to-video', l: 'Seedance 2.0 · reference→video (multi image/video/audio)' },
                           { v: 'bytedance/seedance-1.0-lite/image-to-video', l: 'Seedance 1.0 Lite · image→video' },
                           { v: 'bytedance/seedance-1.0-lite/text-to-video', l: 'Seedance 1.0 Lite · text→video' },
                           { v: 'bytedance/seedance-1.0-pro/image-to-video', l: 'Seedance 1.0 Pro · image→video' },
@@ -470,7 +508,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     >
                       <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {['480p','720p','720p-SR','1080p-SR','1440p-SR'].map(r => (
+                        {['480p','720p','720p-SR','1080p','1080p-SR','1440p-SR'].map(r => (
                           <SelectItem key={r} value={r}>{r}</SelectItem>
                         ))}
                       </SelectContent>
@@ -520,6 +558,115 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
             </CardContent>
           </Card>
         )}
+
+        {/* Reference-to-Video Assets */}
+        {useSeedance && isRefToVideo && (
+          <Card className="border-[#00ff88]/40 bg-[#00ff88]/5 backdrop-blur">
+            <CardContent className="p-5 space-y-4">
+              <div>
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#00ff88]" /> Reference Assets
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Up to 9 images, 3 videos (≤15s total, ≤50MB each), 3 audios (wav/mp3, 2–15s, ≤15MB).
+                  Reference items in your prompt as <span className="text-foreground">image 1</span>, <span className="text-foreground">video 1</span>, etc.
+                </p>
+              </div>
+
+              {/* Reference Images */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Reference Images ({refImages.length}/9) — required</Label>
+                  {refImages.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefImages([])}>Clear</Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {refImages.map((f, i) => (
+                    <div key={i} className="relative group">
+                      <img src={URL.createObjectURL(f)} alt={`ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refImages.length < 9 && (
+                    <label className="border-2 border-dashed border-border/50 rounded-md h-20 flex flex-col items-center justify-center cursor-pointer hover:border-[#00ff88]/50 transition-colors">
+                      <Upload className="w-4 h-4 text-muted-foreground/50" />
+                      <p className="text-[10px] text-muted-foreground mt-1">Add</p>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setRefImages(prev => [...prev, ...files].slice(0, 9));
+                        e.target.value = '';
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Reference Videos */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Reference Videos ({refVideos.length}/3)</Label>
+                  {refVideos.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefVideos([])}>Clear</Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {refVideos.map((f, i) => (
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                      <span className="block truncate">{i+1}. {f.name}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefVideos(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refVideos.length < 3 && (
+                    <label className="border-2 border-dashed border-border/50 rounded-md h-12 flex items-center justify-center cursor-pointer hover:border-[#00ff88]/50 text-[10px] text-muted-foreground">
+                      + Add video
+                      <input type="file" accept="video/mp4,video/quicktime" multiple className="hidden" onChange={(e) => {
+                        const files = Array.from(e.target.files || []).filter(f => f.size <= 50 * 1024 * 1024);
+                        setRefVideos(prev => [...prev, ...files].slice(0, 3));
+                        e.target.value = '';
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Reference Audios */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Reference Audios ({refAudios.length}/3)</Label>
+                  {refAudios.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefAudios([])}>Clear</Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {refAudios.map((f, i) => (
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                      <span className="block truncate">{i+1}. {f.name}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefAudios(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refAudios.length < 3 && (
+                    <label className="border-2 border-dashed border-border/50 rounded-md h-12 flex items-center justify-center cursor-pointer hover:border-[#00ff88]/50 text-[10px] text-muted-foreground">
+                      + Add audio
+                      <input type="file" accept="audio/wav,audio/mpeg,audio/mp3" multiple className="hidden" onChange={(e) => {
+                        const files = Array.from(e.target.files || []).filter(f => f.size <= 15 * 1024 * 1024);
+                        setRefAudios(prev => [...prev, ...files].slice(0, 3));
+                        e.target.value = '';
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+                <Checkbox checked={returnLastFrame} onCheckedChange={(v) => setReturnLastFrame(v === true)} />
+                <span className="text-xs text-muted-foreground">Return last frame as a separate image</span>
+              </label>
+            </CardContent>
+          </Card>
+        )}
+
 
         {/* Style Presets */}
         <Card className="border-border/50 bg-card/50 backdrop-blur">

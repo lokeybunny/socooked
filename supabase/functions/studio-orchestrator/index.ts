@@ -102,11 +102,24 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
     const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
     const seedanceModel = normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url));
     const isImageToVideo = seedanceModel.includes("image-to-video");
+    const isRefToVideo = seedanceModel.includes("reference-to-video");
 
     if (isImageToVideo && !payload.input_image_url) {
       await admin.from("generation_jobs").update({
         status: "failed",
         error_message: `${seedanceModel} requires an input image. Switch to a text-to-video model or upload an image.`,
+      }).eq("id", jobId);
+      return;
+    }
+
+    const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
+    const refVideos = Array.isArray((settings as any).reference_videos_urls) ? (settings as any).reference_videos_urls as string[] : [];
+    const refAudios = Array.isArray((settings as any).reference_audios_urls) ? (settings as any).reference_audios_urls as string[] : [];
+
+    if (isRefToVideo && refImages.length === 0 && refVideos.length === 0) {
+      await admin.from("generation_jobs").update({
+        status: "failed",
+        error_message: `${seedanceModel} requires at least one reference image or video.`,
       }).eq("id", jobId);
       return;
     }
@@ -127,6 +140,12 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
         seedancePayload.last_frame_image = lastFrame;
         seedancePayload.end_image = lastFrame;
       }
+    }
+    if (isRefToVideo) {
+      if (refImages.length) seedancePayload.reference_images = refImages;
+      if (refVideos.length) seedancePayload.reference_videos = refVideos;
+      if (refAudios.length) seedancePayload.reference_audios = refAudios;
+      if ((settings as any).return_last_frame) seedancePayload.return_last_frame = true;
     }
 
     try {
