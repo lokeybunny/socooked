@@ -210,17 +210,41 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       else if (imagePreviewB) last_frame_image_url = imagePreviewB;
 
       const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
-      const seedanceModel = seedanceActive
+      const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
+      const isRef = currentModel.includes('reference-to-video');
+      const seedanceModel = seedanceActive && !isRef
         ? taskType === 't2v'
-          ? (settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video').replace('image-to-video', 'text-to-video')
-          : (settings.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video')
-        : settings.seedance_model;
+          ? currentModel.replace('image-to-video', 'text-to-video')
+          : currentModel.replace('text-to-video', 'image-to-video')
+        : currentModel;
+
+      // Upload reference-to-video assets
+      let reference_images_urls: string[] = [];
+      let reference_videos_urls: string[] = [];
+      let reference_audios_urls: string[] = [];
+      const uploadAsset = async (file: File, kind: 'img' | 'vid' | 'aud') => {
+        const ext = file.name.split('.').pop() || (kind === 'img' ? 'jpg' : kind === 'vid' ? 'mp4' : 'mp3');
+        const path = `inputs/${kind}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
+        if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+        return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
+      };
+      if (seedanceActive && isRef) {
+        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
+        for (const f of refVideos) reference_videos_urls.push(await uploadAsset(f, 'vid'));
+        for (const f of refAudios) reference_audios_urls.push(await uploadAsset(f, 'aud'));
+      }
+
       const fullSettings = {
         ...settings,
         style_preset: selectedStyles.join(', ') || undefined,
         provider: seedanceActive ? 'seedance' : undefined,
         seedance_model: seedanceModel,
         last_frame_image_url: last_frame_image_url || undefined,
+        reference_images_urls: reference_images_urls.length ? reference_images_urls : undefined,
+        reference_videos_urls: reference_videos_urls.length ? reference_videos_urls : undefined,
+        reference_audios_urls: reference_audios_urls.length ? reference_audios_urls : undefined,
+        return_last_frame: isRef ? returnLastFrame : undefined,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
