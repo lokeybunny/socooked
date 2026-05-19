@@ -559,6 +559,115 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           </Card>
         )}
 
+        {/* Reference-to-Video Assets */}
+        {useSeedance && isRefToVideo && (
+          <Card className="border-[#00ff88]/40 bg-[#00ff88]/5 backdrop-blur">
+            <CardContent className="p-5 space-y-4">
+              <div>
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#00ff88]" /> Reference Assets
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Up to 9 images, 3 videos (≤15s total, ≤50MB each), 3 audios (wav/mp3, 2–15s, ≤15MB).
+                  Reference items in your prompt as <span className="text-foreground">image 1</span>, <span className="text-foreground">video 1</span>, etc.
+                </p>
+              </div>
+
+              {/* Reference Images */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Reference Images ({refImages.length}/9) — required</Label>
+                  {refImages.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefImages([])}>Clear</Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {refImages.map((f, i) => (
+                    <div key={i} className="relative group">
+                      <img src={URL.createObjectURL(f)} alt={`ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refImages.length < 9 && (
+                    <label className="border-2 border-dashed border-border/50 rounded-md h-20 flex flex-col items-center justify-center cursor-pointer hover:border-[#00ff88]/50 transition-colors">
+                      <Upload className="w-4 h-4 text-muted-foreground/50" />
+                      <p className="text-[10px] text-muted-foreground mt-1">Add</p>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setRefImages(prev => [...prev, ...files].slice(0, 9));
+                        e.target.value = '';
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Reference Videos */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Reference Videos ({refVideos.length}/3)</Label>
+                  {refVideos.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefVideos([])}>Clear</Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {refVideos.map((f, i) => (
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                      <span className="block truncate">{i+1}. {f.name}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefVideos(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refVideos.length < 3 && (
+                    <label className="border-2 border-dashed border-border/50 rounded-md h-12 flex items-center justify-center cursor-pointer hover:border-[#00ff88]/50 text-[10px] text-muted-foreground">
+                      + Add video
+                      <input type="file" accept="video/mp4,video/quicktime" multiple className="hidden" onChange={(e) => {
+                        const files = Array.from(e.target.files || []).filter(f => f.size <= 50 * 1024 * 1024);
+                        setRefVideos(prev => [...prev, ...files].slice(0, 3));
+                        e.target.value = '';
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Reference Audios */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Reference Audios ({refAudios.length}/3)</Label>
+                  {refAudios.length > 0 && (
+                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefAudios([])}>Clear</Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {refAudios.map((f, i) => (
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                      <span className="block truncate">{i+1}. {f.name}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefAudios(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refAudios.length < 3 && (
+                    <label className="border-2 border-dashed border-border/50 rounded-md h-12 flex items-center justify-center cursor-pointer hover:border-[#00ff88]/50 text-[10px] text-muted-foreground">
+                      + Add audio
+                      <input type="file" accept="audio/wav,audio/mpeg,audio/mp3" multiple className="hidden" onChange={(e) => {
+                        const files = Array.from(e.target.files || []).filter(f => f.size <= 15 * 1024 * 1024);
+                        setRefAudios(prev => [...prev, ...files].slice(0, 3));
+                        e.target.value = '';
+                      }} />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+                <Checkbox checked={returnLastFrame} onCheckedChange={(v) => setReturnLastFrame(v === true)} />
+                <span className="text-xs text-muted-foreground">Return last frame as a separate image</span>
+              </label>
+            </CardContent>
+          </Card>
+        )}
+
+
         {/* Style Presets */}
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardContent className="p-5">
