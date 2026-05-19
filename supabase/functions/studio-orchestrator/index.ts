@@ -409,6 +409,58 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    if (req.method === "POST" && path.startsWith("/refresh/")) {
+      const jobId = path.replace("/refresh/", "");
+      const admin = adminClient();
+      const { data: job } = await admin.from("generation_jobs").select("*").eq("id", jobId).single();
+      if (!job) return json({ error: "Job not found" }, 404);
+      if (["completed", "failed", "cancelled"].includes(job.status)) {
+        return json({ ok: true, already: job.status });
+      }
+      if (!job.worker_job_id) return json({ error: "No worker_job_id to poll" }, 400);
+
+      const settings = (job.settings_json as Record<string, unknown>) || {};
+      const provider = (settings.provider || "").toString().toLowerCase();
+      if (provider !== "seedance") return json({ error: "Refresh only supported for seedance" }, 400);
+
+      const atlasKey = Deno.env.get("ATLASCLOUD_API_KEY");
+      if (!atlasKey) return json({ error: "ATLASCLOUD_API_KEY missing" }, 500);
+
+      try {
+        const pollRes = await fetchWithTimeout(
+          `https://api.atlascloud.ai/api/v1/model/prediction/${job.worker_job_id}`,
+          { headers: { Authorization: `Bearer ${atlasKey}` } },
+          12000,
+          "Seedance refresh",
+        );
+        const pollText = await pollRes.text();
+        let pollJson: any = {};
+        try { pollJson = pollText ? JSON.parse(pollText) : {}; } catch { pollJson = { raw: pollText }; }
+        const status = pollJson?.data?.status || pollJson?.status;
+
+        if (status === "completed" || status === "succeeded") {
+          const outputs: string[] = pollJson?.data?.outputs || pollJson?.outputs || [];
+          await admin.from("generation_jobs").update({
+            status: "completed",
+            progress: 100,
+            output_video_url: outputs[0] || pollJson?.data?.video_url || pollJson?.video_url || null,
+            output_thumbnail_url: outputs[1] || pollJson?.data?.thumbnail_url || pollJson?.thumbnail_url || null,
+          }).eq("id", jobId);
+          return json({ ok: true, status: "completed" });
+        }
+        if (status === "failed" || status === "timeout" || status === "cancelled") {
+          await admin.from("generation_jobs").update({
+            status: "failed",
+            error_message: pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`,
+          }).eq("id", jobId);
+          return json({ ok: true, status: "failed" });
+        }
+        return json({ ok: true, status: status || "pending", provider_response: pollJson });
+      } catch (e) {
+        return json({ error: (e as Error).message }, 500);
+      }
+    }
+
     return json({ error: "Not found" }, 404);
   } catch (err) {
     console.error("Studio orchestrator error:", err);

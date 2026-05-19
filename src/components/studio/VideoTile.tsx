@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop } from 'lucide-react';
+import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, RefreshCw } from 'lucide-react';
 import { STATUS_COLORS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { GrabFrameDialog } from './GrabFrameDialog';
 import { submitJob } from '@/lib/studio/hooks';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   job: GenerationJob;
@@ -67,9 +68,33 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
 
         {/* Running overlay */}
         {job.status === 'running' && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
             <Loader2 className="w-6 h-6 animate-spin text-violet-400" />
             <span className="text-xs text-violet-300">{job.progress}%</span>
+            {job.progress >= 92 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-7 px-2 text-[11px] rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20"
+                disabled={busy}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setBusy(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke(`studio-orchestrator/refresh/${job.id}`, { method: 'POST' });
+                    if (error) throw error;
+                    toast({ title: 'Refreshed', description: `Status: ${(data as any)?.status ?? 'pending'}` });
+                  } catch (err) {
+                    toast({ title: 'Refresh failed', description: (err as Error).message, variant: 'destructive' });
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                Refresh
+              </Button>
+            )}
           </div>
         )}
 
