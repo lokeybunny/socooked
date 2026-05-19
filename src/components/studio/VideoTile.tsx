@@ -18,6 +18,7 @@ interface Props {
 
 export function VideoTile({ job, onOpen, onModify }: Props) {
   const [grabOpen, setGrabOpen] = useState(false);
+  const [categorizeOpen, setCategorizeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
   const isReady = job.status === 'completed' && !!job.output_video_url;
