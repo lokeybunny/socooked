@@ -43,7 +43,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     lens_language: 'wide consumer camcorder lens, slight barrel distortion, low-light grain',
     motion_language: 'unstable run-and-gun handheld with sudden jerks and re-framing',
     lighting_language: 'available light, blown highlights, harsh practical sources',
-    youtube_id: 'VYTbGmrwBOc', start_time: 18, end_time: 30,
+    youtube_id: '_afPFLvh2qg', start_time: 18, end_time: 30,
     tags: t('horror','action','viral'),
   },
   {
@@ -57,7 +57,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     lens_language: '24-35mm immersive prime, slight shoulder shake',
     motion_language: 'continuous walking handheld follow, no cuts',
     lighting_language: 'natural overcast, smoke, fire flicker',
-    youtube_id: 'cuO_Wn3JZi8', start_time: 30, end_time: 75,
+    youtube_id: 'YIINChTTyhs', start_time: 30, end_time: 75,
     tags: t('cinematic','action','documentary'),
   },
   {
@@ -71,7 +71,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     lens_language: 'Arri Alexa wide primes, very low-light sensitivity',
     motion_language: 'gentle handheld breathing motion, occasional close push-ins',
     lighting_language: 'only natural light, magic hour, firelight, snow bounce',
-    youtube_id: 'LF8KQVxxOgs', start_time: 25, end_time: 60,
+    youtube_id: '_8P8MgsFNZQ', start_time: 25, end_time: 60,
     tags: t('cinematic','documentary'),
   },
   {
@@ -82,7 +82,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('terror','disorientation','dread'),
     cinematic_keywords: t('handheld camcorder','low-fi','first-person fear'),
     prompt_injection: 'low-fidelity camcorder handheld footage, uncontrolled shaking, first-person horror perspective, harsh on-camera light, panicked breathing motion, disoriented imperfect framing',
-    youtube_id: 'k4ANrFAZVqQ', start_time: 90, end_time: 110,
+    youtube_id: 'MBZ-POVsrlI', start_time: 90, end_time: 110,
     tags: t('horror','viral'),
   },
   {
@@ -93,7 +93,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('terror','chaos','heroism'),
     cinematic_keywords: t('45-degree shutter','desaturated','combat handheld'),
     prompt_injection: 'aggressive combat handheld cinematography, 45-degree shutter stutter, desaturated bleach-bypass color, concussive shake on impacts, war-documentary immediacy, reactive duck-and-cover operator',
-    youtube_id: 'pYUgWmKqaeg', start_time: 40, end_time: 90,
+    youtube_id: 'XijMMhs55oc', start_time: 40, end_time: 90,
     tags: t('action','cinematic'),
   },
   {
@@ -104,7 +104,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('vibrant','dangerous','alive'),
     cinematic_keywords: t('snap zoom','sun-bleached','street kinetic'),
     prompt_injection: 'kinetic street handheld cinematography, snap zooms and whip pans, sun-bleached high-contrast color, run-with-subject momentum, vibrant favela energy, gritty urban realism',
-    youtube_id: '6PymsmQwjjE', start_time: 10, end_time: 60,
+    youtube_id: 'dcUOO4Itgmw', start_time: 10, end_time: 60,
     tags: t('action','cinematic','music-video'),
   },
   {
@@ -115,7 +115,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('clinical','urgent','wry'),
     cinematic_keywords: t('reactive zoom','observational doc','loose framing'),
     prompt_injection: 'documentary-style loose handheld cinematography, reactive zoom adjustments, observational framing, naturalistic office light, loose realism, casual reframes',
-    youtube_id: 'XzcpybBLM7M', start_time: 30, end_time: 60,
+    youtube_id: 'vgqG3ITMv1Q', start_time: 30, end_time: 60,
     tags: t('documentary','cinematic'),
   },
   {
@@ -126,7 +126,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('terror','sprint','dread'),
     cinematic_keywords: t('low-fi DV','frame stutter','infected chase'),
     prompt_injection: 'low-fi digital video handheld, jagged stuttering frame-rate, sprint-follow chase motion, infected-chase urgency, desolate post-apocalyptic palette, raw on-the-shoulder framing',
-    youtube_id: '5dRMvujvgYY', start_time: 30, end_time: 70,
+    youtube_id: 'mWEhfF27O0c', start_time: 30, end_time: 70,
     tags: t('horror','action'),
   },
   {
@@ -161,7 +161,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('elegant','intimate','aspirational'),
     cinematic_keywords: t('steadicam','single take','luxury entry'),
     prompt_injection: 'elegant continuous steadicam tracking through service corridors into a luxurious main room, character-follow framing, warm tungsten color, effortless gliding motion, sense of access and privilege',
-    youtube_id: 'ZdQzBh1F1qg', start_time: 0, end_time: 180,
+    youtube_id: 'mcXBP-1fduY', start_time: 0, end_time: 180,
     tags: t('cinematic','real-estate','music-video'),
   },
   {
@@ -194,7 +194,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('reverent','dreamlike','grand'),
     cinematic_keywords: t('continuous take','floating glide','historical halls'),
     prompt_injection: 'continuous uninterrupted floating steadicam through grand palace halls, weaving past crowds, reverent dreamlike grandeur, gilded warm light',
-    youtube_id: 'nXNl1pNUVA0', start_time: 0, end_time: 90,
+    youtube_id: 'ZV1kphEEXn8', start_time: 0, end_time: 90,
     tags: t('cinematic','real-estate'),
   },
   {
@@ -205,7 +205,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('elegiac','overwhelming','melancholy'),
     cinematic_keywords: t('long take','beach tableau','melancholy'),
     prompt_injection: 'epic sustained tracking shot across a vast tableau with crowd parallax, elegiac melancholy pacing, golden-grey color palette, observational long-take grandeur',
-    youtube_id: 'H6Ay9SsudVQ', start_time: 0, end_time: 60,
+    youtube_id: '55CaD_j5FQs', start_time: 0, end_time: 60,
     tags: t('cinematic'),
   },
   {
@@ -216,7 +216,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('euphoric','glossy','propulsive'),
     cinematic_keywords: t('steadicam party entry','character hand-off','disco glow'),
     prompt_injection: 'euphoric steadicam party-entry tracking shot moving from exterior to interior, character hand-offs through the frame, glossy disco glow, propulsive musical pacing',
-    youtube_id: 'JZsHnTKwiCM', start_time: 0, end_time: 90,
+    youtube_id: 'iiXtFyZqvQQ', start_time: 0, end_time: 90,
     tags: t('music-video','cinematic'),
   },
   {
@@ -227,7 +227,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('suspense','noir','dread'),
     cinematic_keywords: t('crane and track','noir','ticking-clock'),
     prompt_injection: 'choreographed crane-and-tracking shot across a busy noir street, ticking-clock suspense, deep shadows and neon, weaving through crowds',
-    youtube_id: 'AMNiPyDz4XU', start_time: 0, end_time: 200,
+    youtube_id: 'EhmYY5ZMXOY', start_time: 0, end_time: 200,
     tags: t('cinematic'),
   },
   {
@@ -238,7 +238,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('dreamlike','romantic','timeless'),
     cinematic_keywords: t('floating drift','silent-era','poetic'),
     prompt_injection: 'silent-era floating camera drifting laterally through a dreamlike landscape, poetic romantic pacing, monochrome silver tone, weightless glide',
-    youtube_id: 'eDtAVtyA9rk', start_time: 0, end_time: 60,
+    youtube_id: '6NayFytQeBE', start_time: 0, end_time: 60,
     tags: t('cinematic'),
   },
   {
@@ -249,7 +249,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('sophisticated','cool','sinister'),
     cinematic_keywords: t('architectural symmetry','art deco','elegant track'),
     prompt_injection: 'stylish gliding lateral tracking shot across architectural symmetry, art-deco color blocking, sinister sophisticated cool, painterly composition',
-    youtube_id: 'h3GgQHV1uzM', start_time: 0, end_time: 60,
+    youtube_id: 'AzHyXhTlT90', start_time: 0, end_time: 60,
     tags: t('cinematic','real-estate'),
   },
   {
@@ -260,7 +260,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('virtuosic','dreamlike','astonishing'),
     cinematic_keywords: t('impossible long take','rooftop dive','floating transitions'),
     prompt_injection: 'gravity-defying long-take camera drifting through impossible transitions — rooftops, balconies, into water — virtuosic floating motion, dreamlike monochrome',
-    youtube_id: 'B4dRD3lnetU', start_time: 0, end_time: 120,
+    youtube_id: 'h1Kw2IfxsQ4', start_time: 0, end_time: 120,
     tags: t('cinematic','viral'),
   },
 
@@ -273,7 +273,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('iconic','powerful','futuristic'),
     cinematic_keywords: t('bullet time','frozen orbit','speed ramp'),
     prompt_injection: 'bullet-time frozen rotational orbit around the subject, full 360 sweep with time nearly stopped, speed-ramp into normal motion, green-tinted future palette, raindrops suspended in air',
-    youtube_id: 'mMcuJK2zMUs', start_time: 0, end_time: 15,
+    youtube_id: '8DajVKAkL50', start_time: 0, end_time: 15,
     tags: t('viral','action','music-video'),
   },
   {
@@ -284,7 +284,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('dread','disorientation','obsession'),
     cinematic_keywords: t('dolly zoom','vertigo effect','background warp'),
     prompt_injection: 'classic dolly-zoom (vertigo effect) — camera dollies in while zooming out, subject framed identical, background visibly warps and compresses, psychological dread',
-    youtube_id: 'G7z_Q-1mGge', start_time: 0, end_time: 8,
+    youtube_id: 'G7YJkBcRWB8', start_time: 0, end_time: 8,
     tags: t('cinematic','viral'),
   },
   {
@@ -306,7 +306,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('surreal','tense','wondrous'),
     cinematic_keywords: t('rotating hallway','practical effect','gravity flip'),
     prompt_injection: 'practical rotating-hallway camera locked to the tumbling subject, continuous 360 gravity inversion, surreal tense action, polished steely color',
-    youtube_id: 'oV9DALhGNTI', start_time: 0, end_time: 25,
+    youtube_id: 'X-KDt-G1pJ0', start_time: 0, end_time: 25,
     tags: t('action','viral','cinematic'),
   },
   {
@@ -339,7 +339,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('experimental','playful','rhythmic'),
     cinematic_keywords: t('city symphony','split screen','experimental cuts'),
     prompt_injection: 'experimental city-symphony cinematography, split screen overlays, dutch tilts, rhythmic time tricks, monochrome silver tone',
-    youtube_id: 'JOOL7uH6Ths', start_time: 0, end_time: 60,
+    youtube_id: '3GyNB4-eN1E', start_time: 0, end_time: 60,
     tags: t('cinematic','viral'),
   },
   {
@@ -350,7 +350,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('regal','painterly','still'),
     cinematic_keywords: t('candlelight','f/0.7','painterly tableau'),
     prompt_injection: 'painterly candlelit cinematography on ultra-fast lenses, very shallow depth of field, slow majestic zoom-out reveal, oil-painting tableau composition',
-    youtube_id: 'tIfTJG-DoFs', start_time: 0, end_time: 30,
+    youtube_id: 'YQE73GDo4So', start_time: 0, end_time: 30,
     tags: t('cinematic','real-estate'),
   },
   {
@@ -385,7 +385,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('paranoid','noir','off-balance'),
     cinematic_keywords: t('dutch angle','noir shadows','tilt'),
     prompt_injection: 'dutch-angle noir cinematography with tilted horizons, dramatic shadow play, paranoid off-balance composition, high-contrast monochrome',
-    youtube_id: '4QGyMW3v0Eo', start_time: 0, end_time: 30,
+    youtube_id: 'r9yyDEDGlr0', start_time: 0, end_time: 30,
     tags: t('cinematic'),
   },
   {
@@ -396,7 +396,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('powerful','monumental','isolated'),
     cinematic_keywords: t('deep focus','low angle','ceilings'),
     prompt_injection: 'deep-focus low-angle cinematography with ceilings in frame, everything sharp from foreground to background, monumental power composition, monochrome',
-    youtube_id: '8halfk78xfk', start_time: 0, end_time: 30,
+    youtube_id: '8dxh3lwdOFw', start_time: 0, end_time: 30,
     tags: t('cinematic','real-estate'),
   },
   {
@@ -407,7 +407,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('hallucinatory','dread','vivid'),
     cinematic_keywords: t('color gels','expressionist','geometric'),
     prompt_injection: 'expressionist horror cinematography with saturated red and blue color gels, geometric framing, hallucinatory production design, baroque dread',
-    youtube_id: 'qLpQuyc0iNg', start_time: 0, end_time: 30,
+    youtube_id: 'hPs2ExUL_bc', start_time: 0, end_time: 30,
     tags: t('horror','cinematic'),
   },
   {
@@ -429,7 +429,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('yearning','intimate','melancholy'),
     cinematic_keywords: t('frame-in-frame','doorways','golden lattice'),
     prompt_injection: 'frame-within-frame cinematography through doorways and lattices, slow yearning push, golden-jade color palette, intimate melancholy',
-    youtube_id: 'WoOOOSiSCxk', start_time: 0, end_time: 30,
+    youtube_id: 'm8GuedsQnWQ', start_time: 0, end_time: 30,
     tags: t('cinematic','real-estate','music-video'),
   },
   {
@@ -440,7 +440,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('mythic','operatic','elegant'),
     cinematic_keywords: t('monochrome color block','sweeping pan','wuxia'),
     prompt_injection: 'wuxia cinematography with a single dominant color flooding the frame, sweeping choreographed pans, operatic elegant motion',
-    youtube_id: 'h0bWNB7VeQ4', start_time: 0, end_time: 60,
+    youtube_id: '_USDk5jaGek', start_time: 0, end_time: 60,
     tags: t('cinematic','music-video'),
   },
   {
@@ -451,7 +451,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('mournful','magical','dark'),
     cinematic_keywords: t('dual palette','amber/steel','fantasy realism'),
     prompt_injection: 'fantasy-realism cinematography splitting cold steel reality from warm amber fantasy, steady drifting camera, mournful magical atmosphere',
-    youtube_id: 'EQs2dCJZNF4', start_time: 0, end_time: 30,
+    youtube_id: 'jVZRnnVSQ8k', start_time: 0, end_time: 30,
     tags: t('cinematic','horror'),
   },
   {
@@ -473,7 +473,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('whimsical','epic','painterly'),
     cinematic_keywords: t('storybook tableau','practical locations','symmetrical'),
     prompt_injection: 'dreamlike storybook cinematography, symmetrical tableau composition, epic practical locations, painterly saturated color',
-    youtube_id: '0Kf3SY-IS6E', start_time: 0, end_time: 30,
+    youtube_id: 'OTn5XUFP_iA', start_time: 0, end_time: 30,
     tags: t('cinematic'),
   },
   {
@@ -484,7 +484,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('feral','hunting','terror'),
     cinematic_keywords: t('demon POV','low-mount','forest rush'),
     prompt_injection: 'low-mounted demon-POV rushing through forest, impossible flying trajectory, feral hunting energy, branches blurring past the lens',
-    youtube_id: 'qmJ4UPNRoyo', start_time: 0, end_time: 20,
+    youtube_id: 'TnQiog7v4sQ', start_time: 0, end_time: 20,
     tags: t('horror','viral'),
   },
 
@@ -497,7 +497,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('uncanny','playful','iconic'),
     cinematic_keywords: t('frozen tableau','mannequin challenge','float-through'),
     prompt_injection: 'floating camera moving through a fully frozen mannequin-challenge tableau, every subject perfectly still, uncanny playful energy',
-    youtube_id: 'ahG8WyZJzVU', start_time: 0, end_time: 60,
+    youtube_id: 'b8m9zhNAgKs', start_time: 0, end_time: 60,
     tags: t('viral','music-video'),
   },
   {
@@ -508,7 +508,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('brutal','exhausted','iconic'),
     cinematic_keywords: t('side-scroll','corridor fight','one-take'),
     prompt_injection: 'lateral side-scroll one-take corridor fight cinematography, perfect 90-degree profile framing, brutal exhausted realism, no cuts',
-    youtube_id: 'rsTnELDPVDk', start_time: 0, end_time: 60,
+    youtube_id: 'gvQ7Z6ZCxTc', start_time: 0, end_time: 60,
     tags: t('action','viral','cinematic'),
   },
   {
@@ -541,7 +541,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('joyful','romantic','nostalgic'),
     cinematic_keywords: t('whip pan','musical one-take','technicolor'),
     prompt_injection: 'choreographed musical one-take cinematography with sweeping whip pans, joyful romantic energy, technicolor highway palette',
-    youtube_id: 'a51Rzbiv4Lk', start_time: 0, end_time: 90,
+    youtube_id: '7CVfTd-_qbc', start_time: 0, end_time: 90,
     tags: t('music-video','cinematic','viral'),
   },
   {
@@ -552,7 +552,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('whimsical','elegant','precise'),
     cinematic_keywords: t('symmetry','snap pan','pastel'),
     prompt_injection: 'centered symmetrical Wes-Anderson-style cinematography, snap whip pans, pastel tableau composition, whimsical precise blocking',
-    youtube_id: 'OvPjLfRBfHs', start_time: 0, end_time: 30,
+    youtube_id: '1Fg5iWmQjwk', start_time: 0, end_time: 30,
     tags: t('cinematic','viral','real-estate'),
   },
   {
@@ -563,7 +563,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('meditative','foreboding','transcendent'),
     cinematic_keywords: t('slow tracking','atmospheric drift','textural'),
     prompt_injection: 'extremely slow hypnotic tracking shot across textured atmospheric terrain, meditative foreboding pacing, sepia-green color',
-    youtube_id: 'qb1aKn1MUFA', start_time: 0, end_time: 90,
+    youtube_id: 'inAWT9kScbg', start_time: 0, end_time: 90,
     tags: t('cinematic'),
   },
   {
@@ -574,7 +574,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('exhausted','heroic','mud-and-rain'),
     cinematic_keywords: t('telephoto','rain battle','multi-camera'),
     prompt_injection: 'telephoto multi-camera cinematography of a rain-soaked battle, layered compression, exhausted heroic mud-and-rain realism, deep monochrome',
-    youtube_id: 'q1XF2J9OdNQ', start_time: 0, end_time: 60,
+    youtube_id: 'GOgeAf1L2Ik', start_time: 0, end_time: 60,
     tags: t('action','cinematic'),
   },
   {
@@ -585,7 +585,7 @@ export const DIRECTOR_STYLES: DirectorStyle[] = [
     emotional_tone: t('spiritual','anguished','transcendent'),
     cinematic_keywords: t('extreme close-up','blank background','face'),
     prompt_injection: 'unflinching extreme close-up cinematography against a blank monochrome background, intimate spiritual anguish, every pore visible',
-    youtube_id: 'mWxxgr8WSog', start_time: 0, end_time: 30,
+    youtube_id: '1mbsGj2WS1s', start_time: 0, end_time: 30,
     tags: t('cinematic'),
   },
   {
