@@ -57,7 +57,7 @@ export function StudioQueue({ onModify }: StudioQueueProps = {}) {
         ) : (
           <div className="space-y-2">
             {activeJobs.map(job => (
-              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />
+              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} onModify={onModify} />
             ))}
           </div>
         )}
@@ -70,7 +70,7 @@ export function StudioQueue({ onModify }: StudioQueueProps = {}) {
         ) : (
           <div className="space-y-2">
             {recentDone.map(job => (
-              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />
+              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} onModify={onModify} />
             ))}
           </div>
         )}
