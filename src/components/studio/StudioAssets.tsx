@@ -53,7 +53,9 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
 
-  const [autoEmpty, setAutoEmpty] = useState(false);
+  const [autoEmpty, setAutoEmpty] = useState(true);
+  const [pairingBackfill, setPairingBackfill] = useState(false);
+  const [pairProgress, setPairProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
   // Upload destination overrides (default to current selections)
   const [uploadProjectId, setUploadProjectId] = useState<string | null>(projectId);
@@ -234,6 +236,72 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
     }
   };
 
+  const handleBackfillPairs = async () => {
+    const unpaired = assets.filter(a => !(a as any).pair_id && !(a as any).variant);
+    if (unpaired.length === 0) {
+      toast({ title: 'Nothing to pair', description: 'All assets are already part of an A/B pair.' });
+      return;
+    }
+    if (!confirm(`Generate processed (B) versions for ${unpaired.length} unpaired asset${unpaired.length === 1 ? '' : 's'}? This may take a minute and use AI credits.`)) return;
+    setPairingBackfill(true);
+    setPairProgress({ done: 0, total: unpaired.length });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
+      let done = 0;
+      for (const a of unpaired) {
+        try {
+          const res = await fetch(a.image_url, { mode: 'cors' });
+          const blob = await res.blob();
+          const dataUrl = await fileToDataUrl(blob);
+          const { data: emptied, error: fnErr } = await supabase.functions.invoke('empty-room', { body: { imageDataUrl: dataUrl } });
+          if (fnErr) throw fnErr;
+          if (!emptied?.imageDataUrl) throw new Error('AI did not return an image');
+          const processedBlob = dataUrlToBlob(emptied.imageDataUrl);
+          const processedContentType = processedBlob.type || 'image/png';
+          const processedExt = processedContentType.split('/')[1] || 'png';
+          const roomType = (emptied?.roomType as string | undefined)?.trim();
+          const baseName = a.name || 'asset';
+          const processedName = roomType
+            ? roomType.toLowerCase().split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            : `${baseName}-empty`;
+
+          const pairId = crypto.randomUUID();
+          const path = `${userId}/${Date.now()}-pair-${Math.random().toString(36).slice(2, 8)}.${processedExt}`;
+          const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, processedBlob, { contentType: processedContentType, upsert: false });
+          if (upErr) throw upErr;
+          const { data: pub } = supabase.storage.from('studio-assets').getPublicUrl(path);
+
+          // Mark original as 'original' with pair_id, then insert processed at sort_order+0.5 (we'll use original.sort_order * 2 + 1 instead)
+          await supabase.from('studio_assets').update({ pair_id: pairId, variant: 'original' } as any).eq('id', a.id);
+          await supabase.from('studio_assets').insert({
+            user_id: userId,
+            project_id: a.project_id,
+            subproject_id: a.subproject_id,
+            name: processedName,
+            image_url: pub.publicUrl,
+            storage_path: path,
+            sort_order: a.sort_order, // same sort_order; secondary order by created_at keeps processed AFTER original
+            pair_id: pairId,
+            variant: 'processed',
+          } as any);
+        } catch (e) {
+          console.error('pair backfill failed for', a.id, e);
+        }
+        done++;
+        setPairProgress({ done, total: unpaired.length });
+      }
+      toast({ title: `Paired ${done} asset${done === 1 ? '' : 's'}` });
+      fetchAssets();
+    } catch (e) {
+      toast({ title: 'Pair backfill failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setPairingBackfill(false);
+      setPairProgress({ done: 0, total: 0 });
+    }
+  };
+
   const copyUrl = async (url: string) => { await navigator.clipboard.writeText(url); toast({ title: 'URL copied' }); };
 
   const downloadAsset = async (a: Asset) => {
@@ -301,6 +369,15 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
           <Button onClick={onPickClick} disabled={uploading} className="gap-2 bg-amber-600 hover:bg-amber-700">
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             {uploading ? `${autoEmpty ? 'Emptying ' : 'Uploading '}${progress.done}/${progress.total}` : 'Bulk Upload'}
+          </Button>
+          <Button
+            onClick={handleBackfillPairs}
+            disabled={uploading || pairingBackfill || loading || assets.length === 0}
+            variant="outline"
+            className="gap-2 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/20 hover:text-emerald-200"
+          >
+            {pairingBackfill ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {pairingBackfill ? `Pairing ${pairProgress.done}/${pairProgress.total}` : 'Generate A/B Pairs'}
           </Button>
           <Button
             onClick={handleMassDelete}
