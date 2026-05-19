@@ -848,10 +848,22 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
-                <Checkbox checked={returnLastFrame} onCheckedChange={(v) => setReturnLastFrame(v === true)} />
-                <span className="text-xs text-muted-foreground">Return last frame as a separate image</span>
-              </label>
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <Checkbox checked={returnLastFrame} onCheckedChange={(v) => setReturnLastFrame(v === true)} />
+                  <span className="text-xs text-muted-foreground">Return last frame as a separate image</span>
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={openPromptGuide}
+                  className="h-7 text-xs gap-1 border-[#00ff88]/50 text-[#00ff88] hover:bg-[#00ff88]/10"
+                >
+                  <Wand2 className="w-3 h-3" /> Prompt Guide
+                </Button>
+              </div>
+
             </CardContent>
           </Card>
         )}
