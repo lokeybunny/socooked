@@ -291,6 +291,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setRefVideos([]);
       setRefAudios([]);
       setSelectedStyles([]);
+      setDirectorStyleIds([]);
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
