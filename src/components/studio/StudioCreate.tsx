@@ -75,6 +75,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refVideos, setRefVideos] = useState<File[]>([]);
   const [refAudios, setRefAudios] = useState<File[]>([]);
   const [returnLastFrame, setReturnLastFrame] = useState(false);
+  const [directorStyleIds, setDirectorStyleIds] = useState<string[]>([]);
   const isRefToVideo = (settings.seedance_model || '').includes('reference-to-video');
 
   // Prompt Director fields
