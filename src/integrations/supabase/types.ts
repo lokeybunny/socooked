@@ -2485,6 +2485,7 @@ export type Database = {
       generation_jobs: {
         Row: {
           backend_logs: string | null
+          batch_id: string | null
           created_at: string
           error_message: string | null
           id: string
@@ -2506,6 +2507,7 @@ export type Database = {
         }
         Insert: {
           backend_logs?: string | null
+          batch_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -2527,6 +2529,7 @@ export type Database = {
         }
         Update: {
           backend_logs?: string | null
+          batch_id?: string | null
           created_at?: string
           error_message?: string | null
           id?: string
@@ -2547,6 +2550,13 @@ export type Database = {
           worker_job_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "generation_jobs_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "studio_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generation_jobs_project_id_fkey"
             columns: ["project_id"]
@@ -8158,6 +8168,135 @@ export type Database = {
           },
           {
             foreignKeyName: "studio_assets_subproject_id_fkey"
+            columns: ["subproject_id"]
+            isOneToOne: false
+            referencedRelation: "studio_subprojects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_batch_items: {
+        Row: {
+          batch_id: string
+          created_at: string
+          error_message: string | null
+          generation_job_id: string | null
+          id: string
+          input_audio_url: string | null
+          input_image_url: string | null
+          negative_prompt: string | null
+          position: number
+          prompt: string
+          settings_json: Json
+          status: string
+          task_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          error_message?: string | null
+          generation_job_id?: string | null
+          id?: string
+          input_audio_url?: string | null
+          input_image_url?: string | null
+          negative_prompt?: string | null
+          position?: number
+          prompt: string
+          settings_json?: Json
+          status?: string
+          task_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          error_message?: string | null
+          generation_job_id?: string | null
+          id?: string
+          input_audio_url?: string | null
+          input_image_url?: string | null
+          negative_prompt?: string | null
+          position?: number
+          prompt?: string
+          settings_json?: Json
+          status?: string
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "studio_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_batch_items_generation_job_id_fkey"
+            columns: ["generation_job_id"]
+            isOneToOne: false
+            referencedRelation: "generation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_batches: {
+        Row: {
+          completed_items: number
+          created_at: string
+          failed_items: number
+          id: string
+          name: string
+          project_id: string | null
+          status: string
+          submitted_at: string | null
+          subproject_id: string | null
+          total_items: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_items?: number
+          created_at?: string
+          failed_items?: number
+          id?: string
+          name?: string
+          project_id?: string | null
+          status?: string
+          submitted_at?: string | null
+          subproject_id?: string | null
+          total_items?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_items?: number
+          created_at?: string
+          failed_items?: number
+          id?: string
+          name?: string
+          project_id?: string | null
+          status?: string
+          submitted_at?: string | null
+          subproject_id?: string | null
+          total_items?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_batches_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_batches_subproject_id_fkey"
             columns: ["subproject_id"]
             isOneToOne: false
             referencedRelation: "studio_subprojects"

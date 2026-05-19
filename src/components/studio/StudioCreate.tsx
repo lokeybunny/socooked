@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { submitJob } from '@/lib/studio/hooks';
+import { getOrCreateActiveBatch, addItemToBatch } from '@/lib/studio/batches';
+import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
 import { JobStatusPanel } from './JobStatusPanel';
 import {
   STYLE_PRESETS, RESOLUTIONS, ASPECT_RATIOS, DURATIONS, FPS_OPTIONS,
@@ -21,7 +23,7 @@ import {
 } from '@/lib/studio/types';
 import {
   Type, Image, Layers, Mic, UserCircle, Upload, Sparkles, Loader2,
-  Wand2, Dice5, ChevronRight, Info,
+  Wand2, Dice5, ChevronRight, Info, ListPlus,
 } from 'lucide-react';
 import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
@@ -280,162 +282,203 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setPrompt(inspirations[Math.floor(Math.random() * inspirations.length)]);
   };
 
-  const handleSubmit = async () => {
+  const { projects } = useStudioProjects();
+  const { subprojects } = useStudioSubprojects(projectId ?? null);
+  const [batching, setBatching] = useState(false);
+
+  const buildPayload = async (): Promise<{
+    task_type: TaskType;
+    prompt: string;
+    negative_prompt?: string;
+    settings_json: Record<string, unknown>;
+    input_image_url?: string;
+  } | null> => {
     if (!prompt.trim()) {
       toast({ title: 'Prompt required', variant: 'destructive' });
-      return;
+      return null;
     }
     if ((taskType === 'i2v' || taskType === 'ti2v') && !isRefToVideo && !imageFile && !imagePreview) {
       toast({ title: 'Image required for this mode', variant: 'destructive' });
-      return;
+      return null;
     }
     if (isRefToVideo && refImages.length === 0 && refImageUrls.length === 0) {
       toast({ title: 'At least 1 reference image required', description: 'Upload or insert 1–9 reference images for reference-to-video.', variant: 'destructive' });
-      return;
+      return null;
     }
 
+    const MAX_DIM = 1920;
+    const downscaleIfNeeded = (file: File): Promise<File> =>
+      new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) return resolve(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new window.Image();
+          img.onload = () => {
+            const maxSide = Math.max(img.width, img.height);
+            if (maxSide <= MAX_DIM) return resolve(file);
+            const scale = MAX_DIM / maxSide;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve(file);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) return resolve(file);
+                const newName = file.name.replace(/\.(png|webp|jpe?g|bmp|tiff?)$/i, '') + '_resized.jpg';
+                const shrunk = new File([blob], newName, { type: 'image/jpeg' });
+                toast({ title: 'Image auto-shrunk', description: `${img.width}×${img.height} → ${canvas.width}×${canvas.height} to fit API limits.` });
+                resolve(shrunk);
+              },
+              'image/jpeg',
+              0.92
+            );
+          };
+          img.onerror = () => resolve(file);
+          img.src = e.target?.result as string;
+        };
+        reader.onerror = () => reject(new Error('Failed to read image'));
+        reader.readAsDataURL(file);
+      });
+
+    const uploadOne = async (file: File) => {
+      const safe = await downscaleIfNeeded(file);
+      const ext = safe.name.split('.').pop() || 'png';
+      const path = `inputs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, safe);
+      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+      return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
+    };
+
+    let input_image_url: string | undefined;
+    let last_frame_image_url: string | undefined;
+    if (imageFile) input_image_url = await uploadOne(imageFile);
+    else if (imagePreview) input_image_url = imagePreview;
+    if (imageFileB) last_frame_image_url = await uploadOne(imageFileB);
+    else if (imagePreviewB) last_frame_image_url = imagePreviewB;
+
+    const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
+    const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
+    const isRef = currentModel.includes('reference-to-video');
+    const seedanceModel = seedanceActive && !isRef
+      ? taskType === 't2v'
+        ? currentModel.replace('image-to-video', 'text-to-video')
+        : currentModel.replace('text-to-video', 'image-to-video')
+      : currentModel;
+
+    let reference_images_urls: string[] = [];
+    let reference_videos_urls: string[] = [];
+    let reference_audios_urls: string[] = [];
+    const uploadAsset = async (file: File, kind: 'img' | 'vid' | 'aud') => {
+      const ext = file.name.split('.').pop() || (kind === 'img' ? 'jpg' : kind === 'vid' ? 'mp4' : 'mp3');
+      const path = `inputs/${kind}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
+      if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+      return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
+    };
+    if (seedanceActive && isRef) {
+      for (const u of refImageUrls) reference_images_urls.push(u);
+      for (const f of refImages) reference_images_urls.push(await uploadOne(f));
+      reference_images_urls = reference_images_urls.slice(0, 9);
+      for (const f of refVideos) reference_videos_urls.push(await uploadAsset(f, 'vid'));
+      for (const f of refAudios) reference_audios_urls.push(await uploadAsset(f, 'aud'));
+    }
+
+    const fullSettings = {
+      ...settings,
+      style_preset: selectedStyles.join(', ') || undefined,
+      provider: seedanceActive ? 'seedance' : undefined,
+      seedance_model: seedanceModel,
+      last_frame_image_url: last_frame_image_url || undefined,
+      reference_images_urls: reference_images_urls.length ? reference_images_urls : undefined,
+      reference_videos_urls: reference_videos_urls.length ? reference_videos_urls : undefined,
+      reference_audios_urls: reference_audios_urls.length ? reference_audios_urls : undefined,
+      return_last_frame: isRef ? returnLastFrame : undefined,
+      director_style_ids: directorStyleIds.length ? directorStyleIds : undefined,
+      duration: seedanceActive
+        ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
+        : settings.duration,
+    };
+
+    const basePrompt = prompt.trim();
+    const chosenDirectorStyles = DIRECTOR_STYLES.filter(s => directorStyleIds.includes(s.id));
+    let finalPrompt = chosenDirectorStyles.length
+      ? buildInjectedPrompt(basePrompt, chosenDirectorStyles)
+      : basePrompt;
+    if (noMusic && !/no music in background/i.test(finalPrompt)) {
+      finalPrompt = `${finalPrompt} No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track.`;
+    }
+    if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
+      finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
+    }
+
+    return {
+      task_type: taskType,
+      prompt: finalPrompt,
+      negative_prompt: negPrompt.trim() || undefined,
+      settings_json: fullSettings,
+      input_image_url,
+    };
+  };
+
+  const resetForm = () => {
+    setPrompt('');
+    setNegPrompt('');
+    setImageFile(null);
+    setImagePreview(null);
+    setImageFileB(null);
+    setImagePreviewB(null);
+    setRefImages([]);
+    setRefImageUrls([]);
+    setRefVideos([]);
+    setRefAudios([]);
+    setSelectedStyles([]);
+    setDirectorStyleIds([]);
+  };
+
+  const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      // Seedance / most providers cap inputs around ~2048px. Auto-shrink anything bigger.
-      const MAX_DIM = 1920;
-      const downscaleIfNeeded = (file: File): Promise<File> =>
-        new Promise((resolve, reject) => {
-          if (!file.type.startsWith('image/')) return resolve(file);
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const img = new window.Image();
-            img.onload = () => {
-              const maxSide = Math.max(img.width, img.height);
-              if (maxSide <= MAX_DIM) return resolve(file);
-              const scale = MAX_DIM / maxSide;
-              const canvas = document.createElement('canvas');
-              canvas.width = Math.round(img.width * scale);
-              canvas.height = Math.round(img.height * scale);
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return resolve(file);
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              canvas.toBlob(
-                (blob) => {
-                  if (!blob) return resolve(file);
-                  const newName = file.name.replace(/\.(png|webp|jpe?g|bmp|tiff?)$/i, '') + '_resized.jpg';
-                  const shrunk = new File([blob], newName, { type: 'image/jpeg' });
-                  toast({ title: 'Image auto-shrunk', description: `${img.width}×${img.height} → ${canvas.width}×${canvas.height} to fit API limits.` });
-                  resolve(shrunk);
-                },
-                'image/jpeg',
-                0.92
-              );
-            };
-            img.onerror = () => resolve(file);
-            img.src = e.target?.result as string;
-          };
-          reader.onerror = () => reject(new Error('Failed to read image'));
-          reader.readAsDataURL(file);
-        });
-
-      const uploadOne = async (file: File) => {
-        const safe = await downscaleIfNeeded(file);
-        const ext = safe.name.split('.').pop() || 'png';
-        const path = `inputs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, safe);
-        if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-        return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
-      };
-
-      let input_image_url: string | undefined;
-      let last_frame_image_url: string | undefined;
-      if (imageFile) input_image_url = await uploadOne(imageFile);
-      else if (imagePreview) input_image_url = imagePreview;
-      if (imageFileB) last_frame_image_url = await uploadOne(imageFileB);
-      else if (imagePreviewB) last_frame_image_url = imagePreviewB;
-
-      const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
-      const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
-      const isRef = currentModel.includes('reference-to-video');
-      const seedanceModel = seedanceActive && !isRef
-        ? taskType === 't2v'
-          ? currentModel.replace('image-to-video', 'text-to-video')
-          : currentModel.replace('text-to-video', 'image-to-video')
-        : currentModel;
-
-      // Upload reference-to-video assets
-      let reference_images_urls: string[] = [];
-      let reference_videos_urls: string[] = [];
-      let reference_audios_urls: string[] = [];
-      const uploadAsset = async (file: File, kind: 'img' | 'vid' | 'aud') => {
-        const ext = file.name.split('.').pop() || (kind === 'img' ? 'jpg' : kind === 'vid' ? 'mp4' : 'mp3');
-        const path = `inputs/${kind}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, file);
-        if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-        return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
-      };
-      if (seedanceActive && isRef) {
-        // Library-picked URLs go FIRST so they're always image 1, 2, ... for prompting
-        for (const u of refImageUrls) reference_images_urls.push(u);
-        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
-        // Cap at API max (9)
-        reference_images_urls = reference_images_urls.slice(0, 9);
-        for (const f of refVideos) reference_videos_urls.push(await uploadAsset(f, 'vid'));
-        for (const f of refAudios) reference_audios_urls.push(await uploadAsset(f, 'aud'));
-      }
-
-      const fullSettings = {
-        ...settings,
-        style_preset: selectedStyles.join(', ') || undefined,
-        provider: seedanceActive ? 'seedance' : undefined,
-        seedance_model: seedanceModel,
-        last_frame_image_url: last_frame_image_url || undefined,
-        reference_images_urls: reference_images_urls.length ? reference_images_urls : undefined,
-        reference_videos_urls: reference_videos_urls.length ? reference_videos_urls : undefined,
-        reference_audios_urls: reference_audios_urls.length ? reference_audios_urls : undefined,
-        return_last_frame: isRef ? returnLastFrame : undefined,
-        director_style_ids: directorStyleIds.length ? directorStyleIds : undefined,
-        duration: seedanceActive
-          ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
-          : settings.duration,
-      };
-
-      const basePrompt = prompt.trim();
-      const chosenDirectorStyles = DIRECTOR_STYLES.filter(s => directorStyleIds.includes(s.id));
-      let finalPrompt = chosenDirectorStyles.length
-        ? buildInjectedPrompt(basePrompt, chosenDirectorStyles)
-        : basePrompt;
-      if (noMusic && !/no music in background/i.test(finalPrompt)) {
-        finalPrompt = `${finalPrompt} No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track.`;
-      }
-      if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
-        finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
-      }
-
+      const payload = await buildPayload();
+      if (!payload) return;
       await submitJob({
-        task_type: taskType,
-        prompt: finalPrompt,
-        negative_prompt: negPrompt.trim() || undefined,
-        settings_json: fullSettings,
-        input_image_url,
+        ...payload,
         project_id: projectId ?? null,
         subproject_id: subprojectId ?? null,
       });
-
       toast({ title: 'Job submitted!', description: 'Check the queue for progress.' });
-      setPrompt('');
-      setNegPrompt('');
-      setImageFile(null);
-      setImagePreview(null);
-      setImageFileB(null);
-      setImagePreviewB(null);
-      setRefImages([]);
-      setRefImageUrls([]);
-      setRefVideos([]);
-      setRefAudios([]);
-      setSelectedStyles([]);
-      setDirectorStyleIds([]);
+      resetForm();
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleAddToBatch = async () => {
+    setBatching(true);
+    try {
+      const payload = await buildPayload();
+      if (!payload) return;
+      const projectName = projects.find(p => p.id === projectId)?.name ?? null;
+      const subprojectName = subprojects.find(s => s.id === subprojectId)?.name ?? null;
+      const batch = await getOrCreateActiveBatch({
+        projectId: projectId ?? null,
+        subprojectId: subprojectId ?? null,
+        projectName,
+        subprojectName,
+      });
+      await addItemToBatch(batch.id, payload);
+      toast({ title: 'Added to batch', description: `Open the Batch drawer (right side) to review or run it.` });
+      resetForm();
+    } catch (err) {
+      toast({ title: 'Could not add to batch', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setBatching(false);
+    }
+  };
+
 
   const needsImage = (taskType === 'i2v' || taskType === 'ti2v') && !isRefToVideo;
   const isAdvanced = taskType === 's2v' || taskType === 'animate';
@@ -916,15 +959,26 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           />
         )}
 
-        {/* Generate Button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting || !prompt.trim()}
-          className="w-full h-12 text-base gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
-        >
-          {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-          {submitting ? 'Submitting...' : 'Generate Video'}
-        </Button>
+        {/* Generate / Add to Batch */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || batching || !prompt.trim()}
+            className="w-full h-12 text-base gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
+          >
+            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+            {submitting ? 'Submitting...' : 'Generate Video'}
+          </Button>
+          <Button
+            onClick={handleAddToBatch}
+            disabled={submitting || batching || !prompt.trim()}
+            variant="outline"
+            className="h-12 text-base gap-2 border-violet-500/50 text-violet-200 hover:bg-violet-500/10"
+          >
+            {batching ? <Loader2 className="w-5 h-5 animate-spin" /> : <ListPlus className="w-5 h-5" />}
+            {batching ? 'Adding...' : 'Add to Batch'}
+          </Button>
+        </div>
       </div>
 
       {/* Right Sidebar — Settings */}
