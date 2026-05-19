@@ -713,20 +713,33 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 rounded-md transition-colors" onDragOver={preventDrag} onDrop={dropRefImages}>
                   {refImageUrls.map((url, i) => (
-                    <div key={`u-${i}`} className="relative group">
-                      <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
+                    <div key={`u-${i}`} className="relative group cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('img', i)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropImg(i)}
+                      title="Drag to reorder">
+                      <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
                       <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImageUrls(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
                   ))}
-                  {refImages.map((f, i) => (
-                    <div key={`f-${i}`} className="relative group">
-                      <img src={URL.createObjectURL(f)} alt={`ref ${refImageUrls.length + i + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
-                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{refImageUrls.length + i + 1}</span>
+                  {refImages.map((f, i) => {
+                    const combinedIdx = refImageUrls.length + i;
+                    return (
+                    <div key={`f-${i}`} className="relative group cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('img', combinedIdx)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropImg(combinedIdx)}
+                      title="Drag to reorder">
+                      <img src={URL.createObjectURL(f)} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{combinedIdx + 1}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
-                  ))}
+                  );})}
+
                   {(refImages.length + refImageUrls.length) < 9 && (
                     <label className="border-2 border-dashed border-border/50 rounded-md h-20 flex flex-col items-center justify-center cursor-pointer hover:border-[#00ff88]/50 transition-colors">
                       <Upload className="w-4 h-4 text-muted-foreground/50" />
