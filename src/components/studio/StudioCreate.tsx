@@ -23,6 +23,8 @@ import {
   Type, Image, Layers, Mic, UserCircle, Upload, Sparkles, Loader2,
   Wand2, Dice5, ChevronRight, Info,
 } from 'lucide-react';
+import { DirectorCameraStyles } from './DirectorCameraStyles';
+import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
