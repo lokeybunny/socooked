@@ -311,6 +311,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const isAdvanced = taskType === 's2v' || taskType === 'animate';
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
       <div className="space-y-6">
         {/* Task Type Tabs */}
