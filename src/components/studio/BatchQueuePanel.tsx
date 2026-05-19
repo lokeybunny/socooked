@@ -134,7 +134,15 @@ export function BatchQueuePanel({ projectId, subprojectId, onLoadItem }: Props) 
                 </div>
               ) : (
                 items.map((it, idx) => (
-                  <div key={it.id} className="flex items-start gap-2 p-2 rounded-md bg-background/40 border border-border/40">
+                  <div
+                    key={it.id}
+                    role={onLoadItem ? 'button' : undefined}
+                    tabIndex={onLoadItem ? 0 : undefined}
+                    onClick={() => onLoadItem?.(it)}
+                    onKeyDown={(e) => { if (onLoadItem && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onLoadItem(it); } }}
+                    title={onLoadItem ? 'Click to load this batch item back into Create' : undefined}
+                    className={`flex items-start gap-2 p-2 rounded-md bg-background/40 border border-border/40 ${onLoadItem ? 'cursor-pointer hover:bg-background/70 hover:border-violet-500/40 transition-colors' : ''}`}
+                  >
                     <div className="w-8 h-8 rounded bg-muted/40 overflow-hidden shrink-0 flex items-center justify-center">
                       {it.input_image_url ? (
                         <img src={it.input_image_url} alt="" className="w-full h-full object-cover" />
