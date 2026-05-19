@@ -577,7 +577,29 @@ Deno.serve(async (req) => {
         output_thumbnail_url: null,
       }).eq("id", jobId);
 
-      runBg(() => dispatchJob(jobId, payload));
+      runBg(async () => {
+        const settings = payload.settings_json || {};
+        const provider = (settings.provider || "").toString().toLowerCase();
+        if (provider === "seedance" && job.error_message && isSeedanceRealPersonSafetyError(job.error_message)) {
+          const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
+          const seedanceModel = normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url));
+          const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
+          const retryPayload = await buildSeedanceSafetyRetryPayload(
+            adminClient(),
+            jobId,
+            payload,
+            settings,
+            refImages,
+            seedanceModel.includes("image-to-video"),
+            seedanceModel.includes("reference-to-video"),
+          );
+          if (retryPayload) {
+            await dispatchJob(jobId, retryPayload);
+            return;
+          }
+        }
+        await dispatchJob(jobId, payload);
+      });
       return json({ ok: true });
     }
 
