@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudioJobs } from '@/lib/studio/hooks';
+import { useUserBatches } from '@/lib/studio/batches';
 import { TASK_LABELS, STATUS_COLORS, getJobPrompt, type GenerationJob, type TaskType, type JobStatus } from '@/lib/studio/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Film, Search, Download, Copy, Trash2, Loader2, Pencil } from 'lucide-react';
+import { Film, Search, Download, Copy, Trash2, Loader2, Pencil, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { VideoTile } from './VideoTile';
 
 interface Props {
@@ -18,26 +19,61 @@ interface Props {
   onModify?: (job: GenerationJob) => void;
 }
 
+type JobWithBatch = GenerationJob & { batch_id?: string | null };
+
 export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
   const { jobs, loading, refetch } = useStudioJobs();
+  const { batches } = useUserBatches({ projectId, subprojectId });
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterBatch, setFilterBatch] = useState<string>('all');
   const [sortDir, setSortDir] = useState<'newest' | 'oldest'>('newest');
+  const [viewMode, setViewMode] = useState<'grid' | 'grouped'>('grid');
   const [selected, setSelected] = useState<GenerationJob | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  const filtered = useMemo(() => jobs
+  const filtered = useMemo(() => (jobs as JobWithBatch[])
     .filter(j => j.status !== 'failed' && j.status !== 'cancelled')
     .filter(j => !projectId || j.project_id === projectId)
     .filter(j => !subprojectId || j.subproject_id === subprojectId)
     .filter(j => filterType === 'all' || j.task_type === filterType)
     .filter(j => filterStatus === 'all' || j.status === filterStatus)
+    .filter(j => filterBatch === 'all' || (filterBatch === 'none' ? !j.batch_id : j.batch_id === filterBatch))
     .filter(j => !search || getJobPrompt(j).toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => sortDir === 'newest'
       ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    ), [jobs, projectId, subprojectId, filterType, filterStatus, search, sortDir]);
+    ), [jobs, projectId, subprojectId, filterType, filterStatus, filterBatch, search, sortDir]);
+
+  // Group by batch for grouped view
+  const groups = useMemo(() => {
+    if (viewMode !== 'grouped') return null;
+    const byBatch = new Map<string, JobWithBatch[]>();
+    for (const j of filtered) {
+      const key = j.batch_id || '__no_batch__';
+      if (!byBatch.has(key)) byBatch.set(key, []);
+      byBatch.get(key)!.push(j);
+    }
+    return Array.from(byBatch.entries()).map(([batchId, jobsInBatch]) => {
+      const batch = batches.find(b => b.id === batchId);
+      return {
+        id: batchId,
+        name: batch?.name || (batchId === '__no_batch__' ? 'Standalone (not in a batch)' : 'Unknown batch'),
+        meta: batch ? `${batch.completed_items} ok · ${batch.failed_items} failed · ${batch.status}` : null,
+        jobs: jobsInBatch,
+      };
+    });
+  }, [filtered, batches, viewMode]);
+
+  const toggleCollapsed = (id: string) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const handleDelete = async (id: string) => {
     await supabase.from('generation_jobs').delete().eq('id', id);
@@ -68,11 +104,28 @@ export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
             {(['queued','provisioning','running','completed','failed','cancelled'] as JobStatus[]).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterBatch} onValueChange={setFilterBatch}>
+          <SelectTrigger className="w-[180px] bg-card/50"><SelectValue placeholder="Batch" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Batches</SelectItem>
+            <SelectItem value="none">No batch (standalone)</SelectItem>
+            {batches.map(b => (
+              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={sortDir} onValueChange={v => setSortDir(v as 'newest' | 'oldest')}>
           <SelectTrigger className="w-[120px] bg-card/50"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="newest">Newest</SelectItem>
             <SelectItem value="oldest">Oldest</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={viewMode} onValueChange={v => setViewMode(v as 'grid' | 'grouped')}>
+          <SelectTrigger className="w-[150px] bg-card/50"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="grid">Grid view</SelectItem>
+            <SelectItem value="grouped">Group by batch</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -86,6 +139,34 @@ export function StudioLibrary({ projectId, subprojectId, onModify }: Props) {
             <p>No generations found</p>
           </CardContent>
         </Card>
+      ) : viewMode === 'grouped' && groups ? (
+        <div className="space-y-4">
+          {groups.map(g => {
+            const isCollapsed = collapsed.has(g.id);
+            return (
+              <Card key={g.id} className="border-border/50 bg-card/30">
+                <button
+                  type="button"
+                  onClick={() => toggleCollapsed(g.id)}
+                  className="w-full flex items-center gap-2 p-3 hover:bg-muted/30 transition-colors text-left"
+                >
+                  {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  <Layers className="w-4 h-4 text-violet-400" />
+                  <span className="text-sm font-medium truncate flex-1">{g.name}</span>
+                  {g.meta && <span className="text-[10px] text-muted-foreground hidden sm:inline">{g.meta}</span>}
+                  <Badge variant="outline" className="text-[10px]">{g.jobs.length}</Badge>
+                </button>
+                {!isCollapsed && (
+                  <div className="p-3 pt-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {g.jobs.map(job => (
+                      <VideoTile key={job.id} job={job} onOpen={setSelected} onModify={onModify} />
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filtered.map(job => (
