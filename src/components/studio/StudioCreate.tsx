@@ -80,6 +80,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refImages, setRefImages] = useState<File[]>([]);
   const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
+  const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const [promptGuideOpen, setPromptGuideOpen] = useState(false);
   const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
