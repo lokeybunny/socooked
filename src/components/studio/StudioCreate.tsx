@@ -258,7 +258,10 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       };
 
       const basePrompt = prompt.trim();
-      let finalPrompt = basePrompt;
+      const chosenDirectorStyles = DIRECTOR_STYLES.filter(s => directorStyleIds.includes(s.id));
+      let finalPrompt = chosenDirectorStyles.length
+        ? buildInjectedPrompt(basePrompt, chosenDirectorStyles)
+        : basePrompt;
       if (noMusic && !/no music in background/i.test(finalPrompt)) {
         finalPrompt = `${finalPrompt} No music in background. No ambient sound, no environmental noise, no atmospheric audio, no sound effects — completely silent audio track.`;
       }
