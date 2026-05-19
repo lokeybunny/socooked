@@ -790,6 +790,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     >
                       <Image className="w-3 h-3" /> From Library
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs gap-1 border-[#00ff88]/40 text-[#00ff88] hover:bg-[#00ff88]/10"
+                      onClick={() => setAssetLibraryOpen(true)}
+                      disabled={refImages.length + refImageUrls.length >= 9}
+                    >
+                      <Image className="w-3 h-3" /> From Assets
+                    </Button>
                     {(refImages.length > 0 || refImageUrls.length > 0) && (
                       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setRefImages([]); setRefImageUrls([]); }}>Clear</Button>
                     )}
