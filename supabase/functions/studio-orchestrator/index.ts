@@ -295,7 +295,15 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
       try { subJson = subText ? JSON.parse(subText) : {}; } catch { subJson = { raw: subText }; }
 
       if (!sub.ok) {
-        throw new Error(`Seedance API ${sub.status}: ${subJson?.error || subJson?.message || subText}`);
+        const seedanceError = `Seedance API ${sub.status}: ${subJson?.error || subJson?.message || subText}`;
+        if (sub.status === 400 && isSeedanceRealPersonSafetyError(seedanceError)) {
+          const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, payload, settings, refImages, isImageToVideo, isRefToVideo);
+          if (retryPayload) {
+            await dispatchJob(jobId, retryPayload);
+            return;
+          }
+        }
+        throw new Error(seedanceError);
       }
 
       const predictionId = subJson?.data?.id || subJson?.id;
@@ -337,9 +345,17 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
         }
 
         if (status === "failed" || status === "timeout" || status === "cancelled") {
+          const pollError = pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`;
+          if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
+            const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, payload, settings, refImages, isImageToVideo, isRefToVideo);
+            if (retryPayload) {
+              await dispatchJob(jobId, retryPayload);
+              return;
+            }
+          }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`,
+            error_message: pollError,
           }).eq("id", jobId);
           return;
         }
