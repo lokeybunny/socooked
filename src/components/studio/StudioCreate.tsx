@@ -489,6 +489,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                           { v: 'bytedance/seedance-2.0-fast/text-to-video', l: 'Seedance 2.0 Fast · text→video' },
                           { v: 'bytedance/seedance-2.0-pro/image-to-video', l: 'Seedance 2.0 Pro · image→video' },
                           { v: 'bytedance/seedance-2.0-pro/text-to-video', l: 'Seedance 2.0 Pro · text→video' },
+                          { v: 'bytedance/seedance-2.0/reference-to-video', l: 'Seedance 2.0 · reference→video (multi image/video/audio)' },
                           { v: 'bytedance/seedance-1.0-lite/image-to-video', l: 'Seedance 1.0 Lite · image→video' },
                           { v: 'bytedance/seedance-1.0-lite/text-to-video', l: 'Seedance 1.0 Lite · text→video' },
                           { v: 'bytedance/seedance-1.0-pro/image-to-video', l: 'Seedance 1.0 Pro · image→video' },
