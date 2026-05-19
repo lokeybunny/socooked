@@ -162,7 +162,7 @@ export function BatchQueuePanel({ projectId, subprojectId, onLoadItem }: Props) 
                       <p className="text-[10px] line-clamp-2 leading-snug text-muted-foreground">{it.prompt}</p>
                     </div>
                     {it.status === 'queued' && (
-                      <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-red-400" onClick={() => handleRemove(it.id)}>
+                      <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-red-400" onClick={(e) => { e.stopPropagation(); handleRemove(it.id); }}>
                         <X className="w-3 h-3" />
                       </Button>
                     )}
