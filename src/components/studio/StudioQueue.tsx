@@ -6,10 +6,14 @@ import { useStudioJobs, cancelJob, retryJob } from '@/lib/studio/hooks';
 import { TASK_LABELS, STATUS_COLORS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, RotateCcw, XCircle, ChevronDown, ChevronUp, ListOrdered } from 'lucide-react';
+import { Loader2, RotateCcw, XCircle, ChevronDown, ChevronUp, ListOrdered, Pencil } from 'lucide-react';
 import { useState } from 'react';
 
-export function StudioQueue() {
+interface StudioQueueProps {
+  onModify?: (job: GenerationJob) => void;
+}
+
+export function StudioQueue({ onModify }: StudioQueueProps = {}) {
   const { jobs, loading, refetch } = useStudioJobs();
   const { toast } = useToast();
 
@@ -53,7 +57,7 @@ export function StudioQueue() {
         ) : (
           <div className="space-y-2">
             {activeJobs.map(job => (
-              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />
+              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} onModify={onModify} />
             ))}
           </div>
         )}
@@ -66,7 +70,7 @@ export function StudioQueue() {
         ) : (
           <div className="space-y-2">
             {recentDone.map(job => (
-              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} />
+              <QueueRow key={job.id} job={job} onCancel={handleCancel} onRetry={handleRetry} onModify={onModify} />
             ))}
           </div>
         )}
@@ -75,7 +79,7 @@ export function StudioQueue() {
   );
 }
 
-function QueueRow({ job, onCancel, onRetry }: { job: GenerationJob; onCancel: (id: string) => void; onRetry: (id: string) => void }) {
+function QueueRow({ job, onCancel, onRetry, onModify }: { job: GenerationJob; onCancel: (id: string) => void; onRetry: (id: string) => void; onModify?: (job: GenerationJob) => void }) {
   const [expanded, setExpanded] = useState(false);
   const prompt = getJobPrompt(job);
 
@@ -107,6 +111,11 @@ function QueueRow({ job, onCancel, onRetry }: { job: GenerationJob; onCancel: (i
             {job.status === 'failed' && (
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => onRetry(job.id)}>
                 <RotateCcw className="w-3 h-3" /> Retry
+              </Button>
+            )}
+            {onModify && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-violet-300 hover:text-violet-200" onClick={() => onModify(job)} title="Open creation details in Create tab">
+                <Pencil className="w-3 h-3" /> View
               </Button>
             )}
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded(!expanded)}>
