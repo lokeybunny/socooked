@@ -161,6 +161,62 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setRefAudios(prev => [...prev, ...files].slice(0, 3));
   };
 
+  // ---------- Reorder helpers (drag-to-reorder existing assets) ----------
+  const REORDER_MIME = 'application/x-studio-reorder';
+  const onReorderStart = (kind: 'img' | 'vid' | 'aud', index: number) => (e: React.DragEvent) => {
+    e.dataTransfer.setData(REORDER_MIME, `${kind}:${index}`);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const isReorderEvent = (e: React.DragEvent, kind: string) => {
+    const types = Array.from(e.dataTransfer.types || []);
+    return types.includes(REORDER_MIME);
+  };
+  const onReorderOver = (e: React.DragEvent) => {
+    if (Array.from(e.dataTransfer.types || []).includes(REORDER_MIME)) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+  const reorderArray = <T,>(arr: T[], from: number, to: number): T[] => {
+    if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return arr;
+    const next = arr.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    return next;
+  };
+  const onReorderDropImg = (toIndex: number) => (e: React.DragEvent) => {
+    const data = e.dataTransfer.getData(REORDER_MIME);
+    if (!data || !data.startsWith('img:')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const from = parseInt(data.split(':')[1], 10);
+    // combined list: urls first, then files
+    const combined = [
+      ...refImageUrls.map(v => ({ k: 'u' as const, v })),
+      ...refImages.map(v => ({ k: 'f' as const, v })),
+    ];
+    const next = reorderArray(combined, from, toIndex);
+    setRefImageUrls(next.filter(x => x.k === 'u').map(x => x.v as string));
+    setRefImages(next.filter(x => x.k === 'f').map(x => x.v as File));
+  };
+  const onReorderDropVid = (toIndex: number) => (e: React.DragEvent) => {
+    const data = e.dataTransfer.getData(REORDER_MIME);
+    if (!data || !data.startsWith('vid:')) return;
+    e.preventDefault(); e.stopPropagation();
+    const from = parseInt(data.split(':')[1], 10);
+    setRefVideos(prev => reorderArray(prev, from, toIndex));
+  };
+  const onReorderDropAud = (toIndex: number) => (e: React.DragEvent) => {
+    const data = e.dataTransfer.getData(REORDER_MIME);
+    if (!data || !data.startsWith('aud:')) return;
+    e.preventDefault(); e.stopPropagation();
+    const from = parseInt(data.split(':')[1], 10);
+    setRefAudios(prev => reorderArray(prev, from, toIndex));
+  };
+
+
+
 
   const applyDirector = () => {
     const parts = [
