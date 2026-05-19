@@ -127,6 +127,41 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const handleImageUpload = makeImageHandler('A');
   const handleImageUploadB = makeImageHandler('B');
 
+  // ---------- Drag-and-drop helpers ----------
+  const preventDrag = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+
+  const acceptImageDrop = (slot: 'A' | 'B') => (e: React.DragEvent) => {
+    preventDrag(e);
+    const file = Array.from(e.dataTransfer.files || []).find(f => f.type.startsWith('image/'));
+    if (!file) return;
+    const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+    (slot === 'A' ? handleImageUpload : handleImageUploadB)(fakeEvent);
+  };
+
+  const dropRefImages = (e: React.DragEvent) => {
+    preventDrag(e);
+    const files = Array.from(e.dataTransfer.files || []).filter(f => /image\/(jpeg|png|webp)/i.test(f.type));
+    if (!files.length) return;
+    const remaining = 9 - (refImages.length + refImageUrls.length);
+    if (remaining <= 0) { toast({ title: 'Reference images full (9 max)', variant: 'destructive' }); return; }
+    setRefImages(prev => [...prev, ...files.slice(0, remaining)]);
+  };
+
+  const dropRefVideos = (e: React.DragEvent) => {
+    preventDrag(e);
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('video/') && f.size <= 50 * 1024 * 1024);
+    if (!files.length) return;
+    setRefVideos(prev => [...prev, ...files].slice(0, 3));
+  };
+
+  const dropRefAudios = (e: React.DragEvent) => {
+    preventDrag(e);
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('audio/') && f.size <= 15 * 1024 * 1024);
+    if (!files.length) return;
+    setRefAudios(prev => [...prev, ...files].slice(0, 3));
+  };
+
+
   const applyDirector = () => {
     const parts = [
       director.subject,
