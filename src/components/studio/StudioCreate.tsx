@@ -127,6 +127,41 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const handleImageUpload = makeImageHandler('A');
   const handleImageUploadB = makeImageHandler('B');
 
+  // ---------- Drag-and-drop helpers ----------
+  const preventDrag = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+
+  const acceptImageDrop = (slot: 'A' | 'B') => (e: React.DragEvent) => {
+    preventDrag(e);
+    const file = Array.from(e.dataTransfer.files || []).find(f => f.type.startsWith('image/'));
+    if (!file) return;
+    const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+    (slot === 'A' ? handleImageUpload : handleImageUploadB)(fakeEvent);
+  };
+
+  const dropRefImages = (e: React.DragEvent) => {
+    preventDrag(e);
+    const files = Array.from(e.dataTransfer.files || []).filter(f => /image\/(jpeg|png|webp)/i.test(f.type));
+    if (!files.length) return;
+    const remaining = 9 - (refImages.length + refImageUrls.length);
+    if (remaining <= 0) { toast({ title: 'Reference images full (9 max)', variant: 'destructive' }); return; }
+    setRefImages(prev => [...prev, ...files.slice(0, remaining)]);
+  };
+
+  const dropRefVideos = (e: React.DragEvent) => {
+    preventDrag(e);
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('video/') && f.size <= 50 * 1024 * 1024);
+    if (!files.length) return;
+    setRefVideos(prev => [...prev, ...files].slice(0, 3));
+  };
+
+  const dropRefAudios = (e: React.DragEvent) => {
+    preventDrag(e);
+    const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('audio/') && f.size <= 15 * 1024 * 1024);
+    if (!files.length) return;
+    setRefAudios(prev => [...prev, ...files].slice(0, 3));
+  };
+
+
   const applyDirector = () => {
     const parts = [
       director.subject,
@@ -444,14 +479,23 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   <div key={slot} className="space-y-2">
                     <Label className="text-xs text-muted-foreground">{label}</Label>
                     {preview ? (
-                      <div className="relative">
+                      <div
+                        className="relative"
+                        onDragOver={preventDrag}
+                        onDrop={acceptImageDrop(slot)}
+                      >
                         <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" />
                         <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clear}>Remove</Button>
+                        <div className="absolute inset-0 rounded-lg ring-2 ring-transparent hover:ring-violet-500/40 transition pointer-events-none" />
                       </div>
                     ) : (
-                      <label className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors min-h-[180px]">
+                      <label
+                        className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors min-h-[180px]"
+                        onDragOver={preventDrag}
+                        onDrop={acceptImageDrop(slot)}
+                      >
                         <Upload className="w-7 h-7 text-muted-foreground/50 mb-2" />
-                        <p className="text-xs text-muted-foreground">Upload Frame {slot}</p>
+                        <p className="text-xs text-muted-foreground">Drop or click to upload Frame {slot}</p>
                         <p className="text-[10px] text-muted-foreground/60 mt-1">JPG / PNG / WebP · 20MB</p>
                         <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onChange} />
                       </label>
@@ -611,7 +655,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 rounded-md transition-colors" onDragOver={preventDrag} onDrop={dropRefImages}>
                   {refImageUrls.map((url, i) => (
                     <div key={`u-${i}`} className="relative group">
                       <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
@@ -651,7 +695,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefVideos([])}>Clear</Button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2" onDragOver={preventDrag} onDrop={dropRefVideos}>
                   {refVideos.map((f, i) => (
                     <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
                       <span className="block truncate">{i+1}. {f.name}</span>
@@ -679,7 +723,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefAudios([])}>Clear</Button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2" onDragOver={preventDrag} onDrop={dropRefAudios}>
                   {refAudios.map((f, i) => (
                     <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
                       <span className="block truncate">{i+1}. {f.name}</span>
