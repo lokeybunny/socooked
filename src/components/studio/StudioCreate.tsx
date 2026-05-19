@@ -959,15 +959,26 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           />
         )}
 
-        {/* Generate Button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting || !prompt.trim()}
-          className="w-full h-12 text-base gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
-        >
-          {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-          {submitting ? 'Submitting...' : 'Generate Video'}
-        </Button>
+        {/* Generate / Add to Batch */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || batching || !prompt.trim()}
+            className="w-full h-12 text-base gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700"
+          >
+            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+            {submitting ? 'Submitting...' : 'Generate Video'}
+          </Button>
+          <Button
+            onClick={handleAddToBatch}
+            disabled={submitting || batching || !prompt.trim()}
+            variant="outline"
+            className="h-12 text-base gap-2 border-violet-500/50 text-violet-200 hover:bg-violet-500/10"
+          >
+            {batching ? <Loader2 className="w-5 h-5 animate-spin" /> : <ListPlus className="w-5 h-5" />}
+            {batching ? 'Adding...' : 'Add to Batch'}
+          </Button>
+        </div>
       </div>
 
       {/* Right Sidebar — Settings */}
