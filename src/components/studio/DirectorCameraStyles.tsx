@@ -308,7 +308,7 @@ export function DirectorCameraStyles({
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
-            className="text-xs bg-white/[0.04] border border-white/10 rounded-md px-2 py-2 text-white"
+            className="text-xs bg-neutral-900 border border-white/10 rounded-md px-2 py-2 text-white [&>option]:bg-neutral-900 [&>option]:text-white"
           >
             <option value="All">All Categories</option>
             {DIRECTOR_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -316,7 +316,7 @@ export function DirectorCameraStyles({
           <select
             value={tag}
             onChange={e => setTag(e.target.value)}
-            className="text-xs bg-white/[0.04] border border-white/10 rounded-md px-2 py-2 text-white"
+            className="text-xs bg-neutral-900 border border-white/10 rounded-md px-2 py-2 text-white [&>option]:bg-neutral-900 [&>option]:text-white"
           >
             <option value="All">All Filters</option>
             {DIRECTOR_FILTER_TAGS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
