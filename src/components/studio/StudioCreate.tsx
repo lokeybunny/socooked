@@ -28,6 +28,7 @@ import {
 import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
+import { AssetLibraryPicker } from './AssetLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
 
