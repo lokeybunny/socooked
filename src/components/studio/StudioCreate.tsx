@@ -655,7 +655,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 rounded-md transition-colors" onDragOver={preventDrag} onDrop={dropRefImages}>
                   {refImageUrls.map((url, i) => (
                     <div key={`u-${i}`} className="relative group">
                       <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
