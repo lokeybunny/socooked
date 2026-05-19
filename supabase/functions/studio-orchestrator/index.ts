@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 type JobPayload = {
+  user_id?: string | null;
   task_type: string;
   prompt: string;
   negative_prompt?: string | null;
@@ -22,7 +23,7 @@ const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.
   headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
 
-const withTimeout = <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+const withTimeout = <T,>(p: PromiseLike<T>, ms: number, label: string): Promise<T> => {
   let timeoutId: number | undefined;
   const timeout = new Promise<T>((_, rej) => {
     timeoutId = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms);
@@ -83,6 +84,138 @@ const normalizeSeedanceModel = (taskType: string, model: string, hasImage: boole
   }
   return model;
 };
+
+const isSeedanceRealPersonSafetyError = (message: string) =>
+  /input image may contain real person/i.test(message) || /may contain real person/i.test(message);
+
+const extractGeneratedImageUrl = (message: any): string | null => {
+  const images = Array.isArray(message?.images) ? message.images : [];
+  for (const img of images) {
+    const url = img?.image_url?.url;
+    if (typeof url === "string" && url) return url;
+  }
+
+  const content = Array.isArray(message?.content) ? message.content : [];
+  for (const part of content) {
+    const url = part?.image_url?.url;
+    if (typeof url === "string" && url) return url;
+  }
+
+  return null;
+};
+
+async function persistGeneratedImage(admin: ReturnType<typeof adminClient>, imageUrl: string, userId: string | null | undefined, jobId: string) {
+  if (!imageUrl.startsWith("data:")) return { url: imageUrl, path: null };
+
+  const match = imageUrl.match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/);
+  if (!match) throw new Error("Lovable AI returned an unsupported image format for the Seedance safety fix.");
+
+  const mimeExt = match[1];
+  const ext = mimeExt === "jpeg" ? "jpg" : mimeExt;
+  const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+  const path = `inputs/seedance-safety/${userId || "system"}/${jobId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const { error } = await admin.storage.from("studio-outputs").upload(path, bytes, {
+    contentType: `image/${mimeExt}`,
+    upsert: true,
+  });
+  if (error) throw new Error(`Could not save Seedance safety-fixed reference: ${error.message}`);
+
+  const { data } = admin.storage.from("studio-outputs").getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+async function removeHumanFromReference(admin: ReturnType<typeof adminClient>, sourceUrl: string, userId: string | null | undefined, jobId: string) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured for the Seedance safety fix.");
+
+  const aiRes = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image-preview",
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Edit this reference image so it clears a video model safety filter: remove every visible real or realistic human/person from the shot, including faces, bodies, hands, reflections, and silhouettes. Naturally reconstruct the background/scene behind them. Preserve the original camera angle, architecture/location, lighting, aspect ratio, color style, and usable scene details. Do not add new people, text, logos, or watermarks.",
+          },
+          { type: "image_url", image_url: { url: sourceUrl } },
+        ],
+      }],
+      modalities: ["image", "text"],
+    }),
+  }, 45000, "Lovable AI Seedance safety image edit");
+
+  const aiText = await aiRes.text();
+  let aiJson: any = {};
+  try { aiJson = aiText ? JSON.parse(aiText) : {}; } catch { aiJson = { raw: aiText }; }
+
+  if (!aiRes.ok) {
+    const msg = aiJson?.error?.message || aiJson?.error || aiJson?.message || aiText;
+    throw new Error(`Lovable AI safety image edit failed ${aiRes.status}: ${msg}`);
+  }
+
+  const editedUrl = extractGeneratedImageUrl(aiJson?.choices?.[0]?.message);
+  if (!editedUrl) throw new Error("Lovable AI did not return an edited image for the Seedance safety fix.");
+  return persistGeneratedImage(admin, editedUrl, userId, jobId);
+}
+
+async function buildSeedanceSafetyRetryPayload(
+  admin: ReturnType<typeof adminClient>,
+  jobId: string,
+  payload: JobPayload,
+  settings: Record<string, unknown>,
+  refImages: string[],
+  isImageToVideo: boolean,
+  isRefToVideo: boolean,
+): Promise<JobPayload | null> {
+  if ((settings as any).seedance_real_person_clean_retry_attempted) return null;
+
+  const sourceUrl = isRefToVideo ? refImages[0] : isImageToVideo ? payload.input_image_url : null;
+  if (!sourceUrl) return null;
+
+  await admin.from("generation_jobs").update({
+    status: "provisioning",
+    progress: 4,
+    backend_logs: "Seedance blocked the reference as a possible real person. Auto-cleaning the main human reference with Lovable AI and retrying once.",
+  }).eq("id", jobId);
+
+  const cleaned = await removeHumanFromReference(admin, sourceUrl, payload.user_id || null, jobId);
+  const retrySettings: Record<string, unknown> = {
+    ...settings,
+    seedance_real_person_clean_retry_attempted: true,
+    seedance_real_person_original_reference_url: sourceUrl,
+    seedance_real_person_clean_reference_url: cleaned.url,
+    seedance_real_person_clean_reference_path: cleaned.path,
+  };
+
+  const retryPayload: JobPayload = {
+    ...payload,
+    settings_json: retrySettings,
+  };
+
+  if (isRefToVideo) {
+    retrySettings.reference_images_urls = [cleaned.url, ...refImages.slice(1)];
+  } else if (isImageToVideo) {
+    retryPayload.input_image_url = cleaned.url;
+  }
+
+  await admin.from("generation_jobs").update({
+    settings_json: retrySettings,
+    input_image_url: retryPayload.input_image_url || null,
+    error_message: null,
+    worker_job_id: null,
+    output_video_url: null,
+    output_thumbnail_url: null,
+    backend_logs: "Auto-cleaned the main human reference with Lovable AI and retried Seedance once.",
+  }).eq("id", jobId);
+
+  return retryPayload;
+}
 
 async function dispatchJob(jobId: string, payload: JobPayload) {
   const admin = adminClient();
@@ -165,7 +298,15 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
       try { subJson = subText ? JSON.parse(subText) : {}; } catch { subJson = { raw: subText }; }
 
       if (!sub.ok) {
-        throw new Error(`Seedance API ${sub.status}: ${subJson?.error || subJson?.message || subText}`);
+        const seedanceError = `Seedance API ${sub.status}: ${subJson?.error || subJson?.message || subText}`;
+        if (sub.status === 400 && isSeedanceRealPersonSafetyError(seedanceError)) {
+          const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, payload, settings, refImages, isImageToVideo, isRefToVideo);
+          if (retryPayload) {
+            await dispatchJob(jobId, retryPayload);
+            return;
+          }
+        }
+        throw new Error(seedanceError);
       }
 
       const predictionId = subJson?.data?.id || subJson?.id;
@@ -207,9 +348,17 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
         }
 
         if (status === "failed" || status === "timeout" || status === "cancelled") {
+          const pollError = pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`;
+          if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
+            const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, payload, settings, refImages, isImageToVideo, isRefToVideo);
+            if (retryPayload) {
+              await dispatchJob(jobId, retryPayload);
+              return;
+            }
+          }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`,
+            error_message: pollError,
           }).eq("id", jobId);
           return;
         }
@@ -333,6 +482,7 @@ Deno.serve(async (req) => {
     if (req.method === "POST" && (path === "" || path === "/")) {
       const body = await req.json();
       const payload: JobPayload = {
+        user_id: userId,
         task_type: body.task_type,
         prompt: body.prompt,
         negative_prompt: body.negative_prompt || null,
@@ -406,12 +556,15 @@ Deno.serve(async (req) => {
       if (!job) return json({ error: "Job not found" }, 404);
 
       const payload: JobPayload = {
+        user_id: job.user_id || userId,
         task_type: job.task_type,
         prompt: job.prompt,
         negative_prompt: job.negative_prompt,
         settings_json: (job.settings_json as Record<string, unknown>) || {},
         input_image_url: job.input_image_url,
         input_audio_url: job.input_audio_url,
+        project_id: job.project_id,
+        subproject_id: job.subproject_id,
       };
 
       await supabase.from("generation_jobs").update({
@@ -424,7 +577,36 @@ Deno.serve(async (req) => {
         output_thumbnail_url: null,
       }).eq("id", jobId);
 
-      runBg(() => dispatchJob(jobId, payload));
+      runBg(async () => {
+        try {
+          const settings = payload.settings_json || {};
+          const provider = (settings.provider || "").toString().toLowerCase();
+          if (provider === "seedance" && job.error_message && isSeedanceRealPersonSafetyError(job.error_message)) {
+            const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
+            const seedanceModel = normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url));
+            const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
+            const retryPayload = await buildSeedanceSafetyRetryPayload(
+              adminClient(),
+              jobId,
+              payload,
+              settings,
+              refImages,
+              seedanceModel.includes("image-to-video"),
+              seedanceModel.includes("reference-to-video"),
+            );
+            if (retryPayload) {
+              await dispatchJob(jobId, retryPayload);
+              return;
+            }
+          }
+          await dispatchJob(jobId, payload);
+        } catch (e) {
+          await adminClient().from("generation_jobs").update({
+            status: "failed",
+            error_message: `Seedance safety retry error: ${(e as Error).message}`,
+          }).eq("id", jobId);
+        }
+      });
       return json({ ok: true });
     }
 
@@ -468,9 +650,30 @@ Deno.serve(async (req) => {
           return json({ ok: true, status: "completed" });
         }
         if (status === "failed" || status === "timeout" || status === "cancelled") {
+          const pollError = pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`;
+          if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
+            const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
+            const seedanceModel = normalizeSeedanceModel(job.task_type, requestedModel, Boolean(job.input_image_url));
+            const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
+            const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, {
+              user_id: job.user_id,
+              task_type: job.task_type,
+              prompt: job.prompt,
+              negative_prompt: job.negative_prompt,
+              settings_json: settings,
+              input_image_url: job.input_image_url,
+              input_audio_url: job.input_audio_url,
+              project_id: job.project_id,
+              subproject_id: job.subproject_id,
+            }, settings, refImages, seedanceModel.includes("image-to-video"), seedanceModel.includes("reference-to-video"));
+            if (retryPayload) {
+              await dispatchJob(jobId, retryPayload);
+              return json({ ok: true, status: "retrying", safety_fix: true });
+            }
+          }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`,
+            error_message: pollError,
           }).eq("id", jobId);
           return json({ ok: true, status: "failed" });
         }
