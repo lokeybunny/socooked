@@ -115,6 +115,7 @@ export default function AIGen() {
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
       </div>
+      <ImageLightbox />
     </div>
   );
 }
