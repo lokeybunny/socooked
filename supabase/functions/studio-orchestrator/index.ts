@@ -327,7 +327,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
             return;
           }
         }
-        throw new Error(seedanceError);
+          throw new Error(isSeedanceRealPersonSafetyError(seedanceError) ? seedanceSafetyFinalError(seedanceError) : seedanceError);
       }
 
       const predictionId = subJson?.data?.id || subJson?.id;
@@ -379,7 +379,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
           }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollError,
+            error_message: isSeedanceRealPersonSafetyError(pollError) ? seedanceSafetyFinalError(pollError) : pollError,
           }).eq("id", jobId);
           return;
         }
