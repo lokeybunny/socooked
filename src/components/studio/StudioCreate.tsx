@@ -723,7 +723,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefAudios([])}>Clear</Button>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2" onDragOver={preventDrag} onDrop={dropRefAudios}>
                   {refAudios.map((f, i) => (
                     <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
                       <span className="block truncate">{i+1}. {f.name}</span>
