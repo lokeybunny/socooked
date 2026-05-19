@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 type JobPayload = {
+  user_id?: string | null;
   task_type: string;
   prompt: string;
   negative_prompt?: string | null;
@@ -183,7 +184,7 @@ async function buildSeedanceSafetyRetryPayload(
     backend_logs: "Seedance blocked the reference as a possible real person. Auto-cleaning the main human reference with Lovable AI and retrying once.",
   }).eq("id", jobId);
 
-  const cleaned = await removeHumanFromReference(admin, sourceUrl, (settings as any).user_id || null, jobId);
+  const cleaned = await removeHumanFromReference(admin, sourceUrl, payload.user_id || null, jobId);
   const retrySettings: Record<string, unknown> = {
     ...settings,
     seedance_real_person_clean_retry_attempted: true,
