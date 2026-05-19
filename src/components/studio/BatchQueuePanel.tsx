@@ -10,10 +10,12 @@ import {
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
 import { TASK_LABELS } from '@/lib/studio/types';
 import { Layers, X, Play, Trash2, Loader2, CheckCircle2, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import type { StudioBatchItem } from '@/lib/studio/batches';
 
 interface Props {
   projectId: string | null;
   subprojectId: string | null;
+  onLoadItem?: (item: StudioBatchItem) => void;
 }
 
 export function BatchQueuePanel({ projectId, subprojectId }: Props) {
