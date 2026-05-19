@@ -121,7 +121,7 @@ export function ReferenceLibraryPicker({ open, onOpenChange, projectId, maxSelec
                     onClick={() => toggle(r.id)}
                     className={`relative rounded-lg overflow-hidden border-2 aspect-square transition-all ${isPicked ? 'border-[#00ff88] ring-2 ring-[#00ff88]/40' : 'border-white/10 hover:border-white/30'}`}
                   >
-                    <img src={r.image_url} alt={r.name || 'reference'} loading="lazy" className="w-full h-full object-cover" />
+                    <img src={r.image_url} alt={r.name || 'reference'} loading="lazy" className="w-full h-full object-cover" {...lightboxProps(r.image_url, r.name || 'reference')} />
                     {isPicked && (
                       <div className="absolute inset-0 bg-[#00ff88]/20 flex items-center justify-center">
                         <div className="bg-[#00ff88] text-black rounded-full p-1.5">
