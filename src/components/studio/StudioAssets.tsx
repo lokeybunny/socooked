@@ -236,9 +236,14 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
               </SelectContent>
             </Select>
           )}
+          <label className={`flex items-center gap-2 h-9 px-3 rounded-md border cursor-pointer text-xs select-none ${autoEmpty ? 'border-amber-500/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-card/50 text-muted-foreground hover:text-foreground'}`}>
+            <Checkbox checked={autoEmpty} onCheckedChange={(v) => setAutoEmpty(!!v)} />
+            <Sparkles className="w-3.5 h-3.5" />
+            Auto-empty rooms (remove furniture & decor)
+          </label>
           <Button onClick={onPickClick} disabled={uploading} className="gap-2 bg-amber-600 hover:bg-amber-700">
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {uploading ? `Uploading ${progress.done}/${progress.total}` : 'Bulk Upload'}
+            {uploading ? `${autoEmpty ? 'Emptying ' : 'Uploading '}${progress.done}/${progress.total}` : 'Bulk Upload'}
           </Button>
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onInputChange} />
         </div>
