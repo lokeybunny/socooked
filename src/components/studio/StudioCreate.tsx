@@ -149,8 +149,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'Prompt required', variant: 'destructive' });
       return;
     }
-    if ((taskType === 'i2v' || taskType === 'ti2v') && !imageFile && !imagePreview) {
+    if ((taskType === 'i2v' || taskType === 'ti2v') && !isRefToVideo && !imageFile && !imagePreview) {
       toast({ title: 'Image required for this mode', variant: 'destructive' });
+      return;
+    }
+    if (isRefToVideo && refImages.length === 0) {
+      toast({ title: 'At least 1 reference image required', description: 'Upload 1–9 reference images for reference-to-video.', variant: 'destructive' });
       return;
     }
 
