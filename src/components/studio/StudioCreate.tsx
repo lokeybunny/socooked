@@ -159,8 +159,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       toast({ title: 'Image required for this mode', variant: 'destructive' });
       return;
     }
-    if (isRefToVideo && refImages.length === 0) {
-      toast({ title: 'At least 1 reference image required', description: 'Upload 1–9 reference images for reference-to-video.', variant: 'destructive' });
+    if (isRefToVideo && refImages.length === 0 && refImageUrls.length === 0) {
+      toast({ title: 'At least 1 reference image required', description: 'Upload or insert 1–9 reference images for reference-to-video.', variant: 'destructive' });
       return;
     }
 
