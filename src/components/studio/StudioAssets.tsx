@@ -371,6 +371,15 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
             {uploading ? `${autoEmpty ? 'Emptying ' : 'Uploading '}${progress.done}/${progress.total}` : 'Bulk Upload'}
           </Button>
           <Button
+            onClick={handleBackfillPairs}
+            disabled={uploading || pairingBackfill || loading || assets.length === 0}
+            variant="outline"
+            className="gap-2 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/20 hover:text-emerald-200"
+          >
+            {pairingBackfill ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {pairingBackfill ? `Pairing ${pairProgress.done}/${pairProgress.total}` : 'Generate A/B Pairs'}
+          </Button>
+          <Button
             onClick={handleMassDelete}
             disabled={uploading || loading || assets.length === 0}
             variant="outline"
