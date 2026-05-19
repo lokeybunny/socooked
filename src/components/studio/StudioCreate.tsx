@@ -252,6 +252,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         reference_videos_urls: reference_videos_urls.length ? reference_videos_urls : undefined,
         reference_audios_urls: reference_audios_urls.length ? reference_audios_urls : undefined,
         return_last_frame: isRef ? returnLastFrame : undefined,
+        director_style_ids: directorStyleIds.length ? directorStyleIds : undefined,
         duration: seedanceActive
           ? Math.max(4, Math.min(15, Number(settings.duration) || 5))
           : settings.duration,
