@@ -295,6 +295,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setImageFileB(null);
       setImagePreviewB(null);
       setRefImages([]);
+      setRefImageUrls([]);
       setRefVideos([]);
       setRefAudios([]);
       setSelectedStyles([]);
