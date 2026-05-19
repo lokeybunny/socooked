@@ -16,6 +16,7 @@ import { submitJob } from '@/lib/studio/hooks';
 import { getOrCreateActiveBatch, addItemToBatch } from '@/lib/studio/batches';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
 import { JobStatusPanel } from './JobStatusPanel';
+import { BatchQueuePanel } from './BatchQueuePanel';
 import {
   STYLE_PRESETS, RESOLUTIONS, ASPECT_RATIOS, DURATIONS, FPS_OPTIONS,
   CAMERA_MOVES, LIGHTING_STYLES, SHOT_TYPES, TASK_LABELS,
@@ -996,6 +997,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       {/* Right Sidebar — Settings */}
       <div className="space-y-4">
         <JobStatusPanel />
+        <BatchQueuePanel projectId={projectId ?? null} subprojectId={subprojectId ?? null} />
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardContent className="p-4 space-y-4">
             <h4 className="text-sm font-semibold">Generation Settings</h4>
