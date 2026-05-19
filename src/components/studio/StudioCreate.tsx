@@ -26,6 +26,7 @@ import {
 import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
+import { PromptGuideDialog } from './PromptGuideDialog';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
@@ -75,6 +76,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refImages, setRefImages] = useState<File[]>([]);
   const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
+  const [promptGuideOpen, setPromptGuideOpen] = useState(false);
+  const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
   const [refAudios, setRefAudios] = useState<File[]>([]);
   const [returnLastFrame, setReturnLastFrame] = useState(false);
@@ -214,6 +217,29 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     const from = parseInt(data.split(':')[1], 10);
     setRefAudios(prev => reorderArray(prev, from, toIndex));
   };
+
+  const fileToDataUrl = (f: File): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(f);
+  });
+
+  const openPromptGuide = async () => {
+    try {
+      const ordered: { url: string; label: string }[] = [];
+      refImageUrls.forEach((u, i) => ordered.push({ url: u, label: `image ${i + 1}` }));
+      const offset = refImageUrls.length;
+      const fileUrls = await Promise.all(refImages.map(f => fileToDataUrl(f)));
+      fileUrls.forEach((u, i) => ordered.push({ url: u, label: `image ${offset + i + 1}` }));
+      setPromptGuideImages(ordered);
+      setPromptGuideOpen(true);
+    } catch (e: any) {
+      toast({ title: 'Could not load references', description: e?.message || String(e), variant: 'destructive' });
+    }
+  };
+
+
 
 
 
@@ -822,10 +848,22 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
-                <Checkbox checked={returnLastFrame} onCheckedChange={(v) => setReturnLastFrame(v === true)} />
-                <span className="text-xs text-muted-foreground">Return last frame as a separate image</span>
-              </label>
+              <div className="flex items-center justify-between pt-2 border-t border-border/30">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <Checkbox checked={returnLastFrame} onCheckedChange={(v) => setReturnLastFrame(v === true)} />
+                  <span className="text-xs text-muted-foreground">Return last frame as a separate image</span>
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={openPromptGuide}
+                  className="h-7 text-xs gap-1 border-[#00ff88]/50 text-[#00ff88] hover:bg-[#00ff88]/10"
+                >
+                  <Wand2 className="w-3 h-3" /> Prompt Guide
+                </Button>
+              </div>
+
             </CardContent>
           </Card>
         )}
@@ -976,6 +1014,13 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       projectId={projectId}
       maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+    />
+
+    <PromptGuideDialog
+      open={promptGuideOpen}
+      onOpenChange={setPromptGuideOpen}
+      images={promptGuideImages}
+      onApply={(p) => setPrompt(p)}
     />
   </>
   );
