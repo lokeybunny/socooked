@@ -100,17 +100,40 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
       const baseOrder = assets.length;
       let done = 0;
       for (let i = 0; i < images.length; i++) {
-        const file = images[i];
-        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+        const original = images[i];
+        let file: Blob = original;
+        let ext = (original.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+        let contentType = original.type;
+        let nameBase = original.name.replace(/\.[^.]+$/, '');
+
+        if (autoEmpty) {
+          try {
+            const dataUrl = await fileToDataUrl(original);
+            const { data: emptied, error: fnErr } = await supabase.functions.invoke('empty-room', { body: { imageDataUrl: dataUrl } });
+            if (fnErr) throw fnErr;
+            if (emptied?.imageDataUrl) {
+              file = dataUrlToBlob(emptied.imageDataUrl);
+              contentType = file.type || 'image/png';
+              ext = contentType.split('/')[1] || 'png';
+              nameBase = `${nameBase}-empty`;
+            } else {
+              throw new Error('AI did not return an image');
+            }
+          } catch (e) {
+            console.error('empty-room failed', e);
+            toast({ title: `Auto-empty failed for "${original.name}"`, description: (e as Error).message + ' — uploading original instead.', variant: 'destructive' });
+          }
+        }
+
         const path = `${userId}/${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, file, { contentType: file.type, upsert: false });
+        const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, file, { contentType, upsert: false });
         if (upErr) { console.error(upErr); continue; }
         const { data: pub } = supabase.storage.from('studio-assets').getPublicUrl(path);
         await supabase.from('studio_assets').insert({
           user_id: userId,
           project_id: uploadProjectId,
           subproject_id: uploadSubprojectId,
-          name: file.name.replace(/\.[^.]+$/, ''),
+          name: nameBase,
           image_url: pub.publicUrl,
           storage_path: path,
           sort_order: baseOrder + i,
