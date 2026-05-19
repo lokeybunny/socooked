@@ -31,6 +31,7 @@ import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyle
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
 import { AssetLibraryPicker } from './AssetLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
+import { PromptVoiceEditButton } from './PromptVoiceEditButton';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
