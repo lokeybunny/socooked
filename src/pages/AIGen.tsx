@@ -8,6 +8,7 @@ import { StudioSettings } from '@/components/studio/StudioSettings';
 import { StudioReferences } from '@/components/studio/StudioReferences';
 import { StudioAssets } from '@/components/studio/StudioAssets';
 import { StudioShrink } from '@/components/studio/StudioShrink';
+import { ImageLightbox } from '@/components/studio/ImageLightbox';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
