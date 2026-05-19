@@ -694,7 +694,7 @@ Deno.serve(async (req) => {
           }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollError,
+            error_message: isSeedanceRealPersonSafetyError(pollError) ? seedanceSafetyFinalError(pollError) : pollError,
           }).eq("id", jobId);
           return json({ ok: true, status: "failed" });
         }
