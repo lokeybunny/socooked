@@ -203,6 +203,13 @@ async function buildSeedanceSafetyRetryPayload(
     retryPayload.input_image_url = cleaned.url;
   }
 
+  await admin.from("generation_jobs").update({
+    settings_json: retrySettings,
+    input_image_url: retryPayload.input_image_url || null,
+    error_message: null,
+    backend_logs: "Auto-cleaned the main human reference with Lovable AI and retried Seedance once.",
+  }).eq("id", jobId);
+
   return retryPayload;
 }
 
