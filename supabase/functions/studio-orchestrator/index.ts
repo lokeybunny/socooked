@@ -479,6 +479,7 @@ Deno.serve(async (req) => {
     if (req.method === "POST" && (path === "" || path === "/")) {
       const body = await req.json();
       const payload: JobPayload = {
+        user_id: userId,
         task_type: body.task_type,
         prompt: body.prompt,
         negative_prompt: body.negative_prompt || null,
@@ -552,6 +553,7 @@ Deno.serve(async (req) => {
       if (!job) return json({ error: "Job not found" }, 404);
 
       const payload: JobPayload = {
+        user_id: userId,
         task_type: job.task_type,
         prompt: job.prompt,
         negative_prompt: job.negative_prompt,
