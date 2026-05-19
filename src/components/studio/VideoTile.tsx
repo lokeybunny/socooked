@@ -150,6 +150,7 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
         videoUrl={job.output_video_url}
         jobId={job.id}
       />
+      <CategorizeDialog open={categorizeOpen} onOpenChange={setCategorizeOpen} job={job} />
     </>
   );
 }
