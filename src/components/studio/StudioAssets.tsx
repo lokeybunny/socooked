@@ -53,6 +53,8 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
 
+  const [autoEmpty, setAutoEmpty] = useState(false);
+
   // Upload destination overrides (default to current selections)
   const [uploadProjectId, setUploadProjectId] = useState<string | null>(projectId);
   const [uploadSubprojectId, setUploadSubprojectId] = useState<string | null>(subprojectId);
