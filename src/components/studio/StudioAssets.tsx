@@ -4,8 +4,26 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
-import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers } from 'lucide-react';
+import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers, Sparkles } from 'lucide-react';
 import { lightboxProps } from './ImageLightbox';
+import { Checkbox } from '@/components/ui/checkbox';
+
+// Read a File as data URL
+const fileToDataUrl = (file: Blob): Promise<string> => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(r.result as string);
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
+const dataUrlToBlob = (dataUrl: string): Blob => {
+  const [head, body] = dataUrl.split(',');
+  const mime = /data:([^;]+)/.exec(head)?.[1] || 'image/png';
+  const bin = atob(body);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+};
 
 interface Asset {
   id: string;
@@ -34,6 +52,8 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
+
+  const [autoEmpty, setAutoEmpty] = useState(false);
 
   // Upload destination overrides (default to current selections)
   const [uploadProjectId, setUploadProjectId] = useState<string | null>(projectId);
@@ -80,17 +100,40 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
       const baseOrder = assets.length;
       let done = 0;
       for (let i = 0; i < images.length; i++) {
-        const file = images[i];
-        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+        const original = images[i];
+        let file: Blob = original;
+        let ext = (original.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 5);
+        let contentType = original.type;
+        let nameBase = original.name.replace(/\.[^.]+$/, '');
+
+        if (autoEmpty) {
+          try {
+            const dataUrl = await fileToDataUrl(original);
+            const { data: emptied, error: fnErr } = await supabase.functions.invoke('empty-room', { body: { imageDataUrl: dataUrl } });
+            if (fnErr) throw fnErr;
+            if (emptied?.imageDataUrl) {
+              file = dataUrlToBlob(emptied.imageDataUrl);
+              contentType = file.type || 'image/png';
+              ext = contentType.split('/')[1] || 'png';
+              nameBase = `${nameBase}-empty`;
+            } else {
+              throw new Error('AI did not return an image');
+            }
+          } catch (e) {
+            console.error('empty-room failed', e);
+            toast({ title: `Auto-empty failed for "${original.name}"`, description: (e as Error).message + ' — uploading original instead.', variant: 'destructive' });
+          }
+        }
+
         const path = `${userId}/${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, file, { contentType: file.type, upsert: false });
+        const { error: upErr } = await supabase.storage.from('studio-assets').upload(path, file, { contentType, upsert: false });
         if (upErr) { console.error(upErr); continue; }
         const { data: pub } = supabase.storage.from('studio-assets').getPublicUrl(path);
         await supabase.from('studio_assets').insert({
           user_id: userId,
           project_id: uploadProjectId,
           subproject_id: uploadSubprojectId,
-          name: file.name.replace(/\.[^.]+$/, ''),
+          name: nameBase,
           image_url: pub.publicUrl,
           storage_path: path,
           sort_order: baseOrder + i,
@@ -193,9 +236,14 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
               </SelectContent>
             </Select>
           )}
+          <label className={`flex items-center gap-2 h-9 px-3 rounded-md border cursor-pointer text-xs select-none ${autoEmpty ? 'border-amber-500/60 bg-amber-500/10 text-amber-200' : 'border-white/10 bg-card/50 text-muted-foreground hover:text-foreground'}`}>
+            <Checkbox checked={autoEmpty} onCheckedChange={(v) => setAutoEmpty(!!v)} />
+            <Sparkles className="w-3.5 h-3.5" />
+            Auto-empty rooms (remove furniture & decor)
+          </label>
           <Button onClick={onPickClick} disabled={uploading} className="gap-2 bg-amber-600 hover:bg-amber-700">
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            {uploading ? `Uploading ${progress.done}/${progress.total}` : 'Bulk Upload'}
+            {uploading ? `${autoEmpty ? 'Emptying ' : 'Uploading '}${progress.done}/${progress.total}` : 'Bulk Upload'}
           </Button>
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onInputChange} />
         </div>
