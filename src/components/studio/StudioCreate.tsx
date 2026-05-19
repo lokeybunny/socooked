@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { submitJob } from '@/lib/studio/hooks';
+import { getOrCreateActiveBatch, addItemToBatch } from '@/lib/studio/batches';
+import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
 import { JobStatusPanel } from './JobStatusPanel';
 import {
   STYLE_PRESETS, RESOLUTIONS, ASPECT_RATIOS, DURATIONS, FPS_OPTIONS,
