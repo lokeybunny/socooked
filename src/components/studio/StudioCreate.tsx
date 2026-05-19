@@ -95,9 +95,21 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     if (typeof prefill.negative_prompt === 'string' || prefill.negative_prompt === null) {
       setNegPrompt(prefill.negative_prompt ?? '');
     }
-    if (prefill.settings_json) setSettings(s => ({ ...s, ...prefill.settings_json }));
+    if (prefill.settings_json) {
+      setSettings(s => ({ ...s, ...prefill.settings_json }));
+      const sj = prefill.settings_json as any;
+      const refImgs = Array.isArray(sj?.reference_images_urls) ? sj.reference_images_urls.filter((u: any) => typeof u === 'string') : [];
+      if (refImgs.length) setRefImageUrls(refImgs.slice(0, 9));
+      // Videos/audios in settings are URLs; we can't rehydrate as File objects, but we surface them so user sees them attached.
+      // For now we leave refVideos/refAudios as File state; users will re-upload only if needed.
+    }
     if (prefill.input_image_url) setImagePreview(prefill.input_image_url);
-    toast({ title: 'Loaded for editing', description: 'Tweak the prompt and resubmit.' });
+    const refCount = Array.isArray((prefill.settings_json as any)?.reference_images_urls)
+      ? (prefill.settings_json as any).reference_images_urls.length : 0;
+    toast({
+      title: 'Loaded for editing',
+      description: refCount ? `Re-attached ${refCount} reference image${refCount === 1 ? '' : 's'}. Tweak and resubmit.` : 'Tweak the prompt and resubmit.',
+    });
     onPrefillConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
