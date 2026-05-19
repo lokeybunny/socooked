@@ -533,7 +533,11 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Prompt</Label>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
+                <PromptVoiceEditButton
+                  currentPrompt={prompt}
+                  onPromptUpdated={(newPrompt) => setPrompt(newPrompt)}
+                />
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={randomInspiration}>
                   <Dice5 className="w-3 h-3" /> Inspire
                 </Button>
