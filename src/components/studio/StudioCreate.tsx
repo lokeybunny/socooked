@@ -1015,6 +1015,13 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
     />
+
+    <PromptGuideDialog
+      open={promptGuideOpen}
+      onOpenChange={setPromptGuideOpen}
+      images={promptGuideImages}
+      onApply={(p) => setPrompt(p)}
+    />
   </>
   );
 }
