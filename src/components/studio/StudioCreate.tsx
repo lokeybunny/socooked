@@ -23,7 +23,7 @@ import {
 } from '@/lib/studio/types';
 import {
   Type, Image, Layers, Mic, UserCircle, Upload, Sparkles, Loader2,
-  Wand2, Dice5, ChevronRight, Info,
+  Wand2, Dice5, ChevronRight, Info, ListPlus,
 } from 'lucide-react';
 import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
