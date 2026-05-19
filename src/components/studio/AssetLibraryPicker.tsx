@@ -145,36 +145,58 @@ export function AssetLibraryPicker({ open, onOpenChange, projectId, subprojectId
               No assets found. Upload some in the Assets tab.
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-              {visible.map(r => {
-                const isPicked = picked.has(r.id);
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => toggle(r.id)}
-                    className={`relative rounded-lg overflow-hidden border-2 aspect-square transition-all ${isPicked ? 'border-[#00ff88] ring-2 ring-[#00ff88]/40' : 'border-white/10 hover:border-white/30'}`}
-                  >
-                    <img src={r.image_url} alt={r.name || 'asset'} loading="lazy" className="w-full h-full object-cover" {...lightboxProps(r.image_url, r.name || 'asset')} />
-                    {isPicked && (
-                      <div className="absolute inset-0 bg-[#00ff88]/20 flex items-center justify-center">
-                        <div className="bg-[#00ff88] text-black rounded-full p-1.5">
-                          <Check className="w-4 h-4" />
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+              {groups.map((g, gi) => {
+                const renderTile = (r: AssetRow, label?: 'A' | 'B') => {
+                  const isPicked = picked.has(r.id);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => toggle(r.id)}
+                      className={`relative rounded-lg overflow-hidden border-2 aspect-square transition-all ${isPicked ? 'border-[#00ff88] ring-2 ring-[#00ff88]/40' : 'border-white/10 hover:border-white/30'}`}
+                    >
+                      <img src={r.image_url} alt={r.name || 'asset'} loading="lazy" className="w-full h-full object-cover" {...lightboxProps(r.image_url, r.name || 'asset')} />
+                      {isPicked && (
+                        <div className="absolute inset-0 bg-[#00ff88]/20 flex items-center justify-center">
+                          <div className="bg-[#00ff88] text-black rounded-full p-1.5">
+                            <Check className="w-4 h-4" />
+                          </div>
                         </div>
+                      )}
+                      {label && (
+                        <div className="absolute top-1 right-1">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm ${label === 'A' ? 'bg-amber-500/80 text-black' : 'bg-emerald-500/80 text-black'}`}>
+                            {label === 'A' ? 'BEFORE' : 'AFTER'}
+                          </span>
+                        </div>
+                      )}
+                      {r.subproject_id && (
+                        <div className="absolute top-1 left-1">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/40 text-violet-100 backdrop-blur-sm flex items-center gap-1"><Folder className="w-2.5 h-2.5" /> Sub</span>
+                        </div>
+                      )}
+                      {r.name && (
+                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[10px] text-white truncate text-left">
+                          {r.name}
+                        </div>
+                      )}
+                    </button>
+                  );
+                };
+
+                if (g.kind === 'pair') {
+                  return (
+                    <div key={`pair-${gi}`} className="col-span-2 rounded-xl border border-[#00ff88]/30 bg-[#00ff88]/5 p-1.5">
+                      <div className="text-[9px] tracking-widest text-[#00ff88]/80 px-1 pb-1 font-medium">A / B PAIR</div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {renderTile(g.original, 'A')}
+                        {renderTile(g.processed, 'B')}
                       </div>
-                    )}
-                    {r.subproject_id && (
-                      <div className="absolute top-1 left-1">
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/40 text-violet-100 backdrop-blur-sm flex items-center gap-1"><Folder className="w-2.5 h-2.5" /> Sub</span>
-                      </div>
-                    )}
-                    {r.name && (
-                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[10px] text-white truncate text-left">
-                        {r.name}
-                      </div>
-                    )}
-                  </button>
-                );
+                    </div>
+                  );
+                }
+                return renderTile(g.row);
               })}
             </div>
           )}
