@@ -124,9 +124,23 @@ async function persistGeneratedImage(admin: ReturnType<typeof adminClient>, imag
   return { url: data.publicUrl, path };
 }
 
-async function removeHumanFromReference(admin: ReturnType<typeof adminClient>, sourceUrl: string, userId: string | null | undefined, jobId: string) {
+const SAFETY_EDIT_PROMPTS = [
+  "Edit this reference image so it clears a video model safety filter: remove every visible real or realistic human/person from the shot, including faces, bodies, hands, reflections, and silhouettes. Naturally reconstruct the background/scene behind them. Preserve the original camera angle, architecture/location, lighting, aspect ratio, color style, and usable scene details. Do not add new people, text, logos, or watermarks.",
+  "Aggressively repaint this image to be 100% free of any human presence. Eliminate ALL faces, bodies, hands, fingers, eyes, hair, skin, clothing on bodies, mannequins, statues of people, photos-of-people, posters with faces, reflections of people in glass/water/mirrors, and human silhouettes or shadows. Replace removed people with plausible empty environment (walls, floor, sky, props). Keep the scene's location, lighting, camera angle, and aspect ratio. Output must look like the same place with zero humans.",
+  "Convert this into a clean empty-scene plate: stylize it slightly (subtle painterly / illustrated look) so it cannot be mistaken for a real photograph of a real person. Remove every person and every human body part. No faces, no skin, no hands, no silhouettes, no reflections of humans. Keep the architecture, props, color palette, and aspect ratio. Output a stylized, person-free environment plate.",
+];
+
+async function removeHumanFromReference(
+  admin: ReturnType<typeof adminClient>,
+  sourceUrl: string,
+  userId: string | null | undefined,
+  jobId: string,
+  attempt = 0,
+) {
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured for the Seedance safety fix.");
+
+  const promptText = SAFETY_EDIT_PROMPTS[Math.min(attempt, SAFETY_EDIT_PROMPTS.length - 1)];
 
   const aiRes = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -139,10 +153,7 @@ async function removeHumanFromReference(admin: ReturnType<typeof adminClient>, s
       messages: [{
         role: "user",
         content: [
-          {
-            type: "text",
-            text: "Edit this reference image so it clears a video model safety filter: remove every visible real or realistic human/person from the shot, including faces, bodies, hands, reflections, and silhouettes. Naturally reconstruct the background/scene behind them. Preserve the original camera angle, architecture/location, lighting, aspect ratio, color style, and usable scene details. Do not add new people, text, logos, or watermarks.",
-          },
+          { type: "text", text: promptText },
           { type: "image_url", image_url: { url: sourceUrl } },
         ],
       }],
@@ -164,8 +175,10 @@ async function removeHumanFromReference(admin: ReturnType<typeof adminClient>, s
   return persistGeneratedImage(admin, editedUrl, userId, jobId);
 }
 
+const MAX_SAFETY_ATTEMPTS = SAFETY_EDIT_PROMPTS.length;
+
 const seedanceSafetyFinalError = (rawError: string) =>
-  `Seedance still rejected the reference images after the automatic safety cleanup. One of the references may still look like a real person, face, hand, reflection, or silhouette to ByteDance's filter. Original provider error: ${rawError}`;
+  `Seedance still rejected the reference images after ${MAX_SAFETY_ATTEMPTS} automatic cleanup passes and a no-reference fallback. ByteDance's filter is treating the scene itself as a real person. Try different references that contain no humans, faces, hands, statues, posters of people, or reflections. Original provider error: ${rawError}`;
 
 async function buildSeedanceSafetyRetryPayload(
   admin: ReturnType<typeof adminClient>,
@@ -176,32 +189,72 @@ async function buildSeedanceSafetyRetryPayload(
   isImageToVideo: boolean,
   isRefToVideo: boolean,
 ): Promise<JobPayload | null> {
-  const alreadyCleanedMain = Boolean((settings as any).seedance_real_person_clean_retry_attempted);
-  const alreadyCleanedAllRefs = Boolean((settings as any).seedance_real_person_all_refs_clean_retry_attempted);
-  if (isRefToVideo ? alreadyCleanedAllRefs : alreadyCleanedMain) return null;
+  const prevAttempts = Number((settings as any).seedance_safety_attempts || 0);
+  const droppedRefs = Boolean((settings as any).seedance_safety_dropped_refs);
+
+  // Final fallback: if we've exhausted cleanup attempts, strip references and downgrade model
+  if (prevAttempts >= MAX_SAFETY_ATTEMPTS) {
+    if (droppedRefs) return null; // already fell back, give up
+    const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
+    const fallbackModel = requestedModel
+      .replace("reference-to-video", "text-to-video")
+      .replace("image-to-video", "text-to-video");
+    const fallbackSettings: Record<string, unknown> = {
+      ...settings,
+      seedance_model: fallbackModel,
+      seedance_safety_dropped_refs: true,
+      reference_images_urls: [],
+      reference_videos_urls: [],
+      reference_audios_urls: [],
+    };
+    const fallbackPayload: JobPayload = {
+      ...payload,
+      task_type: "t2v",
+      input_image_url: null,
+      settings_json: fallbackSettings,
+    };
+    await admin.from("generation_jobs").update({
+      status: "provisioning",
+      progress: 4,
+      task_type: "t2v",
+      input_image_url: null,
+      settings_json: fallbackSettings,
+      error_message: null,
+      worker_job_id: null,
+      output_video_url: null,
+      output_thumbnail_url: null,
+      backend_logs: `Seedance kept rejecting the references after ${MAX_SAFETY_ATTEMPTS} cleanup passes. Falling back to text-to-video with no reference images so the job can still complete.`,
+    }).eq("id", jobId);
+    return fallbackPayload;
+  }
 
   const sourceUrls = isRefToVideo ? refImages.filter(Boolean) : isImageToVideo && payload.input_image_url ? [payload.input_image_url] : [];
   if (sourceUrls.length === 0) return null;
+
+  const attemptIndex = prevAttempts; // 0-based for prompt selection
+  const attemptLabel = `pass ${prevAttempts + 1} of ${MAX_SAFETY_ATTEMPTS}`;
 
   await admin.from("generation_jobs").update({
     status: "provisioning",
     progress: 4,
     backend_logs: isRefToVideo
-      ? "Seedance blocked one of the references as a possible real person. Auto-cleaning every image reference with Lovable AI and retrying once."
-      : "Seedance blocked the input image as a possible real person. Auto-cleaning it with Lovable AI and retrying once.",
+      ? `Seedance blocked a reference as a possible real person. Auto-cleaning every image reference (${attemptLabel}) and retrying.`
+      : `Seedance blocked the input image as a possible real person. Auto-cleaning it (${attemptLabel}) and retrying.`,
   }).eq("id", jobId);
 
   const cleanedRefs = [] as Awaited<ReturnType<typeof removeHumanFromReference>>[];
   for (let i = 0; i < sourceUrls.length; i++) {
     await admin.from("generation_jobs").update({
       progress: Math.min(5 + i, 12),
-      backend_logs: `Auto-cleaning reference ${i + 1} of ${sourceUrls.length} for Seedance safety.`,
+      backend_logs: `Auto-cleaning reference ${i + 1} of ${sourceUrls.length} for Seedance safety (${attemptLabel}).`,
     }).eq("id", jobId);
-    cleanedRefs.push(await removeHumanFromReference(admin, sourceUrls[i], payload.user_id || null, `${jobId}-ref-${i + 1}`));
+    cleanedRefs.push(await removeHumanFromReference(admin, sourceUrls[i], payload.user_id || null, `${jobId}-ref-${i + 1}-a${attemptIndex}`, attemptIndex));
   }
 
   const retrySettings: Record<string, unknown> = {
     ...settings,
+    seedance_safety_attempts: prevAttempts + 1,
+    // legacy flags kept for backward compat with refresh path
     seedance_real_person_clean_retry_attempted: true,
     seedance_real_person_original_reference_url: sourceUrls[0],
     seedance_real_person_clean_reference_url: cleanedRefs[0]?.url,
@@ -231,8 +284,8 @@ async function buildSeedanceSafetyRetryPayload(
     output_video_url: null,
     output_thumbnail_url: null,
     backend_logs: isRefToVideo
-      ? `Auto-cleaned ${cleanedRefs.length} reference image${cleanedRefs.length === 1 ? "" : "s"} with Lovable AI and retried Seedance once.`
-      : "Auto-cleaned the input image with Lovable AI and retried Seedance once.",
+      ? `Auto-cleaned ${cleanedRefs.length} reference image${cleanedRefs.length === 1 ? "" : "s"} (${attemptLabel}) and retrying Seedance.`
+      : `Auto-cleaned the input image (${attemptLabel}) and retrying Seedance.`,
   }).eq("id", jobId);
 
   return retryPayload;
