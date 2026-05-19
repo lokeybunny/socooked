@@ -79,7 +79,7 @@ export function StudioQueue({ onModify }: StudioQueueProps = {}) {
   );
 }
 
-function QueueRow({ job, onCancel, onRetry }: { job: GenerationJob; onCancel: (id: string) => void; onRetry: (id: string) => void }) {
+function QueueRow({ job, onCancel, onRetry, onModify }: { job: GenerationJob; onCancel: (id: string) => void; onRetry: (id: string) => void; onModify?: (job: GenerationJob) => void }) {
   const [expanded, setExpanded] = useState(false);
   const prompt = getJobPrompt(job);
 
