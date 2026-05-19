@@ -26,6 +26,8 @@ import {
 import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
+import { PromptGuideDialog } from './PromptGuideDialog';
+import { Wand2 as WandIcon } from 'lucide-react';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
