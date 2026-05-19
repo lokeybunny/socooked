@@ -696,13 +696,15 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           </CardContent>
         </Card>
 
-        {/* Director Camera Styles — Movie Camera Language Engine */}
-        <DirectorCameraStyles
-          basePrompt={prompt}
-          selectedIds={directorStyleIds}
-          onSelectedChange={setDirectorStyleIds}
-          onApplyFinalPrompt={(finalPrompt) => setPrompt(finalPrompt)}
-        />
+        {/* Director Camera Styles — Movie Camera Language Engine (toggled by Director button) */}
+        {showDirector && (
+          <DirectorCameraStyles
+            basePrompt={prompt}
+            selectedIds={directorStyleIds}
+            onSelectedChange={setDirectorStyleIds}
+            onApplyFinalPrompt={(finalPrompt) => setPrompt(finalPrompt)}
+          />
+        )}
 
         {/* Generate Button */}
         <Button
