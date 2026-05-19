@@ -208,6 +208,9 @@ async function buildSeedanceSafetyRetryPayload(
     settings_json: retrySettings,
     input_image_url: retryPayload.input_image_url || null,
     error_message: null,
+    worker_job_id: null,
+    output_video_url: null,
+    output_thumbnail_url: null,
     backend_logs: "Auto-cleaned the main human reference with Lovable AI and retried Seedance once.",
   }).eq("id", jobId);
 
