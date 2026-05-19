@@ -8125,12 +8125,14 @@ export type Database = {
           image_url: string
           name: string | null
           notes: string | null
+          pair_id: string | null
           project_id: string | null
           sort_order: number
           storage_path: string | null
           subproject_id: string | null
           updated_at: string
           user_id: string
+          variant: string | null
         }
         Insert: {
           created_at?: string
@@ -8138,12 +8140,14 @@ export type Database = {
           image_url: string
           name?: string | null
           notes?: string | null
+          pair_id?: string | null
           project_id?: string | null
           sort_order?: number
           storage_path?: string | null
           subproject_id?: string | null
           updated_at?: string
           user_id: string
+          variant?: string | null
         }
         Update: {
           created_at?: string
@@ -8151,12 +8155,14 @@ export type Database = {
           image_url?: string
           name?: string | null
           notes?: string | null
+          pair_id?: string | null
           project_id?: string | null
           sort_order?: number
           storage_path?: string | null
           subproject_id?: string | null
           updated_at?: string
           user_id?: string
+          variant?: string | null
         }
         Relationships: [
           {
