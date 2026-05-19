@@ -479,14 +479,23 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   <div key={slot} className="space-y-2">
                     <Label className="text-xs text-muted-foreground">{label}</Label>
                     {preview ? (
-                      <div className="relative">
+                      <div
+                        className="relative"
+                        onDragOver={preventDrag}
+                        onDrop={acceptImageDrop(slot)}
+                      >
                         <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" />
                         <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clear}>Remove</Button>
+                        <div className="absolute inset-0 rounded-lg ring-2 ring-transparent hover:ring-violet-500/40 transition pointer-events-none" />
                       </div>
                     ) : (
-                      <label className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors min-h-[180px]">
+                      <label
+                        className="border-2 border-dashed border-border/50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-violet-500/50 transition-colors min-h-[180px]"
+                        onDragOver={preventDrag}
+                        onDrop={acceptImageDrop(slot)}
+                      >
                         <Upload className="w-7 h-7 text-muted-foreground/50 mb-2" />
-                        <p className="text-xs text-muted-foreground">Upload Frame {slot}</p>
+                        <p className="text-xs text-muted-foreground">Drop or click to upload Frame {slot}</p>
                         <p className="text-[10px] text-muted-foreground/60 mt-1">JPG / PNG / WebP · 20MB</p>
                         <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onChange} />
                       </label>
