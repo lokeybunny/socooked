@@ -579,7 +579,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                         onDragOver={preventDrag}
                         onDrop={acceptImageDrop(slot)}
                       >
-                        <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" />
+                        <img src={preview} alt={`Frame ${slot}`} className="rounded-lg max-h-[220px] w-full object-contain bg-background/50" {...lightboxProps(preview, `Frame ${slot}`)} />
                         <Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={clear}>Remove</Button>
                         <div className="absolute inset-0 rounded-lg ring-2 ring-transparent hover:ring-violet-500/40 transition pointer-events-none" />
                       </div>
