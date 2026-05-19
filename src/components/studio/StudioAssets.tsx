@@ -225,7 +225,7 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {assets.map((a, idx) => (
               <div key={a.id} className="group relative rounded-xl overflow-hidden border border-white/10 bg-zinc-900 aspect-square">
-                <img src={a.image_url} alt={a.name || 'asset'} loading="lazy" className="w-full h-full object-cover" />
+                <img src={a.image_url} alt={a.name || 'asset'} loading="lazy" className="w-full h-full object-cover" {...lightboxProps(a.image_url, a.name || 'asset')} />
                 <div className="absolute top-1.5 left-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm">
                   #{idx + 1}
                 </div>
