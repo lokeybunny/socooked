@@ -616,9 +616,30 @@ Deno.serve(async (req) => {
           return json({ ok: true, status: "completed" });
         }
         if (status === "failed" || status === "timeout" || status === "cancelled") {
+          const pollError = pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`;
+          if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
+            const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
+            const seedanceModel = normalizeSeedanceModel(job.task_type, requestedModel, Boolean(job.input_image_url));
+            const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
+            const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, {
+              user_id: job.user_id,
+              task_type: job.task_type,
+              prompt: job.prompt,
+              negative_prompt: job.negative_prompt,
+              settings_json: settings,
+              input_image_url: job.input_image_url,
+              input_audio_url: job.input_audio_url,
+              project_id: job.project_id,
+              subproject_id: job.subproject_id,
+            }, settings, refImages, seedanceModel.includes("image-to-video"), seedanceModel.includes("reference-to-video"));
+            if (retryPayload) {
+              await dispatchJob(jobId, retryPayload);
+              return json({ ok: true, status: "retrying", safety_fix: true });
+            }
+          }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`,
+            error_message: pollError,
           }).eq("id", jobId);
           return json({ ok: true, status: "failed" });
         }
