@@ -27,7 +27,7 @@ import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
-import { lightboxProps } from './ImageLightbox';
+import { lightboxProps, openImageLightbox } from './ImageLightbox';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
