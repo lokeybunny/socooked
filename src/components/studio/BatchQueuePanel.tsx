@@ -18,7 +18,7 @@ interface Props {
   onLoadItem?: (item: StudioBatchItem) => void;
 }
 
-export function BatchQueuePanel({ projectId, subprojectId }: Props) {
+export function BatchQueuePanel({ projectId, subprojectId, onLoadItem }: Props) {
   const [activeBatch, setActiveBatch] = useState<StudioBatch | null>(null);
   const [resolving, setResolving] = useState(false);
   const [running, setRunning] = useState(false);
