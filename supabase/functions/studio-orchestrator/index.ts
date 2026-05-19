@@ -84,6 +84,128 @@ const normalizeSeedanceModel = (taskType: string, model: string, hasImage: boole
   return model;
 };
 
+const isSeedanceRealPersonSafetyError = (message: string) =>
+  /input image may contain real person/i.test(message) || /may contain real person/i.test(message);
+
+const extractGeneratedImageUrl = (message: any): string | null => {
+  const images = Array.isArray(message?.images) ? message.images : [];
+  for (const img of images) {
+    const url = img?.image_url?.url;
+    if (typeof url === "string" && url) return url;
+  }
+
+  const content = Array.isArray(message?.content) ? message.content : [];
+  for (const part of content) {
+    const url = part?.image_url?.url;
+    if (typeof url === "string" && url) return url;
+  }
+
+  return null;
+};
+
+async function persistGeneratedImage(admin: ReturnType<typeof adminClient>, imageUrl: string, userId: string | null | undefined, jobId: string) {
+  if (!imageUrl.startsWith("data:")) return { url: imageUrl, path: null };
+
+  const match = imageUrl.match(/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/);
+  if (!match) throw new Error("Lovable AI returned an unsupported image format for the Seedance safety fix.");
+
+  const mimeExt = match[1];
+  const ext = mimeExt === "jpeg" ? "jpg" : mimeExt;
+  const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+  const path = `studio/seedance-safety/${userId || "system"}/${jobId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const { error } = await admin.storage.from("content-uploads").upload(path, bytes, {
+    contentType: `image/${mimeExt}`,
+    upsert: true,
+  });
+  if (error) throw new Error(`Could not save Seedance safety-fixed reference: ${error.message}`);
+
+  const { data } = admin.storage.from("content-uploads").getPublicUrl(path);
+  return { url: data.publicUrl, path };
+}
+
+async function removeHumanFromReference(admin: ReturnType<typeof adminClient>, sourceUrl: string, userId: string | null | undefined, jobId: string) {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured for the Seedance safety fix.");
+
+  const aiRes = await fetchWithTimeout("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image-preview",
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Edit this reference image so it clears a video model safety filter: remove every visible real or realistic human/person from the shot, including faces, bodies, hands, reflections, and silhouettes. Naturally reconstruct the background/scene behind them. Preserve the original camera angle, architecture/location, lighting, aspect ratio, color style, and usable scene details. Do not add new people, text, logos, or watermarks.",
+          },
+          { type: "image_url", image_url: { url: sourceUrl } },
+        ],
+      }],
+      modalities: ["image", "text"],
+    }),
+  }, 45000, "Lovable AI Seedance safety image edit");
+
+  const aiText = await aiRes.text();
+  let aiJson: any = {};
+  try { aiJson = aiText ? JSON.parse(aiText) : {}; } catch { aiJson = { raw: aiText }; }
+
+  if (!aiRes.ok) {
+    const msg = aiJson?.error?.message || aiJson?.error || aiJson?.message || aiText;
+    throw new Error(`Lovable AI safety image edit failed ${aiRes.status}: ${msg}`);
+  }
+
+  const editedUrl = extractGeneratedImageUrl(aiJson?.choices?.[0]?.message);
+  if (!editedUrl) throw new Error("Lovable AI did not return an edited image for the Seedance safety fix.");
+  return persistGeneratedImage(admin, editedUrl, userId, jobId);
+}
+
+async function buildSeedanceSafetyRetryPayload(
+  admin: ReturnType<typeof adminClient>,
+  jobId: string,
+  payload: JobPayload,
+  settings: Record<string, unknown>,
+  refImages: string[],
+  isImageToVideo: boolean,
+  isRefToVideo: boolean,
+): Promise<JobPayload | null> {
+  if ((settings as any).seedance_real_person_clean_retry_attempted) return null;
+
+  const sourceUrl = isRefToVideo ? refImages[0] : isImageToVideo ? payload.input_image_url : null;
+  if (!sourceUrl) return null;
+
+  await admin.from("generation_jobs").update({
+    status: "provisioning",
+    progress: 4,
+    backend_logs: "Seedance blocked the reference as a possible real person. Auto-cleaning the main human reference with Lovable AI and retrying once.",
+  }).eq("id", jobId);
+
+  const cleaned = await removeHumanFromReference(admin, sourceUrl, (settings as any).user_id || null, jobId);
+  const retrySettings: Record<string, unknown> = {
+    ...settings,
+    seedance_real_person_clean_retry_attempted: true,
+    seedance_real_person_original_reference_url: sourceUrl,
+    seedance_real_person_clean_reference_url: cleaned.url,
+    seedance_real_person_clean_reference_path: cleaned.path,
+  };
+
+  const retryPayload: JobPayload = {
+    ...payload,
+    settings_json: retrySettings,
+  };
+
+  if (isRefToVideo) {
+    retrySettings.reference_images_urls = [cleaned.url, ...refImages.slice(1)];
+  } else if (isImageToVideo) {
+    retryPayload.input_image_url = cleaned.url;
+  }
+
+  return retryPayload;
+}
+
 async function dispatchJob(jobId: string, payload: JobPayload) {
   const admin = adminClient();
   const settings = payload.settings_json || {};
