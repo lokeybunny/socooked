@@ -280,6 +280,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       setImagePreview(null);
       setImageFileB(null);
       setImagePreviewB(null);
+      setRefImages([]);
+      setRefVideos([]);
+      setRefAudios([]);
       setSelectedStyles([]);
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
