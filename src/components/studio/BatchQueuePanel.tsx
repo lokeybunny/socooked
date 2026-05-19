@@ -10,13 +10,15 @@ import {
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
 import { TASK_LABELS } from '@/lib/studio/types';
 import { Layers, X, Play, Trash2, Loader2, CheckCircle2, AlertTriangle, Image as ImageIcon } from 'lucide-react';
+import type { StudioBatchItem } from '@/lib/studio/batches';
 
 interface Props {
   projectId: string | null;
   subprojectId: string | null;
+  onLoadItem?: (item: StudioBatchItem) => void;
 }
 
-export function BatchQueuePanel({ projectId, subprojectId }: Props) {
+export function BatchQueuePanel({ projectId, subprojectId, onLoadItem }: Props) {
   const [activeBatch, setActiveBatch] = useState<StudioBatch | null>(null);
   const [resolving, setResolving] = useState(false);
   const [running, setRunning] = useState(false);
@@ -132,7 +134,15 @@ export function BatchQueuePanel({ projectId, subprojectId }: Props) {
                 </div>
               ) : (
                 items.map((it, idx) => (
-                  <div key={it.id} className="flex items-start gap-2 p-2 rounded-md bg-background/40 border border-border/40">
+                  <div
+                    key={it.id}
+                    role={onLoadItem ? 'button' : undefined}
+                    tabIndex={onLoadItem ? 0 : undefined}
+                    onClick={() => onLoadItem?.(it)}
+                    onKeyDown={(e) => { if (onLoadItem && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onLoadItem(it); } }}
+                    title={onLoadItem ? 'Click to load this batch item back into Create' : undefined}
+                    className={`flex items-start gap-2 p-2 rounded-md bg-background/40 border border-border/40 ${onLoadItem ? 'cursor-pointer hover:bg-background/70 hover:border-violet-500/40 transition-colors' : ''}`}
+                  >
                     <div className="w-8 h-8 rounded bg-muted/40 overflow-hidden shrink-0 flex items-center justify-center">
                       {it.input_image_url ? (
                         <img src={it.input_image_url} alt="" className="w-full h-full object-cover" />
@@ -152,7 +162,7 @@ export function BatchQueuePanel({ projectId, subprojectId }: Props) {
                       <p className="text-[10px] line-clamp-2 leading-snug text-muted-foreground">{it.prompt}</p>
                     </div>
                     {it.status === 'queued' && (
-                      <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-red-400" onClick={() => handleRemove(it.id)}>
+                      <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-red-400" onClick={(e) => { e.stopPropagation(); handleRemove(it.id); }}>
                         <X className="w-3 h-3" />
                       </Button>
                     )}

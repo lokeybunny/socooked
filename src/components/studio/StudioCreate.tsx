@@ -997,7 +997,26 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       {/* Right Sidebar — Settings */}
       <div className="space-y-4">
         <JobStatusPanel />
-        <BatchQueuePanel projectId={projectId ?? null} subprojectId={subprojectId ?? null} />
+        <BatchQueuePanel
+          projectId={projectId ?? null}
+          subprojectId={subprojectId ?? null}
+          onLoadItem={(it) => {
+            setTaskType(it.task_type);
+            setPrompt(it.prompt || '');
+            setNegPrompt(it.negative_prompt ?? '');
+            if (it.settings_json) {
+              setSettings(s => ({ ...s, ...(it.settings_json as Record<string, unknown>) }));
+              const sj = it.settings_json as Record<string, unknown>;
+              const refImgs = Array.isArray((sj as { reference_images_urls?: unknown }).reference_images_urls)
+                ? ((sj as { reference_images_urls: unknown[] }).reference_images_urls.filter((u): u is string => typeof u === 'string'))
+                : [];
+              setRefImageUrls(refImgs.slice(0, 9));
+            }
+            if (it.input_image_url) setImagePreview(it.input_image_url);
+            toast({ title: 'Loaded from batch', description: 'Prompt & assets restored. Tweak or re-add to batch.' });
+            if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardContent className="p-4 space-y-4">
             <h4 className="text-sm font-semibold">Generation Settings</h4>
