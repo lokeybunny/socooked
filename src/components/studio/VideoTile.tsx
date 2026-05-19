@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, RefreshCw } from 'lucide-react';
+import { Film, Loader2, ChevronDown, Pencil, RotateCw, Crop, RefreshCw, FolderOpen } from 'lucide-react';
 import { STATUS_COLORS, getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 import { GrabFrameDialog } from './GrabFrameDialog';
+import { CategorizeDialog } from './CategorizeDialog';
 import { submitJob } from '@/lib/studio/hooks';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,7 @@ interface Props {
 
 export function VideoTile({ job, onOpen, onModify }: Props) {
   const [grabOpen, setGrabOpen] = useState(false);
+  const [categorizeOpen, setCategorizeOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
   const isReady = job.status === 'completed' && !!job.output_video_url;
@@ -129,6 +131,9 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
                   <DropdownMenuItem onClick={handleRecreate} className="gap-2 cursor-pointer">
                     <RotateCw className="w-4 h-4" /> Recreate video
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCategorizeOpen(true)} className="gap-2 cursor-pointer">
+                    <FolderOpen className="w-4 h-4" /> Categorize
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setGrabOpen(true)} className="gap-2 cursor-pointer">
                     <Crop className="w-4 h-4" /> Grab a frame
                   </DropdownMenuItem>
@@ -145,6 +150,7 @@ export function VideoTile({ job, onOpen, onModify }: Props) {
         videoUrl={job.output_video_url}
         jobId={job.id}
       />
+      <CategorizeDialog open={categorizeOpen} onOpenChange={setCategorizeOpen} job={job} />
     </>
   );
 }
