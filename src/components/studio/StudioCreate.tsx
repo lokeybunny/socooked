@@ -757,7 +757,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                       onDragStart={onReorderStart('img', i)}
                       onDragOver={onReorderOver}
                       onDrop={onReorderDropImg(i)}
-                      title="Drag to reorder">
+                      onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); import('./ImageLightbox').then(m => m.openImageLightbox(url, `Reference ${i+1}`)); }}
+                      title="Double-click to enlarge · Drag to reorder"
+                      style={{ cursor: 'zoom-in' }}>
                       <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
                       <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
