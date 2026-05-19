@@ -240,9 +240,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
       };
       if (seedanceActive && isRef) {
-        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
-        // Append library-picked URLs (already public Supabase URLs)
+        // Library-picked URLs go FIRST so they're always image 1, 2, ... for prompting
         for (const u of refImageUrls) reference_images_urls.push(u);
+        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
         // Cap at API max (9)
         reference_images_urls = reference_images_urls.slice(0, 9);
         for (const f of refVideos) reference_videos_urls.push(await uploadAsset(f, 'vid'));
