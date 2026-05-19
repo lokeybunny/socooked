@@ -123,7 +123,6 @@ export async function addItemToBatch(batchId: string, payload: BatchPayload): Pr
   if (error) throw new Error(error.message);
 
   // bump total_items
-  await supabase.rpc('noop' as never).catch(() => {});
   await supabase
     .from('studio_batches')
     .update({ total_items: position + 1 })
