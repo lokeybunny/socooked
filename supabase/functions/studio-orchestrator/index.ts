@@ -113,14 +113,14 @@ async function persistGeneratedImage(admin: ReturnType<typeof adminClient>, imag
   const mimeExt = match[1];
   const ext = mimeExt === "jpeg" ? "jpg" : mimeExt;
   const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
-  const path = `studio/seedance-safety/${userId || "system"}/${jobId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-  const { error } = await admin.storage.from("content-uploads").upload(path, bytes, {
+  const path = `inputs/seedance-safety/${userId || "system"}/${jobId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+  const { error } = await admin.storage.from("studio-outputs").upload(path, bytes, {
     contentType: `image/${mimeExt}`,
     upsert: true,
   });
   if (error) throw new Error(`Could not save Seedance safety-fixed reference: ${error.message}`);
 
-  const { data } = admin.storage.from("content-uploads").getPublicUrl(path);
+  const { data } = admin.storage.from("studio-outputs").getPublicUrl(path);
   return { url: data.publicUrl, path };
 }
 
