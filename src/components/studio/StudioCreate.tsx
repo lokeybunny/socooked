@@ -218,6 +218,29 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setRefAudios(prev => reorderArray(prev, from, toIndex));
   };
 
+  const fileToDataUrl = (f: File): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(f);
+  });
+
+  const openPromptGuide = async () => {
+    try {
+      const ordered: { url: string; label: string }[] = [];
+      refImageUrls.forEach((u, i) => ordered.push({ url: u, label: `image ${i + 1}` }));
+      const offset = refImageUrls.length;
+      const fileUrls = await Promise.all(refImages.map(f => fileToDataUrl(f)));
+      fileUrls.forEach((u, i) => ordered.push({ url: u, label: `image ${offset + i + 1}` }));
+      setPromptGuideImages(ordered);
+      setPromptGuideOpen(true);
+    } catch (e: any) {
+      toast({ title: 'Could not load references', description: e?.message || String(e), variant: 'destructive' });
+    }
+  };
+
+
+
 
 
 
