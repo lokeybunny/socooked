@@ -177,6 +177,38 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
     }
   };
 
+  const handleMassDelete = async () => {
+    if (assets.length === 0) return;
+    const scope = subprojectId
+      ? `${projectNameMap.get(projectId || '') || 'Project'} › ${subprojectNameMap.get(subprojectId) || 'Subcategory'}`
+      : projectId
+        ? projectNameMap.get(projectId) || 'this project'
+        : 'Unassigned';
+    if (!confirm(`Delete ALL ${assets.length} asset(s) in "${scope}"?\n\nThis cannot be undone.`)) return;
+    const second = prompt(`Type DELETE to confirm wiping ${assets.length} asset(s):`);
+    if (second !== 'DELETE') { toast({ title: 'Cancelled' }); return; }
+
+    setLoading(true);
+    try {
+      const paths = assets.map(a => a.storage_path).filter(Boolean) as string[];
+      if (paths.length) {
+        for (let i = 0; i < paths.length; i += 100) {
+          await supabase.storage.from('studio-assets').remove(paths.slice(i, i + 100));
+        }
+      }
+      const ids = assets.map(a => a.id);
+      const { error } = await supabase.from('studio_assets').delete().in('id', ids);
+      if (error) throw error;
+      setAssets([]);
+      toast({ title: `Deleted ${ids.length} asset${ids.length === 1 ? '' : 's'}` });
+    } catch (e) {
+      toast({ title: 'Mass delete failed', description: (e as Error).message, variant: 'destructive' });
+      fetchAssets();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const copyUrl = async (url: string) => { await navigator.clipboard.writeText(url); toast({ title: 'URL copied' }); };
 
   const downloadAsset = async (a: Asset) => {
@@ -244,6 +276,15 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
           <Button onClick={onPickClick} disabled={uploading} className="gap-2 bg-amber-600 hover:bg-amber-700">
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             {uploading ? `${autoEmpty ? 'Emptying ' : 'Uploading '}${progress.done}/${progress.total}` : 'Bulk Upload'}
+          </Button>
+          <Button
+            onClick={handleMassDelete}
+            disabled={uploading || loading || assets.length === 0}
+            variant="outline"
+            className="gap-2 border-red-500/40 text-red-300 hover:bg-red-600/20 hover:text-red-200"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete All ({assets.length})
           </Button>
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onInputChange} />
         </div>
