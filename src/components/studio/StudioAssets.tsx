@@ -245,6 +245,15 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             {uploading ? `${autoEmpty ? 'Emptying ' : 'Uploading '}${progress.done}/${progress.total}` : 'Bulk Upload'}
           </Button>
+          <Button
+            onClick={handleMassDelete}
+            disabled={uploading || loading || assets.length === 0}
+            variant="outline"
+            className="gap-2 border-red-500/40 text-red-300 hover:bg-red-600/20 hover:text-red-200"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete All ({assets.length})
+          </Button>
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onInputChange} />
         </div>
       </div>
