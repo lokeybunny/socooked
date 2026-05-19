@@ -177,6 +177,38 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
     }
   };
 
+  const handleMassDelete = async () => {
+    if (assets.length === 0) return;
+    const scope = subprojectId
+      ? `${projectNameMap.get(projectId || '') || 'Project'} › ${subprojectNameMap.get(subprojectId) || 'Subcategory'}`
+      : projectId
+        ? projectNameMap.get(projectId) || 'this project'
+        : 'Unassigned';
+    if (!confirm(`Delete ALL ${assets.length} asset(s) in "${scope}"?\n\nThis cannot be undone.`)) return;
+    const second = prompt(`Type DELETE to confirm wiping ${assets.length} asset(s):`);
+    if (second !== 'DELETE') { toast({ title: 'Cancelled' }); return; }
+
+    setLoading(true);
+    try {
+      const paths = assets.map(a => a.storage_path).filter(Boolean) as string[];
+      if (paths.length) {
+        for (let i = 0; i < paths.length; i += 100) {
+          await supabase.storage.from('studio-assets').remove(paths.slice(i, i + 100));
+        }
+      }
+      const ids = assets.map(a => a.id);
+      const { error } = await supabase.from('studio_assets').delete().in('id', ids);
+      if (error) throw error;
+      setAssets([]);
+      toast({ title: `Deleted ${ids.length} asset${ids.length === 1 ? '' : 's'}` });
+    } catch (e) {
+      toast({ title: 'Mass delete failed', description: (e as Error).message, variant: 'destructive' });
+      fetchAssets();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const copyUrl = async (url: string) => { await navigator.clipboard.writeText(url); toast({ title: 'URL copied' }); };
 
   const downloadAsset = async (a: Asset) => {
