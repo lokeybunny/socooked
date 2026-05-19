@@ -240,9 +240,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
       };
       if (seedanceActive && isRef) {
-        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
-        // Append library-picked URLs (already public Supabase URLs)
+        // Library-picked URLs go FIRST so they're always image 1, 2, ... for prompting
         for (const u of refImageUrls) reference_images_urls.push(u);
+        for (const f of refImages) reference_images_urls.push(await uploadOne(f));
         // Cap at API max (9)
         reference_images_urls = reference_images_urls.slice(0, 9);
         for (const f of refVideos) reference_videos_urls.push(await uploadAsset(f, 'vid'));
@@ -612,19 +612,19 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   </div>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {refImages.map((f, i) => (
-                    <div key={`f-${i}`} className="relative group">
-                      <img src={URL.createObjectURL(f)} alt={`ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
-                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
-                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
-                    </div>
-                  ))}
                   {refImageUrls.map((url, i) => (
                     <div key={`u-${i}`} className="relative group">
                       <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
-                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{refImages.length + i + 1}</span>
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
                       <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImageUrls(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {refImages.map((f, i) => (
+                    <div key={`f-${i}`} className="relative group">
+                      <img src={URL.createObjectURL(f)} alt={`ref ${refImageUrls.length + i + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{refImageUrls.length + i + 1}</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
                   ))}
                   {(refImages.length + refImageUrls.length) < 9 && (
