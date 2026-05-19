@@ -164,6 +164,9 @@ async function removeHumanFromReference(admin: ReturnType<typeof adminClient>, s
   return persistGeneratedImage(admin, editedUrl, userId, jobId);
 }
 
+const seedanceSafetyFinalError = (rawError: string) =>
+  `Seedance still rejected the reference images after the automatic safety cleanup. One of the references may still look like a real person, face, hand, reflection, or silhouette to ByteDance's filter. Original provider error: ${rawError}`;
+
 async function buildSeedanceSafetyRetryPayload(
   admin: ReturnType<typeof adminClient>,
   jobId: string,
@@ -173,24 +176,39 @@ async function buildSeedanceSafetyRetryPayload(
   isImageToVideo: boolean,
   isRefToVideo: boolean,
 ): Promise<JobPayload | null> {
-  if ((settings as any).seedance_real_person_clean_retry_attempted) return null;
+  const alreadyCleanedMain = Boolean((settings as any).seedance_real_person_clean_retry_attempted);
+  const alreadyCleanedAllRefs = Boolean((settings as any).seedance_real_person_all_refs_clean_retry_attempted);
+  if (isRefToVideo ? alreadyCleanedAllRefs : alreadyCleanedMain) return null;
 
-  const sourceUrl = isRefToVideo ? refImages[0] : isImageToVideo ? payload.input_image_url : null;
-  if (!sourceUrl) return null;
+  const sourceUrls = isRefToVideo ? refImages.filter(Boolean) : isImageToVideo && payload.input_image_url ? [payload.input_image_url] : [];
+  if (sourceUrls.length === 0) return null;
 
   await admin.from("generation_jobs").update({
     status: "provisioning",
     progress: 4,
-    backend_logs: "Seedance blocked the reference as a possible real person. Auto-cleaning the main human reference with Lovable AI and retrying once.",
+    backend_logs: isRefToVideo
+      ? "Seedance blocked one of the references as a possible real person. Auto-cleaning every image reference with Lovable AI and retrying once."
+      : "Seedance blocked the input image as a possible real person. Auto-cleaning it with Lovable AI and retrying once.",
   }).eq("id", jobId);
 
-  const cleaned = await removeHumanFromReference(admin, sourceUrl, payload.user_id || null, jobId);
+  const cleanedRefs = [] as Awaited<ReturnType<typeof removeHumanFromReference>>[];
+  for (let i = 0; i < sourceUrls.length; i++) {
+    await admin.from("generation_jobs").update({
+      progress: Math.min(5 + i, 12),
+      backend_logs: `Auto-cleaning reference ${i + 1} of ${sourceUrls.length} for Seedance safety.`,
+    }).eq("id", jobId);
+    cleanedRefs.push(await removeHumanFromReference(admin, sourceUrls[i], payload.user_id || null, `${jobId}-ref-${i + 1}`));
+  }
+
   const retrySettings: Record<string, unknown> = {
     ...settings,
     seedance_real_person_clean_retry_attempted: true,
-    seedance_real_person_original_reference_url: sourceUrl,
-    seedance_real_person_clean_reference_url: cleaned.url,
-    seedance_real_person_clean_reference_path: cleaned.path,
+    seedance_real_person_original_reference_url: sourceUrls[0],
+    seedance_real_person_clean_reference_url: cleanedRefs[0]?.url,
+    seedance_real_person_clean_reference_path: cleanedRefs[0]?.path,
+    seedance_real_person_original_reference_urls: sourceUrls,
+    seedance_real_person_clean_reference_urls: cleanedRefs.map((ref) => ref.url),
+    seedance_real_person_clean_reference_paths: cleanedRefs.map((ref) => ref.path),
   };
 
   const retryPayload: JobPayload = {
@@ -199,9 +217,10 @@ async function buildSeedanceSafetyRetryPayload(
   };
 
   if (isRefToVideo) {
-    retrySettings.reference_images_urls = [cleaned.url, ...refImages.slice(1)];
+    retrySettings.seedance_real_person_all_refs_clean_retry_attempted = true;
+    retrySettings.reference_images_urls = cleanedRefs.map((ref) => ref.url);
   } else if (isImageToVideo) {
-    retryPayload.input_image_url = cleaned.url;
+    retryPayload.input_image_url = cleanedRefs[0]?.url;
   }
 
   await admin.from("generation_jobs").update({
@@ -211,7 +230,9 @@ async function buildSeedanceSafetyRetryPayload(
     worker_job_id: null,
     output_video_url: null,
     output_thumbnail_url: null,
-    backend_logs: "Auto-cleaned the main human reference with Lovable AI and retried Seedance once.",
+    backend_logs: isRefToVideo
+      ? `Auto-cleaned ${cleanedRefs.length} reference image${cleanedRefs.length === 1 ? "" : "s"} with Lovable AI and retried Seedance once.`
+      : "Auto-cleaned the input image with Lovable AI and retried Seedance once.",
   }).eq("id", jobId);
 
   return retryPayload;
@@ -306,7 +327,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
             return;
           }
         }
-        throw new Error(seedanceError);
+          throw new Error(isSeedanceRealPersonSafetyError(seedanceError) ? seedanceSafetyFinalError(seedanceError) : seedanceError);
       }
 
       const predictionId = subJson?.data?.id || subJson?.id;
@@ -358,7 +379,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
           }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollError,
+            error_message: isSeedanceRealPersonSafetyError(pollError) ? seedanceSafetyFinalError(pollError) : pollError,
           }).eq("id", jobId);
           return;
         }
@@ -673,7 +694,7 @@ Deno.serve(async (req) => {
           }
           await admin.from("generation_jobs").update({
             status: "failed",
-            error_message: pollError,
+            error_message: isSeedanceRealPersonSafetyError(pollError) ? seedanceSafetyFinalError(pollError) : pollError,
           }).eq("id", jobId);
           return json({ ok: true, status: "failed" });
         }
