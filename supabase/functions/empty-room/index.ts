@@ -15,7 +15,9 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
 
-    const prompt = `Photo-realistically remove ALL furniture, rugs, art, decor, plants, curtains, electronics, and personal belongings from this property photo. Leave the room completely empty as if staged for sale. Preserve the original architecture exactly: walls, windows, doors, flooring material, ceiling, fixtures, lighting, paint color, camera angle, perspective, lens, and natural lighting must remain identical. The result must look like a real listing photo of an unfurnished/vacant room — no artifacts, no warping, no added objects. Restore flooring and wall surfaces behind removed items realistically.`;
+    const prompt = `TASK 1 — Classify the room: identify what kind of space this is. Reply on the very first line with exactly: ROOM: <LABEL>  where LABEL is ONE concise uppercase tag like KITCHEN, BEDROOM, MASTER_BEDROOM, BATHROOM, LIVING_ROOM, DINING_ROOM, OFFICE, GARAGE, HALLWAY, LAUNDRY, CLOSET, ENTRYWAY, BASEMENT, ATTIC, EXTERIOR_FRONT, EXTERIOR_BACK, BACKYARD, PATIO, POOL, GARDEN, DRIVEWAY, BALCONY, STAIRCASE.
+
+TASK 2 — Photo-realistically remove ALL furniture, rugs, art, decor, plants, curtains, electronics, and personal belongings from the photo. Leave the room completely empty as if staged for sale. Preserve the original architecture exactly: walls, windows, doors, flooring material, ceiling, fixtures, lighting, paint color, camera angle, perspective, lens, and natural lighting must remain identical. The result must look like a real listing photo of an unfurnished/vacant room — no artifacts, no warping, no added objects. Restore flooring and wall surfaces behind removed items realistically. For exterior shots, remove vehicles, patio furniture, toys, hoses, and personal items but keep landscaping and structures.`;
 
     const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -43,11 +45,14 @@ Deno.serve(async (req) => {
 
     const data = await resp.json();
     const url = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const textContent = (data?.choices?.[0]?.message?.content || '') as string;
+    const roomMatch = /ROOM:\s*([A-Z_][A-Z0-9_ ]*)/i.exec(textContent);
+    const roomType = roomMatch ? roomMatch[1].trim().toUpperCase().replace(/\s+/g, '_') : null;
     if (!url) {
       console.error('No image returned', JSON.stringify(data).slice(0, 500));
-      return new Response(JSON.stringify({ error: 'No image returned' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'No image returned', roomType }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-    return new Response(JSON.stringify({ imageDataUrl: url }), {
+    return new Response(JSON.stringify({ imageDataUrl: url, roomType }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
