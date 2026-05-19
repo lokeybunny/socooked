@@ -591,33 +591,55 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
 
               {/* Reference Images */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Reference Images ({refImages.length}/9) — required</Label>
-                  {refImages.length > 0 && (
-                    <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setRefImages([])}>Clear</Button>
-                  )}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Label className="text-xs">Reference Images ({refImages.length + refImageUrls.length}/9) — required</Label>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs gap-1 border-[#00ff88]/40 text-[#00ff88] hover:bg-[#00ff88]/10"
+                      onClick={() => setRefLibraryOpen(true)}
+                      disabled={refImages.length + refImageUrls.length >= 9}
+                    >
+                      <Image className="w-3 h-3" /> From Library
+                    </Button>
+                    {(refImages.length > 0 || refImageUrls.length > 0) && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setRefImages([]); setRefImageUrls([]); }}>Clear</Button>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {refImages.map((f, i) => (
-                    <div key={i} className="relative group">
+                    <div key={`f-${i}`} className="relative group">
                       <img src={URL.createObjectURL(f)} alt={`ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
                       <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
                   ))}
-                  {refImages.length < 9 && (
+                  {refImageUrls.map((url, i) => (
+                    <div key={`u-${i}`} className="relative group">
+                      <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{refImages.length + i + 1}</span>
+                      <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
+                      <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImageUrls(prev => prev.filter((_, j) => j !== i))}>×</Button>
+                    </div>
+                  ))}
+                  {(refImages.length + refImageUrls.length) < 9 && (
                     <label className="border-2 border-dashed border-border/50 rounded-md h-20 flex flex-col items-center justify-center cursor-pointer hover:border-[#00ff88]/50 transition-colors">
                       <Upload className="w-4 h-4 text-muted-foreground/50" />
                       <p className="text-[10px] text-muted-foreground mt-1">Add</p>
                       <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(e) => {
                         const files = Array.from(e.target.files || []);
-                        setRefImages(prev => [...prev, ...files].slice(0, 9));
+                        const remaining = 9 - (refImages.length + refImageUrls.length);
+                        setRefImages(prev => [...prev, ...files.slice(0, remaining)]);
                         e.target.value = '';
                       }} />
                     </label>
                   )}
                 </div>
               </div>
+
 
               {/* Reference Videos */}
               <div className="space-y-2">
