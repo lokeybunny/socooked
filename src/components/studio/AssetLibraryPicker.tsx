@@ -14,6 +14,8 @@ interface AssetRow {
   subproject_id: string | null;
   name: string | null;
   image_url: string;
+  pair_id: string | null;
+  variant: string | null;
 }
 
 interface Props {
