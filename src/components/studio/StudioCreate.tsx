@@ -766,7 +766,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
                 <div className="grid grid-cols-3 gap-2" onDragOver={preventDrag} onDrop={dropRefVideos}>
                   {refVideos.map((f, i) => (
-                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate">
+                    <div key={i} className="relative bg-background/50 rounded-md p-2 text-[10px] truncate cursor-move"
+                      draggable
+                      onDragStart={onReorderStart('vid', i)}
+                      onDragOver={onReorderOver}
+                      onDrop={onReorderDropVid(i)}
+                      title="Drag to reorder">
                       <span className="block truncate">{i+1}. {f.name}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0" onClick={() => setRefVideos(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
