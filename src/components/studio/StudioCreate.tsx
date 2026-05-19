@@ -291,7 +291,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     }
   };
 
-  const needsImage = taskType === 'i2v' || taskType === 'ti2v';
+  const needsImage = (taskType === 'i2v' || taskType === 'ti2v') && !isRefToVideo;
   const isAdvanced = taskType === 's2v' || taskType === 'animate';
 
   return (
