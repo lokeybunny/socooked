@@ -323,7 +323,8 @@ Deno.serve(async (req) => {
       const status = pj?.data?.status;
       if (status === 'completed' || status === 'succeeded') {
         const out = pj?.data?.outputs?.[0];
-        return json({ status: 'completed', imageUrl: out || null });
+        const hosted = out ? await rehostImage(out) : null;
+        return json({ status: 'completed', imageUrl: hosted });
       }
       if (status === 'failed') return json({ status: 'failed', error: pj?.data?.error || 'failed' });
       return json({ status: 'processing' });
