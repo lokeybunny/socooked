@@ -51,6 +51,9 @@ interface Shot {
   lighting: string;
   description: string;
   seedance_prompt: string;
+  image_url?: string;
+  image_loading?: boolean;
+  image_error?: string;
 }
 
 export function StudioComposer() {
