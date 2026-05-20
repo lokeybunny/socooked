@@ -224,15 +224,22 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   // ---------- Reorder helpers (drag-to-reorder existing assets) ----------
   const REORDER_MIME = 'application/x-studio-reorder';
   const onReorderStart = (kind: 'img' | 'vid' | 'aud', index: number) => (e: React.DragEvent) => {
-    e.dataTransfer.setData(REORDER_MIME, `${kind}:${index}`);
+    try { e.dataTransfer.setData(REORDER_MIME, `${kind}:${index}`); } catch { /* some browsers restrict custom MIMEs */ }
+    // text/plain fallback — guarantees the drag carries our payload even when custom MIMEs are stripped
+    try { e.dataTransfer.setData('text/plain', `${REORDER_MIME}|${kind}:${index}`); } catch { /* ignore */ }
     e.dataTransfer.effectAllowed = 'move';
+    e.stopPropagation();
   };
-  const isReorderEvent = (e: React.DragEvent, kind: string) => {
-    const types = Array.from(e.dataTransfer.types || []);
-    return types.includes(REORDER_MIME);
+  const readReorderPayload = (e: React.DragEvent): string | null => {
+    const a = e.dataTransfer.getData(REORDER_MIME);
+    if (a) return a;
+    const b = e.dataTransfer.getData('text/plain');
+    if (b && b.startsWith(`${REORDER_MIME}|`)) return b.slice(REORDER_MIME.length + 1);
+    return null;
   };
   const onReorderOver = (e: React.DragEvent) => {
-    if (Array.from(e.dataTransfer.types || []).includes(REORDER_MIME)) {
+    const types = Array.from(e.dataTransfer.types || []);
+    if (types.includes(REORDER_MIME) || types.includes('text/plain')) {
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
