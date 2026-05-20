@@ -122,7 +122,9 @@ STRICTLY AVOID: gold borders, glossy magazine design, color film stills, polishe
         .map((s, i) => `Continuation #${i + 1}: ${s.prompt}`)
         .join(' | ');
 
+      const anchor = buildAnchor(master, sub);
       const fullPrompt = [
+        anchor,
         `Cinematic sub-scene ${master.number}${String.fromCharCode(65 + sub.index)} — ${master.title}.`,
         sub.prompt,
         priorNotes ? `Prior beats: ${priorNotes}.` : '',
