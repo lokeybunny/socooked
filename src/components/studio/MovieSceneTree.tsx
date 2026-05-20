@@ -1,5 +1,5 @@
 import {
-  ChevronDown, ChevronRight, Sparkles, RefreshCw, Loader2, Film,
+  ChevronDown, ChevronRight, Sparkles, RefreshCw, Loader2, Film, Image as ImageIcon, Maximize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,11 +16,12 @@ interface Props {
   onUpdate: (next: MasterScene[]) => void;
   seedanceModel: 'seedance-2' | 'seedance-2-fast';
   aspect: string;
+  onEnlarge?: (url: string) => void;
 }
 
 const DUR_OPTIONS: ClipDuration[] = [5, 10, 15];
 
-export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Props) {
+export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect, onEnlarge }: Props) {
   const { toast } = useToast();
 
   const updateSub = (masterNum: number, subId: string, patch: Partial<SubScene>) => {
@@ -37,15 +38,60 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Prop
     onUpdate(scenes.map((m) => (m.number === masterNum ? { ...m, expanded: !m.expanded } : m)));
   };
 
-  // Auto-expand all on mount for visibility
+  // Generate a UNIQUE sub-storyboard panel for this beat (NOT the same as master image)
+  const generateStoryboard = async (master: MasterScene, sub: SubScene) => {
+    updateSub(master.number, sub.id, { status: 'generating_image', error: undefined });
+    try {
+      const letter = String.fromCharCode(65 + sub.index);
+      const posterPrompt =
+`A single high-resolution JPEG scan of a REAL Hollywood pre-production storyboard panel page — ONE shot, ONE moment, drawn for sub-beat ${letter} of master scene "${master.title}". This is panel ${sub.index + 1} of ${master.subs.length} that together complete scene #${master.number} from A to Z. NOT AI art, NOT moodboard, NOT concept art, NOT magazine layout.
+
+PAGE HEADER (typewriter monospace):
+SCENE ${String(master.number).padStart(2, '0')}${letter}    |    BEAT: ${sub.beatLabel}    |    DURATION: ${sub.durationSec}s    |    PANEL ${sub.index + 1} / ${master.subs.length}
+
+BODY: a single large horizontal SHOT row with:
+- LEFT (35%): printed metadata table — SHOT #, BEAT LABEL, ACTION DESCRIPTION (cinematic prose specific to THIS beat only), CAMERA NOTES, CONTINUITY NOTES referencing prior beat.
+- RIGHT (65%): a single large rough professional GRAPHITE PENCIL storyboard sketch frame depicting THIS specific beat's unique action — not the master, not the other sub-beats. Hand-drawn grayscale linework, motion arrows, framing crosshairs.
+
+BEAT-SPECIFIC ACTION TO RENDER (this panel must show ONLY this moment):
+${sub.prompt}
+
+PAGE STYLE: off-white aged paper, faint ruled lines, graphite smudges, typewriter labels, handwritten pencil margins. GRAYSCALE GRAPHITE ONLY — never color, never painted, never photographic. Maintain wardrobe / character / environment continuity from the master scene, but show a DIFFERENT moment than the other panels.
+
+STRICTLY AVOID: gold borders, glossy magazine design, color film stills, polished AI renders, comic-book panels, anime, Pinterest collage, marketing posters.`;
+
+      const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
+        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
+      });
+      if (error) throw error;
+      const startData = data as { jobId?: string; error?: string };
+      if (!startData.jobId) throw new Error(startData.error || 'No job id');
+
+      let imageUrl: string | null = null;
+      for (let i = 0; i < 75; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const { data: s } = await supabase.functions.invoke('story-composer/image-status', {
+          body: { jobId: startData.jobId },
+        });
+        const sd = s as { status?: string; imageUrl?: string; error?: string };
+        if (sd?.status === 'completed' && sd.imageUrl) { imageUrl = sd.imageUrl; break; }
+        if (sd?.status === 'failed') throw new Error(sd.error || 'Storyboard failed');
+      }
+      if (!imageUrl) throw new Error('Storyboard still rendering');
+      updateSub(master.number, sub.id, { imageUrl, status: 'image_ready' });
+    } catch (e) {
+      updateSub(master.number, sub.id, { status: 'failed', error: (e as Error).message });
+      toast({ title: 'Sub-storyboard failed', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
   const generateClip = async (master: MasterScene, sub: SubScene) => {
     updateSub(master.number, sub.id, { status: 'generating_video', error: undefined });
     try {
-      // Continuity: prior sub's tail frame > master storyboard image > nothing
       const prevSub = master.subs[sub.index - 1];
-      const refImage = prevSub?.lastFrameUrl || master.masterImageUrl;
+      // Use this sub's OWN storyboard panel first, then continuity chain
+      const refImage = sub.imageUrl || prevSub?.lastFrameUrl || master.masterImageUrl;
 
-      // Stack notes: prepend continuity breadcrumbs from earlier approved/generated subs
       const priorNotes = master.subs
         .slice(0, sub.index)
         .filter((s) => s.videoUrl || s.imageUrl)
@@ -53,10 +99,10 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Prop
         .join(' | ');
 
       const fullPrompt = [
-        `Cinematic storyboard sub-scene — ${master.title}.`,
+        `Cinematic sub-scene ${master.number}${String.fromCharCode(65 + sub.index)} — ${master.title}.`,
         sub.prompt,
-        priorNotes ? `Prior beats in this scene: ${priorNotes}.` : '',
-        'Maintain wardrobe, character, lens, color palette, and lighting continuity with the master storyboard panel.',
+        priorNotes ? `Prior beats: ${priorNotes}.` : '',
+        'Maintain wardrobe, character, lens, color palette, and lighting continuity.',
       ].filter(Boolean).join(' ');
 
       const { data, error } = await supabase.functions.invoke('story-composer/seedance', {
@@ -74,7 +120,6 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Prop
       updateSub(master.number, sub.id, {
         videoUrl: d.videoUrl,
         lastFrameUrl: d.lastFrameUrl,
-        imageUrl: refImage,
         status: 'approved',
         approved: true,
       });
@@ -114,14 +159,16 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Prop
           </button>
 
           {m.expanded && (
-            <div className="border-t border-emerald-400/15 p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-black/30">
+            <div className="border-t border-emerald-400/15 p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-black/30">
               {m.subs.map((sub) => (
                 <SubSceneCard
                   key={sub.id}
                   sub={sub}
                   masterImageUrl={m.masterImageUrl}
                   onDuration={(d) => updateSub(m.number, sub.id, { durationSec: d })}
-                  onGenerate={() => generateClip(m, sub)}
+                  onGenerateStoryboard={() => generateStoryboard(m, sub)}
+                  onGenerateClip={() => generateClip(m, sub)}
+                  onEnlarge={onEnlarge}
                 />
               ))}
             </div>
@@ -133,16 +180,21 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Prop
 }
 
 function SubSceneCard({
-  sub, masterImageUrl, onDuration, onGenerate,
+  sub, masterImageUrl, onDuration, onGenerateStoryboard, onGenerateClip, onEnlarge,
 }: {
   sub: SubScene;
   masterImageUrl?: string;
   onDuration: (d: ClipDuration) => void;
-  onGenerate: () => void;
+  onGenerateStoryboard: () => void;
+  onGenerateClip: () => void;
+  onEnlarge?: (url: string) => void;
 }) {
   const style = STATUS_STYLE[sub.status];
-  const busy = sub.status === 'generating_image' || sub.status === 'generating_video';
+  const busyImg = sub.status === 'generating_image';
+  const busyVid = sub.status === 'generating_video';
+  const busy = busyImg || busyVid;
   const previewImg = sub.imageUrl || masterImageUrl;
+  const enlargeTarget = sub.imageUrl || masterImageUrl;
 
   return (
     <div className="rounded-md border border-white/10 bg-zinc-950/80 overflow-hidden flex flex-col group">
@@ -150,10 +202,15 @@ function SubSceneCard({
         {sub.videoUrl ? (
           <video src={sub.videoUrl} controls className="absolute inset-0 w-full h-full object-cover" />
         ) : previewImg ? (
-          <SmartImage src={previewImg} alt={sub.beatLabel} className="absolute inset-0 w-full h-full object-cover opacity-80" />
+          <SmartImage
+            src={previewImg}
+            alt={sub.beatLabel}
+            className="absolute inset-0 w-full h-full object-cover opacity-90 cursor-zoom-in"
+            onDoubleClick={enlargeTarget && onEnlarge ? () => onEnlarge(enlargeTarget) : undefined}
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/30">
-            {busy ? <Loader2 className="w-5 h-5 animate-spin text-emerald-400" /> : 'No frame'}
+            {busy ? <Loader2 className="w-5 h-5 animate-spin text-emerald-400" /> : 'No frame — generate storyboard'}
           </div>
         )}
         {busy && (
@@ -164,7 +221,17 @@ function SubSceneCard({
         <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold ${style.bg} ${style.text}`}>
           {style.label}
         </div>
-        <div className="absolute top-1.5 right-1.5">
+        <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+          {enlargeTarget && onEnlarge && (
+            <button
+              type="button"
+              onClick={() => onEnlarge(enlargeTarget)}
+              className="p-1 rounded bg-black/60 hover:bg-black/80 text-white/80"
+              title="Enlarge"
+            >
+              <Maximize2 className="w-3 h-3" />
+            </button>
+          )}
           <SaveAssetButton
             url={sub.videoUrl || sub.imageUrl || undefined}
             name={`Movie Mode — Scene ${sub.masterNumber} ${sub.beatLabel}`}
@@ -199,16 +266,31 @@ function SubSceneCard({
 
         {sub.error && <div className="text-[10px] text-red-300 line-clamp-2">{sub.error}</div>}
 
-        <Button
-          size="sm"
-          onClick={onGenerate}
-          disabled={busy}
-          className="w-full h-7 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white"
-        >
-          {busy ? <Loader2 className="w-3 h-3 animate-spin" />
-            : sub.videoUrl ? <><RefreshCw className="w-3 h-3" /> Regenerate</>
-            : <><Sparkles className="w-3 h-3" /> Generate</>}
-        </Button>
+        {/* TWO generate buttons */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <Button
+            size="sm"
+            onClick={onGenerateStoryboard}
+            disabled={busy}
+            variant="outline"
+            className="h-7 text-[10px] bg-amber-500/10 hover:bg-amber-500/20 border-amber-400/30 text-amber-200"
+            title="Generate this beat's unique storyboard panel"
+          >
+            {busyImg ? <Loader2 className="w-3 h-3 animate-spin" />
+              : <><ImageIcon className="w-3 h-3 mr-1" /> {sub.imageUrl ? 'Redo SB' : 'Storyboard'}</>}
+          </Button>
+          <Button
+            size="sm"
+            onClick={onGenerateClip}
+            disabled={busy}
+            className="h-7 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white"
+            title="Generate Seedance clip from this storyboard"
+          >
+            {busyVid ? <Loader2 className="w-3 h-3 animate-spin" />
+              : sub.videoUrl ? <><RefreshCw className="w-3 h-3 mr-1" /> Redo Clip</>
+              : <><Sparkles className="w-3 h-3 mr-1" /> Clip {sub.durationSec}s</>}
+          </Button>
+        </div>
       </div>
     </div>
   );

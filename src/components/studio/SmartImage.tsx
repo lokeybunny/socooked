@@ -11,6 +11,8 @@ interface SmartImageProps {
   loading?: 'lazy' | 'eager';
   /** Called whenever we successfully swap the rendered URL (e.g. after rehost). */
   onResolved?: (url: string) => void;
+  onDoubleClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
 }
 
 interface DebugInfo {
@@ -31,7 +33,7 @@ interface DebugInfo {
  * on-screen debug overlay is shown with the failing URL, response headers, and
  * a retry button.
  */
-export function SmartImage({ src, alt, className, loading = 'lazy', onResolved }: SmartImageProps) {
+export function SmartImage({ src, alt, className, loading = 'lazy', onResolved, onDoubleClick, onClick }: SmartImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [phase, setPhase] = useState<'loading' | 'ok' | 'rehosting' | 'failed'>('loading');
   const [debug, setDebug] = useState<DebugInfo | null>(null);
@@ -199,6 +201,8 @@ export function SmartImage({ src, alt, className, loading = 'lazy', onResolved }
           onResolved?.(currentSrc);
         }}
         onError={handleError}
+        onDoubleClick={onDoubleClick}
+        onClick={onClick}
       />
       {phase === 'rehosting' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] text-yellow-300 gap-2 pointer-events-none">
