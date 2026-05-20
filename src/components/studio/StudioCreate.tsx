@@ -857,17 +857,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 rounded-md transition-colors" onDragOver={preventDrag} onDrop={dropRefImages}>
                   {refImageUrls.map((url, i) => (
-                    <div key={`u-${i}`} className="relative group cursor-move"
+                    <div key={`u-${i}`} className="relative group cursor-grab active:cursor-grabbing"
                       draggable
                       onDragStart={onReorderStart('img', i)}
                       onDragOver={onReorderOver}
                       onDrop={onReorderDropImg(i)}
                       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); openImageLightbox(url, `Reference ${i+1}`); }}
-                      title="Double-click to enlarge · Drag to reorder"
-                      style={{ cursor: 'zoom-in' }}>
-                      <img src={url} alt={`lib ref ${i+1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
-                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{i+1}</span>
-                      <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium">LIB</span>
+                      title="Drag to reorder · Double-click to enlarge">
+                      <img src={url} alt={`lib ref ${i+1}`} draggable={false} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none select-none" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded pointer-events-none">{i+1}</span>
+                      <span className="absolute bottom-1 left-1 text-[9px] bg-[#00ff88]/80 text-black px-1 rounded font-medium pointer-events-none">LIB</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImageUrls(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
                   ))}
@@ -875,16 +874,15 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     const combinedIdx = refImageUrls.length + i;
                     const objUrl = URL.createObjectURL(f);
                     return (
-                    <div key={`f-${i}`} className="relative group cursor-move"
+                    <div key={`f-${i}`} className="relative group cursor-grab active:cursor-grabbing"
                       draggable
                       onDragStart={onReorderStart('img', combinedIdx)}
                       onDragOver={onReorderOver}
                       onDrop={onReorderDropImg(combinedIdx)}
                       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); openImageLightbox(objUrl, `Reference ${combinedIdx + 1}`); }}
-                      title="Double-click to enlarge · Drag to reorder"
-                      style={{ cursor: 'zoom-in' }}>
-                      <img src={objUrl} alt={`ref ${combinedIdx + 1}`} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none" />
-                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded">{combinedIdx + 1}</span>
+                      title="Drag to reorder · Double-click to enlarge">
+                      <img src={objUrl} alt={`ref ${combinedIdx + 1}`} draggable={false} className="rounded-md w-full h-20 object-cover bg-background/50 pointer-events-none select-none" />
+                      <span className="absolute top-1 left-1 text-[10px] bg-black/60 text-white px-1 rounded pointer-events-none">{combinedIdx + 1}</span>
                       <Button variant="destructive" size="sm" className="absolute top-1 right-1 h-5 w-5 p-0 opacity-0 group-hover:opacity-100" onClick={() => setRefImages(prev => prev.filter((_, j) => j !== i))}>×</Button>
                     </div>
                   );})}
