@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SmartImage } from './SmartImage';
 
 const DIRECTORS = [
   'Cloverfield','Goodfellas','The Matrix','Inception','HUMBLE.',
@@ -725,7 +726,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                             <p className="text-[10px] opacity-60">This can take 30-60s</p>
                           </div>
                         ) : (
-                          <img src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
+                          <SmartImage src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
                         )}
                       </div>
                     </div>
@@ -747,7 +748,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] max-h-[90vh]">
                 <div className="relative bg-black flex items-center justify-center min-h-[50vh]">
                   {s.image_url ? (
-                    <img src={s.image_url} alt={s.title} className="max-w-full max-h-[90vh] object-contain" />
+                    <SmartImage src={s.image_url} alt={s.title} className="max-w-full max-h-[90vh] object-contain" />
                   ) : s.image_loading ? (
                     <Loader2 className="w-10 h-10 animate-spin text-yellow-400" />
                   ) : (
@@ -900,7 +901,7 @@ function ShotCard({
         onClick={onOpen}
       >
         {s.image_url ? (
-          <img
+          <SmartImage
             src={s.image_url}
             alt={s.title}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-110"
