@@ -752,11 +752,16 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                     <div className="mt-6 rounded-2xl border border-yellow-400/30 bg-black/60 overflow-hidden shadow-[0_0_40px_rgba(250,204,21,0.15)]">
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
                         <span className="text-[11px] uppercase tracking-[0.2em] text-yellow-300/90">Storyboard Poster · gpt-image-2</span>
-                        {posterUrl && (
-                          <a href={posterUrl} target="_blank" rel="noreferrer" download className="text-[11px] text-yellow-300 hover:underline flex items-center gap-1">
-                            <Download className="w-3 h-3" /> Open
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {posterUrl && (
+                            <SaveAssetButton url={posterUrl} name={`Poster — ${label}`} notes="Storyboard poster" withDelete />
+                          )}
+                          {posterUrl && (
+                            <a href={posterUrl} target="_blank" rel="noreferrer" download className="text-[11px] text-yellow-300 hover:underline flex items-center gap-1">
+                              <Download className="w-3 h-3" /> Open
+                            </a>
+                          )}
+                        </div>
                       </div>
                       <div className="aspect-[3/2] bg-black flex items-center justify-center">
                         {posterLoading ? (
