@@ -164,6 +164,14 @@ function SubSceneCard({
         <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold ${style.bg} ${style.text}`}>
           {style.label}
         </div>
+        <div className="absolute top-1.5 right-1.5">
+          <SaveAssetButton
+            url={sub.videoUrl || sub.imageUrl || undefined}
+            name={`Movie Mode — Scene ${sub.masterNumber} ${sub.beatLabel}`}
+            notes={sub.prompt}
+            withDelete
+          />
+        </div>
         <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-200">
           {sub.beatLabel} · {sub.durationSec}s
         </div>
