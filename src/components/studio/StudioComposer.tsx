@@ -112,6 +112,38 @@ export function StudioComposer() {
       `${style} grade, realism ${realism[0]}/100, creativity ${creativity[0]}/100, chaos ${chaos[0]}/100.`;
   }, [aspect, camera, lens, motion, lighting, style, realism, creativity, chaos]);
 
+  const generateStillImage = async (imagePrompt: string, size: string) => {
+    if (imageProvider !== 'atlascloud') {
+      const { data, error } = await supabase.functions.invoke('story-composer/image', {
+        body: { prompt: imagePrompt, provider: imageProvider, size, quality: 'high' },
+      });
+      if (error) throw error;
+      const d = data as { imageUrl?: string; error?: string };
+      if (d.error || !d.imageUrl) throw new Error(d.error || 'No image returned');
+      return d.imageUrl;
+    }
+
+    const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
+      body: { prompt: imagePrompt, size, quality: 'high' },
+    });
+    if (error) throw error;
+    const started = data as { jobId?: string; error?: string };
+    if (started.error || !started.jobId) throw new Error(started.error || 'No image job id returned');
+
+    for (let i = 0; i < 90; i++) {
+      await new Promise((r) => setTimeout(r, 4000));
+      const { data: statusData, error: statusError } = await supabase.functions.invoke('story-composer/image-status', {
+        body: { jobId: started.jobId },
+      });
+      if (statusError) continue;
+      const status = statusData as { status?: string; imageUrl?: string; error?: string };
+      if (status.status === 'completed' && status.imageUrl) return status.imageUrl;
+      if (status.status === 'failed') throw new Error(status.error || 'Image generation failed');
+    }
+
+    throw new Error('Image still rendering after 6 minutes — try regenerating this panel');
+  };
+
   // ---- voice ----
   const startVoice = async () => {
     try {
@@ -195,13 +227,8 @@ export function StudioComposer() {
     setGeneratingImage(true);
     try {
       const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
-      const { data, error } = await supabase.functions.invoke('story-composer/image', {
-        body: { prompt: text, provider: imageProvider, size, quality: 'high' },
-      });
-      if (error) throw error;
-      const d = data as { imageUrl?: string; error?: string };
-      if (d.error || !d.imageUrl) throw new Error(d.error || 'No image returned');
-      setImageUrl(d.imageUrl);
+      const generatedUrl = await generateStillImage(text, size);
+      setImageUrl(generatedUrl);
       toast({ title: 'Image generated' });
     } catch (e) {
       toast({ title: 'Image gen failed', description: (e as Error).message, variant: 'destructive' });
@@ -216,13 +243,8 @@ export function StudioComposer() {
   const renderPanelImage = async (s: Shot) => {
     const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
     try {
-      const { data: imgData, error: imgErr } = await supabase.functions.invoke('story-composer/image', {
-        body: { prompt: buildPanelPrompt(s), provider: imageProvider, size, quality: 'high' },
-      });
-      if (imgErr) throw imgErr;
-      const id = imgData as { imageUrl?: string; error?: string };
-      if (id.error || !id.imageUrl) throw new Error(id.error || 'No image');
-      setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_url: id.imageUrl, image_loading: false, image_error: undefined } : p));
+      const generatedUrl = await generateStillImage(buildPanelPrompt(s), size);
+      setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_url: generatedUrl, image_loading: false, image_error: undefined } : p));
     } catch (e) {
       setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_loading: false, image_error: (e as Error).message } : p));
     }
