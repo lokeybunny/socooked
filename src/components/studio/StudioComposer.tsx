@@ -100,6 +100,25 @@ export function StudioComposer() {
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [selectedShot, setSelectedShot] = useState<number | null>(null);
 
+  // Movie Mode
+  const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
+  const [movieScenes, setMovieScenes] = useState<MasterScene[]>([]);
+
+  // Re-expand whenever shots, sub-count, or poster change while Movie Mode is on
+  useEffect(() => {
+    if (!movieConfig.enabled) return;
+    setMovieScenes((prev) =>
+      expandStoryboardToMovie(
+        shots.map((s) => ({ number: s.number, title: s.title, description: s.description })),
+        movieConfig.subsPerScene,
+        movieConfig.durationSec,
+        posterUrl ?? undefined,
+        prev,
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movieConfig.enabled, movieConfig.subsPerScene, movieConfig.durationSec, shots.length, posterUrl]);
+
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
