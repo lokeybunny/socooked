@@ -38,6 +38,7 @@ async function rehostImage(srcUrl: string): Promise<string> {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${sr}`,
+        apikey: sr,
         'Content-Type': ct,
         'x-upsert': 'true',
         'cache-control': 'public, max-age=31536000, immutable',
