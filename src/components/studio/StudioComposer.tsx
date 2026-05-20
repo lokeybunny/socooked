@@ -410,8 +410,10 @@ STRICTLY AVOID: polished AI render, color photograph, comic book panel, anime, h
   const sendShotToSeedance = async (shot: Shot) => {
     setSendingTo(shot.number);
     try {
+      const anchor = buildContinuityAnchor(shot.number);
+      const fullPrompt = anchor ? `${anchor}\n${shot.seedance_prompt}` : shot.seedance_prompt;
       const { data, error } = await supabase.functions.invoke('story-composer/seedance', {
-        body: { prompt: shot.seedance_prompt, model: seedanceModel, aspect, image_url: imageUrl || undefined },
+        body: { prompt: fullPrompt, model: seedanceModel, aspect, image_url: imageUrl || undefined },
       });
       if (error) throw error;
       const d = data as { job?: { id?: string }; error?: string };
