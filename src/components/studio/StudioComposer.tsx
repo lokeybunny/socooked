@@ -18,6 +18,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SmartImage } from './SmartImage';
+import { MovieModePanel } from './MovieModePanel';
+import { MovieSceneTree } from './MovieSceneTree';
+import {
+  DEFAULT_MOVIE_CONFIG, MovieModeConfig, MasterScene, expandStoryboardToMovie,
+} from '@/lib/studio/movieMode';
 
 const DIRECTORS = [
   'Cloverfield','Goodfellas','The Matrix','Inception','HUMBLE.',
@@ -94,6 +99,25 @@ export function StudioComposer() {
   const [immersion, setImmersion] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [selectedShot, setSelectedShot] = useState<number | null>(null);
+
+  // Movie Mode
+  const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
+  const [movieScenes, setMovieScenes] = useState<MasterScene[]>([]);
+
+  // Re-expand whenever shots, sub-count, or poster change while Movie Mode is on
+  useEffect(() => {
+    if (!movieConfig.enabled) return;
+    setMovieScenes((prev) =>
+      expandStoryboardToMovie(
+        shots.map((s) => ({ number: s.number, title: s.title, description: s.description })),
+        movieConfig.subsPerScene,
+        movieConfig.durationSec,
+        posterUrl ?? undefined,
+        prev,
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movieConfig.enabled, movieConfig.subsPerScene, movieConfig.durationSec, shots.length, posterUrl]);
 
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
@@ -634,6 +658,15 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                 </div>
               </div>
 
+              {/* MOVIE MODE PANEL */}
+              <div className="px-4 pt-3">
+                <MovieModePanel
+                  config={movieConfig}
+                  onChange={setMovieConfig}
+                  masterCount={shots.length}
+                />
+              </div>
+
               {/* CINEMATIC CANVAS */}
               <div className="relative p-4 md:p-6 min-h-[60vh]">
                 {/* Atmospheric layers */}
@@ -730,6 +763,17 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {/* MOVIE MODE — sub-storyboards */}
+                  {movieConfig.enabled && shots.length > 0 && (
+                    <MovieSceneTree
+                      scenes={movieScenes}
+                      posterRefUrl={posterUrl ?? undefined}
+                      onUpdate={setMovieScenes}
+                      seedanceModel={seedanceModel}
+                      aspect={aspect}
+                    />
                   )}
                 </div>
               </div>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw, AlertTriangle, ExternalLink, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { getCachedRehost, setCachedRehost } from '@/lib/studio/imageRehostCache';
 
 interface SmartImageProps {
   src: string;
@@ -36,12 +37,20 @@ export function SmartImage({ src, alt, className, loading = 'lazy', onResolved }
   const [debug, setDebug] = useState<DebugInfo | null>(null);
   const attemptedRehost = useRef<Set<string>>(new Set());
 
-  // Reset when src prop changes
+  // Reset when src prop changes — but honor cache: if we've previously
+  // rehosted this URL, jump straight to the hosted version (no network).
   useEffect(() => {
-    setCurrentSrc(src);
+    const cached = getCachedRehost(src);
+    const initial = cached || src;
+    setCurrentSrc(initial);
     setPhase('loading');
     setDebug(null);
     attemptedRehost.current = new Set();
+    if (cached && cached !== src) {
+      // Mark the original as already-attempted so an onError on the cached
+      // URL still triggers a fresh server probe rather than a no-op.
+      attemptedRehost.current.add(src);
+    }
   }, [src]);
 
   const callRehost = async (url: string) => {
@@ -62,6 +71,10 @@ export function SmartImage({ src, alt, className, loading = 'lazy', onResolved }
           probeOk: !!d.probeOk,
           probeHeaders: d.probeHeaders ?? {},
         });
+        // Cache the mapping so subsequent renders of the same original URL
+        // (in this session, or after reload via localStorage) skip the network.
+        setCachedRehost(src, d.imageUrl);
+        setCachedRehost(url, d.imageUrl);
         setCurrentSrc(d.imageUrl);
         setPhase('loading');
         return;
