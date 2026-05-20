@@ -104,6 +104,7 @@ export function StudioComposer() {
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [selectedShot, setSelectedShot] = useState<number | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
+  const [lockContinuity, setLockContinuity] = useState(true);
 
   // Movie Mode
   const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
@@ -309,12 +310,36 @@ export function StudioComposer() {
     }
   };
 
+  // Continuity anchor: snapshot wardrobe / lens / lighting / framing from the
+  // most recent *earlier* approved (= rendered) shot, so regen preserves it.
+  const buildContinuityAnchor = (beforeNumber: number): string => {
+    if (!lockContinuity) return '';
+    const prior = [...shots]
+      .filter((p) => p.number < beforeNumber && p.image_url)
+      .sort((a, b) => b.number - a.number)[0];
+    if (!prior) return '';
+    return [
+      '',
+      'CONTINUITY LOCK — preserve EXACTLY from the previous approved beat:',
+      `• Reference shot: #${String(prior.number).padStart(2, '0')} — "${prior.title}"`,
+      `• Wardrobe & character: identical to that beat (same actors, same outfits, same hair, same props in hand)`,
+      `• Lens: ${prior.lens || 'Cinema 35mm'} (do not change)`,
+      `• Lighting: ${prior.lighting || 'natural'} (same direction, same intensity, same colour temperature)`,
+      `• Camera language: ${prior.camera_move || 'Eye-Level'} continuity`,
+      `• Character positions / blocking: maintain spatial relationships from the prior beat`,
+      `• Environment / set dressing: identical location, identical props, identical weather`,
+      'Only ACTION and framing should advance — everything else stays locked.',
+      '',
+    ].join('\n');
+  };
+
   const buildPanelPrompt = (s: Shot) => {
     const shotTag = (s.shot_type || 'MS').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 6) || 'MS';
     const camTag = (s.camera_move || 'Eye-Level').replace(/\s+/g, ' ').slice(0, 28);
+    const anchor = buildContinuityAnchor(s.number);
     return (
 `A single page from a REAL Hollywood pre-production storyboard binder — high-resolution JPEG scan of an analog shot-planning sheet. Not AI art, not concept art, not a film still, not a moodboard. This is a professional director's storyboard document.
-
+${anchor}
 LAYOUT (one shot row, fills the page):
 - LEFT COLUMN (about 35% width): a printed/handwritten technical metadata table with these labeled fields stacked vertically, monospace/typewriter typography:
     SHOT #${String(s.number).padStart(2, '0')}
@@ -385,8 +410,10 @@ STRICTLY AVOID: polished AI render, color photograph, comic book panel, anime, h
   const sendShotToSeedance = async (shot: Shot) => {
     setSendingTo(shot.number);
     try {
+      const anchor = buildContinuityAnchor(shot.number);
+      const fullPrompt = anchor ? `${anchor}\n${shot.seedance_prompt}` : shot.seedance_prompt;
       const { data, error } = await supabase.functions.invoke('story-composer/seedance', {
-        body: { prompt: shot.seedance_prompt, model: seedanceModel, aspect, image_url: imageUrl || undefined },
+        body: { prompt: fullPrompt, model: seedanceModel, aspect, image_url: imageUrl || undefined },
       });
       if (error) throw error;
       const d = data as { job?: { id?: string }; error?: string };
@@ -677,6 +704,17 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                       >
                         <Expand className="w-3 h-3" /> {immersion ? 'Exit' : 'Immersion'}
                       </Button>
+                      <Button
+                        onClick={() => setLockContinuity((v) => !v)}
+                        size="sm"
+                        variant="outline"
+                        className={`h-8 text-xs border ${lockContinuity
+                          ? 'bg-emerald-500/15 border-emerald-400/60 text-emerald-200 hover:bg-emerald-500/25'
+                          : 'bg-black/40 border-white/10 text-white/60 hover:border-emerald-400/40'}`}
+                        title="Lock wardrobe, lens, lighting & character positions from the last approved beat"
+                      >
+                        {lockContinuity ? '🔒' : '🔓'} Continuity
+                      </Button>
                       <SavedStoryboardsMenu onLoad={handleLoadSession} refreshKey={savedRefreshKey} />
                     </>
                   )}
@@ -845,6 +883,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                         seedanceModel={seedanceModel}
                         aspect={aspect}
                         onEnlarge={setFullscreenImg}
+                        lockContinuity={lockContinuity}
                       />
                     </>
                   )}
