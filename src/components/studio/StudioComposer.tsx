@@ -658,6 +658,15 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                 </div>
               </div>
 
+              {/* MOVIE MODE PANEL */}
+              <div className="px-4 pt-3">
+                <MovieModePanel
+                  config={movieConfig}
+                  onChange={setMovieConfig}
+                  masterCount={shots.length}
+                />
+              </div>
+
               {/* CINEMATIC CANVAS */}
               <div className="relative p-4 md:p-6 min-h-[60vh]">
                 {/* Atmospheric layers */}
