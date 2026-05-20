@@ -330,6 +330,42 @@ Deno.serve(async (req) => {
       return json({ status: 'processing' });
     }
 
+    // ---- on-demand rehost + header probe for client-side fallback ----
+    if (action === 'image-rehost') {
+      const { url } = body;
+      if (!url || typeof url !== 'string') return json({ error: 'url required' }, 400);
+      // Probe original headers for the debug overlay
+      const probeHeaders: Record<string, string> = {};
+      let probeStatus = 0;
+      let probeOk = false;
+      try {
+        const probe = await fetch(url, { method: 'GET' });
+        probeStatus = probe.status;
+        probeOk = probe.ok;
+        probe.headers.forEach((v, k) => { probeHeaders[k] = v; });
+        // Drain body to free socket
+        try { await probe.arrayBuffer(); } catch { /* ignore */ }
+      } catch (e) {
+        return json({
+          error: `probe failed: ${(e as Error).message}`,
+          originalUrl: url,
+          probeStatus: 0,
+          probeHeaders: {},
+        }, 200);
+      }
+      const hosted = await rehostImage(url);
+      const rehosted = hosted !== url;
+      return json({
+        imageUrl: hosted,
+        originalUrl: url,
+        rehosted,
+        probeStatus,
+        probeOk,
+        probeHeaders,
+      });
+    }
+
+
 
     if (action === 'storyboard') {
       const { prompt, shots = 6, director } = body;
