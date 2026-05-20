@@ -745,47 +745,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                         )}
                       </div>
                     </div>
-                  ) : viewMode === 'timeline' ? (
-                    <div className="overflow-x-auto pb-4 -mx-2 px-2">
-                      <div className="flex gap-3 items-stretch min-w-max">
-                        {shots.map((s, i) => (
-                          <div key={s.number} className="flex items-center gap-3">
-                            <ShotCard
-                              shot={s}
-                              aspect={aspect}
-                              compact
-                              onOpen={() => setSelectedShot(s.number)}
-                              onRegen={() => regeneratePanel(s.number)}
-                              regenning={regenningPanel === s.number}
-                            />
-                            {i < shots.length - 1 && (
-                              <ChevronRight className="w-5 h-5 text-yellow-400/40 shrink-0" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                      {shots.map((s) => (
-                        <ShotCard
-                          key={s.number}
-                          shot={s}
-                          aspect={aspect}
-                          groupLabel={label}
-                          onOpen={() => setSelectedShot(s.number)}
-                          onRegen={() => regeneratePanel(s.number)}
-                          regenning={regenningPanel === s.number}
-                          onTitle={(v) => updateShotField(s.number, 'title', v)}
-                          onShotType={(v) => updateShotField(s.number, 'shot_type', v)}
-                          onCamMove={(v) => updateShotField(s.number, 'camera_move', v)}
-                          onDesc={(v) => updateShotField(s.number, 'description', v)}
-                          onSeedance={() => sendShotToSeedance(s)}
-                          sending={sendingTo === s.number}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  ) : null}
 
                   {(posterLoading || posterUrl) && (
                     <div className="mt-6 rounded-2xl border border-yellow-400/30 bg-black/60 overflow-hidden shadow-[0_0_40px_rgba(250,204,21,0.15)]">
