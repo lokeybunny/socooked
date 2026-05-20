@@ -901,7 +901,7 @@ function ShotCard({
         onClick={onOpen}
       >
         {s.image_url ? (
-          <img
+          <SmartImage
             src={s.image_url}
             alt={s.title}
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-110"
