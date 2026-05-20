@@ -11,6 +11,7 @@ import { PromptStudio } from '@/components/studio/PromptStudio';
 import { StudioShrink } from '@/components/studio/StudioShrink';
 import { ImageLightbox } from '@/components/studio/ImageLightbox';
 import { BatchDrawer } from '@/components/studio/BatchDrawer';
+import { TemplatesDrawer } from '@/components/studio/TemplatesDrawer';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
