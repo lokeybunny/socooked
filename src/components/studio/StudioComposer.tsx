@@ -73,6 +73,8 @@ export function StudioComposer() {
   const [chaos, setChaos] = useState([20]);
   const [director, setDirector] = useState<string>('');
   const [seedanceModel, setSeedanceModel] = useState<'seedance-2' | 'seedance-2-fast'>('seedance-2-fast');
+  const [shotCount, setShotCount] = useState<number>(6);
+  const [regenningPanel, setRegenningPanel] = useState<number | null>(null);
 
   // Prompt + output
   const [prompt, setPrompt] = useState('');
