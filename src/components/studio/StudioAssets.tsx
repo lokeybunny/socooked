@@ -434,6 +434,15 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
             {pairingBackfill ? `Pairing ${pairProgress.done}/${pairProgress.total}` : 'Generate A/B Pairs'}
           </Button>
           <Button
+            onClick={handleDownloadZip}
+            disabled={uploading || loading || zipping || assets.length === 0}
+            variant="outline"
+            className="gap-2 border-sky-500/40 text-sky-300 hover:bg-sky-600/20 hover:text-sky-200"
+          >
+            {zipping ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileArchive className="w-4 h-4" />}
+            {zipping ? `Zipping ${zipProgress.done}/${zipProgress.total}` : `Download ZIP (${assets.length})`}
+          </Button>
+          <Button
             onClick={handleMassDelete}
             disabled={uploading || loading || assets.length === 0}
             variant="outline"
