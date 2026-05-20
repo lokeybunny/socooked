@@ -7,13 +7,14 @@ import { StudioQueue } from '@/components/studio/StudioQueue';
 import { StudioSettings } from '@/components/studio/StudioSettings';
 import { StudioReferences } from '@/components/studio/StudioReferences';
 import { StudioAssets } from '@/components/studio/StudioAssets';
+import { StudioComposer } from '@/components/studio/StudioComposer';
 import { StudioShrink } from '@/components/studio/StudioShrink';
 import { ImageLightbox } from '@/components/studio/ImageLightbox';
 import { BatchDrawer } from '@/components/studio/BatchDrawer';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
-import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon, Minimize2, Home } from 'lucide-react';
+import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon, Minimize2, Home, Clapperboard } from 'lucide-react';
 import { getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 
 export interface CreatePrefill {
