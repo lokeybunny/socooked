@@ -14,6 +14,7 @@ import {
   LayoutGrid, Rows3, Expand, X, ChevronLeft, ChevronRight, Settings2, Eye,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
