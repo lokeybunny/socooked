@@ -114,6 +114,43 @@ export function StudioComposer() {
     0,
   );
 
+  // ── Saved storyboards (freeze / resume) ─────────────────────────────────
+  const [savedRefreshKey, setSavedRefreshKey] = useState(0);
+
+  const handleSaveSession = () => {
+    const name = (label || 'Untitled Scene').trim();
+    saveStoryboard(name, {
+      label, director, aspect, imageProvider, seedanceModel, shotCount,
+      realism, creativity, chaos,
+      prompt, structured, master,
+      shots, posterUrl,
+      movieConfig, movieScenes,
+    });
+    setSavedRefreshKey((k) => k + 1);
+    toast({ title: 'Storyboard saved', description: `"${name}" frozen for later.` });
+  };
+
+  const handleLoadSession = (s: SavedStoryboard) => {
+    const p = s.payload as Record<string, any>;
+    if (typeof p.label === 'string') setLabel(p.label);
+    if (typeof p.director === 'string') setDirector(p.director);
+    if (typeof p.aspect === 'string') setAspect(p.aspect);
+    if (p.imageProvider === 'lovable' || p.imageProvider === 'atlascloud') setImageProvider(p.imageProvider);
+    if (p.seedanceModel === 'seedance-2' || p.seedanceModel === 'seedance-2-fast') setSeedanceModel(p.seedanceModel);
+    if (typeof p.shotCount === 'number') setShotCount(p.shotCount);
+    if (Array.isArray(p.realism)) setRealism(p.realism);
+    if (Array.isArray(p.creativity)) setCreativity(p.creativity);
+    if (Array.isArray(p.chaos)) setChaos(p.chaos);
+    if (typeof p.prompt === 'string') setPrompt(p.prompt);
+    if (p.structured) setStructured(p.structured);
+    if (typeof p.master === 'string') setMaster(p.master);
+    if (Array.isArray(p.shots)) setShots(p.shots);
+    if (typeof p.posterUrl === 'string' || p.posterUrl === null) setPosterUrl(p.posterUrl);
+    if (p.movieConfig) setMovieConfig(p.movieConfig);
+    if (Array.isArray(p.movieScenes)) setMovieScenes(p.movieScenes);
+  };
+
+
   // Re-expand whenever shots, sub-count, or poster change while Movie Mode is on
   useEffect(() => {
     if (!movieConfig.enabled) return;
