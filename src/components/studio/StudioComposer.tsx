@@ -87,6 +87,12 @@ export function StudioComposer() {
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(false);
 
+  // Redesign state
+  const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
+  const [immersion, setImmersion] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [selectedShot, setSelectedShot] = useState<number | null>(null);
+
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
   const [generatingImage, setGeneratingImage] = useState(false);
