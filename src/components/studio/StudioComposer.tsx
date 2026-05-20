@@ -104,6 +104,7 @@ export function StudioComposer() {
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [selectedShot, setSelectedShot] = useState<number | null>(null);
   const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
+  const [lockContinuity, setLockContinuity] = useState(true);
 
   // Movie Mode
   const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
