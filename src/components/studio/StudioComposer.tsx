@@ -714,6 +714,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
           </div>
         </div>
       </div>
+    </div>
 
       {/* FULLSCREEN SHOT VIEWER */}
       <Dialog open={selectedShot !== null} onOpenChange={(o) => !o && setSelectedShot(null)}>
