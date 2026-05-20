@@ -17,11 +17,12 @@ interface Props {
   seedanceModel: 'seedance-2' | 'seedance-2-fast';
   aspect: string;
   onEnlarge?: (url: string) => void;
+  lockContinuity?: boolean;
 }
 
 const DUR_OPTIONS: ClipDuration[] = [5, 10, 15];
 
-export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect, onEnlarge }: Props) {
+export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect, onEnlarge, lockContinuity = true }: Props) {
   const { toast } = useToast();
 
   const updateSub = (masterNum: number, subId: string, patch: Partial<SubScene>) => {
