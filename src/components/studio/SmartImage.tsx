@@ -11,6 +11,8 @@ interface SmartImageProps {
   loading?: 'lazy' | 'eager';
   /** Called whenever we successfully swap the rendered URL (e.g. after rehost). */
   onResolved?: (url: string) => void;
+  onDoubleClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
 }
 
 interface DebugInfo {
