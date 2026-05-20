@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
-import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers, Sparkles } from 'lucide-react';
+import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers, Sparkles, FileArchive } from 'lucide-react';
+import JSZip from 'jszip';
 import { lightboxProps } from './ImageLightbox';
 import { Checkbox } from '@/components/ui/checkbox';
 
