@@ -11,7 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Mic, Square, Sparkles, Image as ImageIcon, Download, Loader2, Wand2,
   Film, Camera, Sun, Aperture, Zap, RefreshCw, Maximize2, Clapperboard, Send,
+  LayoutGrid, Rows3, Expand, X, ChevronLeft, ChevronRight, Settings2, Eye,
 } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
