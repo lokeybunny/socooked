@@ -39,6 +39,28 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect, onEnla
     onUpdate(scenes.map((m) => (m.number === masterNum ? { ...m, expanded: !m.expanded } : m)));
   };
 
+  // Snapshot the last *approved* (or rendered) earlier sub-scene for continuity lock.
+  const buildAnchor = (master: MasterScene, sub: SubScene): string => {
+    if (!lockContinuity) return '';
+    const prior = [...master.subs]
+      .filter((s) => s.index < sub.index && (s.status === 'approved' || s.videoUrl || s.imageUrl))
+      .sort((a, b) => b.index - a.index)[0];
+    if (!prior) return '';
+    const letter = String.fromCharCode(65 + prior.index);
+    return [
+      '',
+      'CONTINUITY LOCK — preserve EXACTLY from the prior approved beat:',
+      `• Anchor beat: ${master.number}${letter} — "${prior.beatLabel}"`,
+      `• Wardrobe & characters: identical (same outfits, same hair, same props in hand)`,
+      `• Lens, color palette, lighting direction, intensity & colour temperature: identical`,
+      `• Character blocking / spatial positions: maintain from prior beat`,
+      `• Environment, set dressing, weather: identical`,
+      `• Prior beat action: ${prior.prompt}`,
+      'Only the new ACTION and framing advance — everything else stays locked.',
+      '',
+    ].join('\n');
+  };
+
   // Generate a UNIQUE sub-storyboard panel for this beat (NOT the same as master image)
   const generateStoryboard = async (master: MasterScene, sub: SubScene) => {
     updateSub(master.number, sub.id, { status: 'generating_image', error: undefined });
