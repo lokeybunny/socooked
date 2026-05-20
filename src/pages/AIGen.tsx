@@ -80,6 +80,9 @@ export default function AIGen() {
             <TabsTrigger value="create" className="gap-1.5 data-[state=active]:bg-background">
               <Film className="w-3.5 h-3.5" /> Create
             </TabsTrigger>
+            <TabsTrigger value="composer" className="gap-1.5 data-[state=active]:bg-background data-[state=active]:text-yellow-300">
+              <Clapperboard className="w-3.5 h-3.5" /> Composer
+            </TabsTrigger>
             <TabsTrigger value="library" className="gap-1.5 data-[state=active]:bg-background">
               <Grid3X3 className="w-3.5 h-3.5" /> Library
             </TabsTrigger>
@@ -109,6 +112,7 @@ export default function AIGen() {
               onPrefillConsumed={() => setPrefill(null)}
             />
           </TabsContent>
+          <TabsContent value="composer"><StudioComposer /></TabsContent>
           <TabsContent value="library"><StudioLibrary projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
           <TabsContent value="queue"><StudioQueue onModify={openModify} /></TabsContent>
           <TabsContent value="references"><StudioReferences projectId={projectId} /></TabsContent>
