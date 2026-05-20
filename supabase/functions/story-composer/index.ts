@@ -18,6 +18,42 @@ const LO = () => Deno.env.get('LOVABLE_API_KEY') || '';
 const EL = () => Deno.env.get('ELEVENLABS_API_KEY') || '';
 const ATLAS = () => Deno.env.get('ATLASCLOUD_API_KEY') || '';
 const SB_URL = () => Deno.env.get('SUPABASE_URL') || '';
+const SB_SR = () => Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+// Atlas serves images with Content-Disposition: attachment + x-oss-force-download,
+// which makes <img> tags fail to render. Re-host to our public bucket and return that URL.
+async function rehostImage(srcUrl: string): Promise<string> {
+  try {
+    if (!srcUrl || srcUrl.startsWith('data:')) return srcUrl;
+    const sbUrl = SB_URL();
+    const sr = SB_SR();
+    if (!sbUrl || !sr) return srcUrl;
+    const r = await fetch(srcUrl);
+    if (!r.ok) return srcUrl;
+    const ct = r.headers.get('content-type') || 'image/jpeg';
+    const ext = ct.includes('png') ? 'png' : ct.includes('webp') ? 'webp' : 'jpg';
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const path = `composer/${crypto.randomUUID()}.${ext}`;
+    const up = await fetch(`${sbUrl}/storage/v1/object/studio-outputs/${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${sr}`,
+        'Content-Type': ct,
+        'x-upsert': 'true',
+        'cache-control': 'public, max-age=31536000, immutable',
+      },
+      body: bytes,
+    });
+    if (!up.ok) {
+      console.error('rehostImage upload failed', up.status, await up.text().catch(() => ''));
+      return srcUrl;
+    }
+    return `${sbUrl}/storage/v1/object/public/studio-outputs/${path}`;
+  } catch (e) {
+    console.error('rehostImage error', (e as Error).message);
+    return srcUrl;
+  }
+}
 
 const DIRECTORS: Record<string, string> = {
   'Cloverfield': 'handheld POV chaos, jittery realism, shaky cam, found-footage immediacy, blown-out highlights',
