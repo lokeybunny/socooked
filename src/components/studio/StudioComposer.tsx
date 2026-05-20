@@ -466,7 +466,7 @@ FOOTER: tiny line of director's notes and a small page number.
 
 STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film stills, polished AI renders, comic-book panels, anime, Pinterest collage, marketing poster aesthetic.`;
       const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
-        body: { prompt: posterPrompt, size: '1024x1536', quality: 'high' },
+        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
       });
       if (error) throw error;
       const startData = data as { jobId?: string; error?: string };
@@ -844,7 +844,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                           )}
                         </div>
                       </div>
-                      <div className="aspect-[3/2] bg-black flex items-center justify-center">
+                      <div className="aspect-[3/2] bg-black flex items-center justify-center max-h-[80vh]">
                         {posterLoading ? (
                           <div className="text-center text-xs text-yellow-300/80 space-y-2">
                             <Loader2 className="w-7 h-7 animate-spin mx-auto" />
