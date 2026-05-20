@@ -26,7 +26,7 @@ function collectApprovedClips(scenes: MasterScene[]): Clip[] {
   const out: Clip[] = [];
   for (const m of scenes) {
     for (const s of m.subs as SubScene[]) {
-      if (s.status === 'approved' && s.videoUrl) {
+      if (s.videoUrl && s.status !== 'rejected') {
         out.push({
           videoUrl: s.videoUrl,
           durationSec: s.durationSec,
