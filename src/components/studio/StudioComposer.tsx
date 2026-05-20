@@ -804,6 +804,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                         onUpdate={setMovieScenes}
                         seedanceModel={seedanceModel}
                         aspect={aspect}
+                        onEnlarge={setFullscreenImg}
                       />
                     </>
                   )}
