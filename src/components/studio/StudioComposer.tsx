@@ -74,7 +74,7 @@ export function StudioComposer() {
 
   // Settings
   const [label, setLabel] = useState('Untitled Scene');
-  const [imageProvider, setImageProvider] = useState<'lovable' | 'atlascloud'>('atlascloud');
+  const [imageProvider, setImageProvider] = useState<'lovable' | 'atlascloud'>('lovable');
   const [aspect, setAspect] = useState('16:9'); // storyboard panels default landscape
   const [seedanceAspect, setSeedanceAspect] = useState('9:16'); // seedance video defaults vertical
   const [style, setStyle] = useState('cinematic');
@@ -187,10 +187,15 @@ export function StudioComposer() {
       `${style} grade, realism ${realism[0]}/100, creativity ${creativity[0]}/100, chaos ${chaos[0]}/100.`;
   }, [aspect, camera, lens, motion, lighting, style, realism, creativity, chaos]);
 
-  const generateStillImage = async (imagePrompt: string, size: string) => {
-    if (imageProvider !== 'atlascloud') {
+  const generateStillImage = async (
+    imagePrompt: string,
+    size: string,
+    providerOverride?: 'lovable' | 'atlascloud',
+  ) => {
+    const provider = providerOverride || imageProvider;
+    if (provider !== 'atlascloud') {
       const { data, error } = await supabase.functions.invoke('story-composer/image', {
-        body: { prompt: imagePrompt, provider: imageProvider, size, quality: 'high' },
+        body: { prompt: imagePrompt, provider, size, quality: 'high' },
       });
       if (error) throw error;
       const d = data as { imageUrl?: string; error?: string };
@@ -366,7 +371,7 @@ STRICTLY AVOID: polished AI render, color photograph, comic book panel, anime, h
   const renderPanelImage = async (s: Shot) => {
     const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
     try {
-      const generatedUrl = await generateStillImage(buildPanelPrompt(s), size);
+      const generatedUrl = await generateStillImage(buildPanelPrompt(s), size, 'lovable');
       setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_url: generatedUrl, image_loading: false, image_error: undefined } : p));
     } catch (e) {
       setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_loading: false, image_error: (e as Error).message } : p));
@@ -465,27 +470,7 @@ PAGE STYLE:
 FOOTER: tiny line of director's notes and a small page number.
 
 STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film stills, polished AI renders, comic-book panels, anime, Pinterest collage, marketing poster aesthetic.`;
-      const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
-        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
-      });
-      if (error) throw error;
-      const startData = data as { jobId?: string; error?: string };
-      if (startData.error || !startData.jobId) throw new Error(startData.error || 'No job id returned');
-
-      // Poll status every 4s, up to 5 minutes
-      const jobId = startData.jobId;
-      let imageUrl: string | null = null;
-      for (let i = 0; i < 75; i++) {
-        await new Promise((r) => setTimeout(r, 4000));
-        const { data: s, error: sErr } = await supabase.functions.invoke('story-composer/image-status', {
-          body: { jobId },
-        });
-        if (sErr) continue;
-        const sd = s as { status?: string; imageUrl?: string; error?: string };
-        if (sd.status === 'completed' && sd.imageUrl) { imageUrl = sd.imageUrl; break; }
-        if (sd.status === 'failed') throw new Error(sd.error || 'Poster generation failed');
-      }
-      if (!imageUrl) throw new Error('Poster still rendering after 5 minutes — try again');
+      const imageUrl = await generateStillImage(posterPrompt, '1536x1024', 'lovable');
       // Convert to blob URL so the <img> preview works even if the remote host
       // blocks hot-linking / cross-origin <img> loads (download link still uses original).
       try {
