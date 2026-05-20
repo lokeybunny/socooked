@@ -124,6 +124,7 @@ export default function AIGen() {
       </div>
       <ImageLightbox />
       <BatchDrawer projectId={projectId} subprojectId={subprojectId} />
+      <TemplatesDrawer />
     </div>
   );
 }
