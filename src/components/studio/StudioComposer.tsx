@@ -115,7 +115,7 @@ export function StudioComposer() {
     if (!movieConfig.enabled) return;
     setMovieScenes((prev) =>
       expandStoryboardToMovie(
-        shots.map((s) => ({ number: s.number, title: s.title, description: s.description })),
+        shots.map((s) => ({ number: s.number, title: s.title, description: s.description, image_url: s.image_url })),
         movieConfig.subsPerScene,
         movieConfig.durationSec,
         posterUrl ?? undefined,
@@ -123,7 +123,7 @@ export function StudioComposer() {
       )
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [movieConfig.enabled, movieConfig.subsPerScene, movieConfig.durationSec, shots.length, posterUrl]);
+  }, [movieConfig.enabled, movieConfig.subsPerScene, movieConfig.durationSec, shots, posterUrl]);
 
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
