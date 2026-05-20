@@ -466,7 +466,7 @@ FOOTER: tiny line of director's notes and a small page number.
 
 STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film stills, polished AI renders, comic-book panels, anime, Pinterest collage, marketing poster aesthetic.`;
       const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
-        body: { prompt: posterPrompt, size: '1024x1536', quality: 'high' },
+        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
       });
       if (error) throw error;
       const startData = data as { jobId?: string; error?: string };
