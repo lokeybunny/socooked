@@ -747,7 +747,8 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                           </TabsList>
 
                           <TabsContent value="visual" className="space-y-4 pt-4">
-                            <SettingSelect label="Aspect Ratio" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
+                            <SettingSelect label="Storyboard Aspect" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
+                            <SettingSelect label="Seedance Aspect" icon={<Maximize2 className="w-3 h-3" />} value={seedanceAspect} onChange={setSeedanceAspect} options={ASPECTS} />
                             <SettingSelect label="Cinematic Style" icon={<Film className="w-3 h-3" />} value={style} onChange={setStyle} options={CINEMATIC_STYLES} />
                             <SettingSelect label="Camera" icon={<Camera className="w-3 h-3" />} value={camera} onChange={setCamera} options={CAMERAS} />
                             <SettingSelect label="Lens" icon={<Aperture className="w-3 h-3" />} value={lens} onChange={setLens} options={LENSES} />
