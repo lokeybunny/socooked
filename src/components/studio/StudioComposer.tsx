@@ -947,12 +947,13 @@ function inferShotTag(s: Shot): string {
 }
 
 function ShotCard({
-  shot: s, aspect, compact = false, onOpen, onRegen, regenning,
+  shot: s, aspect, compact = false, groupLabel, onOpen, onRegen, regenning,
   onTitle, onShotType, onCamMove, onDesc, onSeedance, sending,
 }: {
   shot: Shot;
   aspect: string;
   compact?: boolean;
+  groupLabel?: string;
   onOpen: () => void;
   onRegen: () => void;
   regenning: boolean;
