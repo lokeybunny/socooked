@@ -101,6 +101,7 @@ export function StudioComposer() {
   const [immersion, setImmersion] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [selectedShot, setSelectedShot] = useState<number | null>(null);
+  const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
 
   // Movie Mode
   const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
