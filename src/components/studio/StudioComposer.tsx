@@ -269,8 +269,32 @@ export function StudioComposer() {
     }
   };
 
-  const buildPanelPrompt = (s: Shot) =>
-    `Cinematic storyboard panel #${s.number} — ${s.title}. ${s.description} Shot: ${s.shot_type}, camera ${s.camera_move}, ${s.lens}, ${s.lighting}. Film-still, photoreal, ${style}, ${aspect} aspect.`;
+  const buildPanelPrompt = (s: Shot) => {
+    const shotTag = (s.shot_type || 'MS').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 6) || 'MS';
+    const camTag = (s.camera_move || 'Eye-Level').replace(/\s+/g, ' ').slice(0, 28);
+    return (
+`A single page from a REAL Hollywood pre-production storyboard binder — high-resolution JPEG scan of an analog shot-planning sheet. Not AI art, not concept art, not a film still, not a moodboard. This is a professional director's storyboard document.
+
+LAYOUT (one shot row, fills the page):
+- LEFT COLUMN (about 35% width): a printed/handwritten technical metadata table with these labeled fields stacked vertically, monospace/typewriter typography:
+    SHOT #${String(s.number).padStart(2, '0')}
+    SHOT TYPE: ${shotTag}
+    CAMERA: ${camTag}
+    LENS: ${s.lens || 'Cinema 35mm'}
+    LIGHTING: ${s.lighting || 'natural'}
+    SCENE: ${s.title}
+    ACTION: ${s.description}
+    NOTES: handwritten cinematography annotations (focus, framing, emotion)
+- RIGHT COLUMN (about 65% width): a rough but professional GRAPHITE PENCIL storyboard sketch frame inside a thin black rectangular border with rounded corners, depicting: ${s.description}. Hand-drawn grayscale linework, film-school previs quality, pencil pressure variation, light smudges, motion arrows / camera-push arrows where appropriate, framing crosshairs, focus indicators.
+
+PAGE STYLE:
+- Off-white aged paper texture, faint horizontal ruled lines, subtle graphite smudges, slight scan imperfection.
+- Header strip across the top with project slug, page number, and date stamp (small, typewriter).
+- Footer strip with tiny director's-notebook annotations.
+- Overall feel: Christopher Nolan production board / Netflix previs packet / real studio shot-planning sheet.
+
+STRICTLY AVOID: polished AI render, color photograph, comic book panel, anime, hyperreal concept art, social media card, Pinterest collage, glossy magazine layout, gold borders, marketing poster. The frame artwork must be grayscale graphite, not painted, not photographic.`);
+  };
 
   const renderPanelImage = async (s: Shot) => {
     const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
@@ -345,21 +369,35 @@ export function StudioComposer() {
     setPosterUrl(null);
     try {
       const title = (label || 'Untitled Scene').toUpperCase();
-      const shotLines = shots.map((s) =>
-        `Panel ${s.number} — "${s.title}": ${s.description} [${s.shot_type}, ${s.camera_move}, ${s.lighting}]`
-      ).join('\n');
+      const shotLines = shots.map((s) => {
+        const shotTag = (s.shot_type || 'MS').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 6) || 'MS';
+        return `ROW ${String(s.number).padStart(2, '0')} | ${shotTag} | ${s.camera_move || 'Eye-Level'} | "${s.title}" — ACTION: ${s.description} | NOTES: ${s.lens || 'Cinema 35mm'}, ${s.lighting || 'natural'}`;
+      }).join('\n');
       const posterPrompt =
-`Design ONE single high-resolution cinematic STORYBOARD POSTER (landscape, magazine pitch-deck layout) titled "${title}".
-The poster must contain ALL ${shots.length} numbered panels laid out in a clean grid (top row larger establishing shots, bottom row payoff shots), each panel framed with a thin gold border, numbered in the top-left corner with a small gold square badge, and captioned underneath with the panel title in gold uppercase and a 1-2 line description in white.
-Header: large serif title "${title}" centered at the top with a small subtitle line.
-Left header column: "CONCEPT" with a short blurb. Right header column: "TONE & STYLE" bullet list (${style}, ${director || 'cinematic'}, ${lighting}).
-Footer strip with sections: VISUAL STYLE, CAMERA & FILMING, MUSIC & SOUND, KEY MESSAGE, PURPOSE — each with tiny bullet points.
-Background: warm off-white paper texture. Premium luxury film pitch-deck aesthetic. NOT a single character image. NOT a movie scene. This is a flat 2D graphic-design poster composed of multiple inset photo panels.
-Panels content:
+`A single high-resolution JPEG scan of a REAL Hollywood pre-production storyboard document — a multi-row shot breakdown sheet pulled from a director's binder. NOT AI art, NOT a moodboard, NOT a pitch-deck poster, NOT concept art, NOT a magazine layout, NOT a social card. This is an authentic analog storyboard page.
+
+PAGE HEADER (small, typewriter / monospace, across the top):
+PROJECT: ${title}    |    DIRECTOR: ${director || 'N/A'}    |    PAGE 1 of 1    |    DATE: pre-production
+
+BODY: a vertical stack of ${shots.length} horizontal SHOT ROWS, each row separated by a thin ruled line. Each row contains:
+- LEFT (about 35%): printed metadata table with labeled fields — SHOT #, SHOT TYPE (WS/MS/CU/ECU/OTS/POV/LOW/HIGH/DUTCH/TRACK/HANDHELD/CRANE/STEADICAM), CAMERA ANGLE, SCENE TITLE, ACTION DESCRIPTION (cinematic prose), optional DIALOGUE block formatted like a screenplay (CHARACTER NAME centered, parenthetical direction, line of dialogue), and CINEMATIC NOTES with handwritten annotations.
+- RIGHT (about 65%): a rough but professional GRAPHITE PENCIL storyboard sketch frame inside a thin black bordered rectangle, depicting that row's action. Hand-drawn grayscale linework, motion arrows, camera-push arrows, framing crosshairs, focus indicators, lens notes scribbled in the margin.
+
+ROWS TO RENDER (use these exact metadata; sketch the action faithfully):
 ${shotLines}
-Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic film stills.`;
+
+PAGE STYLE:
+- Off-white aged paper texture, faint horizontal ruled lines, graphite smudges, light scan imperfections, subtle aging.
+- Typewriter / monospace printed text for labels; handwritten pencil for marginal notes.
+- All sketch frames are GRAYSCALE GRAPHITE — never color, never painted, never photographic.
+- Maintain character, wardrobe, and environment continuity across every row.
+- Overall feel: Christopher Nolan production board, Netflix previs packet, real studio shot-planning binder page.
+
+FOOTER: tiny line of director's notes and a small page number.
+
+STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film stills, polished AI renders, comic-book panels, anime, Pinterest collage, marketing poster aesthetic.`;
       const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
-        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
+        body: { prompt: posterPrompt, size: '1024x1536', quality: 'high' },
       });
       if (error) throw error;
       const startData = data as { jobId?: string; error?: string };
