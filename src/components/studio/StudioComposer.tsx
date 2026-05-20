@@ -704,6 +704,17 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                       >
                         <Expand className="w-3 h-3" /> {immersion ? 'Exit' : 'Immersion'}
                       </Button>
+                      <Button
+                        onClick={() => setLockContinuity((v) => !v)}
+                        size="sm"
+                        variant="outline"
+                        className={`h-8 text-xs border ${lockContinuity
+                          ? 'bg-emerald-500/15 border-emerald-400/60 text-emerald-200 hover:bg-emerald-500/25'
+                          : 'bg-black/40 border-white/10 text-white/60 hover:border-emerald-400/40'}`}
+                        title="Lock wardrobe, lens, lighting & character positions from the last approved beat"
+                      >
+                        {lockContinuity ? '🔒' : '🔓'} Continuity
+                      </Button>
                       <SavedStoryboardsMenu onLoad={handleLoadSession} refreshKey={savedRefreshKey} />
                     </>
                   )}
