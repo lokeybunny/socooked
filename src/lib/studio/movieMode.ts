@@ -49,6 +49,7 @@ export interface MasterScene {
   title: string;
   description: string;
   posterRefUrl?: string;    // global poster (shared)
+  masterImageUrl?: string;  // the master scene's own storyboard panel image
   subs: SubScene[];
   expanded?: boolean;
 }
