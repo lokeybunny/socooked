@@ -97,21 +97,42 @@ async function transcribe(audio: File | Blob) {
 }
 
 async function generateImageLovable(prompt: string) {
-  const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${LO()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-image',
-      messages: [{ role: 'user', content: prompt }],
-      modalities: ['image', 'text'],
-    }),
-  });
-  if (!r.ok) throw new Error(`Lovable image ${r.status}: ${(await r.text()).slice(0, 300)}`);
-  const j = await r.json();
-  const url = j?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!url) throw new Error('No image returned');
-  return url as string;
+  const models = [
+    'google/gemini-2.5-flash-image',
+    'google/gemini-3.1-flash-image-preview',
+    'google/gemini-3-pro-image-preview',
+  ];
+  let lastErr = '';
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${LO()}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: `Generate a single cinematic image. ${prompt}` }],
+            modalities: ['image', 'text'],
+          }),
+        });
+        if (!r.ok) {
+          lastErr = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
+          if (r.status === 429 || r.status === 402) throw new Error(lastErr);
+          continue;
+        }
+        const j = await r.json();
+        const url = j?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        if (url) return url as string;
+        lastErr = `${model}: no image in response (got text: ${String(j?.choices?.[0]?.message?.content || '').slice(0, 120)})`;
+      } catch (e) {
+        lastErr = (e as Error).message;
+        if (lastErr.includes('429') || lastErr.includes('402')) throw e;
+      }
+    }
+  }
+  throw new Error(`Image gen failed after retries — ${lastErr}`);
 }
+
 
 async function generateImageAtlas(prompt: string, size = '1536x1024', quality = 'high') {
   const key = ATLAS();
