@@ -1023,6 +1023,13 @@ function ShotCard({
           >
             <Eye className="w-3 h-3" />
           </button>
+          <SaveAssetButton
+            url={s.image_url}
+            name={`${groupLabel || 'Storyboard'} — #${String(s.number).padStart(2, '0')} ${s.title}`}
+            notes={s.description}
+            withDelete
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
         </div>
 
         {/* bottom title overlay (always visible) */}
