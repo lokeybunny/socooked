@@ -396,7 +396,6 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
           </div>
         </div>
 
-        <div className={`grid gap-4 relative transition-all ${immersion ? 'grid-cols-1' : 'grid-cols-12'}`}>
         <div className="space-y-4 relative">
           {/* TOP — PROMPT BAR (collapsed in immersion) */}
           {!immersion && (
