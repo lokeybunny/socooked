@@ -461,9 +461,15 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
               title={shots.length ? `STORYBOARD — ${shots.length} SHOTS` : 'STORYBOARD PREVIEW'}
               icon={<Clapperboard className="w-3.5 h-3.5" />}
               action={shots.length ? (
-                <Button onClick={sendAllToSeedance} disabled={sendingTo !== null} size="sm" className="h-7 text-xs bg-yellow-400 text-black hover:bg-yellow-300">
-                  <Send className="w-3 h-3" /> Queue all
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button onClick={generatePoster} disabled={posterLoading} size="sm" className="h-7 text-xs bg-white/5 text-yellow-300 border border-yellow-400/40 hover:bg-yellow-400/10">
+                    {posterLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                    Poster (gpt-image-2)
+                  </Button>
+                  <Button onClick={sendAllToSeedance} disabled={sendingTo !== null} size="sm" className="h-7 text-xs bg-yellow-400 text-black hover:bg-yellow-300">
+                    <Send className="w-3 h-3" /> Queue all
+                  </Button>
+                </div>
               ) : undefined}
             >
               <div className="flex gap-2 mb-3">
