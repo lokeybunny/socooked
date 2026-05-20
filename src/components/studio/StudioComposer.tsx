@@ -18,6 +18,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SmartImage } from './SmartImage';
+import { MovieModePanel } from './MovieModePanel';
+import { MovieSceneTree } from './MovieSceneTree';
+import {
+  DEFAULT_MOVIE_CONFIG, MovieModeConfig, MasterScene, expandStoryboardToMovie,
+} from '@/lib/studio/movieMode';
 
 const DIRECTORS = [
   'Cloverfield','Goodfellas','The Matrix','Inception','HUMBLE.',
