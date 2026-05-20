@@ -726,7 +726,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                             <p className="text-[10px] opacity-60">This can take 30-60s</p>
                           </div>
                         ) : (
-                          <img src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
+                          <SmartImage src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
                         )}
                       </div>
                     </div>
