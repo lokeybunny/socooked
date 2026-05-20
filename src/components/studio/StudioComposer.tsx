@@ -922,6 +922,18 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                       {sendingTo === s.number ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       Send to Seedance
                     </Button>
+                    {s.image_url && (
+                      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Library</span>
+                        <SaveAssetButton
+                          url={s.image_url}
+                          name={`${label} — #${String(s.number).padStart(2, '0')} ${s.title}`}
+                          notes={s.description}
+                          size="md"
+                          withDelete
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
