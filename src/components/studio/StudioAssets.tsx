@@ -323,6 +323,57 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
     }
   };
 
+  const handleDownloadZip = async () => {
+    if (assets.length === 0) return;
+    setZipping(true);
+    setZipProgress({ done: 0, total: assets.length });
+    try {
+      const zip = new JSZip();
+      const originalsFolder = zip.folder('originals')!;
+      const convertedFolder = zip.folder('converted')!;
+      const otherFolder = zip.folder('other')!;
+      const usedNames = new Set<string>();
+      const uniqueName = (folder: string, base: string) => {
+        let n = base; let i = 1;
+        while (usedNames.has(`${folder}/${n}`)) { const dot = base.lastIndexOf('.'); n = dot > 0 ? `${base.slice(0,dot)} (${i})${base.slice(dot)}` : `${base} (${i})`; i++; }
+        usedNames.add(`${folder}/${n}`); return n;
+      };
+      let done = 0;
+      for (const a of assets) {
+        try {
+          const res = await fetch(a.image_url, { mode: 'cors' });
+          const blob = await res.blob();
+          const ext = (a.storage_path?.split('.').pop() || 'jpg').split('?')[0];
+          const safe = (a.name || 'asset').replace(/[^\w.-]+/g, '_');
+          const variant = (a as any).variant as string | null | undefined;
+          const folder = variant === 'original' ? originalsFolder : variant === 'processed' ? convertedFolder : otherFolder;
+          const folderName = variant === 'original' ? 'originals' : variant === 'processed' ? 'converted' : 'other';
+          const fname = uniqueName(folderName, `${safe}.${ext}`);
+          folder.file(fname, blob);
+        } catch (e) {
+          console.error('zip add failed', a.id, e);
+        }
+        done++;
+        setZipProgress({ done, total: assets.length });
+      }
+      const content = await zip.generateAsync({ type: 'blob' }, (meta) => {
+        // packaging progress (optional)
+      });
+      const url = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      const scopeSafe = (scopeLabel || 'assets').replace(/[^\w.-]+/g, '_');
+      link.href = url; link.download = `${scopeSafe}-${new Date().toISOString().slice(0,10)}.zip`;
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: `Downloaded ${done} asset${done === 1 ? '' : 's'}` });
+    } catch (e) {
+      toast({ title: 'Zip failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setZipping(false);
+      setZipProgress({ done: 0, total: 0 });
+    }
+  };
+
   const projectNameMap = new Map(projects.map(p => [p.id, p.name]));
   const subprojectNameMap = new Map(subprojects.map(s => [s.id, s.name]));
 
