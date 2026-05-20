@@ -71,7 +71,7 @@ export function StudioComposer() {
 
   // Settings
   const [label, setLabel] = useState('Untitled Scene');
-  const [imageProvider, setImageProvider] = useState<'lovable' | 'atlascloud'>('lovable');
+  const [imageProvider, setImageProvider] = useState<'lovable' | 'atlascloud'>('atlascloud');
   const [aspect, setAspect] = useState('16:9');
   const [style, setStyle] = useState('cinematic');
   const [camera, setCamera] = useState('ARRI Alexa LF');
@@ -106,7 +106,7 @@ export function StudioComposer() {
   const [movieScenes, setMovieScenes] = useState<MasterScene[]>([]);
   const [moviePlayerOpen, setMoviePlayerOpen] = useState(false);
   const approvedClipCount = movieScenes.reduce(
-    (n, m) => n + m.subs.filter((s) => s.status === 'approved' && s.videoUrl).length,
+    (n, m) => n + m.subs.filter((s) => s.videoUrl && s.status !== 'rejected').length,
     0,
   );
 
@@ -115,7 +115,7 @@ export function StudioComposer() {
     if (!movieConfig.enabled) return;
     setMovieScenes((prev) =>
       expandStoryboardToMovie(
-        shots.map((s) => ({ number: s.number, title: s.title, description: s.description })),
+        shots.map((s) => ({ number: s.number, title: s.title, description: s.description, image_url: s.image_url })),
         movieConfig.subsPerScene,
         movieConfig.durationSec,
         posterUrl ?? undefined,
@@ -123,7 +123,7 @@ export function StudioComposer() {
       )
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [movieConfig.enabled, movieConfig.subsPerScene, movieConfig.durationSec, shots.length, posterUrl]);
+  }, [movieConfig.enabled, movieConfig.subsPerScene, movieConfig.durationSec, shots, posterUrl]);
 
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
@@ -776,7 +776,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                     <>
                       <div className="flex items-center justify-between mt-4 mb-1 px-1">
                         <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">
-                          {approvedClipCount} approved clip{approvedClipCount === 1 ? '' : 's'}
+                          {approvedClipCount} clip{approvedClipCount === 1 ? '' : 's'} ready
                         </div>
                         <Button
                           size="sm"

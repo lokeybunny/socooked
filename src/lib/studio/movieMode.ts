@@ -49,6 +49,7 @@ export interface MasterScene {
   title: string;
   description: string;
   posterRefUrl?: string;    // global poster (shared)
+  masterImageUrl?: string;  // the master scene's own storyboard panel image
   subs: SubScene[];
   expanded?: boolean;
 }
@@ -86,7 +87,7 @@ export function deriveSubPrompt(
  * the subsPerScene count.
  */
 export function expandStoryboardToMovie(
-  shots: Array<{ number: number; title: string; description: string }>,
+  shots: Array<{ number: number; title: string; description: string; image_url?: string }>,
   subsPerScene: SubScenesPerMaster,
   durationSec: ClipDuration,
   posterRefUrl?: string,
@@ -111,6 +112,7 @@ export function expandStoryboardToMovie(
       title: shot.title,
       description: shot.description,
       posterRefUrl,
+      masterImageUrl: shot.image_url,
       subs,
       expanded: prev?.expanded ?? false,
     };
