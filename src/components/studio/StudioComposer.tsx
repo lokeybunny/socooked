@@ -122,7 +122,7 @@ export function StudioComposer() {
   const handleSaveSession = () => {
     const name = (label || 'Untitled Scene').trim();
     saveStoryboard(name, {
-      label, director, aspect, imageProvider, seedanceModel, shotCount,
+      label, director, aspect, seedanceAspect, imageProvider, seedanceModel, shotCount,
       realism, creativity, chaos,
       prompt, structured, master,
       shots, posterUrl,
