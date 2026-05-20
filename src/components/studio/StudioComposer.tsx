@@ -82,6 +82,8 @@ export function StudioComposer() {
   const [master, setMaster] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterLoading, setPosterLoading] = useState(false);
 
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
