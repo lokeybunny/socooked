@@ -40,7 +40,7 @@ export default function AIGen() {
   const openModify = useCallback((job: GenerationJob) => {
     setPrefill({
       task_type: job.task_type,
-      prompt: getJobPrompt(job),
+      prompt: typeof job.prompt === 'string' ? job.prompt : '',
       negative_prompt: job.negative_prompt,
       settings_json: job.settings_json,
       input_image_url: job.input_image_url,
