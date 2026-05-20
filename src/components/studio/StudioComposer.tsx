@@ -776,7 +776,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                     <>
                       <div className="flex items-center justify-between mt-4 mb-1 px-1">
                         <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">
-                          {approvedClipCount} approved clip{approvedClipCount === 1 ? '' : 's'}
+                          {approvedClipCount} clip{approvedClipCount === 1 ? '' : 's'} ready
                         </div>
                         <Button
                           size="sm"
