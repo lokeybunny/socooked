@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SmartImage } from './SmartImage';
 import { MovieModePanel } from './MovieModePanel';
 import { MovieSceneTree } from './MovieSceneTree';
+import { MoviePlayer } from './MoviePlayer';
 import {
   DEFAULT_MOVIE_CONFIG, MovieModeConfig, MasterScene, expandStoryboardToMovie,
 } from '@/lib/studio/movieMode';
