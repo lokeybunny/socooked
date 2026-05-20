@@ -201,6 +201,8 @@ export function SmartImage({ src, alt, className, loading = 'lazy', onResolved, 
           onResolved?.(currentSrc);
         }}
         onError={handleError}
+        onDoubleClick={onDoubleClick}
+        onClick={onClick}
       />
       {phase === 'rehosting' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-[10px] text-yellow-300 gap-2 pointer-events-none">
