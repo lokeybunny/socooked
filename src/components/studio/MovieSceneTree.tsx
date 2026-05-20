@@ -1,13 +1,11 @@
-import { useState } from 'react';
 import {
-  ChevronDown, ChevronRight, Sparkles, Check, X, RefreshCw, Loader2, Send, Film,
+  ChevronDown, ChevronRight, Sparkles, RefreshCw, Loader2, Film,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
-  MasterScene, SubScene, STATUS_STYLE, deriveSubPrompt,
+  MasterScene, SubScene, STATUS_STYLE, ClipDuration,
 } from '@/lib/studio/movieMode';
 import { SmartImage } from './SmartImage';
 
@@ -19,7 +17,9 @@ interface Props {
   aspect: string;
 }
 
-export function MovieSceneTree({ scenes, posterRefUrl, onUpdate, seedanceModel, aspect }: Props) {
+const DUR_OPTIONS: ClipDuration[] = [5, 10, 15];
+
+export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect }: Props) {
   const { toast } = useToast();
 
   const updateSub = (masterNum: number, subId: string, patch: Partial<SubScene>) => {
@@ -36,46 +36,34 @@ export function MovieSceneTree({ scenes, posterRefUrl, onUpdate, seedanceModel, 
     onUpdate(scenes.map((m) => (m.number === masterNum ? { ...m, expanded: !m.expanded } : m)));
   };
 
-  const generateSubImage = async (master: MasterScene, sub: SubScene) => {
-    updateSub(master.number, sub.id, { status: 'generating_image', error: undefined });
-    try {
-      // Use poster as master reference + previous sub's last frame for continuity
-      const prevSub = master.subs[sub.index - 1];
-      const continuityRef = prevSub?.lastFrameUrl || prevSub?.imageUrl;
-      const prompt = `Cinematic storyboard frame — ${sub.prompt}. Match poster reference for wardrobe, character, lighting, and color palette. ${aspect} aspect ratio.`;
-
-      const { data, error } = await supabase.functions.invoke('story-composer/image', {
-        body: {
-          prompt,
-          provider: 'lovable',
-          size: '1024x1024',
-          quality: 'high',
-          referenceImage: continuityRef || posterRefUrl,
-        },
-      });
-      if (error) throw new Error(error.message);
-      const d = data as { imageUrl?: string; error?: string };
-      if (!d?.imageUrl) throw new Error(d?.error || 'No image returned');
-      updateSub(master.number, sub.id, { imageUrl: d.imageUrl, status: 'image_ready' });
-    } catch (e) {
-      updateSub(master.number, sub.id, { status: 'failed', error: (e as Error).message });
-      toast({ title: `Sub-scene ${master.number}${String.fromCharCode(65 + sub.index)} failed`, description: (e as Error).message, variant: 'destructive' });
-    }
-  };
-
-  const generateSubClip = async (master: MasterScene, sub: SubScene) => {
-    if (!sub.imageUrl) {
-      toast({ title: 'Generate the sub-storyboard image first', variant: 'destructive' });
-      return;
-    }
+  // Auto-expand all on mount for visibility
+  const generateClip = async (master: MasterScene, sub: SubScene) => {
     updateSub(master.number, sub.id, { status: 'generating_video', error: undefined });
     try {
+      // Continuity: prior sub's tail frame > master storyboard image > nothing
+      const prevSub = master.subs[sub.index - 1];
+      const refImage = prevSub?.lastFrameUrl || master.masterImageUrl;
+
+      // Stack notes: prepend continuity breadcrumbs from earlier approved/generated subs
+      const priorNotes = master.subs
+        .slice(0, sub.index)
+        .filter((s) => s.videoUrl || s.imageUrl)
+        .map((s, i) => `Continuation #${i + 1}: ${s.prompt}`)
+        .join(' | ');
+
+      const fullPrompt = [
+        `Cinematic storyboard sub-scene — ${master.title}.`,
+        sub.prompt,
+        priorNotes ? `Prior beats in this scene: ${priorNotes}.` : '',
+        'Maintain wardrobe, character, lens, color palette, and lighting continuity with the master storyboard panel.',
+      ].filter(Boolean).join(' ');
+
       const { data, error } = await supabase.functions.invoke('story-composer/seedance', {
         body: {
-          prompt: sub.prompt,
+          prompt: fullPrompt,
           model: seedanceModel,
           aspect,
-          image_url: sub.imageUrl,
+          image_url: refImage,
           duration: sub.durationSec,
         },
       });
@@ -85,10 +73,17 @@ export function MovieSceneTree({ scenes, posterRefUrl, onUpdate, seedanceModel, 
       updateSub(master.number, sub.id, {
         videoUrl: d.videoUrl,
         lastFrameUrl: d.lastFrameUrl,
-        status: 'pending_review',
+        imageUrl: refImage,
+        status: 'approved',
+        approved: true,
       });
     } catch (e) {
       updateSub(master.number, sub.id, { status: 'failed', error: (e as Error).message });
+      toast({
+        title: `Sub-scene ${master.number}${String.fromCharCode(65 + sub.index)} failed`,
+        description: (e as Error).message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -113,26 +108,19 @@ export function MovieSceneTree({ scenes, posterRefUrl, onUpdate, seedanceModel, 
             <span className="text-xs font-mono text-emerald-300/80">#{String(m.number).padStart(2, '0')}</span>
             <span className="text-sm text-white/90 font-medium flex-1 text-left truncate">{m.title}</span>
             <span className="text-[10px] text-emerald-200/60 font-mono">
-              {m.subs.filter((s) => s.status === 'approved').length}/{m.subs.length} approved
+              {m.subs.filter((s) => s.videoUrl).length}/{m.subs.length} clips
             </span>
           </button>
 
           {m.expanded && (
-            <div className="border-t border-emerald-400/15 p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-black/30">
+            <div className="border-t border-emerald-400/15 p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-black/30">
               {m.subs.map((sub) => (
                 <SubSceneCard
                   key={sub.id}
-                  master={m}
                   sub={sub}
-                  onPromptChange={(p) => updateSub(m.number, sub.id, { prompt: p })}
-                  onResetPrompt={() => updateSub(m.number, sub.id, {
-                    prompt: deriveSubPrompt(m.title, m.description, sub.index),
-                  })}
-                  onGenImage={() => generateSubImage(m, sub)}
-                  onGenClip={() => generateSubClip(m, sub)}
-                  onApprove={() => updateSub(m.number, sub.id, { status: 'approved', approved: true })}
-                  onReject={() => updateSub(m.number, sub.id, { status: 'rejected', approved: false })}
-                  onRegen={() => generateSubImage(m, sub)}
+                  masterImageUrl={m.masterImageUrl}
+                  onDuration={(d) => updateSub(m.number, sub.id, { durationSec: d })}
+                  onGenerate={() => generateClip(m, sub)}
                 />
               ))}
             </div>
@@ -143,35 +131,33 @@ export function MovieSceneTree({ scenes, posterRefUrl, onUpdate, seedanceModel, 
   );
 }
 
-interface CardProps {
-  master: MasterScene;
-  sub: SubScene;
-  onPromptChange: (p: string) => void;
-  onResetPrompt: () => void;
-  onGenImage: () => void;
-  onGenClip: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-  onRegen: () => void;
-}
-
 function SubSceneCard({
-  sub, onPromptChange, onResetPrompt, onGenImage, onGenClip, onApprove, onReject, onRegen,
-}: CardProps) {
+  sub, masterImageUrl, onDuration, onGenerate,
+}: {
+  sub: SubScene;
+  masterImageUrl?: string;
+  onDuration: (d: ClipDuration) => void;
+  onGenerate: () => void;
+}) {
   const style = STATUS_STYLE[sub.status];
-  const [editing, setEditing] = useState(false);
   const busy = sub.status === 'generating_image' || sub.status === 'generating_video';
+  const previewImg = sub.imageUrl || masterImageUrl;
 
   return (
-    <div className="rounded-md border border-white/10 bg-zinc-950/80 overflow-hidden flex flex-col">
-      <div className="relative aspect-square bg-black">
+    <div className="rounded-md border border-white/10 bg-zinc-950/80 overflow-hidden flex flex-col group">
+      <div className="relative aspect-video bg-black">
         {sub.videoUrl ? (
           <video src={sub.videoUrl} controls className="absolute inset-0 w-full h-full object-cover" />
-        ) : sub.imageUrl ? (
-          <SmartImage src={sub.imageUrl} alt={sub.beatLabel} className="absolute inset-0 w-full h-full object-cover" />
+        ) : previewImg ? (
+          <SmartImage src={previewImg} alt={sub.beatLabel} className="absolute inset-0 w-full h-full object-cover opacity-80" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/30">
             {busy ? <Loader2 className="w-5 h-5 animate-spin text-emerald-400" /> : 'No frame'}
+          </div>
+        )}
+        {busy && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
           </div>
         )}
         <div className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-semibold ${style.bg} ${style.text}`}>
@@ -182,62 +168,38 @@ function SubSceneCard({
         </div>
       </div>
 
-      <div className="p-2 space-y-1.5 text-[11px]">
-        {editing ? (
-          <Textarea
-            value={sub.prompt}
-            onChange={(e) => onPromptChange(e.target.value)}
-            onBlur={() => setEditing(false)}
-            autoFocus
-            className="text-[10px] h-16 bg-black/60 border-white/10"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-left text-[10px] text-white/70 line-clamp-3 hover:text-white w-full"
-            title="Click to edit prompt"
-          >
-            {sub.prompt}
-          </button>
-        )}
+      <div className="p-2 space-y-1.5">
+        {/* Duration toggle */}
+        <div className="flex gap-1">
+          {DUR_OPTIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => onDuration(d)}
+              disabled={busy}
+              className={`flex-1 h-6 rounded text-[10px] font-semibold transition ${
+                sub.durationSec === d
+                  ? 'bg-emerald-500/25 border border-emerald-400 text-emerald-200'
+                  : 'bg-black/40 border border-white/10 text-white/50 hover:border-emerald-400/40'
+              }`}
+            >
+              {d}s
+            </button>
+          ))}
+        </div>
 
         {sub.error && <div className="text-[10px] text-red-300 line-clamp-2">{sub.error}</div>}
 
-        <div className="flex gap-1">
-          {!sub.imageUrl ? (
-            <Button size="sm" onClick={onGenImage} disabled={busy} className="flex-1 h-7 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white">
-              {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              Frame
-            </Button>
-          ) : !sub.videoUrl ? (
-            <>
-              <Button size="sm" onClick={onGenClip} disabled={busy} className="flex-1 h-7 text-[10px] bg-purple-600 hover:bg-purple-500 text-white">
-                {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                Clip
-              </Button>
-              <Button size="sm" variant="outline" onClick={onRegen} className="h-7 w-7 p-0 border-white/10">
-                <RefreshCw className="w-3 h-3" />
-              </Button>
-            </>
-          ) : sub.status === 'pending_review' ? (
-            <>
-              <Button size="sm" onClick={onApprove} className="flex-1 h-7 text-[10px] bg-emerald-600 hover:bg-emerald-500">
-                <Check className="w-3 h-3" /> Approve
-              </Button>
-              <Button size="sm" variant="outline" onClick={onReject} className="h-7 w-7 p-0 border-red-400/30 text-red-300">
-                <X className="w-3 h-3" />
-              </Button>
-              <Button size="sm" variant="outline" onClick={onRegen} className="h-7 w-7 p-0 border-white/10">
-                <RefreshCw className="w-3 h-3" />
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" variant="outline" onClick={onResetPrompt} className="flex-1 h-7 text-[10px] border-white/10">
-              <RefreshCw className="w-3 h-3" /> Reset prompt
-            </Button>
-          )}
-        </div>
+        <Button
+          size="sm"
+          onClick={onGenerate}
+          disabled={busy}
+          className="w-full h-7 text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white"
+        >
+          {busy ? <Loader2 className="w-3 h-3 animate-spin" />
+            : sub.videoUrl ? <><RefreshCw className="w-3 h-3" /> Regenerate</>
+            : <><Sparkles className="w-3 h-3" /> Generate</>}
+        </Button>
       </div>
     </div>
   );
