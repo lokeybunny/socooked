@@ -71,6 +71,10 @@ export function SmartImage({ src, alt, className, loading = 'lazy', onResolved }
           probeOk: !!d.probeOk,
           probeHeaders: d.probeHeaders ?? {},
         });
+        // Cache the mapping so subsequent renders of the same original URL
+        // (in this session, or after reload via localStorage) skip the network.
+        setCachedRehost(src, d.imageUrl);
+        setCachedRehost(url, d.imageUrl);
         setCurrentSrc(d.imageUrl);
         setPhase('loading');
         return;
