@@ -764,6 +764,17 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                       </div>
                     </div>
                   )}
+
+                  {/* MOVIE MODE — sub-storyboards */}
+                  {movieConfig.enabled && shots.length > 0 && (
+                    <MovieSceneTree
+                      scenes={movieScenes}
+                      posterRefUrl={posterUrl ?? undefined}
+                      onUpdate={setMovieScenes}
+                      seedanceModel={seedanceModel}
+                      aspect={aspect}
+                    />
+                  )}
                 </div>
               </div>
             </div>
