@@ -153,8 +153,9 @@ async function generateImageAtlas(prompt: string, size = '1536x1024', quality = 
   const subJ = await sub.json();
   const id = subJ?.data?.id;
   if (!id) throw new Error('Atlas: no prediction id');
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 2000));
+  // gpt-image-2 on complex poster prompts can take 2-4 minutes. Poll up to ~240s.
+  for (let i = 0; i < 80; i++) {
+    await new Promise((r) => setTimeout(r, i < 10 ? 2000 : 3000));
     const poll = await fetch(`https://api.atlascloud.ai/api/v1/model/prediction/${id}`, {
       headers: { Authorization: `Bearer ${key}` },
     });
@@ -168,7 +169,7 @@ async function generateImageAtlas(prompt: string, size = '1536x1024', quality = 
     }
     if (status === 'failed') throw new Error(pj?.data?.error || 'Atlas generation failed');
   }
-  throw new Error('Atlas: poll timeout');
+  throw new Error('Atlas: poll timeout (job still running after 240s — try again or simplify the prompt)');
 }
 
 async function buildStoryboard(prompt: string, shots = 6, director?: string) {
