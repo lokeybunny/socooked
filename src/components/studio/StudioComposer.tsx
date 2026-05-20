@@ -137,6 +137,7 @@ export function StudioComposer() {
     if (typeof p.label === 'string') setLabel(p.label);
     if (typeof p.director === 'string') setDirector(p.director);
     if (typeof p.aspect === 'string') setAspect(p.aspect);
+    if (typeof p.seedanceAspect === 'string') setSeedanceAspect(p.seedanceAspect);
     if (p.imageProvider === 'lovable' || p.imageProvider === 'atlascloud') setImageProvider(p.imageProvider);
     if (p.seedanceModel === 'seedance-2' || p.seedanceModel === 'seedance-2-fast') setSeedanceModel(p.seedanceModel);
     if (typeof p.shotCount === 'number') setShotCount(p.shotCount);
