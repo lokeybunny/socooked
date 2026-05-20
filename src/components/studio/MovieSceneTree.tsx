@@ -66,9 +66,10 @@ export function MovieSceneTree({ scenes, onUpdate, seedanceModel, aspect, onEnla
     updateSub(master.number, sub.id, { status: 'generating_image', error: undefined });
     try {
       const letter = String.fromCharCode(65 + sub.index);
+      const anchor = buildAnchor(master, sub);
       const posterPrompt =
 `A single high-resolution JPEG scan of a REAL Hollywood pre-production storyboard panel page — ONE shot, ONE moment, drawn for sub-beat ${letter} of master scene "${master.title}". This is panel ${sub.index + 1} of ${master.subs.length} that together complete scene #${master.number} from A to Z. NOT AI art, NOT moodboard, NOT concept art, NOT magazine layout.
-
+${anchor}
 PAGE HEADER (typewriter monospace):
 SCENE ${String(master.number).padStart(2, '0')}${letter}    |    BEAT: ${sub.beatLabel}    |    DURATION: ${sub.durationSec}s    |    PANEL ${sub.index + 1} / ${master.subs.length}
 
