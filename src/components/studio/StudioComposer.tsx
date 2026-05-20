@@ -295,13 +295,28 @@ Background: warm off-white paper texture. Premium luxury film pitch-deck aesthet
 Panels content:
 ${shotLines}
 Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic film stills.`;
-      const { data, error } = await supabase.functions.invoke('story-composer/image', {
-        body: { prompt: posterPrompt, provider: 'atlascloud', size: '1536x1024', quality: 'high' },
+      const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
+        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
       });
       if (error) throw error;
-      const d = data as { imageUrl?: string; error?: string };
-      if (d.error || !d.imageUrl) throw new Error(d.error || 'No poster returned');
-      setPosterUrl(d.imageUrl);
+      const startData = data as { jobId?: string; error?: string };
+      if (startData.error || !startData.jobId) throw new Error(startData.error || 'No job id returned');
+
+      // Poll status every 4s, up to 5 minutes
+      const jobId = startData.jobId;
+      let imageUrl: string | null = null;
+      for (let i = 0; i < 75; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const { data: s, error: sErr } = await supabase.functions.invoke('story-composer/image-status', {
+          body: { jobId },
+        });
+        if (sErr) continue;
+        const sd = s as { status?: string; imageUrl?: string; error?: string };
+        if (sd.status === 'completed' && sd.imageUrl) { imageUrl = sd.imageUrl; break; }
+        if (sd.status === 'failed') throw new Error(sd.error || 'Poster generation failed');
+      }
+      if (!imageUrl) throw new Error('Poster still rendering after 5 minutes — try again');
+      setPosterUrl(imageUrl);
       toast({ title: 'Storyboard poster generated' });
     } catch (e) {
       toast({ title: 'Poster failed', description: (e as Error).message, variant: 'destructive' });

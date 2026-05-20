@@ -251,6 +251,48 @@ Deno.serve(async (req) => {
       return json({ imageUrl, provider });
     }
 
+    // ---- Async Atlas (for long poster jobs that exceed edge function wall-clock) ----
+    if (action === 'image-start') {
+      const { prompt, size = '1536x1024', quality = 'high' } = body;
+      if (!prompt) return json({ error: 'prompt required' }, 400);
+      const key = ATLAS();
+      if (!key) return json({ error: 'ATLASCLOUD_API_KEY not configured' }, 500);
+      const sub = await fetch('https://api.atlascloud.ai/api/v1/model/generateImage', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai/gpt-image-2/text-to-image',
+          prompt: String(prompt), size, quality,
+          output_format: 'jpeg', enable_sync_mode: false, enable_base64_output: false, moderation: 'low',
+        }),
+      });
+      if (!sub.ok) return json({ error: `Atlas submit ${sub.status}: ${(await sub.text()).slice(0, 300)}` }, 500);
+      const subJ = await sub.json();
+      const id = subJ?.data?.id;
+      if (!id) return json({ error: 'Atlas: no prediction id' }, 500);
+      return json({ jobId: id });
+    }
+
+    if (action === 'image-status') {
+      const { jobId } = body;
+      if (!jobId) return json({ error: 'jobId required' }, 400);
+      const key = ATLAS();
+      if (!key) return json({ error: 'ATLASCLOUD_API_KEY not configured' }, 500);
+      const poll = await fetch(`https://api.atlascloud.ai/api/v1/model/prediction/${jobId}`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (!poll.ok) return json({ status: 'processing' });
+      const pj = await poll.json();
+      const status = pj?.data?.status;
+      if (status === 'completed' || status === 'succeeded') {
+        const out = pj?.data?.outputs?.[0];
+        return json({ status: 'completed', imageUrl: out || null });
+      }
+      if (status === 'failed') return json({ status: 'failed', error: pj?.data?.error || 'failed' });
+      return json({ status: 'processing' });
+    }
+
+
     if (action === 'storyboard') {
       const { prompt, shots = 6, director } = body;
       if (!prompt) return json({ error: 'prompt required' }, 400);
