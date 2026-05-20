@@ -817,6 +817,22 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
 
       <MoviePlayer open={moviePlayerOpen} onOpenChange={setMoviePlayerOpen} scenes={movieScenes} />
 
+      {/* FULLSCREEN IMAGE VIEWER (any storyboard image — double-click to open) */}
+      <Dialog open={fullscreenImg !== null} onOpenChange={(o) => !o && setFullscreenImg(null)}>
+        <DialogContent className="max-w-[98vw] lg:max-w-[1800px] p-0 bg-black border-yellow-400/20 overflow-hidden">
+          {fullscreenImg && (
+            <div className="w-full h-[95vh] flex items-center justify-center bg-black">
+              <SmartImage
+                src={fullscreenImg}
+                alt="Storyboard fullscreen"
+                className="max-w-full max-h-full object-contain cursor-zoom-out"
+                onClick={() => setFullscreenImg(null)}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* FULLSCREEN SHOT VIEWER */}
       <Dialog open={selectedShot !== null} onOpenChange={(o) => !o && setSelectedShot(null)}>
         <DialogContent className="max-w-[95vw] lg:max-w-[1400px] p-0 bg-zinc-950 border-yellow-400/20 overflow-hidden">
