@@ -11,7 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Mic, Square, Sparkles, Image as ImageIcon, Download, Loader2, Wand2,
   Film, Camera, Sun, Aperture, Zap, RefreshCw, Maximize2, Clapperboard, Send,
+  LayoutGrid, Rows3, Expand, X, ChevronLeft, ChevronRight, Settings2, Eye,
 } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -84,6 +86,12 @@ export function StudioComposer() {
   const [shots, setShots] = useState<Shot[]>([]);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(false);
+
+  // Redesign state
+  const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
+  const [immersion, setImmersion] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [selectedShot, setSelectedShot] = useState<number | null>(null);
 
   // Loading states
   const [enhancing, setEnhancing] = useState(false);
@@ -387,296 +395,586 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
           </div>
         </div>
 
-        <div className="grid grid-cols-12 gap-4 relative">
-          {/* Neon connectors */}
-          <svg className="absolute inset-0 pointer-events-none hidden lg:block" style={{ width: '100%', height: '100%' }}>
-            <defs>
-              <linearGradient id="neon" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#facc15" stopOpacity="0" />
-                <stop offset="50%" stopColor="#facc15" stopOpacity="0.7" />
-                <stop offset="100%" stopColor="#facc15" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d="M 33% 50% Q 41% 50% 50% 50%" stroke="url(#neon)" strokeWidth="1.5" fill="none" className="animate-pulse" />
-            <path d="M 67% 50% Q 75% 50% 83% 50%" stroke="url(#neon)" strokeWidth="1.5" fill="none" className="animate-pulse" />
-          </svg>
-
-          {/* LEFT — PROMPT */}
-          <div className="col-span-12 lg:col-span-4">
-            <Panel title="PROMPT" icon={<Wand2 className="w-3.5 h-3.5" />}>
-              <Textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe the scene… e.g. 'luxury modern house at sunset with a realtor walking outside'"
-                className="min-h-[180px] bg-black/40 border-white/10 font-mono text-sm resize-none focus-visible:ring-yellow-400/50"
-              />
-
-              {director && (
-                <Badge variant="outline" className="border-yellow-400/40 text-yellow-300 bg-yellow-400/10">
-                  <Film className="w-3 h-3 mr-1" /> {director}
-                </Badge>
-              )}
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Button onClick={enhance} disabled={enhancing} className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-300 hover:to-amber-400 shadow-[0_0_18px_rgba(250,204,21,0.35)]" size="sm">
-                  {enhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  Enhance
-                </Button>
-                {recording ? (
-                  <Button onClick={stopVoice} size="sm" variant="destructive" className="animate-pulse">
-                    <Square className="w-3.5 h-3.5 fill-current" /> Stop
-                  </Button>
-                ) : (
-                  <Button onClick={startVoice} disabled={voiceBusy} size="sm" variant="outline" className="border-white/10 bg-black/40">
-                    {voiceBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
-                    Voice
-                  </Button>
+        <div className={`grid gap-4 relative transition-all ${immersion ? 'grid-cols-1' : 'grid-cols-12'}`}>
+          {/* LEFT — PROMPT + DIRECTOR (hidden in immersion) */}
+          {!immersion && (
+            <div className="col-span-12 lg:col-span-3 space-y-4">
+              <Panel title="PROMPT" icon={<Wand2 className="w-3.5 h-3.5" />}>
+                <Textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe the scene… e.g. 'luxury modern house at sunset with a realtor walking outside'"
+                  className="min-h-[160px] bg-black/40 border-white/10 font-mono text-sm resize-none focus-visible:ring-yellow-400/50"
+                />
+                {director && (
+                  <Badge variant="outline" className="border-yellow-400/40 text-yellow-300 bg-yellow-400/10">
+                    <Film className="w-3 h-3 mr-1" /> {director}
+                  </Badge>
                 )}
-                <Button onClick={generateImage} disabled={generatingImage} size="sm" variant="outline" className="border-white/10 bg-black/40">
-                  {generatingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
-                  Generate Image
-                </Button>
-              </div>
-
-              {/* Director presets */}
-              <div className="pt-3 border-t border-white/5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-2 block flex items-center gap-1.5">
-                  <Film className="w-3 h-3" /> Director Mode
-                </Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {DIRECTORS.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setDirector(director === d ? '' : d)}
-                      className={`text-xs px-2 py-1 rounded-md border transition-all ${
-                        director === d
-                          ? 'bg-yellow-400 text-black border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.5)]'
-                          : 'border-white/10 bg-black/40 text-muted-foreground hover:border-yellow-400/40 hover:text-yellow-300'
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </Panel>
-
-            {/* Structured breakdown */}
-            {structured && (
-              <Panel title="STRUCTURED BREAKDOWN" icon={<Sparkles className="w-3.5 h-3.5" />} className="mt-4">
-                <ScrollArea className="max-h-72 pr-2">
-                  <dl className="space-y-2 text-xs">
-                    {Object.entries(structured).filter(([k]) => k !== 'master_prompt').map(([k, v]) => (
-                      <div key={k}>
-                        <dt className="uppercase tracking-wider text-yellow-300/80 mb-0.5">{k.replace(/_/g, ' ')}</dt>
-                        <dd className="text-muted-foreground leading-relaxed">{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </ScrollArea>
-              </Panel>
-            )}
-          </div>
-
-          {/* CENTER — STORYBOARD PREVIEW */}
-          <div className="col-span-12 lg:col-span-4">
-            <Panel
-              title={shots.length ? `STORYBOARD — ${shots.length} SHOTS` : 'STORYBOARD PREVIEW'}
-              icon={<Clapperboard className="w-3.5 h-3.5" />}
-              action={shots.length ? (
-                <div className="flex gap-1.5">
-                  <Button onClick={generatePoster} disabled={posterLoading} size="sm" className="h-7 text-xs bg-white/5 text-yellow-300 border border-yellow-400/40 hover:bg-yellow-400/10">
-                    {posterLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
-                    Poster (gpt-image-2)
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button onClick={enhance} disabled={enhancing} className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-300 hover:to-amber-400 shadow-[0_0_18px_rgba(250,204,21,0.35)]" size="sm">
+                    {enhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    Enhance
                   </Button>
-                  <Button onClick={sendAllToSeedance} disabled={sendingTo !== null} size="sm" className="h-7 text-xs bg-yellow-400 text-black hover:bg-yellow-300">
-                    <Send className="w-3 h-3" /> Queue all
+                  {recording ? (
+                    <Button onClick={stopVoice} size="sm" variant="destructive" className="animate-pulse">
+                      <Square className="w-3.5 h-3.5 fill-current" /> Stop
+                    </Button>
+                  ) : (
+                    <Button onClick={startVoice} disabled={voiceBusy} size="sm" variant="outline" className="border-white/10 bg-black/40">
+                      {voiceBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
+                      Voice
+                    </Button>
+                  )}
+                  <Button onClick={generateImage} disabled={generatingImage} size="sm" variant="outline" className="border-white/10 bg-black/40">
+                    {generatingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                    Hero Image
                   </Button>
                 </div>
-              ) : undefined}
-            >
-              <div className="flex gap-2 mb-3">
-                <Select value={String(shotCount)} onValueChange={(v) => setShotCount(Number(v))}>
-                  <SelectTrigger className="w-28 h-10 bg-black/40 border-white/10 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[4, 6, 8, 10, 12].map((n) => (
-                      <SelectItem key={n} value={String(n)}>{n} shots</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  onClick={buildStoryboard}
-                  disabled={storyboarding}
-                  className="flex-1 bg-yellow-400 text-black hover:bg-yellow-300 font-semibold"
-                >
-                  {storyboarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-                  {shots.length ? 'Regenerate Storyboard' : 'Generate Storyboard'}
-                </Button>
-              </div>
 
-              {shots.length === 0 ? (
-                <div className="aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-black via-zinc-950 to-black border border-white/10 flex items-center justify-center">
-                  <div className="text-center text-muted-foreground text-xs space-y-2 p-6">
-                    {storyboarding ? (
-                      <>
-                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
-                        <p>Building cinematic storyboard…</p>
-                      </>
-                    ) : (
-                      <>
-                        <Clapperboard className="w-10 h-10 mx-auto opacity-30" />
-                        <p>Storyboard panels will appear here</p>
-                        <p className="text-[10px] opacity-60">{shotCount} sequential cinematic shots with continuity</p>
-                      </>
-                    )}
+                <div className="pt-3 border-t border-white/5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Film className="w-3 h-3" /> Director Mode
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DIRECTORS.map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setDirector(director === d ? '' : d)}
+                        className={`text-[11px] px-2 py-1 rounded-md border transition-all ${
+                          director === d
+                            ? 'bg-yellow-400 text-black border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.5)]'
+                            : 'border-white/10 bg-black/40 text-muted-foreground hover:border-yellow-400/40 hover:text-yellow-300'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {shots.map((s) => (
-                    <div key={s.number} className="rounded-lg border border-white/5 bg-black/40 overflow-hidden hover:border-yellow-400/40 transition-colors flex flex-col">
-                      <div className={`relative w-full bg-black/60 ${aspect === '9:16' ? 'aspect-[9/16]' : aspect === '1:1' ? 'aspect-square' : 'aspect-video'}`}>
-                        {s.image_url ? (
-                          <img src={s.image_url} alt={s.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                        ) : s.image_loading ? (
-                          <div className="absolute inset-0 flex items-center justify-center text-yellow-300/70">
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                          </div>
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center text-[10px] text-red-300/70 p-2 text-center">
-                            {s.image_error || 'No panel image'}
-                          </div>
-                        )}
-                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-yellow-400/40 text-[10px] font-mono text-yellow-300">
-                          #{String(s.number).padStart(2, '0')}
+              </Panel>
+
+              {structured && (
+                <Panel title="STRUCTURED BREAKDOWN" icon={<Sparkles className="w-3.5 h-3.5" />}>
+                  <ScrollArea className="max-h-72 pr-2">
+                    <dl className="space-y-2 text-xs">
+                      {Object.entries(structured).filter(([k]) => k !== 'master_prompt').map(([k, v]) => (
+                        <div key={k}>
+                          <dt className="uppercase tracking-wider text-yellow-300/80 mb-0.5">{k.replace(/_/g, ' ')}</dt>
+                          <dd className="text-muted-foreground leading-relaxed">{v}</dd>
                         </div>
+                      ))}
+                    </dl>
+                  </ScrollArea>
+                </Panel>
+              )}
+            </div>
+          )}
+
+          {/* CENTER — STORYBOARD CINEMATIC WALL */}
+          <div className={`col-span-12 ${immersion ? '' : settingsOpen ? 'lg:col-span-7' : 'lg:col-span-9'}`}>
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-950/90 to-black overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)]">
+              {/* TOP TOOLBAR */}
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 bg-black/60 backdrop-blur-xl flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Clapperboard className="w-4 h-4 text-yellow-300" />
+                  <span className="text-[11px] font-semibold tracking-[0.2em] text-yellow-300/90">
+                    {shots.length ? `STORYBOARD WALL · ${shots.length} SHOTS` : 'STORYBOARD WALL'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Select value={String(shotCount)} onValueChange={(v) => setShotCount(Number(v))}>
+                    <SelectTrigger className="w-24 h-8 bg-black/60 border-white/10 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[4, 6, 8, 10, 12].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} shots</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={buildStoryboard}
+                    disabled={storyboarding}
+                    size="sm"
+                    className="h-8 bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-300 hover:to-amber-400 font-semibold shadow-[0_0_18px_rgba(250,204,21,0.35)]"
+                  >
+                    {storyboarding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clapperboard className="w-3.5 h-3.5" />}
+                    {shots.length ? 'Regenerate' : 'Generate'}
+                  </Button>
+
+                  {shots.length > 0 && (
+                    <>
+                      <div className="h-6 w-px bg-white/10 mx-1" />
+                      <div className="flex bg-black/60 rounded-md border border-white/10 p-0.5">
                         <button
-                          type="button"
-                          onClick={() => regeneratePanel(s.number)}
-                          disabled={regenningPanel === s.number || s.image_loading}
-                          title="Regenerate panel from edits"
-                          className="absolute top-1.5 right-1.5 p-1 rounded bg-black/70 border border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/20 disabled:opacity-50"
+                          onClick={() => setViewMode('grid')}
+                          className={`p-1.5 rounded transition-all ${viewMode === 'grid' ? 'bg-yellow-400/20 text-yellow-300' : 'text-muted-foreground hover:text-yellow-300'}`}
+                          title="Grid mode"
                         >
-                          {regenningPanel === s.number ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          <LayoutGrid className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setViewMode('timeline')}
+                          className={`p-1.5 rounded transition-all ${viewMode === 'timeline' ? 'bg-yellow-400/20 text-yellow-300' : 'text-muted-foreground hover:text-yellow-300'}`}
+                          title="Timeline mode"
+                        >
+                          <Rows3 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">
-                        <Input
-                          value={s.title}
-                          onChange={(e) => updateShotField(s.number, 'title', e.target.value)}
-                          className="h-7 text-xs font-semibold uppercase tracking-wide text-yellow-300/90 bg-black/40 border-white/10"
-                          placeholder="Scene title"
-                        />
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <Input
-                            value={s.shot_type}
-                            onChange={(e) => updateShotField(s.number, 'shot_type', e.target.value)}
-                            className="h-6 text-[10px] bg-black/40 border-white/10"
-                            placeholder="Shot type"
-                          />
-                          <Input
-                            value={s.camera_move}
-                            onChange={(e) => updateShotField(s.number, 'camera_move', e.target.value)}
-                            className="h-6 text-[10px] bg-black/40 border-white/10"
-                            placeholder="Camera move"
-                          />
-                        </div>
-                        <Textarea
-                          value={s.description}
-                          onChange={(e) => updateShotField(s.number, 'description', e.target.value)}
-                          className="text-[11px] text-muted-foreground leading-snug bg-black/40 border-white/10 min-h-[60px] resize-none"
-                          placeholder="Scene description"
-                        />
-                        <Button
-                          size="sm"
-                          onClick={() => sendShotToSeedance(s)}
-                          disabled={sendingTo === s.number}
-                          className="h-7 text-[11px] bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20 w-full"
-                        >
-                          {sendingTo === s.number ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                          Send to Seedance
-                        </Button>
+                      <Button onClick={generatePoster} disabled={posterLoading} size="sm" variant="outline" className="h-8 text-xs bg-black/40 text-yellow-300 border-yellow-400/30 hover:bg-yellow-400/10">
+                        {posterLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                        Poster
+                      </Button>
+                      <Button onClick={sendAllToSeedance} disabled={sendingTo !== null} size="sm" className="h-8 text-xs bg-yellow-400 text-black hover:bg-yellow-300">
+                        <Send className="w-3 h-3" /> Queue all
+                      </Button>
+                      <Button
+                        onClick={() => setImmersion((v) => !v)}
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs bg-black/40 border-white/10 hover:border-yellow-400/40"
+                        title="Director Immersion Mode"
+                      >
+                        <Expand className="w-3 h-3" /> {immersion ? 'Exit' : 'Immersion'}
+                      </Button>
+                    </>
+                  )}
+                  {!immersion && (
+                    <Button
+                      onClick={() => setSettingsOpen((v) => !v)}
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs bg-black/40 border-white/10 hover:border-yellow-400/40 hidden lg:flex"
+                      title="Toggle settings"
+                    >
+                      <Settings2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* CINEMATIC CANVAS */}
+              <div className="relative p-4 md:p-6 min-h-[60vh]">
+                {/* Atmospheric layers */}
+                <div className="absolute inset-0 pointer-events-none opacity-60"
+                  style={{
+                    backgroundImage: 'radial-gradient(ellipse at center, rgba(250,204,21,0.06) 0%, transparent 60%), radial-gradient(ellipse at top, rgba(99,102,241,0.04) 0%, transparent 50%)',
+                  }}
+                />
+                <div className="absolute inset-0 pointer-events-none opacity-[0.04] mix-blend-overlay"
+                  style={{
+                    backgroundImage: 'url("data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>")',
+                  }}
+                />
+
+                <div className="relative">
+                  {shots.length === 0 ? (
+                    <div className="aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-black via-zinc-950 to-black border border-white/10 flex items-center justify-center">
+                      <div className="text-center text-muted-foreground text-sm space-y-3 p-6">
+                        {storyboarding ? (
+                          <>
+                            <Loader2 className="w-10 h-10 animate-spin mx-auto text-yellow-400" />
+                            <p className="text-yellow-300/90">Building cinematic storyboard…</p>
+                            <p className="text-[11px] opacity-60">Composing {shotCount} sequential shots with continuity</p>
+                          </>
+                        ) : (
+                          <>
+                            <Clapperboard className="w-14 h-14 mx-auto opacity-30" />
+                            <p className="text-base">Your Hollywood storyboard wall</p>
+                            <p className="text-[11px] opacity-60">{shotCount} cinematic shots will appear here</p>
+                          </>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {(posterLoading || posterUrl) && (
-                <div className="mt-4 rounded-xl border border-yellow-400/30 bg-black/40 overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-yellow-300/90">Storyboard Poster · gpt-image-2</span>
-                    {posterUrl && (
-                      <a href={posterUrl} target="_blank" rel="noreferrer" className="text-[10px] text-yellow-300 hover:underline flex items-center gap-1">
-                        <Download className="w-3 h-3" /> Open
-                      </a>
-                    )}
-                  </div>
-                  <div className="aspect-[3/2] bg-black flex items-center justify-center">
-                    {posterLoading ? (
-                      <div className="text-center text-xs text-yellow-300/80 space-y-2">
-                        <Loader2 className="w-6 h-6 animate-spin mx-auto" />
-                        <p>Composing poster with gpt-image-2…</p>
-                        <p className="text-[10px] opacity-60">This can take 30-60s</p>
+                  ) : viewMode === 'timeline' ? (
+                    // ── TIMELINE / FILM STRIP MODE ────────────────────
+                    <div className="overflow-x-auto pb-4 -mx-2 px-2">
+                      <div className="flex gap-3 items-stretch min-w-max">
+                        {shots.map((s, i) => (
+                          <div key={s.number} className="flex items-center gap-3">
+                            <ShotCard
+                              shot={s}
+                              aspect={aspect}
+                              compact
+                              onOpen={() => setSelectedShot(s.number)}
+                              onRegen={() => regeneratePanel(s.number)}
+                              regenning={regenningPanel === s.number}
+                            />
+                            {i < shots.length - 1 && (
+                              <ChevronRight className="w-5 h-5 text-yellow-400/40 shrink-0" />
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <img src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  ) : (
+                    // ── CINEMATIC GRID WALL ──────────────────────────
+                    <div className={`grid gap-4 ${
+                      immersion
+                        ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                        : settingsOpen
+                          ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
+                          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                    }`}>
+                      {shots.map((s) => (
+                        <ShotCard
+                          key={s.number}
+                          shot={s}
+                          aspect={aspect}
+                          onOpen={() => setSelectedShot(s.number)}
+                          onRegen={() => regeneratePanel(s.number)}
+                          regenning={regenningPanel === s.number}
+                          onTitle={(v) => updateShotField(s.number, 'title', v)}
+                          onShotType={(v) => updateShotField(s.number, 'shot_type', v)}
+                          onCamMove={(v) => updateShotField(s.number, 'camera_move', v)}
+                          onDesc={(v) => updateShotField(s.number, 'description', v)}
+                          onSeedance={() => sendShotToSeedance(s)}
+                          sending={sendingTo === s.number}
+                        />
+                      ))}
+                    </div>
+                  )}
 
-            </Panel>
+                  {(posterLoading || posterUrl) && (
+                    <div className="mt-6 rounded-2xl border border-yellow-400/30 bg-black/60 overflow-hidden shadow-[0_0_40px_rgba(250,204,21,0.15)]">
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
+                        <span className="text-[11px] uppercase tracking-[0.2em] text-yellow-300/90">Storyboard Poster · gpt-image-2</span>
+                        {posterUrl && (
+                          <a href={posterUrl} target="_blank" rel="noreferrer" download className="text-[11px] text-yellow-300 hover:underline flex items-center gap-1">
+                            <Download className="w-3 h-3" /> Open
+                          </a>
+                        )}
+                      </div>
+                      <div className="aspect-[3/2] bg-black flex items-center justify-center">
+                        {posterLoading ? (
+                          <div className="text-center text-xs text-yellow-300/80 space-y-2">
+                            <Loader2 className="w-7 h-7 animate-spin mx-auto" />
+                            <p>Composing poster with gpt-image-2…</p>
+                            <p className="text-[10px] opacity-60">This can take 30-60s</p>
+                          </div>
+                        ) : (
+                          <img src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* RIGHT — SETTINGS (collapsible) */}
+          {!immersion && settingsOpen && (
+            <div className="col-span-12 lg:col-span-2">
+              <Panel title="SETTINGS" icon={<Aperture className="w-3.5 h-3.5" />}>
+                <Tabs defaultValue="visual" className="w-full">
+                  <TabsList className="grid grid-cols-2 bg-black/40 border border-white/5">
+                    <TabsTrigger value="visual" className="text-[10px] data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Visual</TabsTrigger>
+                    <TabsTrigger value="engine" className="text-[10px] data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Engine</TabsTrigger>
+                  </TabsList>
 
-          {/* RIGHT — SETTINGS */}
-          <div className="col-span-12 lg:col-span-4">
-            <Panel title="SETTINGS" icon={<Aperture className="w-3.5 h-3.5" />}>
-              <Tabs defaultValue="visual" className="w-full">
-                <TabsList className="grid grid-cols-2 bg-black/40 border border-white/5">
-                  <TabsTrigger value="visual" className="text-xs data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Visual</TabsTrigger>
-                  <TabsTrigger value="engine" className="text-xs data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Engine</TabsTrigger>
-                </TabsList>
+                  <TabsContent value="visual" className="space-y-3 pt-3">
+                    <SettingSelect label="Aspect" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
+                    <SettingSelect label="Style" icon={<Film className="w-3 h-3" />} value={style} onChange={setStyle} options={CINEMATIC_STYLES} />
+                    <SettingSelect label="Camera" icon={<Camera className="w-3 h-3" />} value={camera} onChange={setCamera} options={CAMERAS} />
+                    <SettingSelect label="Lens" icon={<Aperture className="w-3 h-3" />} value={lens} onChange={setLens} options={LENSES} />
+                    <SettingSelect label="Motion" icon={<Zap className="w-3 h-3" />} value={motion} onChange={setMotion} options={MOTION} />
+                    <SettingSelect label="Lighting" icon={<Sun className="w-3 h-3" />} value={lighting} onChange={setLighting} options={LIGHTING} />
+                  </TabsContent>
 
-                <TabsContent value="visual" className="space-y-3 pt-3">
-                  <SettingSelect label="Aspect Ratio" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
-                  <SettingSelect label="Cinematic Style" icon={<Film className="w-3 h-3" />} value={style} onChange={setStyle} options={CINEMATIC_STYLES} />
-                  <SettingSelect label="Camera Type" icon={<Camera className="w-3 h-3" />} value={camera} onChange={setCamera} options={CAMERAS} />
-                  <SettingSelect label="Lens Type" icon={<Aperture className="w-3 h-3" />} value={lens} onChange={setLens} options={LENSES} />
-                  <SettingSelect label="Motion Style" icon={<Zap className="w-3 h-3" />} value={motion} onChange={setMotion} options={MOTION} />
-                  <SettingSelect label="Lighting Style" icon={<Sun className="w-3 h-3" />} value={lighting} onChange={setLighting} options={LIGHTING} />
-                </TabsContent>
+                  <TabsContent value="engine" className="space-y-3 pt-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Image Model</Label>
+                      <Select value={imageProvider} onValueChange={(v) => setImageProvider(v as any)}>
+                        <SelectTrigger className="bg-black/40 border-white/10 h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>{IMAGE_PROVIDERS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Seedance</Label>
+                      <Select value={seedanceModel} onValueChange={(v) => setSeedanceModel(v as any)}>
+                        <SelectTrigger className="bg-black/40 border-white/10 h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="seedance-2-fast">Seedance 2 Fast</SelectItem>
+                          <SelectItem value="seedance-2">Seedance 2 (Quality)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <SettingSlider label="Realism" value={realism} onChange={setRealism} />
+                    <SettingSlider label="Creativity" value={creativity} onChange={setCreativity} />
+                    <SettingSlider label="Chaos" value={chaos} onChange={setChaos} />
+                  </TabsContent>
+                </Tabs>
+              </Panel>
+            </div>
+          )}
+        </div>
+      </div>
 
-                <TabsContent value="engine" className="space-y-3 pt-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Image Model</Label>
-                    <Select value={imageProvider} onValueChange={(v) => setImageProvider(v as any)}>
-                      <SelectTrigger className="bg-black/40 border-white/10 h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>{IMAGE_PROVIDERS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
-                    </Select>
+      {/* FULLSCREEN SHOT VIEWER */}
+      <Dialog open={selectedShot !== null} onOpenChange={(o) => !o && setSelectedShot(null)}>
+        <DialogContent className="max-w-[95vw] lg:max-w-[1400px] p-0 bg-zinc-950 border-yellow-400/20 overflow-hidden">
+          {(() => {
+            const s = shots.find((x) => x.number === selectedShot);
+            if (!s) return null;
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] max-h-[90vh]">
+                <div className="relative bg-black flex items-center justify-center min-h-[50vh]">
+                  {s.image_url ? (
+                    <img src={s.image_url} alt={s.title} className="max-w-full max-h-[90vh] object-contain" />
+                  ) : s.image_loading ? (
+                    <Loader2 className="w-10 h-10 animate-spin text-yellow-400" />
+                  ) : (
+                    <div className="text-xs text-red-300/70 p-4">{s.image_error || 'No image yet'}</div>
+                  )}
+                  <div className="absolute top-3 left-3 px-2 py-1 rounded bg-black/80 border border-yellow-400/50 text-xs font-mono text-yellow-300">
+                    SHOT #{String(s.number).padStart(2, '0')} / {shots.length}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seedance Model</Label>
-                    <Select value={seedanceModel} onValueChange={(v) => setSeedanceModel(v as any)}>
-                      <SelectTrigger className="bg-black/40 border-white/10 h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="seedance-2-fast">Seedance 2 Fast</SelectItem>
-                        <SelectItem value="seedance-2">Seedance 2 (Quality)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <Badge className="absolute top-3 right-3 bg-black/80 border border-yellow-400/40 text-yellow-300 hover:bg-black/80">
+                    {inferShotTag(s)}
+                  </Badge>
+                  <div className="absolute bottom-3 left-3 right-3 flex justify-between items-center">
+                    <button
+                      onClick={() => {
+                        const idx = shots.findIndex((x) => x.number === s.number);
+                        if (idx > 0) setSelectedShot(shots[idx - 1].number);
+                      }}
+                      className="p-2 rounded-full bg-black/80 border border-white/10 text-white/80 hover:text-yellow-300 hover:border-yellow-400/40 disabled:opacity-30"
+                      disabled={shots.findIndex((x) => x.number === s.number) === 0}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const idx = shots.findIndex((x) => x.number === s.number);
+                        if (idx < shots.length - 1) setSelectedShot(shots[idx + 1].number);
+                      }}
+                      className="p-2 rounded-full bg-black/80 border border-white/10 text-white/80 hover:text-yellow-300 hover:border-yellow-400/40 disabled:opacity-30"
+                      disabled={shots.findIndex((x) => x.number === s.number) === shots.length - 1}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
-                  <SettingSlider label="Realism Strength" value={realism} onChange={setRealism} />
-                  <SettingSlider label="Prompt Creativity" value={creativity} onChange={setCreativity} />
-                  <SettingSlider label="Chaos Level" value={chaos} onChange={setChaos} />
-                </TabsContent>
-              </Tabs>
-            </Panel>
+                </div>
+                <div className="border-l border-white/10 bg-zinc-950 p-5 overflow-y-auto space-y-4">
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Title</Label>
+                    <Input
+                      value={s.title}
+                      onChange={(e) => updateShotField(s.number, 'title', e.target.value)}
+                      className="bg-black/40 border-white/10 text-sm font-semibold mt-1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Shot Type</Label>
+                      <Input value={s.shot_type} onChange={(e) => updateShotField(s.number, 'shot_type', e.target.value)} className="bg-black/40 border-white/10 text-xs mt-1" />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Camera Move</Label>
+                      <Input value={s.camera_move} onChange={(e) => updateShotField(s.number, 'camera_move', e.target.value)} className="bg-black/40 border-white/10 text-xs mt-1" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Lens</Label>
+                      <div className="text-xs text-muted-foreground mt-1 px-2 py-1.5 rounded bg-black/40 border border-white/5">{s.lens || '—'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Lighting</Label>
+                      <div className="text-xs text-muted-foreground mt-1 px-2 py-1.5 rounded bg-black/40 border border-white/5">{s.lighting || '—'}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Description</Label>
+                    <Textarea
+                      value={s.description}
+                      onChange={(e) => updateShotField(s.number, 'description', e.target.value)}
+                      className="bg-black/40 border-white/10 text-xs min-h-[100px] mt-1 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase tracking-wider text-yellow-300/80">Seedance Prompt</Label>
+                    <Textarea
+                      value={s.seedance_prompt}
+                      onChange={(e) => updateShotField(s.number, 'seedance_prompt', e.target.value)}
+                      className="bg-black/40 border-white/10 text-[11px] min-h-[120px] mt-1 resize-none font-mono"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                    <Button
+                      onClick={() => regeneratePanel(s.number)}
+                      disabled={regenningPanel === s.number || s.image_loading}
+                      size="sm"
+                      variant="outline"
+                      className="border-yellow-400/30 bg-black/40 text-yellow-300 hover:bg-yellow-400/10"
+                    >
+                      {regenningPanel === s.number ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                      Regenerate Panel
+                    </Button>
+                    <Button
+                      onClick={() => sendShotToSeedance(s)}
+                      disabled={sendingTo === s.number}
+                      size="sm"
+                      className="bg-yellow-400 text-black hover:bg-yellow-300 font-semibold"
+                    >
+                      {sendingTo === s.number ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      Send to Seedance
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ────────────── SHOT CARD ──────────────
+function inferShotTag(s: Shot): string {
+  const t = `${s.shot_type} ${s.title} ${s.description}`.toLowerCase();
+  if (/establish|wide|aerial|drone/.test(t)) return 'Establishing';
+  if (/close[- ]?up|cu|macro|insert/.test(t)) return 'Close-Up';
+  if (/track|dolly|steadi|follow/.test(t)) return 'Tracking';
+  if (/hero|portrait|reveal/.test(t)) return 'Hero Shot';
+  if (/action|chase|kinetic|fast/.test(t)) return 'Action Beat';
+  if (/tension|suspense|slow|reveal/.test(t)) return 'Suspense';
+  if (/emotion|tear|intimate/.test(t)) return 'Emotional Insert';
+  return 'Cinematic';
+}
+
+function ShotCard({
+  shot: s, aspect, compact = false, onOpen, onRegen, regenning,
+  onTitle, onShotType, onCamMove, onDesc, onSeedance, sending,
+}: {
+  shot: Shot;
+  aspect: string;
+  compact?: boolean;
+  onOpen: () => void;
+  onRegen: () => void;
+  regenning: boolean;
+  onTitle?: (v: string) => void;
+  onShotType?: (v: string) => void;
+  onCamMove?: (v: string) => void;
+  onDesc?: (v: string) => void;
+  onSeedance?: () => void;
+  sending?: boolean;
+}) {
+  const aspectClass = aspect === '9:16' ? 'aspect-[9/16]' : aspect === '1:1' ? 'aspect-square' : aspect === '2.39:1' ? 'aspect-[2.39/1]' : aspect === '4:3' ? 'aspect-[4/3]' : 'aspect-video';
+  const tag = inferShotTag(s);
+
+  return (
+    <div
+      className={`group relative rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-950 to-black overflow-hidden flex flex-col transition-all duration-500 hover:border-yellow-400/60 hover:shadow-[0_0_40px_rgba(250,204,21,0.25),0_20px_60px_rgba(0,0,0,0.6)] hover:-translate-y-1 animate-fade-in ${compact ? 'w-[280px]' : ''}`}
+    >
+      <div
+        className={`relative w-full bg-black/60 overflow-hidden cursor-zoom-in ${aspectClass}`}
+        onClick={onOpen}
+      >
+        {s.image_url ? (
+          <img
+            src={s.image_url}
+            alt={s.title}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1200ms] ease-out group-hover:scale-110"
+            loading="lazy"
+          />
+        ) : s.image_loading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-zinc-900 to-black">
+            <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-yellow-400/5 to-transparent" />
+            <Loader2 className="w-6 h-6 animate-spin text-yellow-300/80 relative" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-[10px] text-red-300/70 p-2 text-center">
+            {s.image_error || 'No panel image'}
+          </div>
+        )}
+
+        {/* gradient overlay for legibility */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
+
+        {/* shot number badge */}
+        <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/80 backdrop-blur border border-yellow-400/50 text-[11px] font-mono text-yellow-300 tracking-wider">
+          #{String(s.number).padStart(2, '0')}
+        </div>
+
+        {/* AI tag */}
+        <div className="absolute top-2 right-2 flex gap-1">
+          <span className="px-1.5 py-0.5 rounded-md bg-black/80 backdrop-blur border border-white/20 text-[9px] uppercase tracking-wider text-yellow-300/90">
+            {tag}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRegen(); }}
+            disabled={regenning || s.image_loading}
+            title="Regenerate"
+            className="p-1.5 rounded-md bg-black/80 backdrop-blur border border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/20 disabled:opacity-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            {regenning ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpen(); }}
+            title="Open"
+            className="p-1.5 rounded-md bg-black/80 backdrop-blur border border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/20 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <Eye className="w-3 h-3" />
+          </button>
+        </div>
+
+        {/* bottom title overlay (always visible) */}
+        <div className="absolute bottom-0 left-0 right-0 p-3">
+          <div className="text-[11px] uppercase tracking-[0.15em] text-yellow-300/90 font-semibold truncate">
+            {s.title}
+          </div>
+          <div className="text-[10px] text-white/60 truncate">
+            {s.shot_type} · {s.camera_move}
           </div>
         </div>
       </div>
+
+      {/* Inline edit panel (full mode only) */}
+      {!compact && onTitle && (
+        <div className="p-3 space-y-2 bg-gradient-to-b from-black to-zinc-950/80 border-t border-white/5">
+          <Input
+            value={s.title}
+            onChange={(e) => onTitle(e.target.value)}
+            className="h-7 text-xs font-semibold uppercase tracking-wide text-yellow-300/90 bg-black/40 border-white/10"
+            placeholder="Scene title"
+          />
+          <div className="grid grid-cols-2 gap-1.5">
+            <Input
+              value={s.shot_type}
+              onChange={(e) => onShotType?.(e.target.value)}
+              className="h-6 text-[10px] bg-black/40 border-white/10"
+              placeholder="Shot type"
+            />
+            <Input
+              value={s.camera_move}
+              onChange={(e) => onCamMove?.(e.target.value)}
+              className="h-6 text-[10px] bg-black/40 border-white/10"
+              placeholder="Camera move"
+            />
+          </div>
+          <Textarea
+            value={s.description}
+            onChange={(e) => onDesc?.(e.target.value)}
+            className="text-[11px] text-muted-foreground leading-snug bg-black/40 border-white/10 min-h-[50px] resize-none"
+            placeholder="Scene description"
+          />
+          <Button
+            size="sm"
+            onClick={onSeedance}
+            disabled={sending}
+            className="h-7 text-[11px] bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20 w-full"
+          >
+            {sending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+            Send to Seedance
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
