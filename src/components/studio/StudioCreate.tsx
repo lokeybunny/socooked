@@ -128,7 +128,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     const onRequest = () => {
       const snap: TemplateSnapshot = {
         taskType, prompt, negPrompt, settings,
-        selectedStyles, useSeedance, noMusic, propertyLock,
+        selectedStyles, useSeedance, noMusic, propertyLock, noText,
         imagePreview, imagePreviewB, refImageUrls, returnLastFrame,
         directorStyleIds, director,
       };
