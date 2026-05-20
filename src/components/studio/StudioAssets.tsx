@@ -52,6 +52,8 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [zipping, setZipping] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
 
   const [autoEmpty, setAutoEmpty] = useState(true);
