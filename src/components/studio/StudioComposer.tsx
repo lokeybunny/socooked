@@ -14,6 +14,7 @@ import {
   LayoutGrid, Rows3, Expand, X, ChevronLeft, ChevronRight, Settings2, Eye,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -395,84 +396,90 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
           </div>
         </div>
 
-        <div className={`grid gap-4 relative transition-all ${immersion ? 'grid-cols-1' : 'grid-cols-12'}`}>
-          {/* LEFT — PROMPT + DIRECTOR (hidden in immersion) */}
+        <div className="space-y-4 relative">
+          {/* TOP — PROMPT BAR (collapsed in immersion) */}
           {!immersion && (
-            <div className="col-span-12 lg:col-span-3 space-y-4">
-              <Panel title="PROMPT" icon={<Wand2 className="w-3.5 h-3.5" />}>
+            <Panel title="PROMPT" icon={<Wand2 className="w-3.5 h-3.5" />} action={
+              structured ? (
+                <button
+                  onClick={() => setSettingsOpen((v) => !v)}
+                  className="text-[10px] uppercase tracking-wider text-yellow-300/70 hover:text-yellow-300"
+                >
+                  {settingsOpen ? 'Hide breakdown' : 'Show breakdown'}
+                </button>
+              ) : undefined
+            }>
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3">
                 <Textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Describe the scene… e.g. 'luxury modern house at sunset with a realtor walking outside'"
-                  className="min-h-[160px] bg-black/40 border-white/10 font-mono text-sm resize-none focus-visible:ring-yellow-400/50"
+                  className="min-h-[100px] bg-black/40 border-white/10 font-mono text-sm resize-none focus-visible:ring-yellow-400/50"
                 />
-                {director && (
-                  <Badge variant="outline" className="border-yellow-400/40 text-yellow-300 bg-yellow-400/10">
-                    <Film className="w-3 h-3 mr-1" /> {director}
-                  </Badge>
-                )}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button onClick={enhance} disabled={enhancing} className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-300 hover:to-amber-400 shadow-[0_0_18px_rgba(250,204,21,0.35)]" size="sm">
+                <div className="flex lg:flex-col flex-wrap gap-2 lg:w-44">
+                  <Button onClick={enhance} disabled={enhancing} className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black hover:from-yellow-300 hover:to-amber-400 shadow-[0_0_18px_rgba(250,204,21,0.35)] flex-1 lg:w-full" size="sm">
                     {enhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                     Enhance
                   </Button>
                   {recording ? (
-                    <Button onClick={stopVoice} size="sm" variant="destructive" className="animate-pulse">
+                    <Button onClick={stopVoice} size="sm" variant="destructive" className="animate-pulse flex-1 lg:w-full">
                       <Square className="w-3.5 h-3.5 fill-current" /> Stop
                     </Button>
                   ) : (
-                    <Button onClick={startVoice} disabled={voiceBusy} size="sm" variant="outline" className="border-white/10 bg-black/40">
+                    <Button onClick={startVoice} disabled={voiceBusy} size="sm" variant="outline" className="border-white/10 bg-black/40 flex-1 lg:w-full">
                       {voiceBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
                       Voice
                     </Button>
                   )}
-                  <Button onClick={generateImage} disabled={generatingImage} size="sm" variant="outline" className="border-white/10 bg-black/40">
+                  <Button onClick={generateImage} disabled={generatingImage} size="sm" variant="outline" className="border-white/10 bg-black/40 flex-1 lg:w-full">
                     {generatingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
                     Hero Image
                   </Button>
                 </div>
+              </div>
 
-                <div className="pt-3 border-t border-white/5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <Film className="w-3 h-3" /> Director Mode
+              {/* Director presets — horizontal */}
+              <div className="pt-3 border-t border-white/5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mr-1">
+                    <Film className="w-3 h-3" /> Director
                   </Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {DIRECTORS.map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setDirector(director === d ? '' : d)}
-                        className={`text-[11px] px-2 py-1 rounded-md border transition-all ${
-                          director === d
-                            ? 'bg-yellow-400 text-black border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.5)]'
-                            : 'border-white/10 bg-black/40 text-muted-foreground hover:border-yellow-400/40 hover:text-yellow-300'
-                        }`}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
+                  {DIRECTORS.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setDirector(director === d ? '' : d)}
+                      className={`text-[11px] px-2 py-1 rounded-md border transition-all ${
+                        director === d
+                          ? 'bg-yellow-400 text-black border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.5)]'
+                          : 'border-white/10 bg-black/40 text-muted-foreground hover:border-yellow-400/40 hover:text-yellow-300'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
                 </div>
-              </Panel>
+              </div>
 
-              {structured && (
-                <Panel title="STRUCTURED BREAKDOWN" icon={<Sparkles className="w-3.5 h-3.5" />}>
-                  <ScrollArea className="max-h-72 pr-2">
-                    <dl className="space-y-2 text-xs">
+              {/* Inline structured breakdown (collapsible) */}
+              {structured && settingsOpen && (
+                <div className="pt-3 border-t border-white/5">
+                  <ScrollArea className="max-h-56 pr-2">
+                    <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2 text-xs">
                       {Object.entries(structured).filter(([k]) => k !== 'master_prompt').map(([k, v]) => (
                         <div key={k}>
-                          <dt className="uppercase tracking-wider text-yellow-300/80 mb-0.5">{k.replace(/_/g, ' ')}</dt>
+                          <dt className="uppercase tracking-wider text-yellow-300/80 mb-0.5 text-[10px]">{k.replace(/_/g, ' ')}</dt>
                           <dd className="text-muted-foreground leading-relaxed">{v}</dd>
                         </div>
                       ))}
                     </dl>
                   </ScrollArea>
-                </Panel>
+                </div>
               )}
-            </div>
+            </Panel>
           )}
 
-          {/* CENTER — STORYBOARD CINEMATIC WALL */}
-          <div className={`col-span-12 ${immersion ? '' : settingsOpen ? 'lg:col-span-7' : 'lg:col-span-9'}`}>
+          {/* STORYBOARD CINEMATIC WALL — FULL WIDTH */}
+          <div className="w-full">
             <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-950/90 to-black overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.05)]">
               {/* TOP TOOLBAR */}
               <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 bg-black/60 backdrop-blur-xl flex-wrap">
@@ -540,17 +547,67 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                       </Button>
                     </>
                   )}
-                  {!immersion && (
-                    <Button
-                      onClick={() => setSettingsOpen((v) => !v)}
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs bg-black/40 border-white/10 hover:border-yellow-400/40 hidden lg:flex"
-                      title="Toggle settings"
-                    >
-                      <Settings2 className="w-3 h-3" />
-                    </Button>
-                  )}
+
+                  {/* Settings drawer trigger (Batch-style) */}
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs bg-black/40 border-white/10 hover:border-yellow-400/40"
+                        title="Cinematic settings"
+                      >
+                        <Settings2 className="w-3 h-3" /> Settings
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="w-full sm:max-w-md bg-zinc-950 border-l border-yellow-400/20 flex flex-col p-0">
+                      <SheetHeader className="p-5 border-b border-white/10">
+                        <SheetTitle className="flex items-center gap-2 text-yellow-300">
+                          <Aperture className="w-4 h-4" /> Cinematic Settings
+                        </SheetTitle>
+                      </SheetHeader>
+                      <ScrollArea className="flex-1 p-5">
+                        <Tabs defaultValue="visual" className="w-full">
+                          <TabsList className="grid grid-cols-2 bg-black/40 border border-white/5 w-full">
+                            <TabsTrigger value="visual" className="text-xs data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Visual</TabsTrigger>
+                            <TabsTrigger value="engine" className="text-xs data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Engine</TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="visual" className="space-y-4 pt-4">
+                            <SettingSelect label="Aspect Ratio" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
+                            <SettingSelect label="Cinematic Style" icon={<Film className="w-3 h-3" />} value={style} onChange={setStyle} options={CINEMATIC_STYLES} />
+                            <SettingSelect label="Camera" icon={<Camera className="w-3 h-3" />} value={camera} onChange={setCamera} options={CAMERAS} />
+                            <SettingSelect label="Lens" icon={<Aperture className="w-3 h-3" />} value={lens} onChange={setLens} options={LENSES} />
+                            <SettingSelect label="Motion" icon={<Zap className="w-3 h-3" />} value={motion} onChange={setMotion} options={MOTION} />
+                            <SettingSelect label="Lighting" icon={<Sun className="w-3 h-3" />} value={lighting} onChange={setLighting} options={LIGHTING} />
+                          </TabsContent>
+
+                          <TabsContent value="engine" className="space-y-4 pt-4">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Image Model</Label>
+                              <Select value={imageProvider} onValueChange={(v) => setImageProvider(v as any)}>
+                                <SelectTrigger className="bg-black/40 border-white/10 h-9 text-sm"><SelectValue /></SelectTrigger>
+                                <SelectContent>{IMAGE_PROVIDERS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seedance Model</Label>
+                              <Select value={seedanceModel} onValueChange={(v) => setSeedanceModel(v as any)}>
+                                <SelectTrigger className="bg-black/40 border-white/10 h-9 text-sm"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="seedance-2-fast">Seedance 2 Fast</SelectItem>
+                                  <SelectItem value="seedance-2">Seedance 2 (Quality)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <SettingSlider label="Realism Strength" value={realism} onChange={setRealism} />
+                            <SettingSlider label="Prompt Creativity" value={creativity} onChange={setCreativity} />
+                            <SettingSlider label="Chaos Level" value={chaos} onChange={setChaos} />
+                          </TabsContent>
+                        </Tabs>
+                      </ScrollArea>
+                    </SheetContent>
+                  </Sheet>
                 </div>
               </div>
 
@@ -588,7 +645,6 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                       </div>
                     </div>
                   ) : viewMode === 'timeline' ? (
-                    // ── TIMELINE / FILM STRIP MODE ────────────────────
                     <div className="overflow-x-auto pb-4 -mx-2 px-2">
                       <div className="flex gap-3 items-stretch min-w-max">
                         {shots.map((s, i) => (
@@ -609,14 +665,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                       </div>
                     </div>
                   ) : (
-                    // ── CINEMATIC GRID WALL ──────────────────────────
-                    <div className={`grid gap-4 ${
-                      immersion
-                        ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                        : settingsOpen
-                          ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
-                          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                    }`}>
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                       {shots.map((s) => (
                         <ShotCard
                           key={s.number}
@@ -663,52 +712,6 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
               </div>
             </div>
           </div>
-
-          {/* RIGHT — SETTINGS (collapsible) */}
-          {!immersion && settingsOpen && (
-            <div className="col-span-12 lg:col-span-2">
-              <Panel title="SETTINGS" icon={<Aperture className="w-3.5 h-3.5" />}>
-                <Tabs defaultValue="visual" className="w-full">
-                  <TabsList className="grid grid-cols-2 bg-black/40 border border-white/5">
-                    <TabsTrigger value="visual" className="text-[10px] data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Visual</TabsTrigger>
-                    <TabsTrigger value="engine" className="text-[10px] data-[state=active]:bg-yellow-400/10 data-[state=active]:text-yellow-300">Engine</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="visual" className="space-y-3 pt-3">
-                    <SettingSelect label="Aspect" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
-                    <SettingSelect label="Style" icon={<Film className="w-3 h-3" />} value={style} onChange={setStyle} options={CINEMATIC_STYLES} />
-                    <SettingSelect label="Camera" icon={<Camera className="w-3 h-3" />} value={camera} onChange={setCamera} options={CAMERAS} />
-                    <SettingSelect label="Lens" icon={<Aperture className="w-3 h-3" />} value={lens} onChange={setLens} options={LENSES} />
-                    <SettingSelect label="Motion" icon={<Zap className="w-3 h-3" />} value={motion} onChange={setMotion} options={MOTION} />
-                    <SettingSelect label="Lighting" icon={<Sun className="w-3 h-3" />} value={lighting} onChange={setLighting} options={LIGHTING} />
-                  </TabsContent>
-
-                  <TabsContent value="engine" className="space-y-3 pt-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Image Model</Label>
-                      <Select value={imageProvider} onValueChange={(v) => setImageProvider(v as any)}>
-                        <SelectTrigger className="bg-black/40 border-white/10 h-9 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>{IMAGE_PROVIDERS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Seedance</Label>
-                      <Select value={seedanceModel} onValueChange={(v) => setSeedanceModel(v as any)}>
-                        <SelectTrigger className="bg-black/40 border-white/10 h-9 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="seedance-2-fast">Seedance 2 Fast</SelectItem>
-                          <SelectItem value="seedance-2">Seedance 2 (Quality)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <SettingSlider label="Realism" value={realism} onChange={setRealism} />
-                    <SettingSlider label="Creativity" value={creativity} onChange={setCreativity} />
-                    <SettingSlider label="Chaos" value={chaos} onChange={setChaos} />
-                  </TabsContent>
-                </Tabs>
-              </Panel>
-            </div>
-          )}
         </div>
       </div>
 
