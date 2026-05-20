@@ -27,7 +27,6 @@ import {
 } from '@/lib/studio/movieMode';
 import { SavedStoryboardsMenu } from './SavedStoryboardsMenu';
 import { saveStoryboard, type SavedStoryboard } from '@/lib/studio/savedStoryboards';
-import { Save } from 'lucide-react';
 
 const DIRECTORS = [
   'Cloverfield','Goodfellas','The Matrix','Inception','HUMBLE.',
