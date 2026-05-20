@@ -106,7 +106,7 @@ export function StudioComposer() {
   const [movieScenes, setMovieScenes] = useState<MasterScene[]>([]);
   const [moviePlayerOpen, setMoviePlayerOpen] = useState(false);
   const approvedClipCount = movieScenes.reduce(
-    (n, m) => n + m.subs.filter((s) => s.status === 'approved' && s.videoUrl).length,
+    (n, m) => n + m.subs.filter((s) => s.videoUrl && s.status !== 'rejected').length,
     0,
   );
 
