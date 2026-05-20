@@ -883,7 +883,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                         posterRefUrl={posterUrl ?? undefined}
                         onUpdate={setMovieScenes}
                         seedanceModel={seedanceModel}
-                        aspect={aspect}
+                        aspect={seedanceAspect}
                         onEnlarge={setFullscreenImg}
                         lockContinuity={lockContinuity}
                       />
