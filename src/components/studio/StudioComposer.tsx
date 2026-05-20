@@ -773,13 +773,28 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
 
                   {/* MOVIE MODE — sub-storyboards */}
                   {movieConfig.enabled && shots.length > 0 && (
-                    <MovieSceneTree
-                      scenes={movieScenes}
-                      posterRefUrl={posterUrl ?? undefined}
-                      onUpdate={setMovieScenes}
-                      seedanceModel={seedanceModel}
-                      aspect={aspect}
-                    />
+                    <>
+                      <div className="flex items-center justify-between mt-4 mb-1 px-1">
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">
+                          {approvedClipCount} approved clip{approvedClipCount === 1 ? '' : 's'}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => setMoviePlayerOpen(true)}
+                          disabled={approvedClipCount === 0}
+                          className="h-8 text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
+                        >
+                          ▶ Play Movie
+                        </Button>
+                      </div>
+                      <MovieSceneTree
+                        scenes={movieScenes}
+                        posterRefUrl={posterUrl ?? undefined}
+                        onUpdate={setMovieScenes}
+                        seedanceModel={seedanceModel}
+                        aspect={aspect}
+                      />
+                    </>
                   )}
                 </div>
               </div>
@@ -787,6 +802,8 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
           </div>
         </div>
       </div>
+
+      <MoviePlayer open={moviePlayerOpen} onOpenChange={setMoviePlayerOpen} scenes={movieScenes} />
 
       {/* FULLSCREEN SHOT VIEWER */}
       <Dialog open={selectedShot !== null} onOpenChange={(o) => !o && setSelectedShot(null)}>
