@@ -276,6 +276,40 @@ export function StudioComposer() {
     for (const s of shots) await sendShotToSeedance(s);
   };
 
+  const generatePoster = async () => {
+    if (!shots.length) return toast({ title: 'Generate a storyboard first', variant: 'destructive' });
+    setPosterLoading(true);
+    setPosterUrl(null);
+    try {
+      const title = (label || 'Untitled Scene').toUpperCase();
+      const shotLines = shots.map((s) =>
+        `Panel ${s.number} — "${s.title}": ${s.description} [${s.shot_type}, ${s.camera_move}, ${s.lighting}]`
+      ).join('\n');
+      const posterPrompt =
+`Design ONE single high-resolution cinematic STORYBOARD POSTER (landscape, magazine pitch-deck layout) titled "${title}".
+The poster must contain ALL ${shots.length} numbered panels laid out in a clean grid (top row larger establishing shots, bottom row payoff shots), each panel framed with a thin gold border, numbered in the top-left corner with a small gold square badge, and captioned underneath with the panel title in gold uppercase and a 1-2 line description in white.
+Header: large serif title "${title}" centered at the top with a small subtitle line.
+Left header column: "CONCEPT" with a short blurb. Right header column: "TONE & STYLE" bullet list (${style}, ${director || 'cinematic'}, ${lighting}).
+Footer strip with sections: VISUAL STYLE, CAMERA & FILMING, MUSIC & SOUND, KEY MESSAGE, PURPOSE — each with tiny bullet points.
+Background: warm off-white paper texture. Premium luxury film pitch-deck aesthetic. NOT a single character image. NOT a movie scene. This is a flat 2D graphic-design poster composed of multiple inset photo panels.
+Panels content:
+${shotLines}
+Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic film stills.`;
+      const { data, error } = await supabase.functions.invoke('story-composer/image', {
+        body: { prompt: posterPrompt, provider: 'atlascloud', size: '1536x1024', quality: 'high' },
+      });
+      if (error) throw error;
+      const d = data as { imageUrl?: string; error?: string };
+      if (d.error || !d.imageUrl) throw new Error(d.error || 'No poster returned');
+      setPosterUrl(d.imageUrl);
+      toast({ title: 'Storyboard poster generated' });
+    } catch (e) {
+      toast({ title: 'Poster failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setPosterLoading(false);
+    }
+  };
+
   // ---- export ----
   const downloadFile = (name: string, content: string, mime = 'text/plain') => {
     const blob = new Blob([content], { type: mime });
