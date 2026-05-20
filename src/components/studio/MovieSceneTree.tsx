@@ -8,6 +8,7 @@ import {
   MasterScene, SubScene, STATUS_STYLE, ClipDuration,
 } from '@/lib/studio/movieMode';
 import { SmartImage } from './SmartImage';
+import { SaveAssetButton } from './SaveAssetButton';
 
 interface Props {
   scenes: MasterScene[];
