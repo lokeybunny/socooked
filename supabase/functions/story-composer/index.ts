@@ -284,7 +284,8 @@ Deno.serve(async (req) => {
       const imageUrl = provider === 'atlascloud'
         ? await generateImageAtlas(String(prompt), size, quality)
         : await generateImageLovable(String(prompt));
-      return json({ imageUrl, provider });
+      const hosted = await rehostImage(imageUrl);
+      return json({ imageUrl: hosted, provider });
     }
 
     // ---- Async Atlas (for long poster jobs that exceed edge function wall-clock) ----
