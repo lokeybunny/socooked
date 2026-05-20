@@ -316,7 +316,15 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
         if (sd.status === 'failed') throw new Error(sd.error || 'Poster generation failed');
       }
       if (!imageUrl) throw new Error('Poster still rendering after 5 minutes — try again');
-      setPosterUrl(imageUrl);
+      // Convert to blob URL so the <img> preview works even if the remote host
+      // blocks hot-linking / cross-origin <img> loads (download link still uses original).
+      try {
+        const resp = await fetch(imageUrl);
+        const blob = await resp.blob();
+        setPosterUrl(URL.createObjectURL(blob));
+      } catch {
+        setPosterUrl(imageUrl);
+      }
       toast({ title: 'Storyboard poster generated' });
     } catch (e) {
       toast({ title: 'Poster failed', description: (e as Error).message, variant: 'destructive' });
