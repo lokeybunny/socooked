@@ -402,71 +402,46 @@ export function StudioComposer() {
             )}
           </div>
 
-          {/* CENTER — PREVIEW */}
+          {/* CENTER — STORYBOARD PREVIEW */}
           <div className="col-span-12 lg:col-span-4">
-            <Panel title="PREVIEW" icon={<ImageIcon className="w-3.5 h-3.5" />}>
-              <div className="aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-black via-zinc-950 to-black border border-white/10 relative group flex items-center justify-center">
-                {imageUrl ? (
-                  <>
-                    <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 flex items-center justify-center gap-2">
-                      <Button size="sm" variant="outline" onClick={generateImage} disabled={generatingImage} className="border-white/20 bg-black/60">
-                        <RefreshCw className="w-3.5 h-3.5" /> Regen
-                      </Button>
-                      <Button size="sm" variant="outline" asChild className="border-white/20 bg-black/60">
-                        <a href={imageUrl} target="_blank" rel="noopener">
-                          <Maximize2 className="w-3.5 h-3.5" /> Open
-                        </a>
-                      </Button>
-                      <Button size="sm" variant="outline" asChild className="border-white/20 bg-black/60">
-                        <a href={imageUrl} download>
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center text-muted-foreground text-xs space-y-2 p-6">
-                    {generatingImage ? (
-                      <>
-                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
-                        <p>Rendering cinematic frame…</p>
-                      </>
-                    ) : (
-                      <>
-                        <ImageIcon className="w-10 h-10 mx-auto opacity-30" />
-                        <p>Image preview will appear here</p>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
+            <Panel
+              title={shots.length ? `STORYBOARD — ${shots.length} SHOTS` : 'STORYBOARD PREVIEW'}
+              icon={<Clapperboard className="w-3.5 h-3.5" />}
+              action={shots.length ? (
+                <Button onClick={sendAllToSeedance} disabled={sendingTo !== null} size="sm" className="h-7 text-xs bg-yellow-400 text-black hover:bg-yellow-300">
+                  <Send className="w-3 h-3" /> Queue all
+                </Button>
+              ) : undefined}
+            >
               <Button
                 onClick={buildStoryboard}
                 disabled={storyboarding}
-                variant="outline"
-                className="w-full border-yellow-400/30 bg-yellow-400/5 text-yellow-300 hover:bg-yellow-400/10 hover:text-yellow-200"
+                className="w-full mb-3 bg-yellow-400 text-black hover:bg-yellow-300 font-semibold"
               >
                 {storyboarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-                Generate Storyboard
+                {shots.length ? 'Regenerate Storyboard' : 'Generate Storyboard'}
               </Button>
-            </Panel>
 
-            {/* Storyboard */}
-            {shots.length > 0 && (
-              <Panel
-                title={`STORYBOARD — ${shots.length} SHOTS`}
-                icon={<Clapperboard className="w-3.5 h-3.5" />}
-                className="mt-4"
-                action={
-                  <Button onClick={sendAllToSeedance} disabled={sendingTo !== null} size="sm" className="h-7 text-xs bg-yellow-400 text-black hover:bg-yellow-300">
-                    <Send className="w-3 h-3" /> Queue all
-                  </Button>
-                }
-              >
-                <ScrollArea className="max-h-[640px] pr-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {shots.length === 0 ? (
+                <div className="aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-black via-zinc-950 to-black border border-white/10 flex items-center justify-center">
+                  <div className="text-center text-muted-foreground text-xs space-y-2 p-6">
+                    {storyboarding ? (
+                      <>
+                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
+                        <p>Building cinematic storyboard…</p>
+                      </>
+                    ) : (
+                      <>
+                        <Clapperboard className="w-10 h-10 mx-auto opacity-30" />
+                        <p>Storyboard panels will appear here</p>
+                        <p className="text-[10px] opacity-60">6 sequential cinematic shots with continuity</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[720px] pr-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {shots.map((s) => (
                       <div key={s.number} className="rounded-lg border border-white/5 bg-black/40 overflow-hidden hover:border-yellow-400/40 transition-colors flex flex-col">
                         <div className={`relative w-full bg-black/60 ${aspect === '9:16' ? 'aspect-[9/16]' : aspect === '1:1' ? 'aspect-square' : 'aspect-video'}`}>
@@ -507,10 +482,10 @@ export function StudioComposer() {
                     ))}
                   </div>
                 </ScrollArea>
-
-              </Panel>
-            )}
+              )}
+            </Panel>
           </div>
+
 
           {/* RIGHT — SETTINGS */}
           <div className="col-span-12 lg:col-span-4">
