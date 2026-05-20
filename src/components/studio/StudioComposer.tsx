@@ -208,14 +208,33 @@ export function StudioComposer() {
       if (error) throw error;
       const d = data as { shots?: Shot[]; error?: string };
       if (d.error || !d.shots) throw new Error(d.error || 'No shots');
-      setShots(d.shots);
-      toast({ title: `Storyboard built — ${d.shots.length} shots` });
+      // Seed shots with loading state, then generate panel images in parallel
+      const seeded = d.shots.map((s) => ({ ...s, image_loading: true }));
+      setShots(seeded);
+      toast({ title: `Storyboard built — ${seeded.length} shots`, description: 'Rendering panel images…' });
+
+      const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
+      await Promise.all(seeded.map(async (s) => {
+        try {
+          const panelPrompt = `Cinematic storyboard panel #${s.number} — ${s.title}. ${s.description} Shot: ${s.shot_type}, camera ${s.camera_move}, ${s.lens}, ${s.lighting}. Film-still, photoreal, ${style}, ${aspect} aspect.`;
+          const { data: imgData, error: imgErr } = await supabase.functions.invoke('story-composer/image', {
+            body: { prompt: panelPrompt, provider: imageProvider, size, quality: 'high' },
+          });
+          if (imgErr) throw imgErr;
+          const id = imgData as { imageUrl?: string; error?: string };
+          if (id.error || !id.imageUrl) throw new Error(id.error || 'No image');
+          setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_url: id.imageUrl, image_loading: false } : p));
+        } catch (e) {
+          setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_loading: false, image_error: (e as Error).message } : p));
+        }
+      }));
     } catch (e) {
       toast({ title: 'Storyboard failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setStoryboarding(false);
     }
   };
+
 
   const sendShotToSeedance = async (shot: Shot) => {
     setSendingTo(shot.number);
