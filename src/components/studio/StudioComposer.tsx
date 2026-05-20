@@ -465,36 +465,49 @@ export function StudioComposer() {
                   </Button>
                 }
               >
-                <ScrollArea className="max-h-[420px] pr-2">
-                  <div className="space-y-2">
+                <ScrollArea className="max-h-[640px] pr-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     {shots.map((s) => (
-                      <div key={s.number} className="p-3 rounded-lg border border-white/5 bg-black/40 space-y-2 hover:border-yellow-400/30 transition-colors">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-mono text-yellow-300/80">#{String(s.number).padStart(2, '0')}</span>
-                            <span className="text-sm font-medium truncate">{s.title}</span>
+                      <div key={s.number} className="rounded-lg border border-white/5 bg-black/40 overflow-hidden hover:border-yellow-400/40 transition-colors flex flex-col">
+                        <div className={`relative w-full bg-black/60 ${aspect === '9:16' ? 'aspect-[9/16]' : aspect === '1:1' ? 'aspect-square' : 'aspect-video'}`}>
+                          {s.image_url ? (
+                            <img src={s.image_url} alt={s.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                          ) : s.image_loading ? (
+                            <div className="absolute inset-0 flex items-center justify-center text-yellow-300/70">
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            </div>
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-[10px] text-red-300/70 p-2 text-center">
+                              {s.image_error || 'No panel image'}
+                            </div>
+                          )}
+                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-yellow-400/40 text-[10px] font-mono text-yellow-300">
+                            #{String(s.number).padStart(2, '0')}
                           </div>
+                        </div>
+                        <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">
+                          <div className="text-xs font-semibold uppercase tracking-wide text-yellow-300/90 truncate">{s.title}</div>
+                          <div className="flex flex-wrap gap-1 text-[9px]">
+                            <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.shot_type}</Badge>
+                            <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.camera_move}</Badge>
+                            <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.lighting}</Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3 flex-1">{s.description || s.seedance_prompt}</p>
                           <Button
                             size="sm"
                             onClick={() => sendShotToSeedance(s)}
                             disabled={sendingTo === s.number}
-                            className="h-7 text-xs bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20"
+                            className="h-7 text-[11px] bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20 w-full"
                           >
                             {sendingTo === s.number ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                            Seedance
+                            Send to Seedance
                           </Button>
                         </div>
-                        <div className="flex flex-wrap gap-1 text-[10px]">
-                          <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.shot_type}</Badge>
-                          <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.camera_move}</Badge>
-                          <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.lens}</Badge>
-                          <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.lighting}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{s.seedance_prompt}</p>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
+
               </Panel>
             )}
           </div>
