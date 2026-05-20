@@ -310,12 +310,36 @@ export function StudioComposer() {
     }
   };
 
+  // Continuity anchor: snapshot wardrobe / lens / lighting / framing from the
+  // most recent *earlier* approved (= rendered) shot, so regen preserves it.
+  const buildContinuityAnchor = (beforeNumber: number): string => {
+    if (!lockContinuity) return '';
+    const prior = [...shots]
+      .filter((p) => p.number < beforeNumber && p.image_url)
+      .sort((a, b) => b.number - a.number)[0];
+    if (!prior) return '';
+    return [
+      '',
+      'CONTINUITY LOCK — preserve EXACTLY from the previous approved beat:',
+      `• Reference shot: #${String(prior.number).padStart(2, '0')} — "${prior.title}"`,
+      `• Wardrobe & character: identical to that beat (same actors, same outfits, same hair, same props in hand)`,
+      `• Lens: ${prior.lens || 'Cinema 35mm'} (do not change)`,
+      `• Lighting: ${prior.lighting || 'natural'} (same direction, same intensity, same colour temperature)`,
+      `• Camera language: ${prior.camera_move || 'Eye-Level'} continuity`,
+      `• Character positions / blocking: maintain spatial relationships from the prior beat`,
+      `• Environment / set dressing: identical location, identical props, identical weather`,
+      'Only ACTION and framing should advance — everything else stays locked.',
+      '',
+    ].join('\n');
+  };
+
   const buildPanelPrompt = (s: Shot) => {
     const shotTag = (s.shot_type || 'MS').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 6) || 'MS';
     const camTag = (s.camera_move || 'Eye-Level').replace(/\s+/g, ' ').slice(0, 28);
+    const anchor = buildContinuityAnchor(s.number);
     return (
 `A single page from a REAL Hollywood pre-production storyboard binder — high-resolution JPEG scan of an analog shot-planning sheet. Not AI art, not concept art, not a film still, not a moodboard. This is a professional director's storyboard document.
-
+${anchor}
 LAYOUT (one shot row, fills the page):
 - LEFT COLUMN (about 35% width): a printed/handwritten technical metadata table with these labeled fields stacked vertically, monospace/typewriter typography:
     SHOT #${String(s.number).padStart(2, '0')}
