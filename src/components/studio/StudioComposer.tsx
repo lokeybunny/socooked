@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Mic, Square, Sparkles, Image as ImageIcon, Download, Loader2, Wand2,
   Film, Camera, Sun, Aperture, Zap, RefreshCw, Maximize2, Clapperboard, Send,
-  LayoutGrid, Rows3, Expand, X, ChevronLeft, ChevronRight, Settings2, Eye,
+  LayoutGrid, Rows3, Expand, X, ChevronLeft, ChevronRight, Settings2, Eye, Save,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -25,6 +25,8 @@ import { MoviePlayer } from './MoviePlayer';
 import {
   DEFAULT_MOVIE_CONFIG, MovieModeConfig, MasterScene, expandStoryboardToMovie,
 } from '@/lib/studio/movieMode';
+import { SavedStoryboardsMenu } from './SavedStoryboardsMenu';
+import { saveStoryboard, type SavedStoryboard } from '@/lib/studio/savedStoryboards';
 
 const DIRECTORS = [
   'Cloverfield','Goodfellas','The Matrix','Inception','HUMBLE.',
@@ -111,6 +113,43 @@ export function StudioComposer() {
     (n, m) => n + m.subs.filter((s) => s.videoUrl && s.status !== 'rejected').length,
     0,
   );
+
+  // ── Saved storyboards (freeze / resume) ─────────────────────────────────
+  const [savedRefreshKey, setSavedRefreshKey] = useState(0);
+
+  const handleSaveSession = () => {
+    const name = (label || 'Untitled Scene').trim();
+    saveStoryboard(name, {
+      label, director, aspect, imageProvider, seedanceModel, shotCount,
+      realism, creativity, chaos,
+      prompt, structured, master,
+      shots, posterUrl,
+      movieConfig, movieScenes,
+    });
+    setSavedRefreshKey((k) => k + 1);
+    toast({ title: 'Storyboard saved', description: `"${name}" frozen for later.` });
+  };
+
+  const handleLoadSession = (s: SavedStoryboard) => {
+    const p = s.payload as Record<string, any>;
+    if (typeof p.label === 'string') setLabel(p.label);
+    if (typeof p.director === 'string') setDirector(p.director);
+    if (typeof p.aspect === 'string') setAspect(p.aspect);
+    if (p.imageProvider === 'lovable' || p.imageProvider === 'atlascloud') setImageProvider(p.imageProvider);
+    if (p.seedanceModel === 'seedance-2' || p.seedanceModel === 'seedance-2-fast') setSeedanceModel(p.seedanceModel);
+    if (typeof p.shotCount === 'number') setShotCount(p.shotCount);
+    if (Array.isArray(p.realism)) setRealism(p.realism);
+    if (Array.isArray(p.creativity)) setCreativity(p.creativity);
+    if (Array.isArray(p.chaos)) setChaos(p.chaos);
+    if (typeof p.prompt === 'string') setPrompt(p.prompt);
+    if (p.structured) setStructured(p.structured);
+    if (typeof p.master === 'string') setMaster(p.master);
+    if (Array.isArray(p.shots)) setShots(p.shots);
+    if (typeof p.posterUrl === 'string' || p.posterUrl === null) setPosterUrl(p.posterUrl);
+    if (p.movieConfig) setMovieConfig(p.movieConfig);
+    if (Array.isArray(p.movieScenes)) setMovieScenes(p.movieScenes);
+  };
+
 
   // Re-expand whenever shots, sub-count, or poster change while Movie Mode is on
   useEffect(() => {
@@ -638,6 +677,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                       >
                         <Expand className="w-3 h-3" /> {immersion ? 'Exit' : 'Immersion'}
                       </Button>
+                      <SavedStoryboardsMenu onLoad={handleLoadSession} refreshKey={savedRefreshKey} />
                     </>
                   )}
 
@@ -807,6 +847,28 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                         onEnlarge={setFullscreenImg}
                       />
                     </>
+                  )}
+
+                  {/* SAVE FOR LATER — bottom of canvas */}
+                  {(shots.length > 0 || posterUrl) && (
+                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl border border-yellow-400/20 bg-gradient-to-r from-black/60 via-zinc-950/60 to-black/60">
+                      <div className="text-xs text-yellow-200/80 text-center sm:text-left">
+                        <div className="font-semibold uppercase tracking-[0.18em] text-[10px] text-yellow-300/90">Freeze for later</div>
+                        <div className="text-white/60 mt-0.5">
+                          Saves the entire storyboard ({shots.length} shot{shots.length === 1 ? '' : 's'}
+                          {posterUrl ? ' + poster' : ''}
+                          {movieConfig.enabled ? ` + ${movieScenes.reduce((n, m) => n + m.subs.length, 0)} movie sub-scenes` : ''}
+                          ) under project name <span className="text-yellow-300 font-mono">"{label || 'Untitled Scene'}"</span>.
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleSaveSession}
+                        size="sm"
+                        className="h-9 px-4 text-xs bg-yellow-400 hover:bg-yellow-300 text-black font-semibold"
+                      >
+                        <Save className="w-3.5 h-3.5 mr-1.5" /> Save Storyboard
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
