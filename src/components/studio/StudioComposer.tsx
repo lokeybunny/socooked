@@ -75,7 +75,8 @@ export function StudioComposer() {
   // Settings
   const [label, setLabel] = useState('Untitled Scene');
   const [imageProvider, setImageProvider] = useState<'lovable' | 'atlascloud'>('atlascloud');
-  const [aspect, setAspect] = useState('16:9');
+  const [aspect, setAspect] = useState('16:9'); // storyboard panels default landscape
+  const [seedanceAspect, setSeedanceAspect] = useState('9:16'); // seedance video defaults vertical
   const [style, setStyle] = useState('cinematic');
   const [camera, setCamera] = useState('ARRI Alexa LF');
   const [lens, setLens] = useState('Anamorphic 40mm');
