@@ -461,11 +461,17 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
       finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
     }
+    let finalNegPrompt = negPrompt.trim();
+    if (noText && !/NO TEXT LOCK/i.test(finalPrompt)) {
+      finalPrompt = `${finalPrompt} NO TEXT LOCK: Absolutely no text, letters, words, captions, subtitles, titles, watermarks, logos, signage, written language, numbers, typography, handwriting, or any readable characters anywhere in the video — including on clothing, walls, screens, signs, or backgrounds.`;
+      const negAdds = 'text, letters, words, captions, subtitles, titles, watermark, logo, signage, typography, handwriting, numbers, writing, readable characters';
+      finalNegPrompt = finalNegPrompt ? `${finalNegPrompt}, ${negAdds}` : negAdds;
+    }
 
     return {
       task_type: taskType,
       prompt: finalPrompt,
-      negative_prompt: negPrompt.trim() || undefined,
+      negative_prompt: finalNegPrompt || undefined,
       settings_json: fullSettings,
       input_image_url,
     };
