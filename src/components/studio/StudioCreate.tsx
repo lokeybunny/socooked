@@ -159,7 +159,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       window.removeEventListener(TPL_EVT.REQUEST_SNAPSHOT, onRequest);
       window.removeEventListener(TPL_EVT.APPLY, onApply);
     };
-  }, [taskType, prompt, negPrompt, settings, selectedStyles, useSeedance, noMusic, propertyLock, imagePreview, imagePreviewB, refImageUrls, returnLastFrame, directorStyleIds, director]);
+  }, [taskType, prompt, negPrompt, settings, selectedStyles, useSeedance, noMusic, propertyLock, noText, imagePreview, imagePreviewB, refImageUrls, returnLastFrame, directorStyleIds, director]);
 
 
   const toggleStyle = (s: string) => {
