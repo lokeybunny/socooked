@@ -625,6 +625,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                 Lock Property Constraints — appends the <span className="text-foreground font-medium">Property Truth Lock</span> rules so the AI never invents or redesigns the real estate reference
               </span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={noText} onCheckedChange={(v) => setNoText(v === true)} />
+              <span className="text-xs text-muted-foreground">
+                No Text on Video — blocks any <span className="text-foreground font-medium">text, captions, subtitles, watermarks, logos, signage, or readable characters</span> from appearing in the output
+              </span>
+            </label>
           </CardContent>
         </Card>
 
