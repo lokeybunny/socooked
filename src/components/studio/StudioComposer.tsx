@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SmartImage } from './SmartImage';
+import { SaveAssetButton } from './SaveAssetButton';
 import { MovieModePanel } from './MovieModePanel';
 import { MovieSceneTree } from './MovieSceneTree';
 import { MoviePlayer } from './MoviePlayer';
@@ -733,6 +734,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                           key={s.number}
                           shot={s}
                           aspect={aspect}
+                          groupLabel={label}
                           onOpen={() => setSelectedShot(s.number)}
                           onRegen={() => regeneratePanel(s.number)}
                           regenning={regenningPanel === s.number}
@@ -751,11 +753,16 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                     <div className="mt-6 rounded-2xl border border-yellow-400/30 bg-black/60 overflow-hidden shadow-[0_0_40px_rgba(250,204,21,0.15)]">
                       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
                         <span className="text-[11px] uppercase tracking-[0.2em] text-yellow-300/90">Storyboard Poster · gpt-image-2</span>
-                        {posterUrl && (
-                          <a href={posterUrl} target="_blank" rel="noreferrer" download className="text-[11px] text-yellow-300 hover:underline flex items-center gap-1">
-                            <Download className="w-3 h-3" /> Open
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {posterUrl && (
+                            <SaveAssetButton url={posterUrl} name={`Poster — ${label}`} notes="Storyboard poster" withDelete />
+                          )}
+                          {posterUrl && (
+                            <a href={posterUrl} target="_blank" rel="noreferrer" download className="text-[11px] text-yellow-300 hover:underline flex items-center gap-1">
+                              <Download className="w-3 h-3" /> Open
+                            </a>
+                          )}
+                        </div>
                       </div>
                       <div className="aspect-[3/2] bg-black flex items-center justify-center">
                         {posterLoading ? (
@@ -915,6 +922,18 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                       {sendingTo === s.number ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       Send to Seedance
                     </Button>
+                    {s.image_url && (
+                      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Library</span>
+                        <SaveAssetButton
+                          url={s.image_url}
+                          name={`${label} — #${String(s.number).padStart(2, '0')} ${s.title}`}
+                          notes={s.description}
+                          size="md"
+                          withDelete
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -940,12 +959,13 @@ function inferShotTag(s: Shot): string {
 }
 
 function ShotCard({
-  shot: s, aspect, compact = false, onOpen, onRegen, regenning,
+  shot: s, aspect, compact = false, groupLabel, onOpen, onRegen, regenning,
   onTitle, onShotType, onCamMove, onDesc, onSeedance, sending,
 }: {
   shot: Shot;
   aspect: string;
   compact?: boolean;
+  groupLabel?: string;
   onOpen: () => void;
   onRegen: () => void;
   regenning: boolean;
@@ -1015,6 +1035,13 @@ function ShotCard({
           >
             <Eye className="w-3 h-3" />
           </button>
+          <SaveAssetButton
+            url={s.image_url}
+            name={`${groupLabel || 'Storyboard'} — #${String(s.number).padStart(2, '0')} ${s.title}`}
+            notes={s.description}
+            withDelete
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          />
         </div>
 
         {/* bottom title overlay (always visible) */}
