@@ -20,6 +20,7 @@ export interface TemplateSnapshot {
   useSeedance?: boolean;
   noMusic?: boolean;
   propertyLock?: boolean;
+  noText?: boolean;
   imagePreview?: string | null;
   imagePreviewB?: string | null;
   refImageUrls?: string[];

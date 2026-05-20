@@ -79,6 +79,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [showDirector, setShowDirector] = useState(false);
   const [noMusic, setNoMusic] = useState(true);
   const [propertyLock, setPropertyLock] = useState(true);
+  const [noText, setNoText] = useState(true);
   // Reference-to-video assets (up to 9 images, 3 videos, 3 audios)
   const [refImages, setRefImages] = useState<File[]>([]);
   const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
@@ -127,7 +128,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     const onRequest = () => {
       const snap: TemplateSnapshot = {
         taskType, prompt, negPrompt, settings,
-        selectedStyles, useSeedance, noMusic, propertyLock,
+        selectedStyles, useSeedance, noMusic, propertyLock, noText,
         imagePreview, imagePreviewB, refImageUrls, returnLastFrame,
         directorStyleIds, director,
       };
@@ -144,6 +145,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       if (typeof s.useSeedance === 'boolean') setUseSeedance(s.useSeedance);
       if (typeof s.noMusic === 'boolean') setNoMusic(s.noMusic);
       if (typeof s.propertyLock === 'boolean') setPropertyLock(s.propertyLock);
+      if (typeof s.noText === 'boolean') setNoText(s.noText);
       if (s.imagePreview !== undefined) { setImagePreview(s.imagePreview); setImageFile(null); }
       if (s.imagePreviewB !== undefined) { setImagePreviewB(s.imagePreviewB); setImageFileB(null); }
       if (Array.isArray(s.refImageUrls)) setRefImageUrls(s.refImageUrls);
@@ -157,7 +159,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       window.removeEventListener(TPL_EVT.REQUEST_SNAPSHOT, onRequest);
       window.removeEventListener(TPL_EVT.APPLY, onApply);
     };
-  }, [taskType, prompt, negPrompt, settings, selectedStyles, useSeedance, noMusic, propertyLock, imagePreview, imagePreviewB, refImageUrls, returnLastFrame, directorStyleIds, director]);
+  }, [taskType, prompt, negPrompt, settings, selectedStyles, useSeedance, noMusic, propertyLock, noText, imagePreview, imagePreviewB, refImageUrls, returnLastFrame, directorStyleIds, director]);
 
 
   const toggleStyle = (s: string) => {
@@ -460,11 +462,17 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     if (propertyLock && !/PROPERTY TRUTH LOCK/i.test(finalPrompt)) {
       finalPrompt = `${finalPrompt}${PROPERTY_TRUTH_LOCK_PROMPT}`;
     }
+    let finalNegPrompt = negPrompt.trim();
+    if (noText && !/NO TEXT LOCK/i.test(finalPrompt)) {
+      finalPrompt = `${finalPrompt} NO TEXT LOCK: Absolutely no text, letters, words, captions, subtitles, titles, watermarks, logos, signage, written language, numbers, typography, handwriting, or any readable characters anywhere in the video — including on clothing, walls, screens, signs, or backgrounds.`;
+      const negAdds = 'text, letters, words, captions, subtitles, titles, watermark, logo, signage, typography, handwriting, numbers, writing, readable characters';
+      finalNegPrompt = finalNegPrompt ? `${finalNegPrompt}, ${negAdds}` : negAdds;
+    }
 
     return {
       task_type: taskType,
       prompt: finalPrompt,
-      negative_prompt: negPrompt.trim() || undefined,
+      negative_prompt: finalNegPrompt || undefined,
       settings_json: fullSettings,
       input_image_url,
     };
@@ -615,6 +623,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
               <Checkbox checked={propertyLock} onCheckedChange={(v) => setPropertyLock(v === true)} />
               <span className="text-xs text-muted-foreground">
                 Lock Property Constraints — appends the <span className="text-foreground font-medium">Property Truth Lock</span> rules so the AI never invents or redesigns the real estate reference
+              </span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <Checkbox checked={noText} onCheckedChange={(v) => setNoText(v === true)} />
+              <span className="text-xs text-muted-foreground">
+                No Text on Video — blocks any <span className="text-foreground font-medium">text, captions, subtitles, watermarks, logos, signage, or readable characters</span> from appearing in the output
               </span>
             </label>
           </CardContent>
