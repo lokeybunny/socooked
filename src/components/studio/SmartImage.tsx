@@ -33,7 +33,7 @@ interface DebugInfo {
  * on-screen debug overlay is shown with the failing URL, response headers, and
  * a retry button.
  */
-export function SmartImage({ src, alt, className, loading = 'lazy', onResolved }: SmartImageProps) {
+export function SmartImage({ src, alt, className, loading = 'lazy', onResolved, onDoubleClick, onClick }: SmartImageProps) {
   const [currentSrc, setCurrentSrc] = useState(src);
   const [phase, setPhase] = useState<'loading' | 'ok' | 'rehosting' | 'failed'>('loading');
   const [debug, setDebug] = useState<DebugInfo | null>(null);
