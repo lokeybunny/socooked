@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw, AlertTriangle, ExternalLink, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { getCachedRehost, setCachedRehost } from '@/lib/studio/imageRehostCache';
 
 interface SmartImageProps {
   src: string;
