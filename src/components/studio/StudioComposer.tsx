@@ -734,6 +734,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                           key={s.number}
                           shot={s}
                           aspect={aspect}
+                          groupLabel={label}
                           onOpen={() => setSelectedShot(s.number)}
                           onRegen={() => regeneratePanel(s.number)}
                           regenning={regenningPanel === s.number}
