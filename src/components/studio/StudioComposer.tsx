@@ -748,7 +748,7 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] max-h-[90vh]">
                 <div className="relative bg-black flex items-center justify-center min-h-[50vh]">
                   {s.image_url ? (
-                    <img src={s.image_url} alt={s.title} className="max-w-full max-h-[90vh] object-contain" />
+                    <SmartImage src={s.image_url} alt={s.title} className="max-w-full max-h-[90vh] object-contain" />
                   ) : s.image_loading ? (
                     <Loader2 className="w-10 h-10 animate-spin text-yellow-400" />
                   ) : (
