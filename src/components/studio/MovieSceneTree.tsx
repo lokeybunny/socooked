@@ -84,24 +84,13 @@ PAGE STYLE: off-white aged paper, faint ruled lines, graphite smudges, typewrite
 
 STRICTLY AVOID: gold borders, glossy magazine design, color film stills, polished AI renders, comic-book panels, anime, Pinterest collage, marketing posters.`;
 
-      const { data, error } = await supabase.functions.invoke('story-composer/image-start', {
-        body: { prompt: posterPrompt, size: '1536x1024', quality: 'high' },
+      const { data, error } = await supabase.functions.invoke('story-composer/image', {
+        body: { prompt: posterPrompt, provider: 'lovable', size: '1536x1024', quality: 'high' },
       });
       if (error) throw error;
-      const startData = data as { jobId?: string; error?: string };
-      if (!startData.jobId) throw new Error(startData.error || 'No job id');
-
-      let imageUrl: string | null = null;
-      for (let i = 0; i < 75; i++) {
-        await new Promise((r) => setTimeout(r, 4000));
-        const { data: s } = await supabase.functions.invoke('story-composer/image-status', {
-          body: { jobId: startData.jobId },
-        });
-        const sd = s as { status?: string; imageUrl?: string; error?: string };
-        if (sd?.status === 'completed' && sd.imageUrl) { imageUrl = sd.imageUrl; break; }
-        if (sd?.status === 'failed') throw new Error(sd.error || 'Storyboard failed');
-      }
-      if (!imageUrl) throw new Error('Storyboard still rendering');
+      const imageData = data as { imageUrl?: string; error?: string };
+      if (imageData.error || !imageData.imageUrl) throw new Error(imageData.error || 'No storyboard image returned');
+      const imageUrl = imageData.imageUrl;
       updateSub(master.number, sub.id, { imageUrl, status: 'image_ready' });
     } catch (e) {
       updateSub(master.number, sub.id, { status: 'failed', error: (e as Error).message });
