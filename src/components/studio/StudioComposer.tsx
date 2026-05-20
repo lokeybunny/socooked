@@ -17,6 +17,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { SmartImage } from './SmartImage';
 
 const DIRECTORS = [
   'Cloverfield','Goodfellas','The Matrix','Inception','HUMBLE.',
