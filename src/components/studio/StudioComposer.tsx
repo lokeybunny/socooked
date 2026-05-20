@@ -104,6 +104,11 @@ export function StudioComposer() {
   // Movie Mode
   const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
   const [movieScenes, setMovieScenes] = useState<MasterScene[]>([]);
+  const [moviePlayerOpen, setMoviePlayerOpen] = useState(false);
+  const approvedClipCount = movieScenes.reduce(
+    (n, m) => n + m.subs.filter((s) => s.status === 'approved' && s.videoUrl).length,
+    0,
+  );
 
   // Re-expand whenever shots, sub-count, or poster change while Movie Mode is on
   useEffect(() => {
