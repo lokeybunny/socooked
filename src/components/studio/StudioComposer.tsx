@@ -771,7 +771,12 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                             <p className="text-[10px] opacity-60">This can take 30-60s</p>
                           </div>
                         ) : (
-                          <SmartImage src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
+                          <SmartImage
+                            src={posterUrl!}
+                            alt="Storyboard poster"
+                            className="w-full h-full object-contain cursor-zoom-in"
+                            onDoubleClick={() => posterUrl && setFullscreenImg(posterUrl)}
+                          />
                         )}
                       </div>
                     </div>
