@@ -75,7 +75,8 @@ export function StudioComposer() {
   // Settings
   const [label, setLabel] = useState('Untitled Scene');
   const [imageProvider, setImageProvider] = useState<'lovable' | 'atlascloud'>('atlascloud');
-  const [aspect, setAspect] = useState('16:9');
+  const [aspect, setAspect] = useState('16:9'); // storyboard panels default landscape
+  const [seedanceAspect, setSeedanceAspect] = useState('9:16'); // seedance video defaults vertical
   const [style, setStyle] = useState('cinematic');
   const [camera, setCamera] = useState('ARRI Alexa LF');
   const [lens, setLens] = useState('Anamorphic 40mm');
@@ -121,7 +122,7 @@ export function StudioComposer() {
   const handleSaveSession = () => {
     const name = (label || 'Untitled Scene').trim();
     saveStoryboard(name, {
-      label, director, aspect, imageProvider, seedanceModel, shotCount,
+      label, director, aspect, seedanceAspect, imageProvider, seedanceModel, shotCount,
       realism, creativity, chaos,
       prompt, structured, master,
       shots, posterUrl,
@@ -136,6 +137,7 @@ export function StudioComposer() {
     if (typeof p.label === 'string') setLabel(p.label);
     if (typeof p.director === 'string') setDirector(p.director);
     if (typeof p.aspect === 'string') setAspect(p.aspect);
+    if (typeof p.seedanceAspect === 'string') setSeedanceAspect(p.seedanceAspect);
     if (p.imageProvider === 'lovable' || p.imageProvider === 'atlascloud') setImageProvider(p.imageProvider);
     if (p.seedanceModel === 'seedance-2' || p.seedanceModel === 'seedance-2-fast') setSeedanceModel(p.seedanceModel);
     if (typeof p.shotCount === 'number') setShotCount(p.shotCount);
@@ -413,7 +415,7 @@ STRICTLY AVOID: polished AI render, color photograph, comic book panel, anime, h
       const anchor = buildContinuityAnchor(shot.number);
       const fullPrompt = anchor ? `${anchor}\n${shot.seedance_prompt}` : shot.seedance_prompt;
       const { data, error } = await supabase.functions.invoke('story-composer/seedance', {
-        body: { prompt: fullPrompt, model: seedanceModel, aspect, image_url: imageUrl || undefined },
+        body: { prompt: fullPrompt, model: seedanceModel, aspect: seedanceAspect, image_url: imageUrl || undefined },
       });
       if (error) throw error;
       const d = data as { job?: { id?: string }; error?: string };
@@ -745,7 +747,8 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                           </TabsList>
 
                           <TabsContent value="visual" className="space-y-4 pt-4">
-                            <SettingSelect label="Aspect Ratio" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
+                            <SettingSelect label="Storyboard Aspect" icon={<Maximize2 className="w-3 h-3" />} value={aspect} onChange={setAspect} options={ASPECTS} />
+                            <SettingSelect label="Seedance Aspect" icon={<Maximize2 className="w-3 h-3" />} value={seedanceAspect} onChange={setSeedanceAspect} options={ASPECTS} />
                             <SettingSelect label="Cinematic Style" icon={<Film className="w-3 h-3" />} value={style} onChange={setStyle} options={CINEMATIC_STYLES} />
                             <SettingSelect label="Camera" icon={<Camera className="w-3 h-3" />} value={camera} onChange={setCamera} options={CAMERAS} />
                             <SettingSelect label="Lens" icon={<Aperture className="w-3 h-3" />} value={lens} onChange={setLens} options={LENSES} />
@@ -881,7 +884,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                         posterRefUrl={posterUrl ?? undefined}
                         onUpdate={setMovieScenes}
                         seedanceModel={seedanceModel}
-                        aspect={aspect}
+                        aspect={seedanceAspect}
                         onEnlarge={setFullscreenImg}
                         lockContinuity={lockContinuity}
                       />
