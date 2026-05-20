@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
-import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers, Sparkles } from 'lucide-react';
+import { Home, Upload, Trash2, Loader2, Folder, Copy, Download, Layers, Sparkles, FileArchive } from 'lucide-react';
+import JSZip from 'jszip';
 import { lightboxProps } from './ImageLightbox';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -51,6 +52,8 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+  const [zipping, setZipping] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [dragActive, setDragActive] = useState(false);
 
   const [autoEmpty, setAutoEmpty] = useState(true);
@@ -320,6 +323,57 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
     }
   };
 
+  const handleDownloadZip = async () => {
+    if (assets.length === 0) return;
+    setZipping(true);
+    setZipProgress({ done: 0, total: assets.length });
+    try {
+      const zip = new JSZip();
+      const originalsFolder = zip.folder('originals')!;
+      const convertedFolder = zip.folder('converted')!;
+      const otherFolder = zip.folder('other')!;
+      const usedNames = new Set<string>();
+      const uniqueName = (folder: string, base: string) => {
+        let n = base; let i = 1;
+        while (usedNames.has(`${folder}/${n}`)) { const dot = base.lastIndexOf('.'); n = dot > 0 ? `${base.slice(0,dot)} (${i})${base.slice(dot)}` : `${base} (${i})`; i++; }
+        usedNames.add(`${folder}/${n}`); return n;
+      };
+      let done = 0;
+      for (const a of assets) {
+        try {
+          const res = await fetch(a.image_url, { mode: 'cors' });
+          const blob = await res.blob();
+          const ext = (a.storage_path?.split('.').pop() || 'jpg').split('?')[0];
+          const safe = (a.name || 'asset').replace(/[^\w.-]+/g, '_');
+          const variant = (a as any).variant as string | null | undefined;
+          const folder = variant === 'original' ? originalsFolder : variant === 'processed' ? convertedFolder : otherFolder;
+          const folderName = variant === 'original' ? 'originals' : variant === 'processed' ? 'converted' : 'other';
+          const fname = uniqueName(folderName, `${safe}.${ext}`);
+          folder.file(fname, blob);
+        } catch (e) {
+          console.error('zip add failed', a.id, e);
+        }
+        done++;
+        setZipProgress({ done, total: assets.length });
+      }
+      const content = await zip.generateAsync({ type: 'blob' }, (meta) => {
+        // packaging progress (optional)
+      });
+      const url = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      const scopeSafe = (scopeLabel || 'assets').replace(/[^\w.-]+/g, '_');
+      link.href = url; link.download = `${scopeSafe}-${new Date().toISOString().slice(0,10)}.zip`;
+      document.body.appendChild(link); link.click(); link.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: `Downloaded ${done} asset${done === 1 ? '' : 's'}` });
+    } catch (e) {
+      toast({ title: 'Zip failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setZipping(false);
+      setZipProgress({ done: 0, total: 0 });
+    }
+  };
+
   const projectNameMap = new Map(projects.map(p => [p.id, p.name]));
   const subprojectNameMap = new Map(subprojects.map(s => [s.id, s.name]));
 
@@ -378,6 +432,15 @@ export function StudioAssets({ projectId, subprojectId }: Props) {
           >
             {pairingBackfill ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {pairingBackfill ? `Pairing ${pairProgress.done}/${pairProgress.total}` : 'Generate A/B Pairs'}
+          </Button>
+          <Button
+            onClick={handleDownloadZip}
+            disabled={uploading || loading || zipping || assets.length === 0}
+            variant="outline"
+            className="gap-2 border-sky-500/40 text-sky-300 hover:bg-sky-600/20 hover:text-sky-200"
+          >
+            {zipping ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileArchive className="w-4 h-4" />}
+            {zipping ? `Zipping ${zipProgress.done}/${zipProgress.total}` : `Download ZIP (${assets.length})`}
           </Button>
           <Button
             onClick={handleMassDelete}
