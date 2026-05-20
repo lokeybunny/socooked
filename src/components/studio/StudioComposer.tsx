@@ -581,6 +581,30 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
                 </div>
               )}
 
+              {(posterLoading || posterUrl) && (
+                <div className="mt-4 rounded-xl border border-yellow-400/30 bg-black/40 overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-yellow-300/90">Storyboard Poster · gpt-image-2</span>
+                    {posterUrl && (
+                      <a href={posterUrl} target="_blank" rel="noreferrer" className="text-[10px] text-yellow-300 hover:underline flex items-center gap-1">
+                        <Download className="w-3 h-3" /> Open
+                      </a>
+                    )}
+                  </div>
+                  <div className="aspect-[3/2] bg-black flex items-center justify-center">
+                    {posterLoading ? (
+                      <div className="text-center text-xs text-yellow-300/80 space-y-2">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                        <p>Composing poster with gpt-image-2…</p>
+                        <p className="text-[10px] opacity-60">This can take 30-60s</p>
+                      </div>
+                    ) : (
+                      <img src={posterUrl!} alt="Storyboard poster" className="w-full h-full object-contain" />
+                    )}
+                  </div>
+                </div>
+              )}
+
             </Panel>
           </div>
 
