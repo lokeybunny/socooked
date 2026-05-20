@@ -253,12 +253,11 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     return next;
   };
   const onReorderDropImg = (toIndex: number) => (e: React.DragEvent) => {
-    const data = e.dataTransfer.getData(REORDER_MIME);
+    const data = readReorderPayload(e);
     if (!data || !data.startsWith('img:')) return;
     e.preventDefault();
     e.stopPropagation();
     const from = parseInt(data.split(':')[1], 10);
-    // combined list: urls first, then files
     const combined = [
       ...refImageUrls.map(v => ({ k: 'u' as const, v })),
       ...refImages.map(v => ({ k: 'f' as const, v })),
@@ -268,14 +267,14 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     setRefImages(next.filter(x => x.k === 'f').map(x => x.v as File));
   };
   const onReorderDropVid = (toIndex: number) => (e: React.DragEvent) => {
-    const data = e.dataTransfer.getData(REORDER_MIME);
+    const data = readReorderPayload(e);
     if (!data || !data.startsWith('vid:')) return;
     e.preventDefault(); e.stopPropagation();
     const from = parseInt(data.split(':')[1], 10);
     setRefVideos(prev => reorderArray(prev, from, toIndex));
   };
   const onReorderDropAud = (toIndex: number) => (e: React.DragEvent) => {
-    const data = e.dataTransfer.getData(REORDER_MIME);
+    const data = readReorderPayload(e);
     if (!data || !data.startsWith('aud:')) return;
     e.preventDefault(); e.stopPropagation();
     const from = parseInt(data.split(':')[1], 10);
