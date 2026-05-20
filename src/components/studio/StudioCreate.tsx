@@ -122,6 +122,43 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill]);
 
+  // ===== Templates: capture/apply snapshots via window events =====
+  useEffect(() => {
+    const onRequest = () => {
+      const snap: TemplateSnapshot = {
+        taskType, prompt, negPrompt, settings,
+        selectedStyles, useSeedance, noMusic, propertyLock,
+        imagePreview, imagePreviewB, refImageUrls, returnLastFrame,
+        directorStyleIds, director,
+      };
+      window.dispatchEvent(new CustomEvent(TPL_EVT.SNAPSHOT_READY, { detail: snap }));
+    };
+    const onApply = (e: Event) => {
+      const s = (e as CustomEvent).detail as TemplateSnapshot;
+      if (!s) return;
+      if (s.taskType) setTaskType(s.taskType as TaskType);
+      if (typeof s.prompt === 'string') setPrompt(s.prompt);
+      if (typeof s.negPrompt === 'string') setNegPrompt(s.negPrompt);
+      if (s.settings) setSettings(prev => ({ ...prev, ...s.settings }));
+      if (Array.isArray(s.selectedStyles)) setSelectedStyles(s.selectedStyles);
+      if (typeof s.useSeedance === 'boolean') setUseSeedance(s.useSeedance);
+      if (typeof s.noMusic === 'boolean') setNoMusic(s.noMusic);
+      if (typeof s.propertyLock === 'boolean') setPropertyLock(s.propertyLock);
+      if (s.imagePreview !== undefined) { setImagePreview(s.imagePreview); setImageFile(null); }
+      if (s.imagePreviewB !== undefined) { setImagePreviewB(s.imagePreviewB); setImageFileB(null); }
+      if (Array.isArray(s.refImageUrls)) setRefImageUrls(s.refImageUrls);
+      if (typeof s.returnLastFrame === 'boolean') setReturnLastFrame(s.returnLastFrame);
+      if (Array.isArray(s.directorStyleIds)) setDirectorStyleIds(s.directorStyleIds);
+      if (s.director) setDirector(prev => ({ ...prev, ...s.director }));
+    };
+    window.addEventListener(TPL_EVT.REQUEST_SNAPSHOT, onRequest);
+    window.addEventListener(TPL_EVT.APPLY, onApply);
+    return () => {
+      window.removeEventListener(TPL_EVT.REQUEST_SNAPSHOT, onRequest);
+      window.removeEventListener(TPL_EVT.APPLY, onApply);
+    };
+  }, [taskType, prompt, negPrompt, settings, selectedStyles, useSeedance, noMusic, propertyLock, imagePreview, imagePreviewB, refImageUrls, returnLastFrame, directorStyleIds, director]);
+
 
   const toggleStyle = (s: string) => {
     setSelectedStyles(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
