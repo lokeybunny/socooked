@@ -269,8 +269,32 @@ export function StudioComposer() {
     }
   };
 
-  const buildPanelPrompt = (s: Shot) =>
-    `Cinematic storyboard panel #${s.number} — ${s.title}. ${s.description} Shot: ${s.shot_type}, camera ${s.camera_move}, ${s.lens}, ${s.lighting}. Film-still, photoreal, ${style}, ${aspect} aspect.`;
+  const buildPanelPrompt = (s: Shot) => {
+    const shotTag = (s.shot_type || 'MS').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 6) || 'MS';
+    const camTag = (s.camera_move || 'Eye-Level').replace(/\s+/g, ' ').slice(0, 28);
+    return (
+`A single page from a REAL Hollywood pre-production storyboard binder — high-resolution JPEG scan of an analog shot-planning sheet. Not AI art, not concept art, not a film still, not a moodboard. This is a professional director's storyboard document.
+
+LAYOUT (one shot row, fills the page):
+- LEFT COLUMN (about 35% width): a printed/handwritten technical metadata table with these labeled fields stacked vertically, monospace/typewriter typography:
+    SHOT #${String(s.number).padStart(2, '0')}
+    SHOT TYPE: ${shotTag}
+    CAMERA: ${camTag}
+    LENS: ${s.lens || 'Cinema 35mm'}
+    LIGHTING: ${s.lighting || 'natural'}
+    SCENE: ${s.title}
+    ACTION: ${s.description}
+    NOTES: handwritten cinematography annotations (focus, framing, emotion)
+- RIGHT COLUMN (about 65% width): a rough but professional GRAPHITE PENCIL storyboard sketch frame inside a thin black rectangular border with rounded corners, depicting: ${s.description}. Hand-drawn grayscale linework, film-school previs quality, pencil pressure variation, light smudges, motion arrows / camera-push arrows where appropriate, framing crosshairs, focus indicators.
+
+PAGE STYLE:
+- Off-white aged paper texture, faint horizontal ruled lines, subtle graphite smudges, slight scan imperfection.
+- Header strip across the top with project slug, page number, and date stamp (small, typewriter).
+- Footer strip with tiny director's-notebook annotations.
+- Overall feel: Christopher Nolan production board / Netflix previs packet / real studio shot-planning sheet.
+
+STRICTLY AVOID: polished AI render, color photograph, comic book panel, anime, hyperreal concept art, social media card, Pinterest collage, glossy magazine layout, gold borders, marketing poster. The frame artwork must be grayscale graphite, not painted, not photographic.`);
+  };
 
   const renderPanelImage = async (s: Shot) => {
     const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
