@@ -87,7 +87,7 @@ export function deriveSubPrompt(
  * the subsPerScene count.
  */
 export function expandStoryboardToMovie(
-  shots: Array<{ number: number; title: string; description: string }>,
+  shots: Array<{ number: number; title: string; description: string; image_url?: string }>,
   subsPerScene: SubScenesPerMaster,
   durationSec: ClipDuration,
   posterRefUrl?: string,
@@ -112,6 +112,7 @@ export function expandStoryboardToMovie(
       title: shot.title,
       description: shot.description,
       posterRefUrl,
+      masterImageUrl: shot.image_url,
       subs,
       expanded: prev?.expanded ?? false,
     };
