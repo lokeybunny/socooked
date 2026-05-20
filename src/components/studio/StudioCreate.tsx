@@ -145,6 +145,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       if (typeof s.useSeedance === 'boolean') setUseSeedance(s.useSeedance);
       if (typeof s.noMusic === 'boolean') setNoMusic(s.noMusic);
       if (typeof s.propertyLock === 'boolean') setPropertyLock(s.propertyLock);
+      if (typeof s.noText === 'boolean') setNoText(s.noText);
       if (s.imagePreview !== undefined) { setImagePreview(s.imagePreview); setImageFile(null); }
       if (s.imagePreviewB !== undefined) { setImagePreviewB(s.imagePreviewB); setImageFileB(null); }
       if (Array.isArray(s.refImageUrls)) setRefImageUrls(s.refImageUrls);
