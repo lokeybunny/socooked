@@ -33,6 +33,7 @@ import { AssetLibraryPicker } from './AssetLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
 import { PromptVoiceEditButton } from './PromptVoiceEditButton';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
+import { TPL_EVT, type TemplateSnapshot } from '@/lib/studio/templates';
 
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
