@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { SmartImage } from './SmartImage';
 import { MovieModePanel } from './MovieModePanel';
 import { MovieSceneTree } from './MovieSceneTree';
+import { MoviePlayer } from './MoviePlayer';
 import {
   DEFAULT_MOVIE_CONFIG, MovieModeConfig, MasterScene, expandStoryboardToMovie,
 } from '@/lib/studio/movieMode';
@@ -103,6 +104,11 @@ export function StudioComposer() {
   // Movie Mode
   const [movieConfig, setMovieConfig] = useState<MovieModeConfig>(DEFAULT_MOVIE_CONFIG);
   const [movieScenes, setMovieScenes] = useState<MasterScene[]>([]);
+  const [moviePlayerOpen, setMoviePlayerOpen] = useState(false);
+  const approvedClipCount = movieScenes.reduce(
+    (n, m) => n + m.subs.filter((s) => s.status === 'approved' && s.videoUrl).length,
+    0,
+  );
 
   // Re-expand whenever shots, sub-count, or poster change while Movie Mode is on
   useEffect(() => {
@@ -767,13 +773,28 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
 
                   {/* MOVIE MODE — sub-storyboards */}
                   {movieConfig.enabled && shots.length > 0 && (
-                    <MovieSceneTree
-                      scenes={movieScenes}
-                      posterRefUrl={posterUrl ?? undefined}
-                      onUpdate={setMovieScenes}
-                      seedanceModel={seedanceModel}
-                      aspect={aspect}
-                    />
+                    <>
+                      <div className="flex items-center justify-between mt-4 mb-1 px-1">
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-300/80">
+                          {approvedClipCount} approved clip{approvedClipCount === 1 ? '' : 's'}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => setMoviePlayerOpen(true)}
+                          disabled={approvedClipCount === 0}
+                          className="h-8 text-[11px] bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
+                        >
+                          ▶ Play Movie
+                        </Button>
+                      </div>
+                      <MovieSceneTree
+                        scenes={movieScenes}
+                        posterRefUrl={posterUrl ?? undefined}
+                        onUpdate={setMovieScenes}
+                        seedanceModel={seedanceModel}
+                        aspect={aspect}
+                      />
+                    </>
                   )}
                 </div>
               </div>
@@ -781,6 +802,8 @@ Style of inset panel imagery: ${style}, ${camera}, ${lens}, photoreal cinematic 
           </div>
         </div>
       </div>
+
+      <MoviePlayer open={moviePlayerOpen} onOpenChange={setMoviePlayerOpen} scenes={movieScenes} />
 
       {/* FULLSCREEN SHOT VIEWER */}
       <Dialog open={selectedShot !== null} onOpenChange={(o) => !o && setSelectedShot(null)}>
