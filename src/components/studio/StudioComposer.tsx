@@ -677,6 +677,7 @@ STRICTLY AVOID: gold borders, glossy magazine design, color cinematic film still
                       >
                         <Expand className="w-3 h-3" /> {immersion ? 'Exit' : 'Immersion'}
                       </Button>
+                      <SavedStoryboardsMenu onLoad={handleLoadSession} refreshKey={savedRefreshKey} />
                     </>
                   )}
 
