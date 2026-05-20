@@ -73,6 +73,8 @@ export function StudioComposer() {
   const [chaos, setChaos] = useState([20]);
   const [director, setDirector] = useState<string>('');
   const [seedanceModel, setSeedanceModel] = useState<'seedance-2' | 'seedance-2-fast'>('seedance-2-fast');
+  const [shotCount, setShotCount] = useState<number>(6);
+  const [regenningPanel, setRegenningPanel] = useState<number | null>(null);
 
   // Prompt + output
   const [prompt, setPrompt] = useState('');
@@ -197,43 +199,58 @@ export function StudioComposer() {
     }
   };
 
+  const buildPanelPrompt = (s: Shot) =>
+    `Cinematic storyboard panel #${s.number} — ${s.title}. ${s.description} Shot: ${s.shot_type}, camera ${s.camera_move}, ${s.lens}, ${s.lighting}. Film-still, photoreal, ${style}, ${aspect} aspect.`;
+
+  const renderPanelImage = async (s: Shot) => {
+    const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
+    try {
+      const { data: imgData, error: imgErr } = await supabase.functions.invoke('story-composer/image', {
+        body: { prompt: buildPanelPrompt(s), provider: imageProvider, size, quality: 'high' },
+      });
+      if (imgErr) throw imgErr;
+      const id = imgData as { imageUrl?: string; error?: string };
+      if (id.error || !id.imageUrl) throw new Error(id.error || 'No image');
+      setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_url: id.imageUrl, image_loading: false, image_error: undefined } : p));
+    } catch (e) {
+      setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_loading: false, image_error: (e as Error).message } : p));
+    }
+  };
+
+  const regeneratePanel = async (n: number) => {
+    setRegenningPanel(n);
+    setShots((prev) => prev.map((p) => p.number === n ? { ...p, image_loading: true, image_error: undefined } : p));
+    const cur = shots.find((s) => s.number === n);
+    if (cur) await renderPanelImage(cur);
+    setRegenningPanel(null);
+  };
+
+  const updateShotField = (n: number, field: keyof Shot, value: string) => {
+    setShots((prev) => prev.map((p) => p.number === n ? { ...p, [field]: value } : p));
+  };
+
   const buildStoryboard = async () => {
     const text = master || prompt;
     if (!text.trim()) return toast({ title: 'Add a prompt first', variant: 'destructive' });
     setStoryboarding(true);
     try {
       const { data, error } = await supabase.functions.invoke('story-composer/storyboard', {
-        body: { prompt: text, shots: 6, director },
+        body: { prompt: text, shots: shotCount, director },
       });
       if (error) throw error;
       const d = data as { shots?: Shot[]; error?: string };
       if (d.error || !d.shots) throw new Error(d.error || 'No shots');
-      // Seed shots with loading state, then generate panel images in parallel
       const seeded = d.shots.map((s) => ({ ...s, image_loading: true }));
       setShots(seeded);
       toast({ title: `Storyboard built — ${seeded.length} shots`, description: 'Rendering panel images…' });
-
-      const size = aspect === '9:16' ? '1024x1536' : aspect === '1:1' ? '1024x1024' : '1536x1024';
-      await Promise.all(seeded.map(async (s) => {
-        try {
-          const panelPrompt = `Cinematic storyboard panel #${s.number} — ${s.title}. ${s.description} Shot: ${s.shot_type}, camera ${s.camera_move}, ${s.lens}, ${s.lighting}. Film-still, photoreal, ${style}, ${aspect} aspect.`;
-          const { data: imgData, error: imgErr } = await supabase.functions.invoke('story-composer/image', {
-            body: { prompt: panelPrompt, provider: imageProvider, size, quality: 'high' },
-          });
-          if (imgErr) throw imgErr;
-          const id = imgData as { imageUrl?: string; error?: string };
-          if (id.error || !id.imageUrl) throw new Error(id.error || 'No image');
-          setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_url: id.imageUrl, image_loading: false } : p));
-        } catch (e) {
-          setShots((prev) => prev.map((p) => p.number === s.number ? { ...p, image_loading: false, image_error: (e as Error).message } : p));
-        }
-      }));
+      await Promise.all(seeded.map(renderPanelImage));
     } catch (e) {
       toast({ title: 'Storyboard failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setStoryboarding(false);
     }
   };
+
 
 
   const sendShotToSeedance = async (shot: Shot) => {
@@ -413,14 +430,26 @@ export function StudioComposer() {
                 </Button>
               ) : undefined}
             >
-              <Button
-                onClick={buildStoryboard}
-                disabled={storyboarding}
-                className="w-full mb-3 bg-yellow-400 text-black hover:bg-yellow-300 font-semibold"
-              >
-                {storyboarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-                {shots.length ? 'Regenerate Storyboard' : 'Generate Storyboard'}
-              </Button>
+              <div className="flex gap-2 mb-3">
+                <Select value={String(shotCount)} onValueChange={(v) => setShotCount(Number(v))}>
+                  <SelectTrigger className="w-28 h-10 bg-black/40 border-white/10 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[4, 6, 8, 10, 12].map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n} shots</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={buildStoryboard}
+                  disabled={storyboarding}
+                  className="flex-1 bg-yellow-400 text-black hover:bg-yellow-300 font-semibold"
+                >
+                  {storyboarding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
+                  {shots.length ? 'Regenerate Storyboard' : 'Generate Storyboard'}
+                </Button>
+              </div>
 
               {shots.length === 0 ? (
                 <div className="aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-black via-zinc-950 to-black border border-white/10 flex items-center justify-center">
@@ -434,55 +463,82 @@ export function StudioComposer() {
                       <>
                         <Clapperboard className="w-10 h-10 mx-auto opacity-30" />
                         <p>Storyboard panels will appear here</p>
-                        <p className="text-[10px] opacity-60">6 sequential cinematic shots with continuity</p>
+                        <p className="text-[10px] opacity-60">{shotCount} sequential cinematic shots with continuity</p>
                       </>
                     )}
                   </div>
                 </div>
               ) : (
-                <ScrollArea className="max-h-[720px] pr-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {shots.map((s) => (
-                      <div key={s.number} className="rounded-lg border border-white/5 bg-black/40 overflow-hidden hover:border-yellow-400/40 transition-colors flex flex-col">
-                        <div className={`relative w-full bg-black/60 ${aspect === '9:16' ? 'aspect-[9/16]' : aspect === '1:1' ? 'aspect-square' : 'aspect-video'}`}>
-                          {s.image_url ? (
-                            <img src={s.image_url} alt={s.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                          ) : s.image_loading ? (
-                            <div className="absolute inset-0 flex items-center justify-center text-yellow-300/70">
-                              <Loader2 className="w-5 h-5 animate-spin" />
-                            </div>
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-[10px] text-red-300/70 p-2 text-center">
-                              {s.image_error || 'No panel image'}
-                            </div>
-                          )}
-                          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-yellow-400/40 text-[10px] font-mono text-yellow-300">
-                            #{String(s.number).padStart(2, '0')}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {shots.map((s) => (
+                    <div key={s.number} className="rounded-lg border border-white/5 bg-black/40 overflow-hidden hover:border-yellow-400/40 transition-colors flex flex-col">
+                      <div className={`relative w-full bg-black/60 ${aspect === '9:16' ? 'aspect-[9/16]' : aspect === '1:1' ? 'aspect-square' : 'aspect-video'}`}>
+                        {s.image_url ? (
+                          <img src={s.image_url} alt={s.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        ) : s.image_loading ? (
+                          <div className="absolute inset-0 flex items-center justify-center text-yellow-300/70">
+                            <Loader2 className="w-5 h-5 animate-spin" />
                           </div>
-                        </div>
-                        <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-yellow-300/90 truncate">{s.title}</div>
-                          <div className="flex flex-wrap gap-1 text-[9px]">
-                            <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.shot_type}</Badge>
-                            <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.camera_move}</Badge>
-                            <Badge variant="outline" className="border-white/10 text-muted-foreground">{s.lighting}</Badge>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center text-[10px] text-red-300/70 p-2 text-center">
+                            {s.image_error || 'No panel image'}
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3 flex-1">{s.description || s.seedance_prompt}</p>
-                          <Button
-                            size="sm"
-                            onClick={() => sendShotToSeedance(s)}
-                            disabled={sendingTo === s.number}
-                            className="h-7 text-[11px] bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20 w-full"
-                          >
-                            {sendingTo === s.number ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                            Send to Seedance
-                          </Button>
+                        )}
+                        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 border border-yellow-400/40 text-[10px] font-mono text-yellow-300">
+                          #{String(s.number).padStart(2, '0')}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => regeneratePanel(s.number)}
+                          disabled={regenningPanel === s.number || s.image_loading}
+                          title="Regenerate panel from edits"
+                          className="absolute top-1.5 right-1.5 p-1 rounded bg-black/70 border border-yellow-400/40 text-yellow-300 hover:bg-yellow-400/20 disabled:opacity-50"
+                        >
+                          {regenningPanel === s.number ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      <div className="p-2.5 space-y-1.5 flex-1 flex flex-col">
+                        <Input
+                          value={s.title}
+                          onChange={(e) => updateShotField(s.number, 'title', e.target.value)}
+                          className="h-7 text-xs font-semibold uppercase tracking-wide text-yellow-300/90 bg-black/40 border-white/10"
+                          placeholder="Scene title"
+                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Input
+                            value={s.shot_type}
+                            onChange={(e) => updateShotField(s.number, 'shot_type', e.target.value)}
+                            className="h-6 text-[10px] bg-black/40 border-white/10"
+                            placeholder="Shot type"
+                          />
+                          <Input
+                            value={s.camera_move}
+                            onChange={(e) => updateShotField(s.number, 'camera_move', e.target.value)}
+                            className="h-6 text-[10px] bg-black/40 border-white/10"
+                            placeholder="Camera move"
+                          />
+                        </div>
+                        <Textarea
+                          value={s.description}
+                          onChange={(e) => updateShotField(s.number, 'description', e.target.value)}
+                          className="text-[11px] text-muted-foreground leading-snug bg-black/40 border-white/10 min-h-[60px] resize-none"
+                          placeholder="Scene description"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => sendShotToSeedance(s)}
+                          disabled={sendingTo === s.number}
+                          className="h-7 text-[11px] bg-yellow-400/10 text-yellow-300 border border-yellow-400/30 hover:bg-yellow-400/20 w-full"
+                        >
+                          {sendingTo === s.number ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                          Send to Seedance
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
+
             </Panel>
           </div>
 
