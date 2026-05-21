@@ -55,11 +55,60 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
   const [editName, setEditName] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editFirstFrameUrl, setEditFirstFrameUrl] = useState<string | null>(null);
+  const [editFirstFramePath, setEditFirstFramePath] = useState<string | null>(null);
+  const [uploadingFF, setUploadingFF] = useState(false);
+  const firstFrameInputRef = useRef<HTMLInputElement>(null);
 
   const openEdit = (r: SB) => {
     setEditing(r);
     setEditName(r.name || '');
     setEditNotes(r.notes || '');
+    setEditFirstFrameUrl(r.first_frame_url || null);
+    setEditFirstFramePath(r.first_frame_path || null);
+  };
+
+  const uploadFirstFrame = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Images only', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: 'Max 20MB', variant: 'destructive' });
+      return;
+    }
+    setUploadingFF(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${userId}/first-frame-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('studio-storyboards')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      // remove old first frame from storage if present
+      if (editFirstFramePath) {
+        await supabase.storage.from('studio-storyboards').remove([editFirstFramePath]).catch(() => {});
+      }
+      const { data: pub } = supabase.storage.from('studio-storyboards').getPublicUrl(path);
+      setEditFirstFrameUrl(pub.publicUrl);
+      setEditFirstFramePath(path);
+      toast({ title: 'First frame uploaded' });
+    } catch (e) {
+      toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setUploadingFF(false);
+    }
+  };
+
+  const removeFirstFrame = async () => {
+    if (editFirstFramePath) {
+      await supabase.storage.from('studio-storyboards').remove([editFirstFramePath]).catch(() => {});
+    }
+    setEditFirstFrameUrl(null);
+    setEditFirstFramePath(null);
   };
 
   const saveEdit = async () => {
@@ -68,10 +117,21 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
     try {
       const { error } = await supabase
         .from('studio_storyboards' as any)
-        .update({ name: editName.trim() || null, notes: editNotes.trim() || null })
+        .update({
+          name: editName.trim() || null,
+          notes: editNotes.trim() || null,
+          first_frame_url: editFirstFrameUrl,
+          first_frame_path: editFirstFramePath,
+        })
         .eq('id', editing.id);
       if (error) throw error;
-      setRows(prev => prev.map(x => x.id === editing.id ? { ...x, name: editName.trim() || null, notes: editNotes.trim() || null } : x));
+      setRows(prev => prev.map(x => x.id === editing.id ? {
+        ...x,
+        name: editName.trim() || null,
+        notes: editNotes.trim() || null,
+        first_frame_url: editFirstFrameUrl,
+        first_frame_path: editFirstFramePath,
+      } : x));
       toast({ title: 'Storyboard updated' });
       setEditing(null);
     } catch (e) {
