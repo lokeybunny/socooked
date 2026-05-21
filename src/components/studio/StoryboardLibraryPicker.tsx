@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Globe, Folder, Check, Clapperboard } from 'lucide-react';
+import { Loader2, Globe, Folder, Check, Clapperboard, Film } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { lightboxProps } from './ImageLightbox';
 
@@ -15,12 +15,14 @@ interface Row {
   name: string | null;
   image_url: string;
   notes: string | null;
+  first_frame_url: string | null;
 }
 
 export interface StoryboardPick {
   url: string;
   name: string | null;
   notes: string | null;
+  first_frame_url: string | null;
 }
 
 interface Props {
@@ -30,9 +32,10 @@ interface Props {
   subprojectId?: string | null;
   maxSelect: number;
   onConfirm: (picks: StoryboardPick[]) => void;
+  onSetFirstFrame?: (url: string, name: string | null) => void;
 }
 
-export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subprojectId, maxSelect, onConfirm }: Props) {
+export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subprojectId, maxSelect, onConfirm, onSetFirstFrame }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -48,7 +51,7 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
       setLoading(true);
       const { data, error } = await supabase
         .from('studio_storyboards' as any)
-        .select('id, project_id, subproject_id, name, image_url, notes')
+        .select('id, project_id, subproject_id, name, image_url, notes, first_frame_url')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
       if (error) toast({ title: 'Failed to load storyboards', description: error.message, variant: 'destructive' });
@@ -85,7 +88,7 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
   const confirm = () => {
     const picks: StoryboardPick[] = rows
       .filter(r => picked.has(r.id))
-      .map(r => ({ url: r.image_url, name: r.name, notes: r.notes }));
+      .map(r => ({ url: r.image_url, name: r.name, notes: r.notes, first_frame_url: r.first_frame_url }));
     onConfirm(picks);
     onOpenChange(false);
   };
@@ -147,6 +150,21 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
                     {r.name && (
                       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 py-1 text-[10px] text-white truncate text-left">
                         {r.name}
+                      </div>
+                    )}
+                    {onSetFirstFrame && (
+                      <div
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = r.first_frame_url || r.image_url;
+                          onSetFirstFrame(url, r.name);
+                          toast({ title: 'Loaded as Frame A', description: r.first_frame_url ? 'Using saved first-frame image' : 'Using storyboard thumbnail' });
+                        }}
+                        title="Set as Seedance Frame A"
+                        className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-[#00ff88]/90 text-black text-[9px] font-semibold hover:bg-[#00ff88] flex items-center gap-1"
+                      >
+                        <Film className="w-2.5 h-2.5" /> A
                       </div>
                     )}
                   </button>

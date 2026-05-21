@@ -1218,6 +1218,17 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           });
         }
       }}
+      onSetFirstFrame={(url) => {
+        setImageFile(null);
+        setImagePreview(url);
+        // Switch Seedance model to image-to-video so Frame A is honored
+        setSettings(s => ({
+          ...s,
+          seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+        }));
+        setTaskType('i2v');
+        setStoryboardLibraryOpen(false);
+      }}
     />
 
 

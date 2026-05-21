@@ -20,6 +20,8 @@ interface SB {
   image_url: string;
   storage_path: string | null;
   notes: string | null;
+  first_frame_url: string | null;
+  first_frame_path: string | null;
   created_at: string;
 }
 
@@ -53,11 +55,60 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
   const [editName, setEditName] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editFirstFrameUrl, setEditFirstFrameUrl] = useState<string | null>(null);
+  const [editFirstFramePath, setEditFirstFramePath] = useState<string | null>(null);
+  const [uploadingFF, setUploadingFF] = useState(false);
+  const firstFrameInputRef = useRef<HTMLInputElement>(null);
 
   const openEdit = (r: SB) => {
     setEditing(r);
     setEditName(r.name || '');
     setEditNotes(r.notes || '');
+    setEditFirstFrameUrl(r.first_frame_url || null);
+    setEditFirstFramePath(r.first_frame_path || null);
+  };
+
+  const uploadFirstFrame = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Images only', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: 'Max 20MB', variant: 'destructive' });
+      return;
+    }
+    setUploadingFF(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${userId}/first-frame-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('studio-storyboards')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      // remove old first frame from storage if present
+      if (editFirstFramePath) {
+        await supabase.storage.from('studio-storyboards').remove([editFirstFramePath]).catch(() => {});
+      }
+      const { data: pub } = supabase.storage.from('studio-storyboards').getPublicUrl(path);
+      setEditFirstFrameUrl(pub.publicUrl);
+      setEditFirstFramePath(path);
+      toast({ title: 'First frame uploaded' });
+    } catch (e) {
+      toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setUploadingFF(false);
+    }
+  };
+
+  const removeFirstFrame = async () => {
+    if (editFirstFramePath) {
+      await supabase.storage.from('studio-storyboards').remove([editFirstFramePath]).catch(() => {});
+    }
+    setEditFirstFrameUrl(null);
+    setEditFirstFramePath(null);
   };
 
   const saveEdit = async () => {
@@ -66,10 +117,21 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
     try {
       const { error } = await supabase
         .from('studio_storyboards' as any)
-        .update({ name: editName.trim() || null, notes: editNotes.trim() || null })
+        .update({
+          name: editName.trim() || null,
+          notes: editNotes.trim() || null,
+          first_frame_url: editFirstFrameUrl,
+          first_frame_path: editFirstFramePath,
+        })
         .eq('id', editing.id);
       if (error) throw error;
-      setRows(prev => prev.map(x => x.id === editing.id ? { ...x, name: editName.trim() || null, notes: editNotes.trim() || null } : x));
+      setRows(prev => prev.map(x => x.id === editing.id ? {
+        ...x,
+        name: editName.trim() || null,
+        notes: editNotes.trim() || null,
+        first_frame_url: editFirstFrameUrl,
+        first_frame_path: editFirstFramePath,
+      } : x));
       toast({ title: 'Storyboard updated' });
       setEditing(null);
     } catch (e) {
@@ -278,10 +340,13 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="absolute top-1.5 left-1.5">
+                <div className="absolute top-1.5 left-1.5 flex gap-1">
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm ${r.subproject_id ? 'bg-violet-500/30 text-violet-100' : r.project_id ? 'bg-violet-500/30 text-violet-100' : 'bg-emerald-500/30 text-emerald-100'}`}>
                     {r.subproject_id ? 'Sub' : r.project_id ? 'Project' : 'Global'}
                   </span>
+                  {r.first_frame_url && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#00ff88]/30 text-[#00ff88] backdrop-blur-sm" title="Has first-frame image for Seedance Frame A">FF</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -407,6 +472,40 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
               <p className="text-[10px] text-muted-foreground mt-1">
                 Tip: anything you write here will be auto-attached to the prompt as a scene note when you insert this storyboard into Create.
               </p>
+            </div>
+
+            <div>
+              <Label className="text-xs">First Frame (for Seedance Frame A)</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">Optional JPEG/PNG. When this storyboard is inserted in Create, you can load this image into Frame A of Seedance 2.</p>
+              {editFirstFrameUrl ? (
+                <div className="relative rounded-lg overflow-hidden border border-white/10 bg-zinc-900">
+                  <img src={editFirstFrameUrl} alt="first frame" className="w-full max-h-[200px] object-contain" />
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => firstFrameInputRef.current?.click()} disabled={uploadingFF}>
+                      {uploadingFF ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Replace'}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={removeFirstFrame} disabled={uploadingFF}>Remove</Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => firstFrameInputRef.current?.click()}
+                  disabled={uploadingFF}
+                  className="w-full border-2 border-dashed border-white/10 hover:border-[#00ff88]/40 rounded-xl p-6 flex flex-col items-center justify-center transition-colors"
+                >
+                  {uploadingFF ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-6 h-6 text-muted-foreground/50 mb-1" />}
+                  <p className="text-xs text-muted-foreground mt-1">Click to upload first frame</p>
+                  <p className="text-[10px] text-muted-foreground/60">JPG / PNG / WebP · 20MB</p>
+                </button>
+              )}
+              <input
+                ref={firstFrameInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFirstFrame(f); e.target.value = ''; }}
+              />
             </div>
           </div>
 
