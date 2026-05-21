@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Globe, Folder, Check, Clapperboard } from 'lucide-react';
+import { Loader2, Globe, Folder, Check, Clapperboard, Film } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { lightboxProps } from './ImageLightbox';
 
@@ -15,12 +15,14 @@ interface Row {
   name: string | null;
   image_url: string;
   notes: string | null;
+  first_frame_url: string | null;
 }
 
 export interface StoryboardPick {
   url: string;
   name: string | null;
   notes: string | null;
+  first_frame_url: string | null;
 }
 
 interface Props {
@@ -30,6 +32,7 @@ interface Props {
   subprojectId?: string | null;
   maxSelect: number;
   onConfirm: (picks: StoryboardPick[]) => void;
+  onSetFirstFrame?: (url: string, name: string | null) => void;
 }
 
 export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subprojectId, maxSelect, onConfirm }: Props) {
