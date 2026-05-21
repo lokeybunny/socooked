@@ -340,10 +340,13 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="absolute top-1.5 left-1.5">
+                <div className="absolute top-1.5 left-1.5 flex gap-1">
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm ${r.subproject_id ? 'bg-violet-500/30 text-violet-100' : r.project_id ? 'bg-violet-500/30 text-violet-100' : 'bg-emerald-500/30 text-emerald-100'}`}>
                     {r.subproject_id ? 'Sub' : r.project_id ? 'Project' : 'Global'}
                   </span>
+                  {r.first_frame_url && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#00ff88]/30 text-[#00ff88] backdrop-blur-sm" title="Has first-frame image for Seedance Frame A">FF</span>
+                  )}
                 </div>
               </div>
             ))}
