@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects } from '@/lib/studio/hooks';
-import { Image as ImageIcon, Upload, Trash2, Loader2, Globe, Folder, Copy, Download } from 'lucide-react';
+import { Image as ImageIcon, Upload, Trash2, Loader2, Globe, Folder, Copy, Download, Pencil } from 'lucide-react';
 import { lightboxProps } from './ImageLightbox';
 
 interface Ref {
