@@ -688,7 +688,18 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   { slot: 'B' as const, label: 'Frame B (end, optional)', preview: imagePreviewB, onChange: handleImageUploadB, clear: () => { setImageFileB(null); setImagePreviewB(null); } },
                 ]).map(({ slot, label, preview, onChange, clear }) => (
                   <div key={slot} className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">{label}</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">{label}</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] gap-1 text-[#00ff88] hover:text-[#00ff88]"
+                        onClick={() => setFrameStoryboardSlot(slot)}
+                      >
+                        <Layers className="w-3 h-3" /> From Storyboard
+                      </Button>
+                    </div>
                     {preview ? (
                       <div
                         className="relative"
