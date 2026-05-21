@@ -470,6 +470,40 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
                 Tip: anything you write here will be auto-attached to the prompt as a scene note when you insert this storyboard into Create.
               </p>
             </div>
+
+            <div>
+              <Label className="text-xs">First Frame (for Seedance Frame A)</Label>
+              <p className="text-[10px] text-muted-foreground mb-2">Optional JPEG/PNG. When this storyboard is inserted in Create, you can load this image into Frame A of Seedance 2.</p>
+              {editFirstFrameUrl ? (
+                <div className="relative rounded-lg overflow-hidden border border-white/10 bg-zinc-900">
+                  <img src={editFirstFrameUrl} alt="first frame" className="w-full max-h-[200px] object-contain" />
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => firstFrameInputRef.current?.click()} disabled={uploadingFF}>
+                      {uploadingFF ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Replace'}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={removeFirstFrame} disabled={uploadingFF}>Remove</Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => firstFrameInputRef.current?.click()}
+                  disabled={uploadingFF}
+                  className="w-full border-2 border-dashed border-white/10 hover:border-[#00ff88]/40 rounded-xl p-6 flex flex-col items-center justify-center transition-colors"
+                >
+                  {uploadingFF ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-6 h-6 text-muted-foreground/50 mb-1" />}
+                  <p className="text-xs text-muted-foreground mt-1">Click to upload first frame</p>
+                  <p className="text-[10px] text-muted-foreground/60">JPG / PNG / WebP · 20MB</p>
+                </button>
+              )}
+              <input
+                ref={firstFrameInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFirstFrame(f); e.target.value = ''; }}
+              />
+            </div>
           </div>
 
           <DialogFooter>
