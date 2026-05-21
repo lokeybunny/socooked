@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects } from '@/lib/studio/hooks';
-import { Image as ImageIcon, Upload, Trash2, Loader2, Globe, Folder, Copy, Download } from 'lucide-react';
+import { Image as ImageIcon, Upload, Trash2, Loader2, Globe, Folder, Copy, Download, Pencil } from 'lucide-react';
 import { lightboxProps } from './ImageLightbox';
 
 interface Ref {
@@ -42,6 +42,14 @@ export function StudioReferences({ projectId }: Props) {
   const [refName, setRefName] = useState('');
   const [refNotes, setRefNotes] = useState('');
   const [uploading, setUploading] = useState(false);
+
+  // Edit dialog state
+  const [editing, setEditing] = useState<Ref | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editScope, setEditScope] = useState<'global' | 'project'>('global');
+  const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const fetchRefs = useCallback(async () => {
     setLoading(true);
@@ -176,6 +184,42 @@ export function StudioReferences({ projectId }: Props) {
     }
   };
 
+  const openEdit = (ref: Ref) => {
+    setEditing(ref);
+    setEditName(ref.name || '');
+    setEditNotes(ref.notes || '');
+    setEditScope(ref.project_id ? 'project' : 'global');
+    setEditProjectId(ref.project_id);
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('studio_references')
+        .update({
+          name: editName.trim() || null,
+          notes: editNotes.trim() || null,
+          project_id: editScope === 'project' ? editProjectId : null,
+        })
+        .eq('id', editing.id);
+      if (error) throw error;
+      setRefs(prev => prev.map(r => r.id === editing.id ? {
+        ...r,
+        name: editName.trim() || null,
+        notes: editNotes.trim() || null,
+        project_id: editScope === 'project' ? editProjectId : null,
+      } : r));
+      toast({ title: 'Reference updated' });
+      setEditing(null);
+    } catch (e) {
+      toast({ title: 'Update failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const visible = refs.filter(r => {
     if (filter === 'global') return r.project_id === null;
     if (filter === 'project') return projectId ? r.project_id === projectId : false;
@@ -254,6 +298,13 @@ export function StudioReferences({ projectId }: Props) {
                       <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      onClick={() => openEdit(ref)}
+                      className="p-1.5 rounded-md bg-black/60 hover:bg-violet-600/80 text-white"
+                      aria-label="Edit"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(ref)}
                       className="p-1.5 rounded-md bg-black/60 hover:bg-red-600/80 text-white"
                       aria-label="Delete"
@@ -263,6 +314,7 @@ export function StudioReferences({ projectId }: Props) {
                   </div>
                   <div className="text-white text-xs">
                     <div className="font-medium truncate">{ref.name || 'Untitled'}</div>
+                    {ref.notes && <div className="text-[10px] text-white/70 line-clamp-2 mt-0.5">{ref.notes}</div>}
                     <div className="flex items-center gap-1 text-[10px] text-white/70 mt-0.5">
                       {ref.project_id ? (
                         <><Folder className="w-3 h-3" /> {projectNameMap.get(ref.project_id) || 'Project'}</>
@@ -361,6 +413,75 @@ export function StudioReferences({ projectId }: Props) {
             >
               {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
               Save Reference
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent className="bg-zinc-950 border-white/10">
+          <DialogHeader>
+            <DialogTitle>Edit Reference</DialogTitle>
+            <DialogDescription>Update the name, notes, and scope for this reference.</DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <div className="rounded-xl overflow-hidden border border-white/10 bg-zinc-900 max-h-[200px] flex items-center justify-center">
+              <img src={editing.image_url} alt={editing.name || 'reference'} className="max-h-[200px] object-contain" />
+            </div>
+          )}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Name</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Reference name" className="bg-background/50 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Notes / Prompt info</Label>
+              <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Prompt notes for this reference…" className="bg-background/50 mt-1 min-h-[80px]" />
+            </div>
+            <div>
+              <Label className="text-xs">Scope</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditScope('global')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${editScope === 'global' ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Globe className="w-4 h-4 text-emerald-400" /> Global
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditScope('project')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${editScope === 'project' ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}
+                  disabled={projects.length === 0}
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Folder className="w-4 h-4 text-violet-400" /> Project only
+                  </div>
+                </button>
+              </div>
+            </div>
+            {editScope === 'project' && (
+              <div>
+                <Label className="text-xs">Project</Label>
+                <Select value={editProjectId ?? ''} onValueChange={(v) => setEditProjectId(v)}>
+                  <SelectTrigger className="bg-background/50 mt-1">
+                    <SelectValue placeholder="Pick a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditing(null)} disabled={savingEdit}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={savingEdit || (editScope === 'project' && !editProjectId)} className="gap-2 bg-violet-600 hover:bg-violet-700">
+              {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
