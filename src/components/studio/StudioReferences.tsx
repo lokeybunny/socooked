@@ -184,6 +184,42 @@ export function StudioReferences({ projectId }: Props) {
     }
   };
 
+  const openEdit = (ref: Ref) => {
+    setEditing(ref);
+    setEditName(ref.name || '');
+    setEditNotes(ref.notes || '');
+    setEditScope(ref.project_id ? 'project' : 'global');
+    setEditProjectId(ref.project_id);
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('studio_references')
+        .update({
+          name: editName.trim() || null,
+          notes: editNotes.trim() || null,
+          project_id: editScope === 'project' ? editProjectId : null,
+        })
+        .eq('id', editing.id);
+      if (error) throw error;
+      setRefs(prev => prev.map(r => r.id === editing.id ? {
+        ...r,
+        name: editName.trim() || null,
+        notes: editNotes.trim() || null,
+        project_id: editScope === 'project' ? editProjectId : null,
+      } : r));
+      toast({ title: 'Reference updated' });
+      setEditing(null);
+    } catch (e) {
+      toast({ title: 'Update failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const visible = refs.filter(r => {
     if (filter === 'global') return r.project_id === null;
     if (filter === 'project') return projectId ? r.project_id === projectId : false;
