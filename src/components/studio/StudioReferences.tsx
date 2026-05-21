@@ -43,6 +43,14 @@ export function StudioReferences({ projectId }: Props) {
   const [refNotes, setRefNotes] = useState('');
   const [uploading, setUploading] = useState(false);
 
+  // Edit dialog state
+  const [editing, setEditing] = useState<Ref | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editScope, setEditScope] = useState<'global' | 'project'>('global');
+  const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const fetchRefs = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
