@@ -508,7 +508,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         subproject_id: subprojectId ?? null,
       });
       toast({ title: 'Job submitted!', description: 'Check the queue for progress.' });
-      resetForm();
+      // Keep form fields so the user can tweak and submit again
+
     } catch (err) {
       toast({ title: 'Submit failed', description: (err as Error).message, variant: 'destructive' });
     } finally {
