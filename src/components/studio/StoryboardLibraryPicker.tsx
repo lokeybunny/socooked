@@ -35,7 +35,7 @@ interface Props {
   onSetFirstFrame?: (url: string, name: string | null) => void;
 }
 
-export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subprojectId, maxSelect, onConfirm }: Props) {
+export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subprojectId, maxSelect, onConfirm, onSetFirstFrame }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
