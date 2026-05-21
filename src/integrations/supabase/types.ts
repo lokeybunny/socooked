@@ -8420,6 +8420,8 @@ export type Database = {
       studio_storyboards: {
         Row: {
           created_at: string
+          first_frame_path: string | null
+          first_frame_url: string | null
           id: string
           image_url: string
           name: string | null
@@ -8433,6 +8435,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          first_frame_path?: string | null
+          first_frame_url?: string | null
           id?: string
           image_url: string
           name?: string | null
@@ -8446,6 +8450,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          first_frame_path?: string | null
+          first_frame_url?: string | null
           id?: string
           image_url?: string
           name?: string | null
