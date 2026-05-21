@@ -298,6 +298,13 @@ export function StudioReferences({ projectId }: Props) {
                       <Download className="w-3.5 h-3.5" />
                     </button>
                     <button
+                      onClick={() => openEdit(ref)}
+                      className="p-1.5 rounded-md bg-black/60 hover:bg-violet-600/80 text-white"
+                      aria-label="Edit"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(ref)}
                       className="p-1.5 rounded-md bg-black/60 hover:bg-red-600/80 text-white"
                       aria-label="Delete"
@@ -307,6 +314,7 @@ export function StudioReferences({ projectId }: Props) {
                   </div>
                   <div className="text-white text-xs">
                     <div className="font-medium truncate">{ref.name || 'Untitled'}</div>
+                    {ref.notes && <div className="text-[10px] text-white/70 line-clamp-2 mt-0.5">{ref.notes}</div>}
                     <div className="flex items-center gap-1 text-[10px] text-white/70 mt-0.5">
                       {ref.project_id ? (
                         <><Folder className="w-3 h-3" /> {projectNameMap.get(ref.project_id) || 'Project'}</>
