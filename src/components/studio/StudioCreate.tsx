@@ -30,6 +30,7 @@ import { DirectorCameraStyles } from './DirectorCameraStyles';
 import { DIRECTOR_STYLES, buildInjectedPrompt } from '@/lib/studio/directorStyles';
 import { ReferenceLibraryPicker } from './ReferenceLibraryPicker';
 import { AssetLibraryPicker } from './AssetLibraryPicker';
+import { StoryboardLibraryPicker } from './StoryboardLibraryPicker';
 import { PromptGuideDialog } from './PromptGuideDialog';
 import { PromptVoiceEditButton } from './PromptVoiceEditButton';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
@@ -85,6 +86,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
+  const [storyboardLibraryOpen, setStoryboardLibraryOpen] = useState(false);
   const [promptGuideOpen, setPromptGuideOpen] = useState(false);
   const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
@@ -864,6 +866,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                     >
                       <Image className="w-3 h-3" /> From Assets
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 text-xs gap-1 border-[#00ff88]/40 text-[#00ff88] hover:bg-[#00ff88]/10"
+                      onClick={() => setStoryboardLibraryOpen(true)}
+                      disabled={refImages.length + refImageUrls.length >= 9}
+                    >
+                      <Image className="w-3 h-3" /> From Storyboards
+                    </Button>
                     {(refImages.length > 0 || refImageUrls.length > 0) && (
                       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => { setRefImages([]); setRefImageUrls([]); }}>Clear</Button>
                     )}
@@ -1181,6 +1193,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
     />
+
+    <StoryboardLibraryPicker
+      open={storyboardLibraryOpen}
+      onOpenChange={setStoryboardLibraryOpen}
+      projectId={projectId}
+      subprojectId={subprojectId}
+      maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
+      onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+    />
+
 
     <AssetLibraryPicker
       open={assetLibraryOpen}

@@ -8417,6 +8417,63 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_storyboards: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          name: string | null
+          notes: string | null
+          project_id: string | null
+          sort_order: number
+          storage_path: string | null
+          subproject_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          name?: string | null
+          notes?: string | null
+          project_id?: string | null
+          sort_order?: number
+          storage_path?: string | null
+          subproject_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          name?: string | null
+          notes?: string | null
+          project_id?: string | null
+          sort_order?: number
+          storage_path?: string | null
+          subproject_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_storyboards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "studio_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "studio_storyboards_subproject_id_fkey"
+            columns: ["subproject_id"]
+            isOneToOne: false
+            referencedRelation: "studio_subprojects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       studio_subprojects: {
         Row: {
           color: string | null
