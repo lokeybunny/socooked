@@ -87,6 +87,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const [storyboardLibraryOpen, setStoryboardLibraryOpen] = useState(false);
+  const [promptStoryboardOpen, setPromptStoryboardOpen] = useState(false);
+  const [frameStoryboardSlot, setFrameStoryboardSlot] = useState<'A' | 'B' | null>(null);
   const [promptGuideOpen, setPromptGuideOpen] = useState(false);
   const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
@@ -592,6 +594,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   currentPrompt={prompt}
                   onPromptUpdated={(newPrompt) => setPrompt(newPrompt)}
                 />
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-[#00ff88] hover:text-[#00ff88]" onClick={() => setPromptStoryboardOpen(true)}>
+                  <Layers className="w-3 h-3" /> From Storyboards
+                </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={randomInspiration}>
                   <Dice5 className="w-3 h-3" /> Inspire
                 </Button>
@@ -683,7 +688,18 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   { slot: 'B' as const, label: 'Frame B (end, optional)', preview: imagePreviewB, onChange: handleImageUploadB, clear: () => { setImageFileB(null); setImagePreviewB(null); } },
                 ]).map(({ slot, label, preview, onChange, clear }) => (
                   <div key={slot} className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">{label}</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">{label}</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] gap-1 text-[#00ff88] hover:text-[#00ff88]"
+                        onClick={() => setFrameStoryboardSlot(slot)}
+                      >
+                        <Layers className="w-3 h-3" /> From Storyboard
+                      </Button>
+                    </div>
                     {preview ? (
                       <div
                         className="relative"
@@ -1230,6 +1246,76 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         setStoryboardLibraryOpen(false);
       }}
     />
+
+    {/* Storyboard picker — Prompt notes only */}
+    <StoryboardLibraryPicker
+      open={promptStoryboardOpen}
+      onOpenChange={setPromptStoryboardOpen}
+      projectId={projectId}
+      subprojectId={subprojectId}
+      maxSelect={9}
+      onConfirm={(picks) => {
+        const noteBlocks = picks
+          .filter(p => p.notes && p.notes.trim().length > 0)
+          .map((p, i) => {
+            const label = p.name?.trim() ? p.name.trim() : `Storyboard frame ${i + 1}`;
+            return `[${label}] ${p.notes!.trim()}`;
+          });
+        if (noteBlocks.length === 0) {
+          toast({ title: 'No prompt notes on those storyboards', description: 'Add notes in the Storyboard tab to use them as prompts.', variant: 'destructive' });
+          return;
+        }
+        setPrompt(prev => {
+          const header = (prev?.trim() ? '\n\n' : '') + '[STORYBOARD NOTES]\n';
+          return (prev?.trim() ? prev.trimEnd() : '') + header + noteBlocks.join('\n');
+        });
+        toast({ title: `Added ${noteBlocks.length} storyboard prompt${noteBlocks.length === 1 ? '' : 's'}` });
+      }}
+    />
+
+    {/* Storyboard picker — Seedance Frame A/B */}
+    <StoryboardLibraryPicker
+      open={frameStoryboardSlot !== null}
+      onOpenChange={(o) => { if (!o) setFrameStoryboardSlot(null); }}
+      projectId={projectId}
+      subprojectId={subprojectId}
+      maxSelect={1}
+      onConfirm={(picks) => {
+        const pick = picks[0];
+        if (!pick) return;
+        const url = pick.first_frame_url || pick.url;
+        if (frameStoryboardSlot === 'A') {
+          setImageFile(null);
+          setImagePreview(url);
+          setSettings(s => ({
+            ...s,
+            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          }));
+          if (taskType === 't2v') setTaskType('i2v');
+        } else if (frameStoryboardSlot === 'B') {
+          setImageFileB(null);
+          setImagePreviewB(url);
+        }
+        toast({ title: `Frame ${frameStoryboardSlot} loaded from storyboard`, description: pick.first_frame_url ? 'Using saved first-frame image' : 'Using storyboard thumbnail' });
+        setFrameStoryboardSlot(null);
+      }}
+      onSetFirstFrame={(url) => {
+        if (frameStoryboardSlot === 'A') {
+          setImageFile(null);
+          setImagePreview(url);
+          setSettings(s => ({
+            ...s,
+            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          }));
+          if (taskType === 't2v') setTaskType('i2v');
+        } else if (frameStoryboardSlot === 'B') {
+          setImageFileB(null);
+          setImagePreviewB(url);
+        }
+        setFrameStoryboardSlot(null);
+      }}
+    />
+
 
 
     <AssetLibraryPicker
