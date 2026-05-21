@@ -14,6 +14,13 @@ interface Row {
   subproject_id: string | null;
   name: string | null;
   image_url: string;
+  notes: string | null;
+}
+
+export interface StoryboardPick {
+  url: string;
+  name: string | null;
+  notes: string | null;
 }
 
 interface Props {
@@ -22,7 +29,7 @@ interface Props {
   projectId?: string | null;
   subprojectId?: string | null;
   maxSelect: number;
-  onConfirm: (urls: string[]) => void;
+  onConfirm: (picks: StoryboardPick[]) => void;
 }
 
 export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subprojectId, maxSelect, onConfirm }: Props) {
@@ -41,7 +48,7 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
       setLoading(true);
       const { data, error } = await supabase
         .from('studio_storyboards' as any)
-        .select('id, project_id, subproject_id, name, image_url')
+        .select('id, project_id, subproject_id, name, image_url, notes')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
       if (error) toast({ title: 'Failed to load storyboards', description: error.message, variant: 'destructive' });
@@ -76,8 +83,10 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
   };
 
   const confirm = () => {
-    const urls = rows.filter(r => picked.has(r.id)).map(r => r.image_url);
-    onConfirm(urls);
+    const picks: StoryboardPick[] = rows
+      .filter(r => picked.has(r.id))
+      .map(r => ({ url: r.image_url, name: r.name, notes: r.notes }));
+    onConfirm(picks);
     onOpenChange(false);
   };
 
