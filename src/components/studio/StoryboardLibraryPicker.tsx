@@ -51,7 +51,7 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
       setLoading(true);
       const { data, error } = await supabase
         .from('studio_storyboards' as any)
-        .select('id, project_id, subproject_id, name, image_url, notes')
+        .select('id, project_id, subproject_id, name, image_url, notes, first_frame_url')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
       if (error) toast({ title: 'Failed to load storyboards', description: error.message, variant: 'destructive' });
