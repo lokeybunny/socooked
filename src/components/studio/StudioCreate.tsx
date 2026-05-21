@@ -1247,6 +1247,76 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       }}
     />
 
+    {/* Storyboard picker — Prompt notes only */}
+    <StoryboardLibraryPicker
+      open={promptStoryboardOpen}
+      onOpenChange={setPromptStoryboardOpen}
+      projectId={projectId}
+      subprojectId={subprojectId}
+      maxSelect={9}
+      onConfirm={(picks) => {
+        const noteBlocks = picks
+          .filter(p => p.notes && p.notes.trim().length > 0)
+          .map((p, i) => {
+            const label = p.name?.trim() ? p.name.trim() : `Storyboard frame ${i + 1}`;
+            return `[${label}] ${p.notes!.trim()}`;
+          });
+        if (noteBlocks.length === 0) {
+          toast({ title: 'No prompt notes on those storyboards', description: 'Add notes in the Storyboard tab to use them as prompts.', variant: 'destructive' });
+          return;
+        }
+        setPrompt(prev => {
+          const header = (prev?.trim() ? '\n\n' : '') + '[STORYBOARD NOTES]\n';
+          return (prev?.trim() ? prev.trimEnd() : '') + header + noteBlocks.join('\n');
+        });
+        toast({ title: `Added ${noteBlocks.length} storyboard prompt${noteBlocks.length === 1 ? '' : 's'}` });
+      }}
+    />
+
+    {/* Storyboard picker — Seedance Frame A/B */}
+    <StoryboardLibraryPicker
+      open={frameStoryboardSlot !== null}
+      onOpenChange={(o) => { if (!o) setFrameStoryboardSlot(null); }}
+      projectId={projectId}
+      subprojectId={subprojectId}
+      maxSelect={1}
+      onConfirm={(picks) => {
+        const pick = picks[0];
+        if (!pick) return;
+        const url = pick.first_frame_url || pick.url;
+        if (frameStoryboardSlot === 'A') {
+          setImageFile(null);
+          setImagePreview(url);
+          setSettings(s => ({
+            ...s,
+            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          }));
+          if (taskType === 't2v') setTaskType('i2v');
+        } else if (frameStoryboardSlot === 'B') {
+          setImageFileB(null);
+          setImagePreviewB(url);
+        }
+        toast({ title: `Frame ${frameStoryboardSlot} loaded from storyboard`, description: pick.first_frame_url ? 'Using saved first-frame image' : 'Using storyboard thumbnail' });
+        setFrameStoryboardSlot(null);
+      }}
+      onSetFirstFrame={(url) => {
+        if (frameStoryboardSlot === 'A') {
+          setImageFile(null);
+          setImagePreview(url);
+          setSettings(s => ({
+            ...s,
+            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          }));
+          if (taskType === 't2v') setTaskType('i2v');
+        } else if (frameStoryboardSlot === 'B') {
+          setImageFileB(null);
+          setImagePreviewB(url);
+        }
+        setFrameStoryboardSlot(null);
+      }}
+    />
+
+
 
     <AssetLibraryPicker
       open={assetLibraryOpen}
