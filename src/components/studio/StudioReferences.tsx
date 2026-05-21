@@ -279,7 +279,11 @@ export function StudioReferences({ projectId }: Props) {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {visible.map(ref => (
-              <div key={ref.id} className="group relative rounded-xl overflow-hidden border border-white/10 bg-zinc-900 aspect-square">
+              <div
+                key={ref.id}
+                onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); import('./ImageLightbox').then(m => m.openImageLightbox(ref.image_url, ref.name || 'reference')); }}
+                className="group relative rounded-xl overflow-hidden border border-white/10 bg-zinc-900 aspect-square cursor-zoom-in"
+              >
                 <img src={ref.image_url} alt={ref.name || 'reference'} loading="lazy" className="w-full h-full object-cover" {...lightboxProps(ref.image_url, ref.name || 'reference')} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-between">
                   <div className="flex justify-end gap-1">
