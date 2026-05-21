@@ -594,6 +594,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   currentPrompt={prompt}
                   onPromptUpdated={(newPrompt) => setPrompt(newPrompt)}
                 />
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-[#00ff88] hover:text-[#00ff88]" onClick={() => setPromptStoryboardOpen(true)}>
+                  <Layers className="w-3 h-3" /> From Storyboards
+                </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={randomInspiration}>
                   <Dice5 className="w-3 h-3" /> Inspire
                 </Button>
