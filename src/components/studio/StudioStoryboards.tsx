@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useStudioProjects, useStudioSubprojects } from '@/lib/studio/hooks';
-import { Clapperboard, Upload, Trash2, Loader2, Globe, Folder, Copy, Download } from 'lucide-react';
+import { Clapperboard, Upload, Trash2, Loader2, Globe, Folder, Copy, Download, Pencil } from 'lucide-react';
 import { lightboxProps } from './ImageLightbox';
 
 interface SB {
@@ -47,6 +47,37 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
+
+  // Edit dialog
+  const [editing, setEditing] = useState<SB | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = (r: SB) => {
+    setEditing(r);
+    setEditName(r.name || '');
+    setEditNotes(r.notes || '');
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('studio_storyboards' as any)
+        .update({ name: editName.trim() || null, notes: editNotes.trim() || null })
+        .eq('id', editing.id);
+      if (error) throw error;
+      setRows(prev => prev.map(x => x.id === editing.id ? { ...x, name: editName.trim() || null, notes: editNotes.trim() || null } : x));
+      toast({ title: 'Storyboard updated' });
+      setEditing(null);
+    } catch (e) {
+      toast({ title: 'Save failed', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -219,9 +250,21 @@ export function StudioStoryboards({ projectId, subprojectId }: Props) {
                 <img src={r.image_url} alt={r.name || 'storyboard'} loading="lazy" className="w-full h-full object-cover" {...lightboxProps(r.image_url, r.name || 'storyboard')} />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-between">
                   <div className="flex justify-end gap-1">
-                    <button onClick={() => copyUrl(r.image_url)} className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white"><Copy className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => downloadOne(r)} className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white"><Download className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleDelete(r)} className="p-1.5 rounded-md bg-black/60 hover:bg-red-600/80 text-white"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => openEdit(r)} className="p-1.5 rounded-md bg-black/60 hover:bg-[#00ff88]/80 hover:text-black text-white" title="Edit name & prompt notes"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => copyUrl(r.image_url)} className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white" title="Copy URL"><Copy className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => downloadOne(r)} className="p-1.5 rounded-md bg-black/60 hover:bg-black/80 text-white" title="Download"><Download className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => handleDelete(r)} className="p-1.5 rounded-md bg-black/60 hover:bg-red-600/80 text-white" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <div className="text-white text-xs">
+                    <div className="font-medium truncate">{r.name || 'Untitled'}</div>
+                    {r.notes && (
+                      <div className="text-[10px] text-white/70 mt-0.5 line-clamp-2" title={r.notes}>{r.notes}</div>
+                    )}
+                    <div className="flex items-center gap-1 text-[10px] text-white/70 mt-0.5">
+                      {r.subproject_id ? <><Folder className="w-3 h-3" /> {subNameMap.get(r.subproject_id) || 'Subproject'}</>
+                        : r.project_id ? <><Folder className="w-3 h-3" /> {projectNameMap.get(r.project_id) || 'Project'}</>
+                        : <><Globe className="w-3 h-3" /> Global</>}
+                    </div>
                   </div>
                   <div className="text-white text-xs">
                     <div className="font-medium truncate">{r.name || 'Untitled'}</div>
