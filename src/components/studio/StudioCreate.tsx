@@ -532,7 +532,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       });
       await addItemToBatch(batch.id, payload);
       toast({ title: 'Added to batch', description: `Open the Batch drawer (right side) to review or run it.` });
-      resetForm();
+      // Keep form fields so the user can queue more variations
     } catch (err) {
       toast({ title: 'Could not add to batch', description: (err as Error).message, variant: 'destructive' });
     } finally {
