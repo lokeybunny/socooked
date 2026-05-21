@@ -417,6 +417,75 @@ export function StudioReferences({ projectId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+        <DialogContent className="bg-zinc-950 border-white/10">
+          <DialogHeader>
+            <DialogTitle>Edit Reference</DialogTitle>
+            <DialogDescription>Update the name, notes, and scope for this reference.</DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <div className="rounded-xl overflow-hidden border border-white/10 bg-zinc-900 max-h-[200px] flex items-center justify-center">
+              <img src={editing.image_url} alt={editing.name || 'reference'} className="max-h-[200px] object-contain" />
+            </div>
+          )}
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Name</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Reference name" className="bg-background/50 mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Notes / Prompt info</Label>
+              <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Prompt notes for this reference…" className="bg-background/50 mt-1 min-h-[80px]" />
+            </div>
+            <div>
+              <Label className="text-xs">Scope</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditScope('global')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${editScope === 'global' ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Globe className="w-4 h-4 text-emerald-400" /> Global
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditScope('project')}
+                  className={`p-3 rounded-lg border text-left transition-colors ${editScope === 'project' ? 'border-violet-500 bg-violet-500/10' : 'border-white/10 hover:border-white/20'}`}
+                  disabled={projects.length === 0}
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Folder className="w-4 h-4 text-violet-400" /> Project only
+                  </div>
+                </button>
+              </div>
+            </div>
+            {editScope === 'project' && (
+              <div>
+                <Label className="text-xs">Project</Label>
+                <Select value={editProjectId ?? ''} onValueChange={(v) => setEditProjectId(v)}>
+                  <SelectTrigger className="bg-background/50 mt-1">
+                    <SelectValue placeholder="Pick a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditing(null)} disabled={savingEdit}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={savingEdit || (editScope === 'project' && !editProjectId)} className="gap-2 bg-violet-600 hover:bg-violet-700">
+              {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
