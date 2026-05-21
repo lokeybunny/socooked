@@ -20,6 +20,8 @@ interface SB {
   image_url: string;
   storage_path: string | null;
   notes: string | null;
+  first_frame_url: string | null;
+  first_frame_path: string | null;
   created_at: string;
 }
 
