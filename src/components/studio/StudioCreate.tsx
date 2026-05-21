@@ -89,6 +89,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [storyboardLibraryOpen, setStoryboardLibraryOpen] = useState(false);
   const [promptStoryboardOpen, setPromptStoryboardOpen] = useState(false);
   const [frameStoryboardSlot, setFrameStoryboardSlot] = useState<'A' | 'B' | null>(null);
+  const [frameRefSlot, setFrameRefSlot] = useState<'A' | 'B' | null>(null);
   const [promptGuideOpen, setPromptGuideOpen] = useState(false);
   const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
@@ -691,15 +692,26 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                   <div key={slot} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">{label}</Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px] gap-1 text-[#00ff88] hover:text-[#00ff88]"
-                        onClick={() => setFrameStoryboardSlot(slot)}
-                      >
-                        <Layers className="w-3 h-3" /> From Storyboard
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] gap-1 text-[#00ff88] hover:text-[#00ff88]"
+                          onClick={() => setFrameRefSlot(slot)}
+                        >
+                          <Image className="w-3 h-3" /> From References
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] gap-1 text-[#00ff88] hover:text-[#00ff88]"
+                          onClick={() => setFrameStoryboardSlot(slot)}
+                        >
+                          <Layers className="w-3 h-3" /> From Storyboard
+                        </Button>
+                      </div>
                     </div>
                     {preview ? (
                       <div
@@ -1326,6 +1338,32 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       subprojectId={subprojectId}
       maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+    />
+
+    {/* Reference picker — Seedance Frame A/B */}
+    <ReferenceLibraryPicker
+      open={frameRefSlot !== null}
+      onOpenChange={(o) => { if (!o) setFrameRefSlot(null); }}
+      projectId={projectId}
+      maxSelect={1}
+      onConfirm={(urls) => {
+        const url = urls[0];
+        if (!url) return;
+        if (frameRefSlot === 'A') {
+          setImageFile(null);
+          setImagePreview(url);
+          setSettings(s => ({
+            ...s,
+            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          }));
+          if (taskType === 't2v') setTaskType('i2v');
+        } else if (frameRefSlot === 'B') {
+          setImageFileB(null);
+          setImagePreviewB(url);
+        }
+        toast({ title: `Frame ${frameRefSlot} loaded from reference` });
+        setFrameRefSlot(null);
+      }}
     />
 
     <PromptGuideDialog
