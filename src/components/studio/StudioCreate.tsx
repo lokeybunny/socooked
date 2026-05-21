@@ -1340,6 +1340,32 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
     />
 
+    {/* Reference picker — Seedance Frame A/B */}
+    <ReferenceLibraryPicker
+      open={frameRefSlot !== null}
+      onOpenChange={(o) => { if (!o) setFrameRefSlot(null); }}
+      projectId={projectId}
+      maxSelect={1}
+      onConfirm={(urls) => {
+        const url = urls[0];
+        if (!url) return;
+        if (frameRefSlot === 'A') {
+          setImageFile(null);
+          setImagePreview(url);
+          setSettings(s => ({
+            ...s,
+            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          }));
+          if (taskType === 't2v') setTaskType('i2v');
+        } else if (frameRefSlot === 'B') {
+          setImageFileB(null);
+          setImagePreviewB(url);
+        }
+        toast({ title: `Frame ${frameRefSlot} loaded from reference` });
+        setFrameRefSlot(null);
+      }}
+    />
+
     <PromptGuideDialog
       open={promptGuideOpen}
       onOpenChange={setPromptGuideOpen}
