@@ -87,6 +87,8 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
   const [refLibraryOpen, setRefLibraryOpen] = useState(false);
   const [assetLibraryOpen, setAssetLibraryOpen] = useState(false);
   const [storyboardLibraryOpen, setStoryboardLibraryOpen] = useState(false);
+  const [promptStoryboardOpen, setPromptStoryboardOpen] = useState(false);
+  const [frameStoryboardSlot, setFrameStoryboardSlot] = useState<'A' | 'B' | null>(null);
   const [promptGuideOpen, setPromptGuideOpen] = useState(false);
   const [promptGuideImages, setPromptGuideImages] = useState<{ url: string; label: string }[]>([]);
   const [refVideos, setRefVideos] = useState<File[]>([]);
