@@ -88,7 +88,7 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
   const confirm = () => {
     const picks: StoryboardPick[] = rows
       .filter(r => picked.has(r.id))
-      .map(r => ({ url: r.image_url, name: r.name, notes: r.notes }));
+      .map(r => ({ url: r.image_url, name: r.name, notes: r.notes, first_frame_url: r.first_frame_url }));
     onConfirm(picks);
     onOpenChange(false);
   };
