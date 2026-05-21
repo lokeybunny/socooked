@@ -152,6 +152,21 @@ export function StoryboardLibraryPicker({ open, onOpenChange, projectId, subproj
                         {r.name}
                       </div>
                     )}
+                    {onSetFirstFrame && (
+                      <div
+                        role="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = r.first_frame_url || r.image_url;
+                          onSetFirstFrame(url, r.name);
+                          toast({ title: 'Loaded as Frame A', description: r.first_frame_url ? 'Using saved first-frame image' : 'Using storyboard thumbnail' });
+                        }}
+                        title="Set as Seedance Frame A"
+                        className="absolute top-1 right-1 px-1.5 py-0.5 rounded-md bg-[#00ff88]/90 text-black text-[9px] font-semibold hover:bg-[#00ff88] flex items-center gap-1"
+                      >
+                        <Film className="w-2.5 h-2.5" /> A
+                      </div>
+                    )}
                   </button>
                 );
               })}
