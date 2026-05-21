@@ -1200,7 +1200,24 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
       projectId={projectId}
       subprojectId={subprojectId}
       maxSelect={Math.max(0, 9 - (refImages.length + refImageUrls.length))}
-      onConfirm={(urls) => setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length))}
+      onConfirm={(picks) => {
+        const urls = picks.map(p => p.url);
+        setRefImageUrls(prev => [...prev, ...urls].slice(0, 9 - refImages.length));
+        // Append any prompt notes attached to picked storyboards to the prompt textarea
+        const noteBlocks = picks
+          .filter(p => p.notes && p.notes.trim().length > 0)
+          .map((p, i) => {
+            const label = p.name?.trim() ? p.name.trim() : `Storyboard frame ${i + 1}`;
+            return `[${label}] ${p.notes!.trim()}`;
+          });
+        if (noteBlocks.length > 0) {
+          setPrompt(prev => {
+            const header = '\n\n[STORYBOARD NOTES]\n';
+            const body = noteBlocks.join('\n');
+            return (prev?.trim() ? prev.trimEnd() : '') + header + body;
+          });
+        }
+      }}
     />
 
 
