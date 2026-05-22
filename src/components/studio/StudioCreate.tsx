@@ -36,6 +36,19 @@ import { PromptVoiceEditButton } from './PromptVoiceEditButton';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
 import { TPL_EVT, type TemplateSnapshot } from '@/lib/studio/templates';
 
+const SEEDANCE_DEFAULT_TEXT_MODEL = 'bytedance/seedance-2.0-fast/text-to-video';
+const SEEDANCE_HUMAN_IMAGE_MODEL = 'bytedance/seedance-2.0/image-to-video';
+
+const toSeedanceImageModel = (model?: string) => {
+  const next = (model || SEEDANCE_HUMAN_IMAGE_MODEL).replace('text-to-video', 'image-to-video');
+  return next === 'bytedance/seedance-2.0-fast/image-to-video' ? SEEDANCE_HUMAN_IMAGE_MODEL : next;
+};
+
+const toSeedanceTextModel = (model?: string) => {
+  const next = (model || SEEDANCE_DEFAULT_TEXT_MODEL).replace('image-to-video', 'text-to-video');
+  return next === 'bytedance/seedance-2.0/text-to-video' ? SEEDANCE_DEFAULT_TEXT_MODEL : next;
+};
+
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
   i2v: <Image className="w-3.5 h-3.5" />,
