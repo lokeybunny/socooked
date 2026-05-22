@@ -1269,7 +1269,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         // Switch Seedance model to image-to-video so Frame A is honored
         setSettings(s => ({
           ...s,
-          seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          seedance_model: toSeedanceImageModel(s.seedance_model),
         }));
         setTaskType('i2v');
         setStoryboardLibraryOpen(false);
@@ -1318,7 +1318,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           setImagePreview(url);
           setSettings(s => ({
             ...s,
-            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+            seedance_model: toSeedanceImageModel(s.seedance_model),
           }));
           if (taskType === 't2v') setTaskType('i2v');
         } else if (frameStoryboardSlot === 'B') {
@@ -1334,7 +1334,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           setImagePreview(url);
           setSettings(s => ({
             ...s,
-            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+            seedance_model: toSeedanceImageModel(s.seedance_model),
           }));
           if (taskType === 't2v') setTaskType('i2v');
         } else if (frameStoryboardSlot === 'B') {
@@ -1370,7 +1370,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           setImagePreview(url);
           setSettings(s => ({
             ...s,
-            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+            seedance_model: toSeedanceImageModel(s.seedance_model),
           }));
           if (taskType === 't2v') setTaskType('i2v');
         } else if (frameRefSlot === 'B') {
