@@ -180,81 +180,21 @@ async function removeHumanFromReference(
 const MAX_SAFETY_ATTEMPTS = SAFETY_EDIT_PROMPTS.length;
 
 const seedanceSafetyFinalError = (rawError: string) =>
-  `Seedance still rejected the image after ${MAX_SAFETY_ATTEMPTS} automatic AI anonymization passes. ByteDance's filter is still treating the frame as a real person scene. Try a source/reference with no humans, faces, hands, skin, statues, posters of people, or reflections. Original provider error: ${rawError}`;
+  `Seedance rejected this frame as a possible real person. The reference was sent untouched (auto-anonymization is disabled). Try a different generative still — ideally one with softer/less photo-real faces — or switch to a Seedance model variant without the real-person filter. Original provider error: ${rawError}`;
 
 async function buildSeedanceSafetyRetryPayload(
-  admin: ReturnType<typeof adminClient>,
-  jobId: string,
-  payload: JobPayload,
-  settings: Record<string, unknown>,
-  refImages: string[],
-  isImageToVideo: boolean,
-  isRefToVideo: boolean,
+  _admin: ReturnType<typeof adminClient>,
+  _jobId: string,
+  _payload: JobPayload,
+  _settings: Record<string, unknown>,
+  _refImages: string[],
+  _isImageToVideo: boolean,
+  _isRefToVideo: boolean,
 ): Promise<JobPayload | null> {
-  const prevAttempts = Number((settings as any).seedance_safety_attempts || 0);
-  if (prevAttempts >= MAX_SAFETY_ATTEMPTS) return null;
-
-  const sourceUrls = isRefToVideo ? refImages.filter(Boolean) : isImageToVideo && payload.input_image_url ? [payload.input_image_url] : [];
-  if (sourceUrls.length === 0) return null;
-
-  const attemptIndex = prevAttempts; // 0-based for prompt selection
-  const attemptLabel = `pass ${prevAttempts + 1} of ${MAX_SAFETY_ATTEMPTS}`;
-
-  await admin.from("generation_jobs").update({
-    status: "provisioning",
-    progress: 4,
-    backend_logs: isRefToVideo
-      ? `Seedance blocked a reference as a possible real person. Auto-cleaning every image reference (${attemptLabel}) and retrying.`
-      : `Seedance blocked the input image as a possible real person. Auto-cleaning it (${attemptLabel}) and retrying.`,
-  }).eq("id", jobId);
-
-  const cleanedRefs = [] as Awaited<ReturnType<typeof removeHumanFromReference>>[];
-  for (let i = 0; i < sourceUrls.length; i++) {
-    await admin.from("generation_jobs").update({
-      progress: Math.min(5 + i, 12),
-      backend_logs: `Auto-cleaning reference ${i + 1} of ${sourceUrls.length} for Seedance safety (${attemptLabel}).`,
-    }).eq("id", jobId);
-    cleanedRefs.push(await removeHumanFromReference(admin, sourceUrls[i], payload.user_id || null, `${jobId}-ref-${i + 1}-a${attemptIndex}`, attemptIndex));
-  }
-
-  const retrySettings: Record<string, unknown> = {
-    ...settings,
-    seedance_safety_attempts: prevAttempts + 1,
-    // legacy flags kept for backward compat with refresh path
-    seedance_real_person_clean_retry_attempted: true,
-    seedance_real_person_original_reference_url: sourceUrls[0],
-    seedance_real_person_clean_reference_url: cleanedRefs[0]?.url,
-    seedance_real_person_clean_reference_path: cleanedRefs[0]?.path,
-    seedance_real_person_original_reference_urls: sourceUrls,
-    seedance_real_person_clean_reference_urls: cleanedRefs.map((ref) => ref.url),
-    seedance_real_person_clean_reference_paths: cleanedRefs.map((ref) => ref.path),
-  };
-
-  const retryPayload: JobPayload = {
-    ...payload,
-    settings_json: retrySettings,
-  };
-
-  if (isRefToVideo) {
-    retrySettings.seedance_real_person_all_refs_clean_retry_attempted = true;
-    retrySettings.reference_images_urls = cleanedRefs.map((ref) => ref.url);
-  } else if (isImageToVideo) {
-    retryPayload.input_image_url = cleanedRefs[0]?.url;
-  }
-
-  await admin.from("generation_jobs").update({
-    settings_json: retrySettings,
-    input_image_url: retryPayload.input_image_url || null,
-    error_message: null,
-    worker_job_id: null,
-    output_video_url: null,
-    output_thumbnail_url: null,
-    backend_logs: isRefToVideo
-      ? `Auto-cleaned ${cleanedRefs.length} reference image${cleanedRefs.length === 1 ? "" : "s"} (${attemptLabel}) and retrying Seedance.`
-      : `Auto-cleaned the input image (${attemptLabel}) and retrying Seedance.`,
-  }).eq("id", jobId);
-
-  return retryPayload;
+  // Image-reference alteration is disabled — generative human stills must reach Seedance untouched.
+  // If ByteDance's "real person" filter rejects the frame, surface the raw error to the user instead
+  // of blurring, anonymizing, or otherwise modifying the attached reference / input image.
+  return null;
 }
 
 async function dispatchJob(jobId: string, payload: JobPayload) {
