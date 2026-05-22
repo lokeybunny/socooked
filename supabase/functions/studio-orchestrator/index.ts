@@ -180,21 +180,43 @@ async function removeHumanFromReference(
 const MAX_SAFETY_ATTEMPTS = SAFETY_EDIT_PROMPTS.length;
 
 const seedanceSafetyFinalError = (rawError: string) =>
-  `Seedance rejected this frame as a possible real person. The reference was sent untouched (auto-anonymization is disabled). Try a different generative still — ideally one with softer/less photo-real faces — or switch to a Seedance model variant without the real-person filter. Original provider error: ${rawError}`;
+  `Seedance rejected this frame as a possible real person, and the automatic fallback to the default image-to-video model also failed. Try a different generative still with softer/less photo-real faces. Original provider error: ${rawError}`;
 
 async function buildSeedanceSafetyRetryPayload(
   _admin: ReturnType<typeof adminClient>,
   _jobId: string,
-  _payload: JobPayload,
-  _settings: Record<string, unknown>,
-  _refImages: string[],
+  payload: JobPayload,
+  settings: Record<string, unknown>,
+  refImages: string[],
   _isImageToVideo: boolean,
-  _isRefToVideo: boolean,
+  isRefToVideo: boolean,
 ): Promise<JobPayload | null> {
-  // Image-reference alteration is disabled — generative human stills must reach Seedance untouched.
-  // If ByteDance's "real person" filter rejects the frame, surface the raw error to the user instead
-  // of blurring, anonymizing, or otherwise modifying the attached reference / input image.
-  return null;
+  // References are never altered. But if reference-to-video gets rejected by the "real person" filter,
+  // auto-fallback to the default seedance-2 image-to-video model using the first reference as the input
+  // image — humans only pass on the default image-to-video variant, not the reference-to-video one.
+  const attempts = Number((settings as any).seedance_safety_fallback_attempts || 0);
+  if (attempts >= 1) return null;
+  if (!isRefToVideo) return null;
+  const firstRef = (payload.input_image_url || refImages[0] || "").toString();
+  if (!firstRef) return null;
+
+  const nextSettings: Record<string, unknown> = {
+    ...settings,
+    seedance_model: "bytedance/seedance-2.0/image-to-video",
+    seedance_safety_fallback_attempts: attempts + 1,
+    seedance_safety_fallback_from_ref: true,
+  };
+  // Drop reference-only fields so the image-to-video model accepts the payload cleanly.
+  delete (nextSettings as any).reference_images_urls;
+  delete (nextSettings as any).reference_videos_urls;
+  delete (nextSettings as any).reference_audios_urls;
+  delete (nextSettings as any).return_last_frame;
+
+  return {
+    ...payload,
+    input_image_url: firstRef,
+    settings_json: nextSettings,
+  };
 }
 
 async function dispatchJob(jobId: string, payload: JobPayload) {
