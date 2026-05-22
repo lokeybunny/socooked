@@ -109,7 +109,7 @@ export default function AIGen() {
           </TabsList>
 
           <TabsContent value="dashboard"><StudioDashboard onNavigate={setTab} projectId={projectId} subprojectId={subprojectId} onModify={openModify} /></TabsContent>
-          <TabsContent value="create">
+          <TabsContent value="create" forceMount className="data-[state=inactive]:hidden mt-2">
             <StudioCreate
               projectId={projectId}
               subprojectId={subprojectId}
