@@ -397,21 +397,14 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         reader.readAsDataURL(file);
       });
 
-    const uploadOne = async (file: File) => {
-      const safe = await downscaleIfNeeded(file);
+    const uploadOne = async (file: File, opts?: { skipDownscale?: boolean }) => {
+      const safe = opts?.skipDownscale ? file : await downscaleIfNeeded(file);
       const ext = safe.name.split('.').pop() || 'png';
       const path = `inputs/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: upErr } = await supabase.storage.from('studio-outputs').upload(path, safe);
       if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
       return supabase.storage.from('studio-outputs').getPublicUrl(path).data.publicUrl;
     };
-
-    let input_image_url: string | undefined;
-    let last_frame_image_url: string | undefined;
-    if (imageFile) input_image_url = await uploadOne(imageFile);
-    else if (imagePreview) input_image_url = imagePreview;
-    if (imageFileB) last_frame_image_url = await uploadOne(imageFileB);
-    else if (imagePreviewB) last_frame_image_url = imagePreviewB;
 
     const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
     const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
@@ -421,6 +414,16 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         ? currentModel.replace('image-to-video', 'text-to-video')
         : currentModel.replace('text-to-video', 'image-to-video')
       : currentModel;
+
+    // Seedance i2v (non-reference) accepts original images as-is — skip downscale to avoid any modification.
+    const skipFrameDownscale = seedanceActive && !isRef;
+
+    let input_image_url: string | undefined;
+    let last_frame_image_url: string | undefined;
+    if (imageFile) input_image_url = await uploadOne(imageFile, { skipDownscale: skipFrameDownscale });
+    else if (imagePreview) input_image_url = imagePreview;
+    if (imageFileB) last_frame_image_url = await uploadOne(imageFileB, { skipDownscale: skipFrameDownscale });
+    else if (imagePreviewB) last_frame_image_url = imagePreviewB;
 
     let reference_images_urls: string[] = [];
     let reference_videos_urls: string[] = [];
