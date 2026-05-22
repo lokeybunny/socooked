@@ -78,7 +78,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     aspect_ratio: '9:16',
     guidance_scale: 7,
     motion_intensity: 50,
-    seedance_model: 'bytedance/seedance-2.0-fast/text-to-video',
+    seedance_model: SEEDANCE_DEFAULT_TEXT_MODEL,
     seedance_resolution: '480p',
     seedance_ratio: '9:16',
     generate_audio: true,
@@ -420,12 +420,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     };
 
     const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
-    const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
+    const currentModel = settings.seedance_model || SEEDANCE_DEFAULT_TEXT_MODEL;
     const isRef = currentModel.includes('reference-to-video');
     const seedanceModel = seedanceActive && !isRef
       ? taskType === 't2v'
-        ? currentModel.replace('image-to-video', 'text-to-video')
-        : currentModel.replace('text-to-video', 'image-to-video')
+        ? toSeedanceTextModel(currentModel)
+        : toSeedanceImageModel(currentModel)
       : currentModel;
 
     // Seedance i2v (non-reference) accepts original images as-is — skip downscale to avoid any modification.
