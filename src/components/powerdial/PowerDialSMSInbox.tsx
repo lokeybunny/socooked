@@ -1095,7 +1095,7 @@ export default function PowerDialSMSInbox() {
     setProposalStep('choose');
   };
 
-  const sendProposalTemplate = async (kind: '399' | '199' | '399-net' | '3000') => {
+  const sendProposalTemplate = async (kind: '399' | '199' | '399-net' | '3000' | '2500') => {
     if (!proposalPhoneKey) return;
     const email = proposalEmail.trim();
     if (!email) { toast.error('Email required'); return; }
@@ -1177,6 +1177,47 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
           status: 'draft',
           meta: isNet ? { no_deposit: true, payment_model: 'pay_on_delivery' } : {},
         };
+      } else if (kind === '2500') {
+        payload = {
+          title: '10 Videos / Month Plan — $2,500/month',
+          client_name: clientName,
+          client_email: email,
+          client_phone: e164,
+          amount: 2500,
+          currency: 'USD',
+          line_items: [{ description: '10 Videos / Month Plan — credits do NOT roll over ($2,500/month)', quantity: 1, unit_price: 2500 }],
+          notes: '10 finished videos per 30-day cycle. Unused videos DO NOT roll over or transfer to the following month — the count resets at the start of each new 30-day billing cycle. Billed monthly in advance.',
+          terms: 'FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED. Payment must be made via Zelle or Cash App OR Debit/Credit. Once this proposal is signed, the client may also pay via debit or credit card through the /payme page. Plan includes 10 videos per 30-day cycle. UNUSED VIDEOS DO NOT ROLL OVER — credits reset at the start of each new 30-day billing cycle and will not be transferred between months. Month-to-month — either party may cancel with 7 days written notice prior to the next billing cycle.',
+          proposal_body: `10 Videos / Month Plan — $2,500 / month
+
+What's included each 30-day cycle:
+• 10 finished videos delivered within the 30-day cycle
+• AI-driven production, editing, and revisions
+• Direct strategy access and ongoing creative direction
+• Priority turnaround on requests
+• Performance reporting on delivered content
+
+Video Credit Policy (IMPORTANT):
+• 10 videos per 30 days, resetting at the start of each new billing cycle.
+• UNUSED VIDEOS DO NOT ROLL OVER OR TRANSFER between months.
+• Any video credits not used within the 30-day window are forfeited.
+
+Engagement:
+• Month-to-month plan, billed in advance
+• Either party may cancel with 7 days notice prior to the next billing cycle
+
+Payment Terms:
+• FULL PAYMENT OF $2,500 IS REQUIRED EACH MONTH BEFORE WORK IS RENDERED.
+• All payments must be made via Zelle or Cash App OR Debit/Credit.
+• Once this proposal is signed, the client may alternatively pay by debit or credit card through the /payme page.
+• Service begins after first month's payment is confirmed.
+
+By signing below, the client agrees to the scope, pricing, video credit policy, and payment terms outlined above.`,
+          expiration_date: expDate,
+          signature_required: true,
+          customer_id: customerId,
+          status: 'draft',
+        };
       } else {
         payload = {
           title: 'Monthly Retainer Venture — $3,000/month',
@@ -1215,6 +1256,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
         };
       }
 
+
       // Insert the proposal draft
       const { data: inserted, error: insErr } = await supabase
         .from('proposals')
@@ -1239,7 +1281,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
-      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : kind === '399-net' ? '$399 (pay on delivery)' : '$3,000/mo';
+      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : kind === '399-net' ? '$399 (pay on delivery)' : kind === '2500' ? '$2,500/mo · 10 videos' : '$3,000/mo';
       toast.success(`${label} proposal sent to ${email}`);
       setProposalOpen(false);
       setProposalPhoneKey(null);
@@ -2074,6 +2116,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
             >
               <div className="font-semibold text-sm">$3,000 / month Retainer Venture</div>
               <div className="text-xs text-muted-foreground mt-1">Monthly retainer engagement — full $3,000 due each month before work renders, via Zelle / Cash App.</div>
+            </button>
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('2500')}
+              className="w-full text-left p-4 rounded-lg border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors disabled:opacity-50"
+            >
+              <div className="font-semibold text-sm">$2,500 / month · 10 Videos Plan</div>
+              <div className="text-xs text-muted-foreground mt-1">10 finished videos per 30-day cycle. Credits do NOT roll over — unused videos reset each new month.</div>
             </button>
             {proposalSending && (
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
