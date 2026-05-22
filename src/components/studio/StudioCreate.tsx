@@ -572,9 +572,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
             const next = v as TaskType;
             setTaskType(next);
             if (next === 't2v') {
-              setSettings(s => ({ ...s, seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video').replace('image-to-video', 'text-to-video') }));
+              setSettings(s => ({ ...s, seedance_model: toSeedanceTextModel(s.seedance_model) }));
             } else if (next === 'i2v') {
-              setSettings(s => ({ ...s, seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video') }));
+              setSettings(s => ({ ...s, seedance_model: toSeedanceImageModel(s.seedance_model) }));
             }
           }}
         >
@@ -797,7 +797,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                       <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {[
-                          { v: 'bytedance/seedance-2.0-fast/image-to-video', l: 'Seedance 2.0 Fast · image→video (default)' },
+                          { v: SEEDANCE_HUMAN_IMAGE_MODEL, l: 'Seedance 2.0 · image→video (human still default)' },
                           { v: 'bytedance/seedance-2.0-fast/text-to-video', l: 'Seedance 2.0 Fast · text→video' },
                           { v: 'bytedance/seedance-2.0-pro/image-to-video', l: 'Seedance 2.0 Pro · image→video' },
                           { v: 'bytedance/seedance-2.0-pro/text-to-video', l: 'Seedance 2.0 Pro · text→video' },
