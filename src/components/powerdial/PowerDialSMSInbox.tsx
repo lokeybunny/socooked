@@ -2117,6 +2117,15 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
               <div className="font-semibold text-sm">$3,000 / month Retainer Venture</div>
               <div className="text-xs text-muted-foreground mt-1">Monthly retainer engagement — full $3,000 due each month before work renders, via Zelle / Cash App.</div>
             </button>
+            <button
+              type="button"
+              disabled={proposalSending}
+              onClick={() => sendProposalTemplate('2500')}
+              className="w-full text-left p-4 rounded-lg border border-border hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-colors disabled:opacity-50"
+            >
+              <div className="font-semibold text-sm">$2,500 / month · 10 Videos Plan</div>
+              <div className="text-xs text-muted-foreground mt-1">10 finished videos per 30-day cycle. Credits do NOT roll over — unused videos reset each new month.</div>
+            </button>
             {proposalSending && (
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground pt-2">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending proposal…
