@@ -180,7 +180,7 @@ async function removeHumanFromReference(
 const MAX_SAFETY_ATTEMPTS = SAFETY_EDIT_PROMPTS.length;
 
 const seedanceSafetyFinalError = (rawError: string) =>
-  `Seedance still rejected the image after ${MAX_SAFETY_ATTEMPTS} automatic AI anonymization passes. ByteDance's filter is still treating the frame as a real person scene. Try a source/reference with no humans, faces, hands, skin, statues, posters of people, or reflections. Original provider error: ${rawError}`;
+  `Seedance rejected this frame as a possible real person. The reference was sent untouched (auto-anonymization is disabled). Try a different generative still — ideally one with softer/less photo-real faces — or switch to a Seedance model variant without the real-person filter. Original provider error: ${rawError}`;
 
 async function buildSeedanceSafetyRetryPayload(
   _admin: ReturnType<typeof adminClient>,
