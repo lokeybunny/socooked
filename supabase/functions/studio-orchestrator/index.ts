@@ -125,9 +125,11 @@ async function persistGeneratedImage(admin: ReturnType<typeof adminClient>, imag
 }
 
 const SAFETY_EDIT_PROMPTS = [
-  "Edit this image to clear a video model 'real person' safety filter while keeping the subject in frame. Completely blur out and obscure EVERY human face in the image with a heavy gaussian blur / pixelation — faces must be fully unrecognizable, no visible eyes, nose, mouth, or facial features. Also blur visible skin on hands and any reflections of faces. Keep the body, clothing, pose, background, lighting, camera angle, color palette, and aspect ratio exactly the same. Do not add new people, text, logos, or watermarks. Output the same scene with all faces fully blurred.",
-  "Aggressively repaint this image to be 100% free of any human presence. Eliminate ALL faces, bodies, hands, fingers, eyes, hair, skin, clothing on bodies, mannequins, statues of people, photos-of-people, posters with faces, reflections of people in glass/water/mirrors, and human silhouettes or shadows. Replace removed people with plausible empty environment (walls, floor, sky, props). Keep the scene's location, lighting, camera angle, and aspect ratio. Output must look like the same place with zero humans.",
-  "Convert this into a clean empty-scene plate: stylize it slightly (subtle painterly / illustrated look) so it cannot be mistaken for a real photograph of a real person. Remove every person and every human body part. No faces, no skin, no hands, no silhouettes, no reflections of humans. Keep the architecture, props, color palette, and aspect ratio. Output a stylized, person-free environment plate.",
+  "Edit this image only enough to clear a video model 'real person' safety filter. Completely blur out and obscure EVERY human face with extreme gaussian blur and pixelation — faces must be fully unrecognizable, with no visible eyes, nose, mouth, teeth, ears, or facial structure. Also heavily blur visible hands, skin, and any face reflections. Keep clothing, pose, background, lighting, camera angle, color palette, and aspect ratio the same. Do not add people, text, logos, or watermarks.",
+  "Apply a stronger anonymization edit. Cover every human face, head, hand, finger, exposed skin area, and face reflection with dense mosaic/pixel blur and soft neutral smearing so no biometric detail remains. Preserve the scene, outfit silhouette, composition, lighting, and aspect ratio. The result must look like the same shot with all identity-bearing human detail completely destroyed.",
+  "Make the image pass a strict 'no real person' image filter by fully anonymizing every person. Replace faces and exposed skin with non-photoreal, blurred, featureless soft patches that match nearby colors. No eyes, mouth, nose, hairline, hands, fingers, tattoos, skin texture, reflections, posters, or photo faces can remain. Keep the environment and camera framing intact.",
+  "Aggressively repaint this image to be 100% free of identifiable human features while retaining the same scene. Remove or smear all faces, heads, hands, fingers, skin, hair, human reflections, posters of people, statues, and silhouettes. Replace removed details with plausible blurred clothing, wall, floor, sky, or props. Keep location, lighting, camera angle, and aspect ratio.",
+  "Convert this into a safe anonymized scene plate: subtle illustrated/painterly finish, no realistic human faces or body parts, no hands, no skin, no reflections of humans, no posters or statues of people. Keep architecture, props, color palette, composition, and aspect ratio. Output a clean, video-ready frame that cannot be mistaken for a real person photograph.",
 ];
 
 async function removeHumanFromReference(
@@ -178,7 +180,7 @@ async function removeHumanFromReference(
 const MAX_SAFETY_ATTEMPTS = SAFETY_EDIT_PROMPTS.length;
 
 const seedanceSafetyFinalError = (rawError: string) =>
-  `Seedance still rejected the reference images after ${MAX_SAFETY_ATTEMPTS} automatic cleanup passes and a no-reference fallback. ByteDance's filter is treating the scene itself as a real person. Try different references that contain no humans, faces, hands, statues, posters of people, or reflections. Original provider error: ${rawError}`;
+  `Seedance still rejected the image after ${MAX_SAFETY_ATTEMPTS} automatic AI anonymization passes. ByteDance's filter is still treating the frame as a real person scene. Try a source/reference with no humans, faces, hands, skin, statues, posters of people, or reflections. Original provider error: ${rawError}`;
 
 async function buildSeedanceSafetyRetryPayload(
   admin: ReturnType<typeof adminClient>,
@@ -190,43 +192,7 @@ async function buildSeedanceSafetyRetryPayload(
   isRefToVideo: boolean,
 ): Promise<JobPayload | null> {
   const prevAttempts = Number((settings as any).seedance_safety_attempts || 0);
-  const droppedRefs = Boolean((settings as any).seedance_safety_dropped_refs);
-
-  // Final fallback: if we've exhausted cleanup attempts, strip references and downgrade model
-  if (prevAttempts >= MAX_SAFETY_ATTEMPTS) {
-    if (droppedRefs) return null; // already fell back, give up
-    const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
-    const fallbackModel = requestedModel
-      .replace("reference-to-video", "text-to-video")
-      .replace("image-to-video", "text-to-video");
-    const fallbackSettings: Record<string, unknown> = {
-      ...settings,
-      seedance_model: fallbackModel,
-      seedance_safety_dropped_refs: true,
-      reference_images_urls: [],
-      reference_videos_urls: [],
-      reference_audios_urls: [],
-    };
-    const fallbackPayload: JobPayload = {
-      ...payload,
-      task_type: "t2v",
-      input_image_url: null,
-      settings_json: fallbackSettings,
-    };
-    await admin.from("generation_jobs").update({
-      status: "provisioning",
-      progress: 4,
-      task_type: "t2v",
-      input_image_url: null,
-      settings_json: fallbackSettings,
-      error_message: null,
-      worker_job_id: null,
-      output_video_url: null,
-      output_thumbnail_url: null,
-      backend_logs: `Seedance kept rejecting the references after ${MAX_SAFETY_ATTEMPTS} cleanup passes. Falling back to text-to-video with no reference images so the job can still complete.`,
-    }).eq("id", jobId);
-    return fallbackPayload;
-  }
+  if (prevAttempts >= MAX_SAFETY_ATTEMPTS) return null;
 
   const sourceUrls = isRefToVideo ? refImages.filter(Boolean) : isImageToVideo && payload.input_image_url ? [payload.input_image_url] : [];
   if (sourceUrls.length === 0) return null;
