@@ -191,6 +191,11 @@ async function buildSeedanceSafetyRetryPayload(
   isImageToVideo: boolean,
   isRefToVideo: boolean,
 ): Promise<JobPayload | null> {
+  // Image-reference alteration disabled — generative human stills must pass through to Seedance untouched.
+  // If ByteDance's filter rejects the frame, surface the error to the user instead of blurring/cleaning the reference.
+  return null;
+
+  // eslint-disable-next-line no-unreachable
   const prevAttempts = Number((settings as any).seedance_safety_attempts || 0);
   if (prevAttempts >= MAX_SAFETY_ATTEMPTS) return null;
 
