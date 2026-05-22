@@ -1281,7 +1281,7 @@ By signing below, the client agrees to the scope, pricing, and payment terms out
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `Send failed (HTTP ${res.status})`);
 
-      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : kind === '399-net' ? '$399 (pay on delivery)' : '$3,000/mo';
+      const label = kind === '399' ? '$399' : kind === '199' ? '$199 (50% off)' : kind === '399-net' ? '$399 (pay on delivery)' : kind === '2500' ? '$2,500/mo · 10 videos' : '$3,000/mo';
       toast.success(`${label} proposal sent to ${email}`);
       setProposalOpen(false);
       setProposalPhoneKey(null);
