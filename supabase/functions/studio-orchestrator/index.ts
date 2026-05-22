@@ -373,7 +373,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
 
       if (!sub.ok) {
         const seedanceError = `Seedance API ${sub.status}: ${subJson?.error || subJson?.message || subText}`;
-        if (sub.status === 400 && isSeedanceRealPersonSafetyError(seedanceError)) {
+        if (sub.status === 400 && isRefToVideo && isSeedanceRealPersonSafetyError(seedanceError)) {
           const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, payload, settings, refImages, isImageToVideo, isRefToVideo);
           if (retryPayload) {
             await dispatchJob(jobId, retryPayload);
@@ -423,7 +423,7 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
 
         if (status === "failed" || status === "timeout" || status === "cancelled") {
           const pollError = pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`;
-          if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
+          if (status === "failed" && isRefToVideo && isSeedanceRealPersonSafetyError(pollError)) {
             const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, payload, settings, refImages, isImageToVideo, isRefToVideo);
             if (retryPayload) {
               await dispatchJob(jobId, retryPayload);
@@ -658,6 +658,10 @@ Deno.serve(async (req) => {
           if (provider === "seedance" && job.error_message && isSeedanceRealPersonSafetyError(job.error_message)) {
             const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
             const seedanceModel = normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url));
+            if (!seedanceModel.includes("reference-to-video")) {
+              await dispatchJob(jobId, payload);
+              return;
+            }
             const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
             const retryPayload = await buildSeedanceSafetyRetryPayload(
               adminClient(),
@@ -728,6 +732,13 @@ Deno.serve(async (req) => {
           if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
             const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
             const seedanceModel = normalizeSeedanceModel(job.task_type, requestedModel, Boolean(job.input_image_url));
+            if (!seedanceModel.includes("reference-to-video")) {
+              await admin.from("generation_jobs").update({
+                status: "failed",
+                error_message: seedanceSafetyFinalError(pollError),
+              }).eq("id", jobId);
+              return json({ ok: true, status: "failed" });
+            }
             const refImages = Array.isArray((settings as any).reference_images_urls) ? (settings as any).reference_images_urls as string[] : [];
             const retryPayload = await buildSeedanceSafetyRetryPayload(admin, jobId, {
               user_id: job.user_id,
