@@ -88,6 +88,12 @@ const normalizeSeedanceModel = (taskType: string, model: string, hasImage: boole
 const isSeedanceRealPersonSafetyError = (message: string) =>
   /input image may contain real person/i.test(message) || /may contain real person/i.test(message);
 
+const SEEDANCE_DEFAULT_TEXT_MODEL = "bytedance/seedance-2.0-fast/text-to-video";
+const SEEDANCE_HUMAN_IMAGE_MODEL = "bytedance/seedance-2.0/image-to-video";
+
+const preferRegularSeedanceForHumanI2V = (model: string) =>
+  model === "bytedance/seedance-2.0-fast/image-to-video" ? SEEDANCE_HUMAN_IMAGE_MODEL : model;
+
 const extractGeneratedImageUrl = (message: any): string | null => {
   const images = Array.isArray(message?.images) ? message.images : [];
   for (const img of images) {
@@ -180,7 +186,7 @@ async function removeHumanFromReference(
 const MAX_SAFETY_ATTEMPTS = SAFETY_EDIT_PROMPTS.length;
 
 const seedanceSafetyFinalError = (rawError: string) =>
-  `Seedance rejected this frame as a possible real person, and the automatic fallback to the default image-to-video model also failed. Try a different generative still with softer/less photo-real faces. Original provider error: ${rawError}`;
+  `Seedance rejected this frame as a possible real person after it was sent untouched to regular Seedance 2 image-to-video. Original provider error: ${rawError}`;
 
 async function buildSeedanceSafetyRetryPayload(
   _admin: ReturnType<typeof adminClient>,
@@ -202,7 +208,7 @@ async function buildSeedanceSafetyRetryPayload(
 
   const nextSettings: Record<string, unknown> = {
     ...settings,
-    seedance_model: "bytedance/seedance-2.0/image-to-video",
+    seedance_model: SEEDANCE_HUMAN_IMAGE_MODEL,
     seedance_safety_fallback_attempts: attempts + 1,
     seedance_safety_fallback_from_ref: true,
   };
@@ -234,8 +240,8 @@ async function dispatchJob(jobId: string, payload: JobPayload) {
       return;
     }
 
-    const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
-    const seedanceModel = normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url));
+    const requestedModel = (settings.seedance_model || SEEDANCE_DEFAULT_TEXT_MODEL).toString();
+    const seedanceModel = preferRegularSeedanceForHumanI2V(normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url)));
     const isImageToVideo = seedanceModel.includes("image-to-video");
     const isRefToVideo = seedanceModel.includes("reference-to-video");
 
@@ -584,8 +590,8 @@ Deno.serve(async (req) => {
           const settings = payload.settings_json || {};
           const provider = (settings.provider || "").toString().toLowerCase();
           if (provider === "seedance" && job.error_message && isSeedanceRealPersonSafetyError(job.error_message)) {
-            const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
-            const seedanceModel = normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url));
+            const requestedModel = (settings.seedance_model || SEEDANCE_DEFAULT_TEXT_MODEL).toString();
+            const seedanceModel = preferRegularSeedanceForHumanI2V(normalizeSeedanceModel(payload.task_type, requestedModel, Boolean(payload.input_image_url)));
             if (!seedanceModel.includes("reference-to-video") && !seedanceModel.includes("image-to-video")) {
               await dispatchJob(jobId, payload);
               return;
@@ -658,8 +664,8 @@ Deno.serve(async (req) => {
         if (status === "failed" || status === "timeout" || status === "cancelled") {
           const pollError = pollJson?.data?.error || pollJson?.error || `Seedance status: ${status}`;
           if (status === "failed" && isSeedanceRealPersonSafetyError(pollError)) {
-            const requestedModel = (settings.seedance_model || "bytedance/seedance-2.0-fast/text-to-video").toString();
-            const seedanceModel = normalizeSeedanceModel(job.task_type, requestedModel, Boolean(job.input_image_url));
+              const requestedModel = (settings.seedance_model || SEEDANCE_DEFAULT_TEXT_MODEL).toString();
+              const seedanceModel = preferRegularSeedanceForHumanI2V(normalizeSeedanceModel(job.task_type, requestedModel, Boolean(job.input_image_url)));
             if (!seedanceModel.includes("reference-to-video") && !seedanceModel.includes("image-to-video")) {
               await admin.from("generation_jobs").update({
                 status: "failed",

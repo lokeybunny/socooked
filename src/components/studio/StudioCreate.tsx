@@ -36,6 +36,19 @@ import { PromptVoiceEditButton } from './PromptVoiceEditButton';
 import { lightboxProps, openImageLightbox } from './ImageLightbox';
 import { TPL_EVT, type TemplateSnapshot } from '@/lib/studio/templates';
 
+const SEEDANCE_DEFAULT_TEXT_MODEL = 'bytedance/seedance-2.0-fast/text-to-video';
+const SEEDANCE_HUMAN_IMAGE_MODEL = 'bytedance/seedance-2.0/image-to-video';
+
+const toSeedanceImageModel = (model?: string) => {
+  const next = (model || SEEDANCE_HUMAN_IMAGE_MODEL).replace('text-to-video', 'image-to-video');
+  return next === 'bytedance/seedance-2.0-fast/image-to-video' ? SEEDANCE_HUMAN_IMAGE_MODEL : next;
+};
+
+const toSeedanceTextModel = (model?: string) => {
+  const next = (model || SEEDANCE_DEFAULT_TEXT_MODEL).replace('image-to-video', 'text-to-video');
+  return next === 'bytedance/seedance-2.0/text-to-video' ? SEEDANCE_DEFAULT_TEXT_MODEL : next;
+};
+
 const TASK_ICONS: Record<TaskType, React.ReactNode> = {
   t2v: <Type className="w-3.5 h-3.5" />,
   i2v: <Image className="w-3.5 h-3.5" />,
@@ -65,7 +78,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     aspect_ratio: '9:16',
     guidance_scale: 7,
     motion_intensity: 50,
-    seedance_model: 'bytedance/seedance-2.0-fast/text-to-video',
+    seedance_model: SEEDANCE_DEFAULT_TEXT_MODEL,
     seedance_resolution: '480p',
     seedance_ratio: '9:16',
     generate_audio: true,
@@ -407,12 +420,12 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     };
 
     const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
-    const currentModel = settings.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video';
+    const currentModel = settings.seedance_model || SEEDANCE_DEFAULT_TEXT_MODEL;
     const isRef = currentModel.includes('reference-to-video');
     const seedanceModel = seedanceActive && !isRef
       ? taskType === 't2v'
-        ? currentModel.replace('image-to-video', 'text-to-video')
-        : currentModel.replace('text-to-video', 'image-to-video')
+        ? toSeedanceTextModel(currentModel)
+        : toSeedanceImageModel(currentModel)
       : currentModel;
 
     // Seedance i2v (non-reference) accepts original images as-is — skip downscale to avoid any modification.
@@ -559,9 +572,9 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
             const next = v as TaskType;
             setTaskType(next);
             if (next === 't2v') {
-              setSettings(s => ({ ...s, seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/text-to-video').replace('image-to-video', 'text-to-video') }));
+              setSettings(s => ({ ...s, seedance_model: toSeedanceTextModel(s.seedance_model) }));
             } else if (next === 'i2v') {
-              setSettings(s => ({ ...s, seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video') }));
+              setSettings(s => ({ ...s, seedance_model: toSeedanceImageModel(s.seedance_model) }));
             }
           }}
         >
@@ -784,7 +797,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                       <SelectTrigger className="mt-1 bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {[
-                          { v: 'bytedance/seedance-2.0-fast/image-to-video', l: 'Seedance 2.0 Fast · image→video (default)' },
+                          { v: SEEDANCE_HUMAN_IMAGE_MODEL, l: 'Seedance 2.0 · image→video (human still default)' },
                           { v: 'bytedance/seedance-2.0-fast/text-to-video', l: 'Seedance 2.0 Fast · text→video' },
                           { v: 'bytedance/seedance-2.0-pro/image-to-video', l: 'Seedance 2.0 Pro · image→video' },
                           { v: 'bytedance/seedance-2.0-pro/text-to-video', l: 'Seedance 2.0 Pro · text→video' },
@@ -1256,7 +1269,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
         // Switch Seedance model to image-to-video so Frame A is honored
         setSettings(s => ({
           ...s,
-          seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+          seedance_model: toSeedanceImageModel(s.seedance_model),
         }));
         setTaskType('i2v');
         setStoryboardLibraryOpen(false);
@@ -1305,7 +1318,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           setImagePreview(url);
           setSettings(s => ({
             ...s,
-            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+            seedance_model: toSeedanceImageModel(s.seedance_model),
           }));
           if (taskType === 't2v') setTaskType('i2v');
         } else if (frameStoryboardSlot === 'B') {
@@ -1321,7 +1334,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           setImagePreview(url);
           setSettings(s => ({
             ...s,
-            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+            seedance_model: toSeedanceImageModel(s.seedance_model),
           }));
           if (taskType === 't2v') setTaskType('i2v');
         } else if (frameStoryboardSlot === 'B') {
@@ -1357,7 +1370,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
           setImagePreview(url);
           setSettings(s => ({
             ...s,
-            seedance_model: (s.seedance_model || 'bytedance/seedance-2.0-fast/image-to-video').replace('text-to-video', 'image-to-video'),
+            seedance_model: toSeedanceImageModel(s.seedance_model),
           }));
           if (taskType === 't2v') setTaskType('i2v');
         } else if (frameRefSlot === 'B') {
