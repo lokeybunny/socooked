@@ -550,6 +550,9 @@ ${itemsTxt || 'N/A'}`;
             <Button variant="outline" onClick={() => openListingPreset()} title="Pre-fill the $399 real estate listing video package">
               <Film className="h-4 w-4 mr-1.5" /> $399 Listing Video
             </Button>
+            <Button variant="outline" onClick={() => openTenVideoMonthlyPreset()} title="Pre-fill the $2,500/month · 10 videos per 30 days (no rollover)">
+              <Film className="h-4 w-4 mr-1.5" /> $2,500 · 10 Videos/Mo
+            </Button>
             <Button variant="outline" onClick={() => openMonthlyRetainerPreset()} title="Pre-fill the $3,000/month venture retainer">
               <DollarSign className="h-4 w-4 mr-1.5" /> $3,000 Monthly Retainer
             </Button>
