@@ -422,7 +422,10 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
     const seedanceActive = useSeedance && (taskType === 'i2v' || taskType === 't2v');
     const currentModel = settings.seedance_model || SEEDANCE_DEFAULT_TEXT_MODEL;
     const isRef = currentModel.includes('reference-to-video');
-    const seedanceModel = seedanceActive && !isRef
+    // Explicit "Seedance 2 Reference" mode — keep the user-selected fast i2v model as-is
+    // (do NOT auto-upgrade to Pro). This is the only path optimized for human reference images.
+    const isSeedance2Reference = currentModel === 'bytedance/seedance-2.0-fast/image-to-video';
+    const seedanceModel = seedanceActive && !isRef && !isSeedance2Reference
       ? taskType === 't2v'
         ? toSeedanceTextModel(currentModel)
         : toSeedanceImageModel(currentModel)
