@@ -8,6 +8,7 @@ import { StudioSettings } from '@/components/studio/StudioSettings';
 import { StudioReferences } from '@/components/studio/StudioReferences';
 import { StudioStoryboards } from '@/components/studio/StudioStoryboards';
 import { StudioAssets } from '@/components/studio/StudioAssets';
+import { StudioNotes } from '@/components/studio/StudioNotes';
 import { PromptStudio } from '@/components/studio/PromptStudio';
 import { StudioShrink } from '@/components/studio/StudioShrink';
 import { ImageLightbox } from '@/components/studio/ImageLightbox';
