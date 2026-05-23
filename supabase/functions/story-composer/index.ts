@@ -380,28 +380,52 @@ Deno.serve(async (req) => {
       if (!prompt) return json({ error: 'prompt required' }, 400);
       const authHeader = req.headers.get('Authorization') || '';
       if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
-      const seedanceModel = image_url
-        ? (model === 'seedance-2' ? 'bytedance/seedance-2.0/image-to-video' : 'bytedance/seedance-2.0-fast/image-to-video')
-        : (model === 'seedance-2' ? 'bytedance/seedance-2.0/text-to-video' : 'bytedance/seedance-2.0-fast/text-to-video');
-      const task_type = image_url ? 'i2v' : 't2v';
-      const r = await fetch(`${SB_URL()}/functions/v1/studio-orchestrator`, {
-        method: 'POST',
-        headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          task_type,
-          prompt,
-          input_image_url: image_url || null,
-          settings_json: {
-            provider: 'seedance',
-            seedance_model: seedanceModel,
-            seedance_resolution: '720p',
-            aspect_ratio: aspect,
-            seedance_ratio: aspect,
-          },
-        }),
-      });
-      const j = await r.json().catch(() => ({}));
-      return json(j, r.status);
+
+      const hasImage = Boolean(image_url);
+      // Seedance 2 Pro i2v rejects photoreal humans. Auto-downgrade all i2v jobs to Fast.
+      let seedanceModel = hasImage
+        ? 'bytedance/seedance-2.0-fast/image-to-video'
+        : (model === 'seedance-2'
+            ? 'bytedance/seedance-2.0/text-to-video'
+            : 'bytedance/seedance-2.0-fast/text-to-video');
+      const task_type = hasImage ? 'i2v' : 't2v';
+
+      const submit = async (m: string) => {
+        const r = await fetch(`${SB_URL()}/functions/v1/studio-orchestrator`, {
+          method: 'POST',
+          headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task_type,
+            prompt,
+            input_image_url: image_url || null,
+            settings_json: {
+              provider: 'seedance',
+              seedance_model: m,
+              seedance_resolution: '720p',
+              aspect_ratio: aspect,
+              seedance_ratio: aspect,
+            },
+          }),
+        });
+        const jj = await r.json().catch(() => ({}));
+        return { status: r.status, body: jj };
+      };
+
+      let { status, body: j } = await submit(seedanceModel);
+
+      // Safety-net retry: if any "real person" rejection slips through, resubmit on Fast i2v.
+      const errStr = JSON.stringify(j || {}).toLowerCase();
+      if (status >= 400 && hasImage && errStr.includes('may contain real person')) {
+        console.log('[seedance] real-person block — retrying on seedance-2-fast i2v');
+        seedanceModel = 'bytedance/seedance-2.0-fast/image-to-video';
+        ({ status, body: j } = await submit(seedanceModel));
+        if (status < 400 && j && typeof j === 'object') {
+          (j as any).auto_downgraded = true;
+          (j as any).downgrade_reason = 'Seedance Pro blocked photoreal subject — retried on Fast.';
+        }
+      }
+
+      return json(j, status);
     }
 
     return json({ error: `Unknown action: ${action}` }, 404);
