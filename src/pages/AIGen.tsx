@@ -17,7 +17,7 @@ import { TemplatesDrawer } from '@/components/studio/TemplatesDrawer';
 import { StudioCreditsBadge } from '@/components/studio/StudioCreditsBadge';
 import { ProjectSelector } from '@/components/studio/ProjectSelector';
 import { SubprojectSelector } from '@/components/studio/SubprojectSelector';
-import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon, Minimize2, Home, Clapperboard, LayoutGrid } from 'lucide-react';
+import { Film, Sparkles, Grid3X3, ListOrdered, Settings, Image as ImageIcon, Minimize2, Home, Clapperboard, LayoutGrid, StickyNote } from 'lucide-react';
 import { getJobPrompt, type GenerationJob } from '@/lib/studio/types';
 
 export interface CreatePrefill {
