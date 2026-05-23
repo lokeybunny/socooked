@@ -8310,6 +8310,42 @@ export type Database = {
           },
         ]
       }
+      studio_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          pinned: boolean
+          project_id: string | null
+          subproject_id: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          project_id?: string | null
+          subproject_id?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          project_id?: string | null
+          subproject_id?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       studio_projects: {
         Row: {
           cover_url: string | null
