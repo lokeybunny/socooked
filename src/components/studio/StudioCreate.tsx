@@ -798,6 +798,7 @@ export function StudioCreate({ projectId, subprojectId, prefill, onPrefillConsum
                       <SelectContent>
                         {[
                           { v: SEEDANCE_HUMAN_IMAGE_MODEL, l: 'Seedance 2.0 · image→video (human still default)' },
+                          { v: 'bytedance/seedance-2.0-fast/image-to-video', l: 'Seedance 2 Reference · best for human character references (uses uploaded image directly)' },
                           { v: 'bytedance/seedance-2.0-fast/text-to-video', l: 'Seedance 2.0 Fast · text→video' },
                           { v: 'bytedance/seedance-2.0-pro/image-to-video', l: 'Seedance 2.0 Pro · image→video' },
                           { v: 'bytedance/seedance-2.0-pro/text-to-video', l: 'Seedance 2.0 Pro · text→video' },
