@@ -101,6 +101,9 @@ export default function AIGen() {
             <TabsTrigger value="assets" className="gap-1.5 data-[state=active]:bg-background">
               <Home className="w-3.5 h-3.5" /> Assets
             </TabsTrigger>
+            <TabsTrigger value="notes" className="gap-1.5 data-[state=active]:bg-background">
+              <StickyNote className="w-3.5 h-3.5" /> Notes
+            </TabsTrigger>
             <TabsTrigger value="shrink" className="gap-1.5 data-[state=active]:bg-background">
               <Minimize2 className="w-3.5 h-3.5" /> Shrink
             </TabsTrigger>
