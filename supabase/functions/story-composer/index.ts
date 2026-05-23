@@ -382,13 +382,23 @@ Deno.serve(async (req) => {
       if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
 
       const hasImage = Boolean(image_url);
-      // Seedance 2 Pro i2v rejects photoreal humans. Auto-downgrade all i2v jobs to Fast.
-      let seedanceModel = hasImage
-        ? 'bytedance/seedance-2.0-fast/image-to-video'
-        : (model === 'seedance-2'
-            ? 'bytedance/seedance-2.0/text-to-video'
-            : 'bytedance/seedance-2.0-fast/text-to-video');
       const task_type = hasImage ? 'i2v' : 't2v';
+
+      // Mode-specific routing — only `seedance-2-reference` is optimized for human reference images.
+      // All other modes keep their normal Pro/Fast behavior.
+      let seedanceModel: string;
+      if (model === 'seedance-2-reference' && hasImage) {
+        seedanceModel = 'bytedance/seedance-2.0-fast/image-to-video';
+      } else if (model === 'seedance-2') {
+        seedanceModel = hasImage
+          ? 'bytedance/seedance-2.0/image-to-video'
+          : 'bytedance/seedance-2.0/text-to-video';
+      } else {
+        // 'seedance-2-fast' (default)
+        seedanceModel = hasImage
+          ? 'bytedance/seedance-2.0-fast/image-to-video'
+          : 'bytedance/seedance-2.0-fast/text-to-video';
+      }
 
       const submit = async (m: string) => {
         const r = await fetch(`${SB_URL()}/functions/v1/studio-orchestrator`, {
