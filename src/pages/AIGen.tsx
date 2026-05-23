@@ -127,6 +127,7 @@ export default function AIGen() {
           <TabsContent value="references"><StudioReferences projectId={projectId} /></TabsContent>
           <TabsContent value="storyboard"><StudioStoryboards projectId={projectId} subprojectId={subprojectId} /></TabsContent>
           <TabsContent value="assets"><StudioAssets projectId={projectId} subprojectId={subprojectId} /></TabsContent>
+          <TabsContent value="notes"><StudioNotes projectId={projectId} subprojectId={subprojectId} /></TabsContent>
           <TabsContent value="shrink"><StudioShrink /></TabsContent>
           <TabsContent value="settings"><StudioSettings /></TabsContent>
         </Tabs>
