@@ -593,6 +593,51 @@ export default function HotReplies() {
           seedReplyAt={smsThread.replyAt}
         />
       )}
+
+      {/* Call provider picker — choose between RingCentral and Vapi (Twilio in-browser) */}
+      <AlertDialog open={!!callPicker} onOpenChange={(o) => !o && setCallPicker(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Place call with…</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose which phone system to use to call{" "}
+              <span className="font-mono text-foreground">{callPicker?.phone}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-1 py-4"
+              onClick={() => {
+                if (!callPicker) return;
+                if (callPicker.lead) openLead(callPicker.lead);
+                dialViaRingCentral(callPicker.phone);
+                setCallPicker(null);
+              }}
+            >
+              <PhoneCall className="h-5 w-5" />
+              <span className="font-semibold">RingCentral</span>
+              <span className="text-[10px] text-muted-foreground">Opens RingCentral app</span>
+            </Button>
+            <Button
+              className="h-auto flex-col gap-1 py-4"
+              onClick={() => {
+                if (!callPicker) return;
+                if (callPicker.lead) openLead(callPicker.lead);
+                dialViaTwilio(callPicker.phone, navigate);
+                setCallPicker(null);
+              }}
+            >
+              <Phone className="h-5 w-5" />
+              <span className="font-semibold">Vapi Phone</span>
+              <span className="text-[10px] opacity-80">In-browser dialer</span>
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
