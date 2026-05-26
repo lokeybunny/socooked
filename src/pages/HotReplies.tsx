@@ -548,7 +548,7 @@ export default function HotReplies() {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button disabled={selected.is_opt_out} onClick={() => dialViaTwilio(selected.phone, navigate)}>
+                  <Button disabled={selected.is_opt_out} onClick={() => setCallPicker({ phone: selected.phone, lead: selected })}>
                     <Phone /> Call Now
                   </Button>
                   <Select value={selected.call_status} onValueChange={(v) => updateStatus(selected.id, v)}>
