@@ -203,7 +203,8 @@ export default function HotReplies() {
     const notCalled = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called").length;
     const today = new Date().toISOString().slice(0, 10);
     const calledToday = rows.filter(r => r.call_status !== "not_called" && r.imported_at?.slice(0, 10) === today).length;
-    return { total, hot, pricing, callback, optOut, notCalled, calledToday };
+    const leads = rows.filter(r => r.is_lead).length;
+    return { total, hot, pricing, callback, optOut, notCalled, calledToday, leads };
   }, [rows]);
 
   const campaigns = useMemo(() => {
