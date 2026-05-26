@@ -31,9 +31,11 @@ export default function PortalSign() {
         const { data: docs } = await supabase.from('documents').select('*').eq('thread_id', threadId);
         setDocuments(docs || []);
 
-        // Check if already signed
-        const { data: sigs } = await supabase.from('signatures').select('*').eq('customer_id', t.customer_id);
-        if (sigs && sigs.length > 0) setSigned(true);
+        // Check if already signed (safe RPC; no PII exposed to anon)
+        const { data: exists } = await supabase.rpc('customer_signature_exists', {
+          _customer_id: t.customer_id,
+        });
+        if (exists === true) setSigned(true);
 
         // Check for invoice
         const { data: inv } = await supabase.from('invoices').select('*').eq('customer_id', t.customer_id).order('created_at', { ascending: false }).limit(1);

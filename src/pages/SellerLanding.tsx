@@ -52,10 +52,9 @@ export default function SellerLanding() {
     if (!slug) return;
     (async () => {
       const { data } = await supabase
-        .from('lw_landing_pages')
+        .from('lw_landing_pages_public' as any)
         .select('*')
         .eq('slug', slug)
-        .eq('is_active', true)
         .maybeSingle();
       if (data) {
         setPage({

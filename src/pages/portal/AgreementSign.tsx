@@ -44,13 +44,11 @@ export default function AgreementSign() {
       setDoc(d);
       // Customer data not available to public users - signer fills in their own name/email
 
-      // Check if already signed
-      const { data: sigs } = await supabase
-        .from('signatures')
-        .select('id')
-        .eq('document_id', documentId)
-        .limit(1);
-      if (sigs && sigs.length > 0) setSigned(true);
+      // Check if already signed (uses safe RPC; no PII exposed to anon)
+      const { data: exists } = await supabase.rpc('document_signature_exists', {
+        _document_id: documentId,
+      });
+      if (exists === true) setSigned(true);
 
       // Load agreement text - try file_url first (public), then storage (auth)
       if (d.file_url) {
