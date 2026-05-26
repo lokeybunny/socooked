@@ -438,7 +438,7 @@ export default function HotReplies() {
                         {r.is_opt_out ? (
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
-                          <div className="flex justify-end gap-1">
+                          <div className="flex justify-end gap-1 flex-wrap">
                             <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
@@ -452,6 +452,16 @@ export default function HotReplies() {
                               <MessageSquare className="h-3 w-3" /> Text
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
+                            {filter === "triage" && (
+                              <Select value={triageBucket(r)} onValueChange={(v) => setTriage(r.id, v as any)}>
+                                <SelectTrigger className="h-8 w-[130px] text-xs" title="Move to bucket"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="interested">👍 Interested</SelectItem>
+                                  <SelectItem value="maybe">❓ Maybe</SelectItem>
+                                  <SelectItem value="not_interested">👎 Not Interested</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                         )}
                       </TableCell>
