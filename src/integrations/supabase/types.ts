@@ -2728,8 +2728,10 @@ export type Database = {
           id: string
           imported_at: string
           is_hot: boolean
+          is_lead: boolean
           is_opt_out: boolean
           last_name: string | null
+          marked_lead_at: string | null
           notes: string | null
           original_date: string | null
           original_time: string | null
@@ -2753,8 +2755,10 @@ export type Database = {
           id?: string
           imported_at?: string
           is_hot?: boolean
+          is_lead?: boolean
           is_opt_out?: boolean
           last_name?: string | null
+          marked_lead_at?: string | null
           notes?: string | null
           original_date?: string | null
           original_time?: string | null
@@ -2778,8 +2782,10 @@ export type Database = {
           id?: string
           imported_at?: string
           is_hot?: boolean
+          is_lead?: boolean
           is_opt_out?: boolean
           last_name?: string | null
+          marked_lead_at?: string | null
           notes?: string | null
           original_date?: string | null
           original_time?: string | null
