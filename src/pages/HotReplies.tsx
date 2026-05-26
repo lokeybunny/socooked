@@ -44,23 +44,20 @@ function dialViaTwilio(phone: string, navigate: (p: string) => void) {
 }
 
 function dialViaRingCentral(phone: string) {
-  // Open the RingCentral desktop/mobile app via its registered protocol handler
-  // and auto-dial the number. Uses a hidden iframe so the current page doesn't
-  // navigate away if the protocol isn't registered.
+  // Launch the RingCentral desktop/mobile app via its registered protocol handler
+  // and auto-dial the number. Click a transient <a> tag so the launch comes from
+  // a real user-gesture handler (required to trigger external app protocols) and
+  // the Lovable preview iframe doesn't navigate to a tel: page.
   const digits = (phone || "").replace(/\D/g, "");
   const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
   const url = `rcmobile://call?number=${encodeURIComponent(e164)}`;
-  try {
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 2000);
-  } catch {
-    window.location.href = url;
-  }
-  // Fallback: also try tel: in case RingCentral is the system default dialer
-  setTimeout(() => { try { window.open(`tel:${e164}`, "_self"); } catch {} }, 600);
+  const a = document.createElement("a");
+  a.href = url;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { try { document.body.removeChild(a); } catch {} }, 1000);
 }
 
 type Reply = {
