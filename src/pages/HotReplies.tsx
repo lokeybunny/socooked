@@ -44,14 +44,23 @@ function dialViaTwilio(phone: string, navigate: (p: string) => void) {
 }
 
 function dialViaRingCentral(phone: string) {
-  // Hand off to RingCentral desktop/mobile app via its registered protocol handler.
-  // Falls back to tel: if RingCentral is set as the system default phone app.
-  const clean = (phone || "").replace(/[^\d+]/g, "");
+  // Open the RingCentral desktop/mobile app via its registered protocol handler
+  // and auto-dial the number. Uses a hidden iframe so the current page doesn't
+  // navigate away if the protocol isn't registered.
+  const digits = (phone || "").replace(/\D/g, "");
+  const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+  const url = `rcmobile://call?number=${encodeURIComponent(e164)}`;
   try {
-    window.location.href = `rcmobile://call?number=${encodeURIComponent(clean)}`;
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 2000);
   } catch {
-    window.location.href = `tel:${clean}`;
+    window.location.href = url;
   }
+  // Fallback: also try tel: in case RingCentral is the system default dialer
+  setTimeout(() => { try { window.open(`tel:${e164}`, "_self"); } catch {} }, 600);
 }
 
 type Reply = {
