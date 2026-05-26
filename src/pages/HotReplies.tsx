@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare, ThumbsUp, ThumbsDown, HelpCircle } from "lucide-react";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare, ThumbsUp, ThumbsDown, HelpCircle, Star, UserPlus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 
@@ -73,6 +73,7 @@ type Reply = {
   call_status: string;
   notes: string | null;
   triage_override?: string | null;
+  is_lead?: boolean;
 };
 
 const HOT_CLASSES = ["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST", "NEEDS_REVIEW"];
@@ -202,7 +203,8 @@ export default function HotReplies() {
     const notCalled = rows.filter(r => r.is_hot && !r.is_opt_out && r.call_status === "not_called").length;
     const today = new Date().toISOString().slice(0, 10);
     const calledToday = rows.filter(r => r.call_status !== "not_called" && r.imported_at?.slice(0, 10) === today).length;
-    return { total, hot, pricing, callback, optOut, notCalled, calledToday };
+    const leads = rows.filter(r => r.is_lead).length;
+    return { total, hot, pricing, callback, optOut, notCalled, calledToday, leads };
   }, [rows]);
 
   const campaigns = useMemo(() => {
@@ -223,6 +225,8 @@ export default function HotReplies() {
       list = calledRows.filter(r => triageBucket(r) === triageTab);
     } else if (filter === "called") {
       list = list.filter(r => r.call_status !== "not_called");
+    } else if (filter === "leads") {
+      list = list.filter(r => r.is_lead);
     } else {
       list = list.filter(r => r.call_status === "not_called");
       if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out && isOriginalToday(r.original_date));
@@ -274,6 +278,17 @@ export default function HotReplies() {
     if (error) { toast.error(error.message); return; }
     setRows(prev => prev.map(r => r.id === id ? { ...r, triage_override: bucket } : r));
     toast.success(`Moved to ${bucket.replace('_', ' ')}`);
+  };
+
+  const toggleLead = async (id: string, makeLead: boolean) => {
+    const patch: any = makeLead
+      ? { is_lead: true, marked_lead_at: new Date().toISOString() }
+      : { is_lead: false };
+    const { error } = await supabase.from("hot_reply_imports").update(patch).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setRows(prev => prev.map(r => r.id === id ? { ...r, is_lead: makeLead } : r));
+    if (selected?.id === id) setSelected({ ...selected, is_lead: makeLead } as any);
+    toast.success(makeLead ? "Marked as Lead" : "Removed from Leads");
   };
 
   const addNote = async () => {
@@ -347,6 +362,7 @@ export default function HotReplies() {
               <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="hot">🔥 Hot Only ({stats.hot})</SelectItem>
+                <SelectItem value="leads">⭐ Leads ({stats.leads})</SelectItem>
                 <SelectItem value="needs_review">Needs Review</SelectItem>
                 <SelectItem value="pricing">Pricing Questions</SelectItem>
                 <SelectItem value="callback">Callback Requests</SelectItem>
@@ -431,7 +447,14 @@ export default function HotReplies() {
                   {filtered.map(r => (
                     <TableRow key={r.id} className={r.is_opt_out ? "bg-red-500/5" : ""}>
                       <TableCell>
-                        <div className="font-medium">{[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          {[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}
+                          {r.is_lead && (
+                            <Badge variant="outline" className="bg-yellow-500/15 text-yellow-500 border-yellow-500/30 text-[10px] px-1.5 py-0">
+                              <Star className="h-2.5 w-2.5 mr-0.5 fill-current" /> Lead
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">{fmtPhone(r.phone)}</div>
                       </TableCell>
                       <TableCell className="max-w-md"><div className="text-sm whitespace-pre-wrap break-words">{r.reply_text}</div></TableCell>
@@ -465,6 +488,19 @@ export default function HotReplies() {
                               <MessageSquare className="h-3 w-3" /> Text
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={r.is_lead
+                                ? "border-yellow-500/50 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
+                                : "border-yellow-500/30 text-yellow-500/80 hover:bg-yellow-500/10"}
+                              onClick={() => toggleLead(r.id, !r.is_lead)}
+                              title={r.is_lead ? "Unmark as Lead" : "Mark as Lead"}
+                            >
+                              {r.is_lead
+                                ? <><Star className="h-3 w-3 fill-current" /> Lead</>
+                                : <><UserPlus className="h-3 w-3" /> Lead</>}
+                            </Button>
                             {filter === "triage" && (
                               <Select value={triageBucket(r)} onValueChange={(v) => setTriage(r.id, v as any)}>
                                 <SelectTrigger className="h-8 w-[130px] text-xs" title="Move to bucket"><SelectValue /></SelectTrigger>
@@ -562,6 +598,16 @@ export default function HotReplies() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => updateStatus(selected.id, "follow_up")}>Move to Follow-Up</Button>
                   <Button variant="outline" onClick={() => updateStatus(selected.id, "not_interested")}>Mark Not Interested</Button>
+                  <Button
+                    variant="outline"
+                    className={selected.is_lead
+                      ? "col-span-2 border-yellow-500/50 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
+                      : "col-span-2 border-yellow-500/40 text-yellow-500"}
+                    onClick={() => toggleLead(selected.id, !selected.is_lead)}
+                  >
+                    <Star className={`h-4 w-4 ${selected.is_lead ? 'fill-current' : ''}`} />
+                    {selected.is_lead ? "Unmark as Lead" : "Mark as Lead"}
+                  </Button>
                   <Button variant="outline" onClick={() => removeFromHot(selected.id)} className="col-span-2">Remove from Hot Replies</Button>
                 </div>
                 <div>
