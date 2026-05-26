@@ -362,6 +362,7 @@ export default function HotReplies() {
               <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="hot">🔥 Hot Only ({stats.hot})</SelectItem>
+                <SelectItem value="leads">⭐ Leads ({stats.leads})</SelectItem>
                 <SelectItem value="needs_review">Needs Review</SelectItem>
                 <SelectItem value="pricing">Pricing Questions</SelectItem>
                 <SelectItem value="callback">Callback Requests</SelectItem>
