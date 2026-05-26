@@ -232,7 +232,7 @@ export default function HotReplies() {
       return sortDir === 'latest' ? db - da : da - db;
     });
     return list;
-  }, [rows, filter, campaignFilter, search, sortDir]);
+  }, [rows, calledRows, filter, triageTab, campaignFilter, search, sortDir]);
 
   const openLead = async (r: Reply) => {
     setSelected(r);
