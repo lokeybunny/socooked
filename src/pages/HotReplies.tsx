@@ -119,6 +119,7 @@ export default function HotReplies() {
   const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null; replyText: string | null; replyAt: string | null } | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [noteList, setNoteList] = useState<any[]>([]);
+  const [callPicker, setCallPicker] = useState<{ phone: string; lead?: Reply | null } | null>(null);
 
   const load = async () => {
     setLoading(true);
