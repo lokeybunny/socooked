@@ -488,6 +488,19 @@ export default function HotReplies() {
                               <MessageSquare className="h-3 w-3" /> Text
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={r.is_lead
+                                ? "border-yellow-500/50 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
+                                : "border-yellow-500/30 text-yellow-500/80 hover:bg-yellow-500/10"}
+                              onClick={() => toggleLead(r.id, !r.is_lead)}
+                              title={r.is_lead ? "Unmark as Lead" : "Mark as Lead"}
+                            >
+                              {r.is_lead
+                                ? <><Star className="h-3 w-3 fill-current" /> Lead</>
+                                : <><UserPlus className="h-3 w-3" /> Lead</>}
+                            </Button>
                             {filter === "triage" && (
                               <Select value={triageBucket(r)} onValueChange={(v) => setTriage(r.id, v as any)}>
                                 <SelectTrigger className="h-8 w-[130px] text-xs" title="Move to bucket"><SelectValue /></SelectTrigger>
