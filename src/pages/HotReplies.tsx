@@ -44,20 +44,35 @@ function dialViaTwilio(phone: string, navigate: (p: string) => void) {
 }
 
 function dialViaRingCentral(phone: string) {
-  // Launch the RingCentral desktop/mobile app via its registered protocol handler
-  // and auto-dial the number. Click a transient <a> tag so the launch comes from
-  // a real user-gesture handler (required to trigger external app protocols) and
-  // the Lovable preview iframe doesn't navigate to a tel: page.
+  // Launch the RingCentral desktop app and auto-dial. The preview is inside a
+  // sandboxed iframe, so we have to escape to the top window for the protocol
+  // handler to actually fire — otherwise the click is silently swallowed (or
+  // navigates the sidebar). We try the desktop URI first, then the mobile one.
   const digits = (phone || "").replace(/\D/g, "");
   const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
-  const url = `rcmobile://call?number=${encodeURIComponent(e164)}`;
-  const a = document.createElement("a");
-  a.href = url;
-  a.rel = "noopener";
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { try { document.body.removeChild(a); } catch {} }, 1000);
+  const desktopUrl = `rcapp://r/call?number=${encodeURIComponent(e164)}`;
+  const mobileUrl  = `rcmobile://call?number=${encodeURIComponent(e164)}`;
+
+  const launch = (href: string) => {
+    // window.open with _top breaks out of the Lovable preview iframe so the
+    // browser actually hands the URL off to the OS protocol handler.
+    const w = window.open(href, "_top");
+    if (!w) {
+      // Popup blocked — fall back to anchor click in current window
+      const a = document.createElement("a");
+      a.href = href;
+      a.target = "_top";
+      a.rel = "noopener";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { try { document.body.removeChild(a); } catch {} }, 1000);
+    }
+  };
+
+  launch(desktopUrl);
+  // Some installs only register the mobile scheme — fire it a moment later.
+  setTimeout(() => launch(mobileUrl), 250);
 }
 
 type Reply = {
