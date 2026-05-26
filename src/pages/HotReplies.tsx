@@ -412,7 +412,7 @@ export default function HotReplies() {
                         <div className="font-medium">{[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}</div>
                         <div className="text-xs text-muted-foreground">{fmtPhone(r.phone)}</div>
                       </TableCell>
-                      <TableCell className="max-w-xs"><div className="truncate text-sm">{r.reply_text}</div></TableCell>
+                      <TableCell className="max-w-md"><div className="text-sm whitespace-pre-wrap break-words">{r.reply_text}</div></TableCell>
                       <TableCell>
                         <Badge variant="outline" className={CLASS_COLORS[r.ai_classification || ""] || ""}>
                           {r.ai_classification || "—"}
