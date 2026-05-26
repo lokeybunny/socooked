@@ -20,7 +20,8 @@ const NOT_INTERESTED_CLASSES = new Set(["NEGATIVE", "OPT_OUT", "WRONG_NUMBER", "
 const INTERESTED_STATUSES = new Set(["interested", "follow_up", "appointment", "proposal", "closed"]);
 const NOT_INTERESTED_STATUSES = new Set(["not_interested"]);
 
-function triageBucket(r: { ai_classification: string | null; call_status: string; is_opt_out: boolean }): 'interested' | 'not_interested' | 'maybe' {
+function triageBucket(r: { ai_classification: string | null; call_status: string; is_opt_out: boolean; triage_override?: string | null }): 'interested' | 'not_interested' | 'maybe' {
+  if (r.triage_override === 'interested' || r.triage_override === 'not_interested' || r.triage_override === 'maybe') return r.triage_override;
   if (r.is_opt_out || NOT_INTERESTED_CLASSES.has(r.ai_classification || "") || NOT_INTERESTED_STATUSES.has(r.call_status)) return 'not_interested';
   if (INTERESTED_CLASSES.has(r.ai_classification || "") || INTERESTED_STATUSES.has(r.call_status)) return 'interested';
   return 'maybe';
@@ -59,6 +60,7 @@ type Reply = {
   is_opt_out: boolean;
   call_status: string;
   notes: string | null;
+  triage_override?: string | null;
 };
 
 const HOT_CLASSES = ["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST", "NEEDS_REVIEW"];
@@ -254,6 +256,13 @@ export default function HotReplies() {
     toast.success("Removed from Hot Replies");
   };
 
+  const setTriage = async (id: string, bucket: 'interested' | 'not_interested' | 'maybe') => {
+    const { error } = await supabase.from("hot_reply_imports").update({ triage_override: bucket } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setRows(prev => prev.map(r => r.id === id ? { ...r, triage_override: bucket } : r));
+    toast.success(`Moved to ${bucket.replace('_', ' ')}`);
+  };
+
   const addNote = async () => {
     if (!selected || !noteInput.trim()) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -429,7 +438,7 @@ export default function HotReplies() {
                         {r.is_opt_out ? (
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
-                          <div className="flex justify-end gap-1">
+                          <div className="flex justify-end gap-1 flex-wrap">
                             <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
@@ -443,6 +452,16 @@ export default function HotReplies() {
                               <MessageSquare className="h-3 w-3" /> Text
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => openLead(r)}>Open</Button>
+                            {filter === "triage" && (
+                              <Select value={triageBucket(r)} onValueChange={(v) => setTriage(r.id, v as any)}>
+                                <SelectTrigger className="h-8 w-[130px] text-xs" title="Move to bucket"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="interested">👍 Interested</SelectItem>
+                                  <SelectItem value="maybe">❓ Maybe</SelectItem>
+                                  <SelectItem value="not_interested">👎 Not Interested</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                         )}
                       </TableCell>
