@@ -60,6 +60,7 @@ type Reply = {
   is_opt_out: boolean;
   call_status: string;
   notes: string | null;
+  triage_override?: string | null;
 };
 
 const HOT_CLASSES = ["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST", "NEEDS_REVIEW"];
