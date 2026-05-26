@@ -197,7 +197,18 @@ export default function HotReplies() {
 
   const filtered = useMemo(() => {
     let list = rows;
-    if (filter === "called") {
+  const calledRows = useMemo(() => rows.filter(r => r.call_status !== "not_called"), [rows]);
+  const triageCounts = useMemo(() => {
+    const c = { interested: 0, not_interested: 0, maybe: 0 };
+    calledRows.forEach(r => { c[triageBucket(r)]++; });
+    return c;
+  }, [calledRows]);
+
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (filter === "triage") {
+      list = calledRows.filter(r => triageBucket(r) === triageTab);
+    } else if (filter === "called") {
       list = list.filter(r => r.call_status !== "not_called");
     } else {
       list = list.filter(r => r.call_status === "not_called");
