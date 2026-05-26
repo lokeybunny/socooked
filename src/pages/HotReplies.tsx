@@ -348,6 +348,38 @@ export default function HotReplies() {
           </CardContent>
         </Card>
 
+        {/* Triage sub-tabs — only when "Triage" is selected, divides already-called/texted into interest buckets */}
+        {filter === "triage" && (
+          <Card>
+            <CardContent className="p-3">
+              <Tabs value={triageTab} onValueChange={(v) => setTriageTab(v as any)}>
+                <TabsList className="grid w-full max-w-xl grid-cols-3">
+                  <TabsTrigger value="interested" className="gap-2">
+                    <ThumbsUp className="h-3.5 w-3.5 text-emerald-500" />
+                    Interested
+                    <Badge variant="outline" className="ml-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">{triageCounts.interested}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="maybe" className="gap-2">
+                    <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
+                    Maybe
+                    <Badge variant="outline" className="ml-1 bg-amber-500/10 text-amber-500 border-amber-500/30">{triageCounts.maybe}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="not_interested" className="gap-2">
+                    <ThumbsDown className="h-3.5 w-3.5 text-zinc-500" />
+                    Not Interested
+                    <Badge variant="outline" className="ml-1 bg-zinc-500/10 text-zinc-500 border-zinc-500/30">{triageCounts.not_interested}</Badge>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {triageTab === 'interested' && 'Anyone remotely interested — positive replies, pricing questions, callback requests, and leads marked interested/follow-up/appointment/proposal/closed.'}
+                {triageTab === 'maybe' && 'AI could not confidently classify these — review manually and re-bucket.'}
+                {triageTab === 'not_interested' && 'Negative replies, opt-outs, wrong numbers, auto-replies, and leads marked not interested.'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Table */}
         <Card>
           <CardContent className="p-0">
