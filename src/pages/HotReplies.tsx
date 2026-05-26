@@ -330,6 +330,7 @@ export default function HotReplies() {
                 <SelectItem value="callback">Callback Requests</SelectItem>
                 <SelectItem value="not_called">Not Called/Texted Yet</SelectItem>
                 <SelectItem value="called">Already Called/Texted</SelectItem>
+                <SelectItem value="triage">🧭 Triage (Called) — Interest Buckets</SelectItem>
                 <SelectItem value="opt_outs">Opt-Outs (do not call)</SelectItem>
                 <SelectItem value="all">All Replies</SelectItem>
               </SelectContent>
