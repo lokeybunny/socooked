@@ -452,7 +452,7 @@ export default function HotReplies() {
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
                           <div className="flex justify-end gap-1 flex-wrap">
-                            <Button size="sm" variant="default" onClick={() => setCallPicker({ phone: r.phone, lead: r })}>
+                            <Button size="sm" variant="default" onClick={() => copyPhoneToClipboard(r.phone)}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
                             <Button
