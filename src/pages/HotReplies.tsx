@@ -73,6 +73,7 @@ type Reply = {
   call_status: string;
   notes: string | null;
   triage_override?: string | null;
+  is_lead?: boolean;
 };
 
 const HOT_CLASSES = ["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST", "NEEDS_REVIEW"];
