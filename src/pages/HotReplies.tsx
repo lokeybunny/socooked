@@ -11,7 +11,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare } from "lucide-react";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare, ThumbsUp, ThumbsDown, HelpCircle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Triage classification — buckets already-called/texted leads into Interested / Not Interested / Maybe
+const INTERESTED_CLASSES = new Set(["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST"]);
+const NOT_INTERESTED_CLASSES = new Set(["NEGATIVE", "OPT_OUT", "WRONG_NUMBER", "AUTO_REPLY"]);
+const INTERESTED_STATUSES = new Set(["interested", "follow_up", "appointment", "proposal", "closed"]);
+const NOT_INTERESTED_STATUSES = new Set(["not_interested"]);
+
+function triageBucket(r: { ai_classification: string | null; call_status: string; is_opt_out: boolean }): 'interested' | 'not_interested' | 'maybe' {
+  if (r.is_opt_out || NOT_INTERESTED_CLASSES.has(r.ai_classification || "") || NOT_INTERESTED_STATUSES.has(r.call_status)) return 'not_interested';
+  if (INTERESTED_CLASSES.has(r.ai_classification || "") || INTERESTED_STATUSES.has(r.call_status)) return 'interested';
+  return 'maybe';
+}
 import SmsThreadPopup from "@/components/phone/SmsThreadPopup";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -83,6 +96,7 @@ export default function HotReplies() {
   const [sheetName, setSheetName] = useState("Sheet1");
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("hot");
+  const [triageTab, setTriageTab] = useState<'interested' | 'not_interested' | 'maybe'>('interested');
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<'latest' | 'earliest'>(() => {
@@ -181,9 +195,18 @@ export default function HotReplies() {
     return ["all", ...Array.from(set)];
   }, [rows]);
 
+  const calledRows = useMemo(() => rows.filter(r => r.call_status !== "not_called"), [rows]);
+  const triageCounts = useMemo(() => {
+    const c = { interested: 0, not_interested: 0, maybe: 0 };
+    calledRows.forEach(r => { c[triageBucket(r)]++; });
+    return c;
+  }, [calledRows]);
+
   const filtered = useMemo(() => {
     let list = rows;
-    if (filter === "called") {
+    if (filter === "triage") {
+      list = calledRows.filter(r => triageBucket(r) === triageTab);
+    } else if (filter === "called") {
       list = list.filter(r => r.call_status !== "not_called");
     } else {
       list = list.filter(r => r.call_status === "not_called");
@@ -209,7 +232,7 @@ export default function HotReplies() {
       return sortDir === 'latest' ? db - da : da - db;
     });
     return list;
-  }, [rows, filter, campaignFilter, search, sortDir]);
+  }, [rows, calledRows, filter, triageTab, campaignFilter, search, sortDir]);
 
   const openLead = async (r: Reply) => {
     setSelected(r);
@@ -307,6 +330,7 @@ export default function HotReplies() {
                 <SelectItem value="callback">Callback Requests</SelectItem>
                 <SelectItem value="not_called">Not Called/Texted Yet</SelectItem>
                 <SelectItem value="called">Already Called/Texted</SelectItem>
+                <SelectItem value="triage">🧭 Triage (Called) — Interest Buckets</SelectItem>
                 <SelectItem value="opt_outs">Opt-Outs (do not call)</SelectItem>
                 <SelectItem value="all">All Replies</SelectItem>
               </SelectContent>
@@ -323,6 +347,38 @@ export default function HotReplies() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Triage sub-tabs — only when "Triage" is selected, divides already-called/texted into interest buckets */}
+        {filter === "triage" && (
+          <Card>
+            <CardContent className="p-3">
+              <Tabs value={triageTab} onValueChange={(v) => setTriageTab(v as any)}>
+                <TabsList className="grid w-full max-w-xl grid-cols-3">
+                  <TabsTrigger value="interested" className="gap-2">
+                    <ThumbsUp className="h-3.5 w-3.5 text-emerald-500" />
+                    Interested
+                    <Badge variant="outline" className="ml-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/30">{triageCounts.interested}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="maybe" className="gap-2">
+                    <HelpCircle className="h-3.5 w-3.5 text-amber-500" />
+                    Maybe
+                    <Badge variant="outline" className="ml-1 bg-amber-500/10 text-amber-500 border-amber-500/30">{triageCounts.maybe}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="not_interested" className="gap-2">
+                    <ThumbsDown className="h-3.5 w-3.5 text-zinc-500" />
+                    Not Interested
+                    <Badge variant="outline" className="ml-1 bg-zinc-500/10 text-zinc-500 border-zinc-500/30">{triageCounts.not_interested}</Badge>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {triageTab === 'interested' && 'Anyone remotely interested — positive replies, pricing questions, callback requests, and leads marked interested/follow-up/appointment/proposal/closed.'}
+                {triageTab === 'maybe' && 'AI could not confidently classify these — review manually and re-bucket.'}
+                {triageTab === 'not_interested' && 'Negative replies, opt-outs, wrong numbers, auto-replies, and leads marked not interested.'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Table */}
         <Card>
