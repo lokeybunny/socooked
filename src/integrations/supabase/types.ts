@@ -2737,6 +2737,7 @@ export type Database = {
           reply_text: string
           sheet_row_id: string | null
           source: string | null
+          triage_override: string | null
           updated_at: string
         }
         Insert: {
@@ -2761,6 +2762,7 @@ export type Database = {
           reply_text: string
           sheet_row_id?: string | null
           source?: string | null
+          triage_override?: string | null
           updated_at?: string
         }
         Update: {
@@ -2785,6 +2787,7 @@ export type Database = {
           reply_text?: string
           sheet_row_id?: string | null
           source?: string | null
+          triage_override?: string | null
           updated_at?: string
         }
         Relationships: []

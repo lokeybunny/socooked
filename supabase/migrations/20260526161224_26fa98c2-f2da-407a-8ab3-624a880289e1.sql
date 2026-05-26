@@ -1,0 +1,1 @@
+ALTER TABLE public.hot_reply_imports ADD COLUMN IF NOT EXISTS triage_override TEXT CHECK (triage_override IN ('interested','not_interested','maybe'));
