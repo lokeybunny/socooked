@@ -42,6 +42,17 @@ function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   }, 400);
 }
 
+function dialViaRingCentral(phone: string) {
+  // Hand off to RingCentral desktop/mobile app via its registered protocol handler.
+  // Falls back to tel: if RingCentral is set as the system default phone app.
+  const clean = (phone || "").replace(/[^\d+]/g, "");
+  try {
+    window.location.href = `rcmobile://call?number=${encodeURIComponent(clean)}`;
+  } catch {
+    window.location.href = `tel:${clean}`;
+  }
+}
+
 type Reply = {
   id: string;
   first_name: string | null;
