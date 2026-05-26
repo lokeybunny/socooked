@@ -224,6 +224,8 @@ export default function HotReplies() {
       list = calledRows.filter(r => triageBucket(r) === triageTab);
     } else if (filter === "called") {
       list = list.filter(r => r.call_status !== "not_called");
+    } else if (filter === "leads") {
+      list = list.filter(r => r.is_lead);
     } else {
       list = list.filter(r => r.call_status === "not_called");
       if (filter === "hot") list = list.filter(r => r.is_hot && !r.is_opt_out && isOriginalToday(r.original_date));
