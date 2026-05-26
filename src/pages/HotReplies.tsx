@@ -11,7 +11,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare } from "lucide-react";
+import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare, ThumbsUp, ThumbsDown, HelpCircle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Triage classification — buckets already-called/texted leads into Interested / Not Interested / Maybe
+const INTERESTED_CLASSES = new Set(["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST"]);
+const NOT_INTERESTED_CLASSES = new Set(["NEGATIVE", "OPT_OUT", "WRONG_NUMBER", "AUTO_REPLY"]);
+const INTERESTED_STATUSES = new Set(["interested", "follow_up", "appointment", "proposal", "closed"]);
+const NOT_INTERESTED_STATUSES = new Set(["not_interested"]);
+
+function triageBucket(r: { ai_classification: string | null; call_status: string; is_opt_out: boolean }): 'interested' | 'not_interested' | 'maybe' {
+  if (r.is_opt_out || NOT_INTERESTED_CLASSES.has(r.ai_classification || "") || NOT_INTERESTED_STATUSES.has(r.call_status)) return 'not_interested';
+  if (INTERESTED_CLASSES.has(r.ai_classification || "") || INTERESTED_STATUSES.has(r.call_status)) return 'interested';
+  return 'maybe';
+}
 import SmsThreadPopup from "@/components/phone/SmsThreadPopup";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
