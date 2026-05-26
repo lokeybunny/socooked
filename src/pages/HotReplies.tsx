@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Phone, RefreshCw, Settings, Flame, AlertTriangle, Ban, PhoneOff, DollarSign, PhoneCall, Clock, Loader2, ArrowUpDown, MessageSquare, ThumbsUp, ThumbsDown, HelpCircle } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 
 // Triage classification — buckets already-called/texted leads into Interested / Not Interested / Maybe
 const INTERESTED_CLASSES = new Set(["HOT_POSITIVE", "WARM_INTERESTED", "PRICING_QUESTION", "CALLBACK_REQUEST"]);
@@ -40,6 +41,17 @@ function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   setTimeout(() => {
     window.dispatchEvent(new CustomEvent("twilio:dial", { detail: { phone } }));
   }, 400);
+}
+
+function dialViaRingCentral(phone: string) {
+  // Hand off to RingCentral desktop/mobile app via its registered protocol handler.
+  // Falls back to tel: if RingCentral is set as the system default phone app.
+  const clean = (phone || "").replace(/[^\d+]/g, "");
+  try {
+    window.location.href = `rcmobile://call?number=${encodeURIComponent(clean)}`;
+  } catch {
+    window.location.href = `tel:${clean}`;
+  }
 }
 
 type Reply = {
@@ -108,6 +120,7 @@ export default function HotReplies() {
   const [smsThread, setSmsThread] = useState<{ phone: string; name: string | null; replyText: string | null; replyAt: string | null } | null>(null);
   const [noteInput, setNoteInput] = useState("");
   const [noteList, setNoteList] = useState<any[]>([]);
+  const [callPicker, setCallPicker] = useState<{ phone: string; lead?: Reply | null } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -439,7 +452,7 @@ export default function HotReplies() {
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
                           <div className="flex justify-end gap-1 flex-wrap">
-                            <Button size="sm" variant="default" onClick={() => { openLead(r); dialViaTwilio(r.phone, navigate); }}>
+                            <Button size="sm" variant="default" onClick={() => setCallPicker({ phone: r.phone, lead: r })}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
                             <Button
@@ -536,7 +549,7 @@ export default function HotReplies() {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button disabled={selected.is_opt_out} onClick={() => dialViaTwilio(selected.phone, navigate)}>
+                  <Button disabled={selected.is_opt_out} onClick={() => setCallPicker({ phone: selected.phone, lead: selected })}>
                     <Phone /> Call Now
                   </Button>
                   <Select value={selected.call_status} onValueChange={(v) => updateStatus(selected.id, v)}>
@@ -581,6 +594,51 @@ export default function HotReplies() {
           seedReplyAt={smsThread.replyAt}
         />
       )}
+
+      {/* Call provider picker — choose between RingCentral and Vapi (Twilio in-browser) */}
+      <AlertDialog open={!!callPicker} onOpenChange={(o) => !o && setCallPicker(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Place call with…</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose which phone system to use to call{" "}
+              <span className="font-mono text-foreground">{callPicker?.phone}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="h-auto flex-col gap-1 py-4"
+              onClick={() => {
+                if (!callPicker) return;
+                if (callPicker.lead) openLead(callPicker.lead);
+                dialViaRingCentral(callPicker.phone);
+                setCallPicker(null);
+              }}
+            >
+              <PhoneCall className="h-5 w-5" />
+              <span className="font-semibold">RingCentral</span>
+              <span className="text-[10px] text-muted-foreground">Opens RingCentral app</span>
+            </Button>
+            <Button
+              className="h-auto flex-col gap-1 py-4"
+              onClick={() => {
+                if (!callPicker) return;
+                if (callPicker.lead) openLead(callPicker.lead);
+                dialViaTwilio(callPicker.phone, navigate);
+                setCallPicker(null);
+              }}
+            >
+              <Phone className="h-5 w-5" />
+              <span className="font-semibold">Vapi Phone</span>
+              <span className="text-[10px] opacity-80">In-browser dialer</span>
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
