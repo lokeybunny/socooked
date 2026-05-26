@@ -57,10 +57,11 @@ export default function SellerLanding() {
         .eq('slug', slug)
         .maybeSingle();
       if (data) {
+        const row = data as any;
         setPage({
-          ...data,
-          reviews: (data.reviews as LandingPage['reviews']) || [],
-          meta: (data.meta as Record<string, unknown>) || {},
+          ...row,
+          reviews: (row.reviews as LandingPage['reviews']) || [],
+          meta: (row.meta as Record<string, unknown>) || {},
         });
       } else {
         setNotFound(true);
