@@ -4100,6 +4100,13 @@ export type Database = {
             referencedRelation: "lw_landing_pages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lw_client_lead_caps_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "lw_landing_pages_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       lw_deals: {
@@ -4334,6 +4341,13 @@ export type Database = {
             columns: ["landing_page_id"]
             isOneToOne: false
             referencedRelation: "lw_landing_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lw_landing_leads_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "lw_landing_pages_public"
             referencedColumns: ["id"]
           },
         ]
@@ -9643,6 +9657,63 @@ export type Database = {
       }
     }
     Views: {
+      lw_landing_pages_public: {
+        Row: {
+          accent_color: string | null
+          client_name: string | null
+          created_at: string | null
+          email: string | null
+          headline: string | null
+          id: string | null
+          is_active: boolean | null
+          logo_url: string | null
+          meta: Json | null
+          phone: string | null
+          photo_url: string | null
+          reviews: Json | null
+          slug: string | null
+          sub_headline: string | null
+          tagline: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          client_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          headline?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          logo_url?: string | null
+          meta?: Json | null
+          phone?: string | null
+          photo_url?: string | null
+          reviews?: Json | null
+          slug?: string | null
+          sub_headline?: string | null
+          tagline?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          client_name?: string | null
+          created_at?: string | null
+          email?: string | null
+          headline?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          logo_url?: string | null
+          meta?: Json | null
+          phone?: string | null
+          photo_url?: string | null
+          reviews?: Json | null
+          slug?: string | null
+          sub_headline?: string | null
+          tagline?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       state_verified_summary: {
         Row: {
           audited_count: number | null
@@ -9657,6 +9728,14 @@ export type Database = {
       }
     }
     Functions: {
+      customer_signature_exists: {
+        Args: { _customer_id: string }
+        Returns: boolean
+      }
+      document_signature_exists: {
+        Args: { _document_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
