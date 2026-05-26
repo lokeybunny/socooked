@@ -195,8 +195,6 @@ export default function HotReplies() {
     return ["all", ...Array.from(set)];
   }, [rows]);
 
-  const filtered = useMemo(() => {
-    let list = rows;
   const calledRows = useMemo(() => rows.filter(r => r.call_status !== "not_called"), [rows]);
   const triageCounts = useMemo(() => {
     const c = { interested: 0, not_interested: 0, maybe: 0 };
