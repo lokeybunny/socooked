@@ -43,36 +43,15 @@ function dialViaTwilio(phone: string, navigate: (p: string) => void) {
   }, 400);
 }
 
-function dialViaRingCentral(phone: string) {
-  // Launch the RingCentral desktop app and auto-dial. The preview is inside a
-  // sandboxed iframe, so we have to escape to the top window for the protocol
-  // handler to actually fire — otherwise the click is silently swallowed (or
-  // navigates the sidebar). We try the desktop URI first, then the mobile one.
+async function copyPhoneToClipboard(phone: string) {
   const digits = (phone || "").replace(/\D/g, "");
-  const e164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
-  const desktopUrl = `rcapp://r/call?number=${encodeURIComponent(e164)}`;
-  const mobileUrl  = `rcmobile://call?number=${encodeURIComponent(e164)}`;
-
-  const launch = (href: string) => {
-    // window.open with _top breaks out of the Lovable preview iframe so the
-    // browser actually hands the URL off to the OS protocol handler.
-    const w = window.open(href, "_top");
-    if (!w) {
-      // Popup blocked — fall back to anchor click in current window
-      const a = document.createElement("a");
-      a.href = href;
-      a.target = "_top";
-      a.rel = "noopener";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { try { document.body.removeChild(a); } catch {} }, 1000);
-    }
-  };
-
-  launch(desktopUrl);
-  // Some installs only register the mobile scheme — fire it a moment later.
-  setTimeout(() => launch(mobileUrl), 250);
+  const e164 = digits.length === 10 ? `+1${digits}` : digits.length ? `+${digits}` : phone;
+  try {
+    await navigator.clipboard.writeText(e164);
+    toast.success(`Copied ${e164}`);
+  } catch {
+    toast.error("Could not copy number");
+  }
 }
 
 type Reply = {
@@ -473,7 +452,7 @@ export default function HotReplies() {
                           <Badge variant="outline" className="bg-red-700/20 text-red-700 border-red-700/30"><Ban className="mr-1 h-3 w-3" /> DO NOT CALL</Badge>
                         ) : (
                           <div className="flex justify-end gap-1 flex-wrap">
-                            <Button size="sm" variant="default" onClick={() => setCallPicker({ phone: r.phone, lead: r })}>
+                            <Button size="sm" variant="default" onClick={() => copyPhoneToClipboard(r.phone)}>
                               <Phone className="h-3 w-3" /> Call
                             </Button>
                             <Button
@@ -570,7 +549,7 @@ export default function HotReplies() {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <Button disabled={selected.is_opt_out} onClick={() => setCallPicker({ phone: selected.phone, lead: selected })}>
+                  <Button disabled={selected.is_opt_out} onClick={() => copyPhoneToClipboard(selected.phone)}>
                     <Phone /> Call Now
                   </Button>
                   <Select value={selected.call_status} onValueChange={(v) => updateStatus(selected.id, v)}>
@@ -616,50 +595,6 @@ export default function HotReplies() {
         />
       )}
 
-      {/* Call provider picker — choose between RingCentral and Vapi (Twilio in-browser) */}
-      <AlertDialog open={!!callPicker} onOpenChange={(o) => !o && setCallPicker(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Place call with…</AlertDialogTitle>
-            <AlertDialogDescription>
-              Choose which phone system to use to call{" "}
-              <span className="font-mono text-foreground">{callPicker?.phone}</span>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="h-auto flex-col gap-1 py-4"
-              onClick={() => {
-                if (!callPicker) return;
-                if (callPicker.lead) openLead(callPicker.lead);
-                dialViaRingCentral(callPicker.phone);
-                setCallPicker(null);
-              }}
-            >
-              <PhoneCall className="h-5 w-5" />
-              <span className="font-semibold">RingCentral</span>
-              <span className="text-[10px] text-muted-foreground">Opens RingCentral app</span>
-            </Button>
-            <Button
-              className="h-auto flex-col gap-1 py-4"
-              onClick={() => {
-                if (!callPicker) return;
-                if (callPicker.lead) openLead(callPicker.lead);
-                dialViaTwilio(callPicker.phone, navigate);
-                setCallPicker(null);
-              }}
-            >
-              <Phone className="h-5 w-5" />
-              <span className="font-semibold">Vapi Phone</span>
-              <span className="text-[10px] opacity-80">In-browser dialer</span>
-            </Button>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AppLayout>
   );
 }
