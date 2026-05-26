@@ -96,6 +96,7 @@ export default function HotReplies() {
   const [sheetName, setSheetName] = useState("Sheet1");
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("hot");
+  const [triageTab, setTriageTab] = useState<'interested' | 'not_interested' | 'maybe'>('interested');
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<'latest' | 'earliest'>(() => {
