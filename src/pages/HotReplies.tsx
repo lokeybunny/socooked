@@ -598,6 +598,16 @@ export default function HotReplies() {
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => updateStatus(selected.id, "follow_up")}>Move to Follow-Up</Button>
                   <Button variant="outline" onClick={() => updateStatus(selected.id, "not_interested")}>Mark Not Interested</Button>
+                  <Button
+                    variant="outline"
+                    className={selected.is_lead
+                      ? "col-span-2 border-yellow-500/50 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
+                      : "col-span-2 border-yellow-500/40 text-yellow-500"}
+                    onClick={() => toggleLead(selected.id, !selected.is_lead)}
+                  >
+                    <Star className={`h-4 w-4 ${selected.is_lead ? 'fill-current' : ''}`} />
+                    {selected.is_lead ? "Unmark as Lead" : "Mark as Lead"}
+                  </Button>
                   <Button variant="outline" onClick={() => removeFromHot(selected.id)} className="col-span-2">Remove from Hot Replies</Button>
                 </div>
                 <div>
