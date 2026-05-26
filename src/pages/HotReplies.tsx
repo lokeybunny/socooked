@@ -277,6 +277,17 @@ export default function HotReplies() {
     toast.success(`Moved to ${bucket.replace('_', ' ')}`);
   };
 
+  const toggleLead = async (id: string, makeLead: boolean) => {
+    const patch: any = makeLead
+      ? { is_lead: true, marked_lead_at: new Date().toISOString() }
+      : { is_lead: false };
+    const { error } = await supabase.from("hot_reply_imports").update(patch).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setRows(prev => prev.map(r => r.id === id ? { ...r, is_lead: makeLead } : r));
+    if (selected?.id === id) setSelected({ ...selected, is_lead: makeLead } as any);
+    toast.success(makeLead ? "Marked as Lead" : "Removed from Leads");
+  };
+
   const addNote = async () => {
     if (!selected || !noteInput.trim()) return;
     const { data: { user } } = await supabase.auth.getUser();
