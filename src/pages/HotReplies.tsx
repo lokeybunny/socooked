@@ -20,7 +20,8 @@ const NOT_INTERESTED_CLASSES = new Set(["NEGATIVE", "OPT_OUT", "WRONG_NUMBER", "
 const INTERESTED_STATUSES = new Set(["interested", "follow_up", "appointment", "proposal", "closed"]);
 const NOT_INTERESTED_STATUSES = new Set(["not_interested"]);
 
-function triageBucket(r: { ai_classification: string | null; call_status: string; is_opt_out: boolean }): 'interested' | 'not_interested' | 'maybe' {
+function triageBucket(r: { ai_classification: string | null; call_status: string; is_opt_out: boolean; triage_override?: string | null }): 'interested' | 'not_interested' | 'maybe' {
+  if (r.triage_override === 'interested' || r.triage_override === 'not_interested' || r.triage_override === 'maybe') return r.triage_override;
   if (r.is_opt_out || NOT_INTERESTED_CLASSES.has(r.ai_classification || "") || NOT_INTERESTED_STATUSES.has(r.call_status)) return 'not_interested';
   if (INTERESTED_CLASSES.has(r.ai_classification || "") || INTERESTED_STATUSES.has(r.call_status)) return 'interested';
   return 'maybe';
