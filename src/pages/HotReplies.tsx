@@ -447,7 +447,14 @@ export default function HotReplies() {
                   {filtered.map(r => (
                     <TableRow key={r.id} className={r.is_opt_out ? "bg-red-500/5" : ""}>
                       <TableCell>
-                        <div className="font-medium">{[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          {[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}
+                          {r.is_lead && (
+                            <Badge variant="outline" className="bg-yellow-500/15 text-yellow-500 border-yellow-500/30 text-[10px] px-1.5 py-0">
+                              <Star className="h-2.5 w-2.5 mr-0.5 fill-current" /> Lead
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">{fmtPhone(r.phone)}</div>
                       </TableCell>
                       <TableCell className="max-w-md"><div className="text-sm whitespace-pre-wrap break-words">{r.reply_text}</div></TableCell>
