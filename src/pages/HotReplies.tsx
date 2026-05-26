@@ -256,6 +256,13 @@ export default function HotReplies() {
     toast.success("Removed from Hot Replies");
   };
 
+  const setTriage = async (id: string, bucket: 'interested' | 'not_interested' | 'maybe') => {
+    const { error } = await supabase.from("hot_reply_imports").update({ triage_override: bucket } as any).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setRows(prev => prev.map(r => r.id === id ? { ...r, triage_override: bucket } : r));
+    toast.success(`Moved to ${bucket.replace('_', ' ')}`);
+  };
+
   const addNote = async () => {
     if (!selected || !noteInput.trim()) return;
     const { data: { user } } = await supabase.auth.getUser();
