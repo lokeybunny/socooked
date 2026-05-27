@@ -246,13 +246,16 @@ async function findCustomerByPhone(phone: string): Promise<string | null> {
   const norm = normalizePhone(phone);
   if (!norm) return null;
   const last10 = norm.replace(/\D/g, "").slice(-10);
-  const { data } = await sb
-    .from("customers")
-    .select("id, phone, status, created_at")
-    .or(`phone.ilike.%${last10}%`)
-    .not("status", "in", "(dead,lost,archived,deleted)")
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const { data } = await dbWithTimeout<any>(
+    sb.from("customers")
+      .select("id, phone, status, created_at")
+      .or(`phone.ilike.%${last10}%`)
+      .not("status", "in", "(dead,lost,archived,deleted)")
+      .order("created_at", { ascending: false })
+      .limit(1),
+    4000,
+    "find_customer"
+  );
   return data && data[0] ? data[0].id : null;
 }
 
