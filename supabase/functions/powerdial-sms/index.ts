@@ -539,11 +539,11 @@ Deno.serve(async (req) => {
 
     // Manual cooldown — admin can pause Android SMS API for 24h via /sms → Cool Down
     try {
-      const { data: cd } = await sb
-        .from("app_settings")
-        .select("value")
-        .eq("key", "voidfix_manual_cooldown")
-        .maybeSingle();
+      const { data: cd } = await dbWithTimeout<any>(
+        sb.from("app_settings").select("value").eq("key", "voidfix_manual_cooldown").maybeSingle(),
+        4000,
+        "cooldown_check"
+      );
       const until = (cd?.value as any)?.sms_until;
       if (until && new Date(until).getTime() > Date.now()) {
         tStamp(`blocked by manual cooldown until ${until}`);
@@ -556,11 +556,11 @@ Deno.serve(async (req) => {
     if (!bypassDnd) {
       const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
       if (toLast10) {
-        const { data: dnd } = await sb
-          .from("sms_dnd_list")
-          .select("id, reason")
-          .eq("phone_last10", toLast10)
-          .limit(1);
+        const { data: dnd } = await dbWithTimeout<any>(
+          sb.from("sms_dnd_list").select("id, reason").eq("phone_last10", toLast10).limit(1),
+          4000,
+          "dnd_check"
+        );
         if (dnd && dnd[0]) {
           tStamp("blocked by DND list");
           return json({ ok: false, error: "dnd", reason: dnd[0].reason || "opted_out" }, 403);
