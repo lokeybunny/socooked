@@ -573,15 +573,18 @@ Deno.serve(async (req) => {
 
 
     if (source === "powerdial-voicemail-drop-sms" && callLogId) {
-      const { data: existing } = await sb
-        .from("communications")
-        .select("id")
-        .eq("type", "sms")
-        .eq("direction", "outbound")
-        .eq("provider", "voidfix")
-        .eq("metadata->>source", "powerdial-voicemail-drop-sms")
-        .eq("metadata->>call_log_id", callLogId)
-        .limit(1);
+      const { data: existing } = await dbWithTimeout<any>(
+        sb.from("communications")
+          .select("id")
+          .eq("type", "sms")
+          .eq("direction", "outbound")
+          .eq("provider", "voidfix")
+          .eq("metadata->>source", "powerdial-voicemail-drop-sms")
+          .eq("metadata->>call_log_id", callLogId)
+          .limit(1),
+        4000,
+        "vm_drop_dedup"
+      );
       if (existing?.[0]) return json({ ok: true, duplicate: true, id: existing[0].id });
     }
 
