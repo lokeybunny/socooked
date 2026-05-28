@@ -657,38 +657,42 @@ Deno.serve(async (req) => {
       console.warn("[powerdial-sms] log insert timed out — returning success anyway");
     }
 
-    // Hook Reply tracking — create a thread when the Warren Guru hook outbound is sent
+    // Hook Reply tracking — create a thread when the Warren Guru hook outbound is sent.
+    // Run in background so a slow DB can't hold the SMS response open.
     if (result.ok) {
-      try {
-        const lower = (message || "").toLowerCase();
-        const isVmHook = lower.includes("warren guru") && (lower.includes("voicemail") || lower.includes("voice mail"));
-        const isDroppedHook = source === "powerdial-dropped-call-sms" || (lower.includes("got disconnected") && lower.includes("warren"));
-        const isHook = isVmHook || isDroppedHook;
-        if (isHook) {
-          const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
-          if (toLast10 && toLast10.length === 10) {
-            // Skip if an open thread already exists in last 14 days
+      const lower = (message || "").toLowerCase();
+      const isVmHook = lower.includes("warren guru") && (lower.includes("voicemail") || lower.includes("voice mail"));
+      const isDroppedHook = source === "powerdial-dropped-call-sms" || (lower.includes("got disconnected") && lower.includes("warren"));
+      const isHook = isVmHook || isDroppedHook;
+      if (isHook) {
+        const toLast10 = normalizePhone(to).replace(/\D/g, "").slice(-10);
+        if (toLast10 && toLast10.length === 10) {
+          runInBackground((async () => {
             const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-            const { data: existingThread } = await sb
-              .from("hook_reply_threads")
-              .select("id")
-              .eq("phone_last10", toLast10)
-              .gte("created_at", fourteenDaysAgo)
-              .limit(1);
+            const { data: existingThread } = await dbWithTimeout<any>(
+              sb.from("hook_reply_threads")
+                .select("id")
+                .eq("phone_last10", toLast10)
+                .gte("created_at", fourteenDaysAgo)
+                .limit(1),
+              4000,
+              "hook_thread_dedup"
+            );
             if (!existingThread?.[0]) {
-              await sb.from("hook_reply_threads").insert({
-                phone: normalizePhone(to),
-                phone_last10: toLast10,
-                status: "awaiting_reply",
-                sentiment: "pending",
-                meta: { source, customer_id: customerId || null, outbound_body: message },
-              });
-              tStamp("hook_reply_threads row created");
+              await dbWithTimeout(
+                sb.from("hook_reply_threads").insert({
+                  phone: normalizePhone(to),
+                  phone_last10: toLast10,
+                  status: "awaiting_reply",
+                  sentiment: "pending",
+                  meta: { source, customer_id: customerId || null, outbound_body: message },
+                }),
+                4000,
+                "hook_thread_insert"
+              );
             }
-          }
+          })(), "hook-thread-create");
         }
-      } catch (e) {
-        console.error("[powerdial-sms] hook thread create error", e);
       }
     }
 
