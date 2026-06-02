@@ -9,6 +9,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
 import bundlerScreenshot from '@/assets/bundler-screenshot.png.asset.json';
+import { markPurchasePending } from '@/components/DiscordTicketReminder';
 
 const bundlerFeatures = [
   { emoji: '⚡', title: 'Blazing Fast Terminal', desc: 'Major speed & UI performance improvements for rendering and interactions.' },
@@ -234,6 +235,7 @@ export default function BundlerAcademy() {
         if (data?.payment_status === 'finished' || data?.payment_status === 'confirmed') {
           if (!notifiedRef.current) {
             notifiedRef.current = true;
+            markPurchasePending(data?.payin_hash || null);
             try {
               if ('Notification' in window) {
                 if (Notification.permission === 'granted') {
