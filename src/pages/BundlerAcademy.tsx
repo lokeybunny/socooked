@@ -195,6 +195,69 @@ export default function BundlerAcademy() {
   const totalSolDisplay = fmtSol(totalUsd);
   const canCheckout = totalUsd > 0 && !loading;
 
+  // ----- Dev 1-on-1 Training (SOL-canonical pricing) -----
+  const TRAIN_SOL_STANDARD = 2.5;
+  const TRAIN_SOL_LIFETIME = 1;
+  const LIFETIME_COUPON = '112786';
+  const [trainOpen, setTrainOpen] = useState(false);
+  const [trainHours, setTrainHours] = useState(1);
+  const [trainCoupon, setTrainCoupon] = useState('');
+  const [trainLoading, setTrainLoading] = useState(false);
+  const [trainPayment, setTrainPayment] = useState<Payment | null>(null);
+  const [trainStatus, setTrainStatus] = useState<string>('waiting');
+  const trainLifetime = trainCoupon.trim() === LIFETIME_COUPON;
+  const trainRate = trainLifetime ? TRAIN_SOL_LIFETIME : TRAIN_SOL_STANDARD;
+  const trainTotalSol = +(trainHours * trainRate).toFixed(4);
+
+  const openTraining = () => {
+    setTrainHours(1);
+    setTrainCoupon('');
+    setTrainPayment(null);
+    setTrainStatus('waiting');
+    setTrainOpen(true);
+  };
+
+  const startTraining = async () => {
+    if (trainTotalSol <= 0) return;
+    setTrainLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
+        body: {
+          action: 'create',
+          price_amount: trainTotalSol,
+          price_currency: 'sol',
+          pay_currency: 'sol',
+          order_description: `Warren Guru Dev 1-on-1 Training — ${trainHours}h${trainLifetime ? ' (Lifetime rate)' : ''}`,
+        },
+      });
+      if (error) throw error;
+      if (!data?.pay_address) throw new Error(data?.error || 'Could not create payment');
+      setTrainPayment(data);
+      setTrainStatus('waiting');
+    } catch (e: any) {
+      alert(`Payment error: ${e?.message || 'Could not start checkout'}`);
+    } finally {
+      setTrainLoading(false);
+    }
+  };
+
+  // Poll training payment status
+  useEffect(() => {
+    if (!trainPayment?.payment_id) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('nowpayments-create-invoice', {
+          body: { action: 'status', payment_id: trainPayment.payment_id },
+        });
+        if (data?.payment_status && !stopped) setTrainStatus(data.payment_status);
+      } catch {/* ignore */}
+    };
+    tick();
+    const id = window.setInterval(tick, 8000);
+    return () => { stopped = true; window.clearInterval(id); };
+  }, [trainPayment?.payment_id]);
+
   const openBuilder = () => {
     setVipSelected(true);
     setHours(0);
