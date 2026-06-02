@@ -447,6 +447,21 @@ export default function BundlerAcademy() {
             </p>
           </motion.div>
 
+          {/* Infographic */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}
+            className="relative rounded-3xl p-[1px] bg-gradient-to-br from-purple-500/40 via-amber-400/20 to-red-500/40 shadow-[0_0_80px_-15px_rgba(168,85,247,0.45)] mb-14"
+          >
+            <div className="rounded-3xl overflow-hidden bg-black/60 backdrop-blur-xl">
+              <img
+                src={rugsInfographic.url}
+                alt="Warren Guru VIP Members — how rugs work, why rugs happen, how we protect VIPs, and our VIP launch execution flow"
+                className="w-full h-auto block"
+                loading="lazy"
+              />
+            </div>
+          </motion.div>
+
           {/* The simple version */}
           <div className="grid md:grid-cols-2 gap-5 mb-12">
             {[
