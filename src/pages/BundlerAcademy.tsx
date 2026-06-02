@@ -546,7 +546,7 @@ export default function BundlerAcademy() {
                 <motion.button
                   key={i}
                   type="button"
-                  onClick={() => setChartUrl(item.link)}
+                  onClick={() => window.open(item.link, '_blank', 'noopener,noreferrer')}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ duration: 0.6, delay: i * 0.1 }}
                   className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/30 via-cyan-400/15 to-emerald-400/30 shadow-[0_0_40px_-15px_rgba(0,255,136,0.4)] hover:shadow-[0_0_60px_-10px_rgba(0,255,136,0.6)] transition-all block text-left"
                 >
