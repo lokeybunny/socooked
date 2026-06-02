@@ -1274,6 +1274,22 @@ export default function BundlerAcademy() {
         )}
       </AnimatePresence>
 
+      {/* Scroll to top */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="Scroll to top"
+            className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full border border-emerald-400/30 bg-black/70 backdrop-blur-xl text-emerald-300 hover:text-black hover:bg-emerald-400 hover:border-emerald-400 shadow-[0_0_30px_-5px_rgba(0,255,136,0.6)] flex items-center justify-center transition-colors"
+          >
+            <ChevronUp className="h-5 w-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
