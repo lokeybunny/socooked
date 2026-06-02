@@ -507,6 +507,39 @@ export default function BundlerAcademy() {
             ))}
           </div>
 
+          {/* PROFIT REPORTS — proof of what the bundler can do */}
+          <div className="mt-20">
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-10">
+              <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Real Results</p>
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight">
+                What the <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundler</span> Can Do
+              </h3>
+              <p className="mt-3 text-sm text-white/50 max-w-2xl mx-auto">
+                Recent profit reports from Warren Guru bundled launches. Past performance does not guarantee future results.
+              </p>
+            </motion.div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {[profitReport1, profitReport2, profitReport3].map((img, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ duration: 0.6, delay: i * 0.1 }}
+                  className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/30 via-cyan-400/15 to-emerald-400/30 shadow-[0_0_40px_-15px_rgba(0,255,136,0.4)] hover:shadow-[0_0_60px_-10px_rgba(0,255,136,0.6)] transition-all"
+                >
+                  <div className="rounded-2xl overflow-hidden bg-black/60 backdrop-blur-xl">
+                    <img
+                      src={img.url}
+                      alt={`Warren Guru Bundler profit report ${i + 1}`}
+                      className="w-full h-auto block"
+                      loading="lazy"
+                    />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+
           <div className="mt-12 flex flex-col items-center justify-center gap-5">
             <a
               href="https://discord.gg/warrenguru"
