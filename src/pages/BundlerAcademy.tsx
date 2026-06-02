@@ -218,7 +218,7 @@ export default function BundlerAcademy() {
   };
 
   const confirmCheckout = async () => {
-    if (totalSol <= 0) return;
+    if (totalUsd <= 0) return;
     setLoading(true);
     try {
       const parts = [
@@ -228,8 +228,9 @@ export default function BundlerAcademy() {
       const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
         body: {
           action: 'create',
-          price_amount: totalSol,
-          price_currency: 'sol',
+          price_amount: totalUsd,
+          price_currency: 'usd',
+          pay_currency: 'sol',
           order_description: `Warren Guru Bundler Academy — ${parts}`,
         },
       });
