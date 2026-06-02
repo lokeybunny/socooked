@@ -507,8 +507,10 @@ export default function BundlerAcademy() {
               </div>
             </div>
           </motion.div>
+          </div>
         </div>
       </section>
+
 
       {/* FAQ */}
       <section id="faq" className="px-4 sm:px-6 py-24 border-t border-white/5">
