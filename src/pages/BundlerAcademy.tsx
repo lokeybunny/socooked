@@ -679,7 +679,7 @@ export default function BundlerAcademy() {
             className="mt-10"
           >
             <p className="text-[10px] tracking-[0.3em] uppercase text-emerald-400/60 mb-4 text-center">How It Works — This Video</p>
-            <div className="relative w-full max-w-3xl mx-auto aspect-video rounded-3xl overflow-hidden border border-white/[0.08] bg-black shadow-[0_0_60px_-15px_rgba(0,255,136,0.2)]">
+            <div className="relative w-full max-w-5xl mx-auto aspect-video rounded-3xl overflow-hidden border border-white/[0.08] bg-black shadow-[0_0_80px_-15px_rgba(0,255,136,0.25)]">
               <iframe
                 src="https://www.youtube.com/embed/Tf4z5yVxnzk?rel=0&modestbranding=1"
                 title="How It Works"
