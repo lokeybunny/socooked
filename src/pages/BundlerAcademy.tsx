@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Check, MessageCircle, Youtube, Mail, Sparkles,
   Shield, Users, BookOpen, TrendingUp, Wallet, Activity, Bell,
-  ChevronDown,
+  ChevronDown, X, Copy, Loader2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
@@ -128,28 +128,77 @@ function HeroVisual() {
   );
 }
 
+type Payment = {
+  payment_id: string;
+  pay_address: string;
+  pay_amount: number;
+  pay_currency: string;
+  price_amount: number;
+  price_currency: string;
+  order_id: string;
+  network?: string;
+};
+
 export default function BundlerAcademy() {
   const [loading, setLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [status, setStatus] = useState<string>('waiting');
+  const [copied, setCopied] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
 
   const startCheckout = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
-        body: { price_amount: 500, order_description: 'Warren Guru Bundler Academy — Premium Membership' },
+        body: { action: 'create', price_amount: 500, order_description: 'Warren Guru Bundler Academy — Premium Membership' },
       });
       if (error) throw error;
-      if (data?.invoice_url) {
-        const win = window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
-        if (!win) window.top!.location.href = data.invoice_url;
-        return;
-      }
-      throw new Error('No invoice URL returned');
+      if (!data?.pay_address) throw new Error(data?.error || 'Could not create payment');
+      setPayment(data);
+      setStatus('waiting');
     } catch (e: any) {
       alert(`Payment error: ${e?.message || 'Could not start checkout'}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Poll for status while modal open
+  useEffect(() => {
+    if (!payment?.payment_id) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('nowpayments-create-invoice', {
+          body: { action: 'status', payment_id: payment.payment_id },
+        });
+        if (data?.payment_status && !stopped) setStatus(data.payment_status);
+        if (data?.payment_status === 'finished' || data?.payment_status === 'confirmed') {
+          if (pollRef.current) window.clearInterval(pollRef.current);
+        }
+      } catch { /* ignore */ }
+    };
+    tick();
+    pollRef.current = window.setInterval(tick, 10000);
+    return () => {
+      stopped = true;
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
+  }, [payment?.payment_id]);
+
+  const copy = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1500);
+    } catch { /* ignore */ }
+  };
+
+  const closeModal = () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    setPayment(null);
+    setStatus('waiting');
   };
 
   return (
@@ -417,6 +466,109 @@ export default function BundlerAcademy() {
           {loading ? 'Loading…' : 'Join Academy · $500'}
         </button>
       </div>
+
+      {/* In-app Solana payment modal */}
+      <AnimatePresence>
+        {payment && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4"
+            onClick={closeModal}
+          >
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.96 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-b from-[#0a0f14] to-[#04080c] p-6 sm:p-8 shadow-[0_0_80px_-10px_rgba(0,255,136,0.4)]"
+            >
+              <button onClick={closeModal} className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/30 mb-3">
+                  <div className={`h-1.5 w-1.5 rounded-full ${
+                    status === 'finished' || status === 'confirmed' ? 'bg-emerald-400' :
+                    status === 'failed' || status === 'expired' ? 'bg-red-400' :
+                    'bg-amber-400 animate-pulse'
+                  }`} />
+                  <span className="text-[10px] tracking-[0.25em] uppercase text-white/70">
+                    {status === 'finished' || status === 'confirmed' ? 'Payment Confirmed' :
+                     status === 'confirming' ? 'Confirming On-Chain' :
+                     status === 'partially_paid' ? 'Partially Paid' :
+                     status === 'failed' ? 'Payment Failed' :
+                     status === 'expired' ? 'Payment Expired' :
+                     'Awaiting Payment'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-semibold text-white">Pay with Solana</h3>
+                <p className="text-xs text-white/40 mt-1">Send the exact amount to the address below</p>
+              </div>
+
+              {status === 'finished' || status === 'confirmed' ? (
+                <div className="text-center py-8">
+                  <div className="mx-auto h-16 w-16 rounded-full bg-emerald-400/15 border border-emerald-400/40 flex items-center justify-center mb-4">
+                    <Check className="h-8 w-8 text-emerald-400" />
+                  </div>
+                  <p className="text-white/80 text-sm mb-5">Payment received. Welcome to the Academy.</p>
+                  <a
+                    href="https://discord.gg/warrenguru"
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs tracking-[0.2em] uppercase font-medium"
+                  >
+                    <MessageCircle className="h-4 w-4" /> Join Discord
+                  </a>
+                </div>
+              ) : (
+                <>
+                  {/* QR */}
+                  <div className="flex justify-center mb-5">
+                    <div className="rounded-2xl bg-white p-3">
+                      <img
+                        alt="Solana payment QR"
+                        width={200} height={200}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(`solana:${payment.pay_address}?amount=${payment.pay_amount}`)}`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">Amount</span>
+                      <button onClick={() => copy(String(payment.pay_amount), 'amt')} className="text-white/30 hover:text-white">
+                        {copied === 'amt' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                    <div className="mt-1 font-mono text-emerald-300 text-lg">{payment.pay_amount} SOL</div>
+                    <div className="text-[10px] text-white/30">≈ ${payment.price_amount} {payment.price_currency?.toUpperCase()}</div>
+                  </div>
+
+                  {/* Address */}
+                  <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">Solana Address</span>
+                      <button onClick={() => copy(payment.pay_address, 'addr')} className="text-white/30 hover:text-white">
+                        {copied === 'addr' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                    <div className="mt-1 font-mono text-[11px] text-white/80 break-all">{payment.pay_address}</div>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-2 text-[11px] text-white/40">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Waiting for on-chain confirmation…</span>
+                  </div>
+
+                  <p className="mt-4 text-center text-[10px] text-white/30 leading-relaxed">
+                    Send exactly the amount shown. Payment auto-confirms once the network sees it.
+                  </p>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
