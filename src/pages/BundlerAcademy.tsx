@@ -433,6 +433,94 @@ export default function BundlerAcademy() {
         </div>
       </section>
 
+      {/* HOW BUNDLED LAUNCHES WORK */}
+      <section id="how-bundling-works" className="px-4 sm:px-6 py-24 border-t border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-14">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">The Mechanics</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+              How <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundled Launches</span> Work
+            </h2>
+            <p className="mt-4 text-sm sm:text-base text-white/50 max-w-2xl mx-auto">
+              Atomic execution on Solana — token creation and buys land in the same block, before any sniper can react.
+            </p>
+          </motion.div>
+
+          {/* The simple version */}
+          <div className="grid md:grid-cols-2 gap-5 mb-12">
+            {[
+              { n: '01', t: 'Create the token', d: 'Deployer wallet mints the new token on Solana.' },
+              { n: '02', t: 'Prepare multi-wallet buys', d: 'Stage buy transactions from several wallets — this is where your liquidity goes.' },
+              { n: '03', t: 'Send as one bundle', d: 'All transactions are submitted together as a single atomic bundle.' },
+              { n: '04', t: 'Solana lands them in one block', d: 'The token gets created, your wallets instantly buy, and nobody can jump in between.' },
+            ].map((step, i) => (
+              <motion.div
+                key={step.n}
+                initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fade} custom={i}
+                className="group relative rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-md p-6 hover:border-emerald-400/30 hover:bg-emerald-400/[0.03] transition-all duration-500"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="font-mono text-2xl font-bold bg-gradient-to-br from-emerald-300 to-cyan-300 bg-clip-text text-transparent shrink-0">{step.n}</div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white/90 tracking-wide mb-1.5">{step.t}</h3>
+                    <p className="text-xs text-white/50 leading-relaxed">{step.d}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Typical bundled launch */}
+          <div className="grid lg:grid-cols-2 gap-5 mb-12">
+            <motion.div
+              initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fade}
+              className="rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-emerald-400/[0.04] to-cyan-400/[0.02] p-7"
+            >
+              <p className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80 mb-4">A Typical Bundled Launch</p>
+              <ul className="space-y-3 text-sm text-white/70">
+                {[
+                  '1 deployer wallet creates the token',
+                  '5–20 wallets buy immediately',
+                  'All buys happen in block 0',
+                  'Price instantly moves up the bonding curve',
+                  'Outsiders see volume + holders right away',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-3">
+                    <Check className="h-4 w-4 text-emerald-300 mt-0.5 shrink-0" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+
+            <motion.div
+              initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fade} custom={1}
+              className="rounded-3xl border border-white/10 bg-white/[0.02] p-7"
+            >
+              <p className="text-[10px] tracking-[0.3em] uppercase text-white/60 mb-4">Why People Bundle</p>
+              <ul className="space-y-3 text-sm text-white/70">
+                {[
+                  'Avoid sniper bots',
+                  'Control early supply',
+                  'Create instant momentum and FOMO',
+                  'Make the chart look active immediately',
+                  'Spread holdings across wallets instead of one giant wallet',
+                ].map((line) => (
+                  <li key={line} className="flex items-start gap-3">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 mt-2 shrink-0" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+
+          <p className="text-center text-xs tracking-[0.2em] uppercase text-white/40">
+            Token created · Wallets buy · All in the same block — atomically
+          </p>
+        </div>
+      </section>
+
       {/* WHAT MEMBERS GET */}
       <section id="membership" className="px-4 sm:px-6 py-24">
 
