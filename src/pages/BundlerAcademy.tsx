@@ -164,19 +164,46 @@ type Payment = {
   network?: string;
 };
 
+const VIP_SOL = 6.18102163;
+const HOUR_SOL = 2.5;
+
 export default function BundlerAcademy() {
   const [loading, setLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [vipSelected, setVipSelected] = useState(true);
+  const [hours, setHours] = useState(0);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [status, setStatus] = useState<string>('waiting');
   const [copied, setCopied] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
 
-  const startCheckout = async () => {
+  const totalSol = +(((vipSelected ? VIP_SOL : 0) + hours * HOUR_SOL)).toFixed(8);
+  const canCheckout = totalSol > 0 && !loading;
+
+  const openBuilder = () => {
+    setVipSelected(true);
+    setHours(0);
+    setPayment(null);
+    setStatus('waiting');
+    setBuilderOpen(true);
+  };
+
+  const confirmCheckout = async () => {
+    if (totalSol <= 0) return;
     setLoading(true);
     try {
+      const parts = [
+        vipSelected ? 'VIP Access' : null,
+        hours > 0 ? `${hours}× 1-on-1 Hour${hours > 1 ? 's' : ''}` : null,
+      ].filter(Boolean).join(' + ');
       const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
-        body: { action: 'create', price_amount: 500, order_description: 'Warren Guru Bundler Academy — Premium Membership' },
+        body: {
+          action: 'create',
+          price_amount: totalSol,
+          price_currency: 'sol',
+          order_description: `Warren Guru Bundler Academy — ${parts}`,
+        },
       });
       if (error) throw error;
       if (!data?.pay_address) throw new Error(data?.error || 'Could not create payment');
@@ -224,7 +251,11 @@ export default function BundlerAcademy() {
     if (pollRef.current) window.clearInterval(pollRef.current);
     setPayment(null);
     setStatus('waiting');
+    setBuilderOpen(false);
   };
+
+  const startCheckout = openBuilder;
+
 
   return (
     <div className="relative min-h-screen bg-[#03060a] text-white selection:bg-emerald-400/20 overflow-hidden">
