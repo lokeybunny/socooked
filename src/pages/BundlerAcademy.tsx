@@ -189,6 +189,7 @@ export default function BundlerAcademy() {
   const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [chartUrl, setChartUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
