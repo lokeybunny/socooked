@@ -128,28 +128,77 @@ function HeroVisual() {
   );
 }
 
+type Payment = {
+  payment_id: string;
+  pay_address: string;
+  pay_amount: number;
+  pay_currency: string;
+  price_amount: number;
+  price_currency: string;
+  order_id: string;
+  network?: string;
+};
+
 export default function BundlerAcademy() {
   const [loading, setLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [status, setStatus] = useState<string>('waiting');
+  const [copied, setCopied] = useState<string | null>(null);
+  const pollRef = useRef<number | null>(null);
 
   const startCheckout = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
-        body: { price_amount: 500, order_description: 'Warren Guru Bundler Academy — Premium Membership' },
+        body: { action: 'create', price_amount: 500, order_description: 'Warren Guru Bundler Academy — Premium Membership' },
       });
       if (error) throw error;
-      if (data?.invoice_url) {
-        const win = window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
-        if (!win) window.top!.location.href = data.invoice_url;
-        return;
-      }
-      throw new Error('No invoice URL returned');
+      if (!data?.pay_address) throw new Error(data?.error || 'Could not create payment');
+      setPayment(data);
+      setStatus('waiting');
     } catch (e: any) {
       alert(`Payment error: ${e?.message || 'Could not start checkout'}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Poll for status while modal open
+  useEffect(() => {
+    if (!payment?.payment_id) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const { data } = await supabase.functions.invoke('nowpayments-create-invoice', {
+          body: { action: 'status', payment_id: payment.payment_id },
+        });
+        if (data?.payment_status && !stopped) setStatus(data.payment_status);
+        if (data?.payment_status === 'finished' || data?.payment_status === 'confirmed') {
+          if (pollRef.current) window.clearInterval(pollRef.current);
+        }
+      } catch { /* ignore */ }
+    };
+    tick();
+    pollRef.current = window.setInterval(tick, 10000);
+    return () => {
+      stopped = true;
+      if (pollRef.current) window.clearInterval(pollRef.current);
+    };
+  }, [payment?.payment_id]);
+
+  const copy = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(() => setCopied(null), 1500);
+    } catch { /* ignore */ }
+  };
+
+  const closeModal = () => {
+    if (pollRef.current) window.clearInterval(pollRef.current);
+    setPayment(null);
+    setStatus('waiting');
   };
 
   return (
