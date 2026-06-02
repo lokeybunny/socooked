@@ -502,8 +502,8 @@ export default function BundlerAcademy() {
               </button>
 
               <div className="mt-6 pt-6 border-t border-white/5 text-center">
-                <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Also Available</div>
-                <div className="text-sm text-white/70">One-On-One Training · <span className="text-emerald-300">3.5 SOL / hour</span></div>
+                <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Pro Plan · $999/mo</div>
+                <div className="text-sm text-white/70">Zero bundler fees · Includes <span className="text-emerald-300">3-hour 1-on-1 session</span></div>
               </div>
             </div>
           </motion.div>
