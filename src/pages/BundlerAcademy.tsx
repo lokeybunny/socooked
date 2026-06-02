@@ -39,8 +39,9 @@ const feeRows = [
 
 const nav = [
   { label: 'Bundler', href: '#bundler' },
-  { label: 'Day Rugs', href: '#how-bundling-works' },
+  { label: 'Rugs', href: '#how-bundling-works' },
   { label: 'Pricing', href: '#pricing' },
+  { label: 'Community', href: '#community' },
   { label: 'FAQ', href: '#faq' },
 ];
 
@@ -840,7 +841,7 @@ export default function BundlerAcademy() {
       {/* FOOTER */}
       <footer className="border-t border-white/5">
         {/* Discord CTA */}
-        <div className="py-10 px-4 sm:px-6">
+        <div id="community" className="py-10 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto">
             <a
               href="https://discord.gg/warrenguru"
