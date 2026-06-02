@@ -952,7 +952,10 @@ export default function BundlerAcademy() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold text-white/90">1-on-1 Time</div>
-                        <div className="text-[11px] text-white/45 mt-0.5">${HOUR_USD} / hour with Warren {solRate > 0 && <span className="text-white/30">· ~{fmtSol(HOUR_USD)} SOL</span>}</div>
+                        <div className="text-[11px] text-white/45 mt-0.5">
+                          <span className="font-mono text-emerald-300/90">{hourSol} SOL</span> / hour with Warren
+                          {!vipSelected && <span className="text-white/30"> · VIP unlocks 1 SOL/hr</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -969,8 +972,8 @@ export default function BundlerAcademy() {
                     </div>
                     {hours > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-                        <span className="text-white/40">{hours} × ${HOUR_USD}</span>
-                        <span className="font-mono text-emerald-300">${(hours * HOUR_USD).toLocaleString()}</span>
+                        <span className="text-white/40">{hours} × {hourSol} SOL</span>
+                        <span className="font-mono text-emerald-300">{(hours * hourSol).toFixed(2)} SOL</span>
                       </div>
                     )}
                   </div>
