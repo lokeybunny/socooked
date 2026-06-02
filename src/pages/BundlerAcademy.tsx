@@ -907,7 +907,7 @@ export default function BundlerAcademy() {
                   >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Generate Invoice <ArrowRight className="h-4 w-4" /></>}
                   </button>
-                  {totalSol <= 0 && (
+                  {totalUsd <= 0 && (
                     <p className="mt-3 text-center text-[10px] text-white/40">Select VIP Access or add 1-on-1 hours to continue.</p>
                   )}
                 </>
