@@ -175,7 +175,9 @@ export default function BundlerAcademy() {
   const [hours, setHours] = useState(0);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [status, setStatus] = useState<string>('waiting');
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
 
   const totalSol = +(((vipSelected ? VIP_SOL : 0) + hours * HOUR_SOL)).toFixed(8);
