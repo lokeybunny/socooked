@@ -428,7 +428,38 @@ export default function BundlerAcademy() {
 
       {/* PRICING */}
       <section id="pricing" className="px-4 sm:px-6 py-24 border-t border-white/5">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-5xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Bundler Fees</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Transparent Fee Structure</h2>
+            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">Use the bundler free with standard fees, or go fee-free with the Pro plan.</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
+            className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl overflow-hidden mb-12"
+          >
+            <div className="grid grid-cols-3 px-6 py-4 border-b border-white/5 text-[10px] tracking-[0.25em] uppercase text-white/40">
+              <div>Action</div>
+              <div className="text-center">Free</div>
+              <div className="text-center text-emerald-300/80">Pro · $999/mo</div>
+            </div>
+            {feeRows.map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-3 px-6 py-4 text-sm ${i !== feeRows.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
+                <div className="text-white/80">{r.label}</div>
+                <div className="text-center text-white/50 font-mono">{r.free}</div>
+                <div className="text-center text-emerald-300 font-mono">{r.pro}</div>
+              </div>
+            ))}
+          </motion.div>
+
+          <div className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Academy Membership</p>
+            <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">One Membership. Full Access.</h3>
+          </div>
+
+          <div className="max-w-3xl mx-auto">
+
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
             <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Pricing</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">One Membership. Full Access.</h2>
