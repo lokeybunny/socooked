@@ -190,9 +190,12 @@ export default function BundlerAcademy() {
   const solRate = solUsd ?? 0;
   const fmtSol = (usd: number) => usdToSol(usd, 4);
 
-  const totalUsd = (vipSelected ? VIP_USD : 0) + hours * HOUR_USD;
+  // 1-on-1 hourly rate is SOL-canonical and depends on VIP selection
+  const hourSol = vipSelected ? 1 : 2.5;
+  const hoursUsd = solRate > 0 ? hours * hourSol * solRate : 0;
+  const totalUsd = (vipSelected ? VIP_USD : 0) + hoursUsd;
   const totalSolDisplay = fmtSol(totalUsd);
-  const canCheckout = totalUsd > 0 && !loading;
+  const canCheckout = totalUsd > 0 && !loading && (hours === 0 || solRate > 0);
 
   // ----- Dev 1-on-1 Training (SOL-canonical pricing) -----
   const TRAIN_SOL_STANDARD = 2.5;
