@@ -603,7 +603,7 @@ export default function BundlerAcademy() {
             <a href="https://x.com/warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
             </a>
-            <a href="https://youtube.com/@warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors"><Youtube className="h-4 w-4" /></a>
+            <a href="https://youtube.com/@WarrenGuru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors"><Youtube className="h-4 w-4" /></a>
             <a href="mailto:support@warren.guru" className="text-white/40 hover:text-emerald-300 transition-colors"><Mail className="h-4 w-4" /></a>
           </div>
           <p className="text-[10px] tracking-wider text-white/25">© {new Date().getFullYear()} Warren Guru</p>
