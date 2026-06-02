@@ -853,7 +853,7 @@ export default function BundlerAcademy() {
 
               <div className="mt-6 pt-6 border-t border-white/5 text-center">
                 <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Add-On</div>
-                <div className="text-sm text-white/70">1-on-1 Time · <span className="text-emerald-300">${HOUR_USD} / hour</span> · Add at checkout</div>
+                <div className="text-sm text-white/70">1-on-1 Time · <span className="text-emerald-300">2.5 SOL / hour</span> · Add at checkout</div>
               </div>
             </div>
           </motion.div>
