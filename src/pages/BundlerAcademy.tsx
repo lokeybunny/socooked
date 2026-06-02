@@ -883,8 +883,8 @@ export default function BundlerAcademy() {
                     </div>
                     {hours > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-                        <span className="text-white/40">{hours} × {HOUR_SOL} SOL</span>
-                        <span className="font-mono text-emerald-300">{(hours * HOUR_SOL).toFixed(2)} SOL</span>
+                        <span className="text-white/40">{hours} × ${HOUR_USD}</span>
+                        <span className="font-mono text-emerald-300">${(hours * HOUR_USD).toLocaleString()}</span>
                       </div>
                     )}
                   </div>
