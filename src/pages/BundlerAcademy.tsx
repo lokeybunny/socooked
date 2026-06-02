@@ -190,6 +190,23 @@ export default function BundlerAcademy() {
   const pollRef = useRef<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [chartUrl, setChartUrl] = useState<string | null>(null);
+  const [rugCountdown, setRugCountdown] = useState('00:00:00');
+
+  // Rug countdown: ticks every second toward next midnight UTC
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0));
+      const diff = next.getTime() - now.getTime();
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setRugCountdown(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
