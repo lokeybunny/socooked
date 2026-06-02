@@ -1403,6 +1403,22 @@ export default function BundlerAcademy() {
         )}
       </AnimatePresence>
 
+      {/* Rug countdown widget — bottom center */}
+      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[90]">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2, duration: 0.6 }}
+          className="flex items-center gap-2.5 rounded-lg border border-emerald-400/40 bg-black/80 backdrop-blur-md px-3.5 py-2 shadow-[0_0_25px_-5px_rgba(0,255,136,0.55)]"
+        >
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(0,255,136,0.9)]" />
+          <span className="text-[10px] tracking-[0.2em] uppercase text-emerald-300/70 font-medium">Next Rug In</span>
+          <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider tabular-nums drop-shadow-[0_0_6px_rgba(0,255,136,0.8)]">
+            {rugCountdown}
+          </span>
+        </motion.div>
+      </div>
+
     </div>
 
   );
