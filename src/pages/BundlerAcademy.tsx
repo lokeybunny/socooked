@@ -235,6 +235,7 @@ export default function BundlerAcademy() {
         if (data?.payment_status === 'finished' || data?.payment_status === 'confirmed') {
           if (!notifiedRef.current) {
             notifiedRef.current = true;
+            markPurchasePending(data?.payin_hash || null);
             try {
               if ('Notification' in window) {
                 if (Notification.permission === 'granted') {
