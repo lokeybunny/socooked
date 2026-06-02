@@ -1343,6 +1343,50 @@ export default function BundlerAcademy() {
         )}
       </AnimatePresence>
 
+      {/* Chart popup embed */}
+      <AnimatePresence>
+        {chartUrl && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+            onClick={() => setChartUrl(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden border border-emerald-400/30 bg-black shadow-[0_0_60px_-10px_rgba(0,255,136,0.5)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/10 bg-black/80">
+                <a
+                  href={chartUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-emerald-300/80 hover:text-emerald-300 truncate"
+                >
+                  Open in new tab ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setChartUrl(null)}
+                  aria-label="Close"
+                  className="h-8 w-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <iframe
+                src={chartUrl}
+                title="Axiom chart"
+                className="w-full h-[calc(85vh-44px)] bg-black"
+                allow="clipboard-read; clipboard-write"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
+
   );
 }
