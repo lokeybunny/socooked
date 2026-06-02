@@ -671,7 +671,7 @@ export default function BundlerAcademy() {
                           <span className="font-mono text-emerald-300 text-sm">{VIP_SOL} SOL</span>
                         </div>
                         <p className="text-[11px] text-white/45 mt-1 leading-relaxed">
-                          Private Discord, premium training, launch case studies, full community access.
+                          Lifetime license · Discord, premium training, case studies, daily rug pulls, and the Warren Guru Bundler with zero fees.
                         </p>
                       </div>
                     </div>
