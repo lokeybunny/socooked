@@ -504,11 +504,11 @@ export default function BundlerAcademy() {
               <div className="text-center">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-400/20 bg-emerald-400/[0.05] mb-4">
                   <Sparkles className="h-3 w-3 text-emerald-300" />
-                  <span className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80">Premium Membership</span>
+                  <span className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80">VIP Access</span>
                 </div>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">$500</span>
-                  <span className="text-sm text-white/40 tracking-wider uppercase">One Time</span>
+                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">{VIP_SOL}</span>
+                  <span className="text-sm text-white/40 tracking-wider uppercase">SOL · One Time</span>
                 </div>
               </div>
 
