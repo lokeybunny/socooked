@@ -164,19 +164,46 @@ type Payment = {
   network?: string;
 };
 
+const VIP_SOL = 6.18102163;
+const HOUR_SOL = 2.5;
+
 export default function BundlerAcademy() {
   const [loading, setLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [vipSelected, setVipSelected] = useState(true);
+  const [hours, setHours] = useState(0);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [status, setStatus] = useState<string>('waiting');
   const [copied, setCopied] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
 
-  const startCheckout = async () => {
+  const totalSol = +(((vipSelected ? VIP_SOL : 0) + hours * HOUR_SOL)).toFixed(8);
+  const canCheckout = totalSol > 0 && !loading;
+
+  const openBuilder = () => {
+    setVipSelected(true);
+    setHours(0);
+    setPayment(null);
+    setStatus('waiting');
+    setBuilderOpen(true);
+  };
+
+  const confirmCheckout = async () => {
+    if (totalSol <= 0) return;
     setLoading(true);
     try {
+      const parts = [
+        vipSelected ? 'VIP Access' : null,
+        hours > 0 ? `${hours}× 1-on-1 Hour${hours > 1 ? 's' : ''}` : null,
+      ].filter(Boolean).join(' + ');
       const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
-        body: { action: 'create', price_amount: 500, order_description: 'Warren Guru Bundler Academy — Premium Membership' },
+        body: {
+          action: 'create',
+          price_amount: totalSol,
+          price_currency: 'sol',
+          order_description: `Warren Guru Bundler Academy — ${parts}`,
+        },
       });
       if (error) throw error;
       if (!data?.pay_address) throw new Error(data?.error || 'Could not create payment');
@@ -224,7 +251,11 @@ export default function BundlerAcademy() {
     if (pollRef.current) window.clearInterval(pollRef.current);
     setPayment(null);
     setStatus('waiting');
+    setBuilderOpen(false);
   };
+
+  const startCheckout = openBuilder;
+
 
   return (
     <div className="relative min-h-screen bg-[#03060a] text-white selection:bg-emerald-400/20 overflow-hidden">
@@ -473,11 +504,11 @@ export default function BundlerAcademy() {
               <div className="text-center">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-400/20 bg-emerald-400/[0.05] mb-4">
                   <Sparkles className="h-3 w-3 text-emerald-300" />
-                  <span className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80">Premium Membership</span>
+                  <span className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80">VIP Access</span>
                 </div>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">$500</span>
-                  <span className="text-sm text-white/40 tracking-wider uppercase">One Time</span>
+                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">{VIP_SOL}</span>
+                  <span className="text-sm text-white/40 tracking-wider uppercase">SOL · One Time</span>
                 </div>
               </div>
 
@@ -502,8 +533,8 @@ export default function BundlerAcademy() {
               </button>
 
               <div className="mt-6 pt-6 border-t border-white/5 text-center">
-                <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Pro Plan · $999/mo</div>
-                <div className="text-sm text-white/70">Zero bundler fees · Includes <span className="text-emerald-300">3-hour 1-on-1 session</span></div>
+                <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Add-On</div>
+                <div className="text-sm text-white/70">1-on-1 Time · <span className="text-emerald-300">{HOUR_SOL} SOL / hour</span> · Add at checkout</div>
               </div>
             </div>
           </motion.div>
@@ -583,7 +614,7 @@ export default function BundlerAcademy() {
 
       {/* In-app Solana payment modal */}
       <AnimatePresence>
-        {payment && (
+        {(builderOpen || payment) && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md px-4"
@@ -599,90 +630,183 @@ export default function BundlerAcademy() {
                 <X className="h-5 w-5" />
               </button>
 
-              <div className="text-center mb-6">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/30 mb-3">
-                  <div className={`h-1.5 w-1.5 rounded-full ${
-                    status === 'finished' || status === 'confirmed' ? 'bg-emerald-400' :
-                    status === 'failed' || status === 'expired' ? 'bg-red-400' :
-                    'bg-amber-400 animate-pulse'
-                  }`} />
-                  <span className="text-[10px] tracking-[0.25em] uppercase text-white/70">
-                    {status === 'finished' || status === 'confirmed' ? 'Payment Confirmed' :
-                     status === 'confirming' ? 'Confirming On-Chain' :
-                     status === 'partially_paid' ? 'Partially Paid' :
-                     status === 'failed' ? 'Payment Failed' :
-                     status === 'expired' ? 'Payment Expired' :
-                     'Awaiting Payment'}
-                  </span>
-                </div>
-                <h3 className="text-xl font-semibold text-white">Pay with Solana</h3>
-                <p className="text-xs text-white/40 mt-1">Send the exact amount to the address below</p>
-              </div>
-
-              {status === 'finished' || status === 'confirmed' ? (
-                <div className="text-center py-8">
-                  <div className="mx-auto h-16 w-16 rounded-full bg-emerald-400/15 border border-emerald-400/40 flex items-center justify-center mb-4">
-                    <Check className="h-8 w-8 text-emerald-400" />
+              {!payment ? (
+                <>
+                  <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 mb-3">
+                      <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/70">Awaiting Payment</span>
+                    </div>
+                    <h3 className="text-xl font-semibold text-white">Build Your Order</h3>
+                    <p className="text-xs text-white/40 mt-1">All payments are made in SOL.</p>
                   </div>
-                  <p className="text-white/80 text-sm mb-5">Payment received. Welcome to the Academy.</p>
-                  <a
-                    href="https://discord.gg/warrenguru"
-                    target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs tracking-[0.2em] uppercase font-medium"
+
+                  {/* VIP Access toggle */}
+                  <button
+                    onClick={() => setVipSelected(v => !v)}
+                    className={`w-full text-left rounded-2xl border p-4 mb-3 transition-all ${
+                      vipSelected
+                        ? 'border-emerald-400/40 bg-emerald-400/[0.06] shadow-[0_0_24px_-8px_rgba(0,255,136,0.5)]'
+                        : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                    }`}
                   >
-                    <MessageCircle className="h-4 w-4" /> Join Discord
-                  </a>
-                </div>
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 h-5 w-5 rounded-md border flex items-center justify-center shrink-0 ${
+                        vipSelected ? 'bg-emerald-400 border-emerald-400' : 'border-white/30'
+                      }`}>
+                        {vipSelected && <Check className="h-3.5 w-3.5 text-black" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-white/90">VIP Access</span>
+                          <span className="font-mono text-emerald-300 text-sm">{VIP_SOL} SOL</span>
+                        </div>
+                        <p className="text-[11px] text-white/45 mt-1 leading-relaxed">
+                          Private Discord, premium training, launch case studies, full community access.
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 1-on-1 hours stepper */}
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-white/90">1-on-1 Time</div>
+                        <div className="text-[11px] text-white/45 mt-0.5">{HOUR_SOL} SOL / hour with Warren</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setHours(h => Math.max(0, h - 1))}
+                          disabled={hours <= 0}
+                          className="h-8 w-8 rounded-lg border border-white/10 text-white/70 hover:border-emerald-400/40 hover:text-emerald-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >−</button>
+                        <span className="w-8 text-center font-mono text-white/90">{hours}</span>
+                        <button
+                          onClick={() => setHours(h => Math.min(24, h + 1))}
+                          className="h-8 w-8 rounded-lg border border-white/10 text-white/70 hover:border-emerald-400/40 hover:text-emerald-300 transition-all"
+                        >+</button>
+                      </div>
+                    </div>
+                    {hours > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
+                        <span className="text-white/40">{hours} × {HOUR_SOL} SOL</span>
+                        <span className="font-mono text-emerald-300">{(hours * HOUR_SOL).toFixed(2)} SOL</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total */}
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4 mb-5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-emerald-300/80">Total</span>
+                      <span className="font-mono text-2xl font-bold text-white">{totalSol} <span className="text-sm text-emerald-300">SOL</span></span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={confirmCheckout}
+                    disabled={!canCheckout}
+                    className="w-full inline-flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-xs tracking-[0.2em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_50px_-3px_rgba(0,255,136,0.95)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Generate Invoice <ArrowRight className="h-4 w-4" /></>}
+                  </button>
+                  {totalSol <= 0 && (
+                    <p className="mt-3 text-center text-[10px] text-white/40">Select VIP Access or add 1-on-1 hours to continue.</p>
+                  )}
+                </>
               ) : (
                 <>
-                  {/* QR */}
-                  <div className="flex justify-center mb-5">
-                    <div className="rounded-2xl bg-white p-3">
-                      <img
-                        alt="Solana payment QR"
-                        width={200} height={200}
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(`solana:${payment.pay_address}?amount=${payment.pay_amount}`)}`}
-                      />
+                  <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/30 mb-3">
+                      <div className={`h-1.5 w-1.5 rounded-full ${
+                        status === 'finished' || status === 'confirmed' ? 'bg-emerald-400' :
+                        status === 'failed' || status === 'expired' ? 'bg-red-400' :
+                        'bg-amber-400 animate-pulse'
+                      }`} />
+                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/70">
+                        {status === 'finished' || status === 'confirmed' ? 'Payment Confirmed' :
+                         status === 'confirming' ? 'Confirming On-Chain' :
+                         status === 'partially_paid' ? 'Partially Paid' :
+                         status === 'failed' ? 'Payment Failed' :
+                         status === 'expired' ? 'Payment Expired' :
+                         'Awaiting Payment'}
+                      </span>
                     </div>
+                    <h3 className="text-xl font-semibold text-white">Pay with Solana</h3>
+                    <p className="text-xs text-white/40 mt-1">Send the exact amount to the address below</p>
                   </div>
 
-                  {/* Amount */}
-                  <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">Amount</span>
-                      <button onClick={() => copy(String(payment.pay_amount), 'amt')} className="text-white/30 hover:text-white">
-                        {copied === 'amt' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {status === 'finished' || status === 'confirmed' ? (
+                    <div className="text-center py-8">
+                      <div className="mx-auto h-16 w-16 rounded-full bg-emerald-400/15 border border-emerald-400/40 flex items-center justify-center mb-4">
+                        <Check className="h-8 w-8 text-emerald-400" />
+                      </div>
+                      <p className="text-white/80 text-sm mb-5">Payment received. Welcome to the Academy.</p>
+                      <a
+                        href="https://discord.gg/warrenguru"
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs tracking-[0.2em] uppercase font-medium"
+                      >
+                        <MessageCircle className="h-4 w-4" /> Join Discord
+                      </a>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-center mb-5">
+                        <div className="rounded-2xl bg-white p-3">
+                          <img
+                            alt="Solana payment QR"
+                            width={200} height={200}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(`solana:${payment.pay_address}?amount=${payment.pay_amount}`)}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">Amount</span>
+                          <button onClick={() => copy(String(payment.pay_amount), 'amt')} className="text-white/30 hover:text-white">
+                            {copied === 'amt' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                        <div className="mt-1 font-mono text-emerald-300 text-lg">{payment.pay_amount} SOL</div>
+                      </div>
+
+                      <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">Solana Address</span>
+                          <button onClick={() => copy(payment.pay_address, 'addr')} className="text-white/30 hover:text-white">
+                            {copied === 'addr' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                        <div className="mt-1 font-mono text-[11px] text-white/80 break-all">{payment.pay_address}</div>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-2 text-[11px] text-white/40 mb-3">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Waiting for on-chain confirmation…</span>
+                      </div>
+
+                      <button
+                        onClick={() => { setPayment(null); setStatus('waiting'); setBuilderOpen(true); }}
+                        className="w-full text-[11px] tracking-[0.2em] uppercase text-white/50 hover:text-emerald-300 border border-white/10 hover:border-emerald-400/30 rounded-xl py-2.5 transition-all"
+                      >
+                        ← Edit Order / Add 1-on-1 Time
                       </button>
-                    </div>
-                    <div className="mt-1 font-mono text-emerald-300 text-lg">{payment.pay_amount} SOL</div>
-                    <div className="text-[10px] text-white/30">≈ ${payment.price_amount} {payment.price_currency?.toUpperCase()}</div>
-                  </div>
 
-                  {/* Address */}
-                  <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] tracking-[0.25em] uppercase text-white/40">Solana Address</span>
-                      <button onClick={() => copy(payment.pay_address, 'addr')} className="text-white/30 hover:text-white">
-                        {copied === 'addr' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                    <div className="mt-1 font-mono text-[11px] text-white/80 break-all">{payment.pay_address}</div>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-2 text-[11px] text-white/40">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Waiting for on-chain confirmation…</span>
-                  </div>
-
-                  <p className="mt-4 text-center text-[10px] text-white/30 leading-relaxed">
-                    Send exactly the amount shown. Payment auto-confirms once the network sees it.
-                  </p>
+                      <p className="mt-3 text-center text-[10px] text-white/30 leading-relaxed">
+                        Send exactly the amount shown. Payment auto-confirms once the network sees it.
+                      </p>
+                    </>
+                  )}
                 </>
               )}
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 }

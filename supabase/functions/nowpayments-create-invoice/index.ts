@@ -38,12 +38,13 @@ Deno.serve(async (req) => {
 
     // create payment
     const price_amount = Number(body?.price_amount) || 500;
+    const price_currency = String(body?.price_currency || 'usd').toLowerCase();
     const order_id = String(body?.order_id || `wgba-${Date.now()}`);
-    const order_description = String(body?.order_description || 'Warren Guru Bundler Academy — Premium Membership');
+    const order_description = String(body?.order_description || 'Warren Guru Bundler Academy — VIP Access');
 
     const payload = {
       price_amount,
-      price_currency: 'usd',
+      price_currency,
       pay_currency: 'sol',
       order_id,
       order_description,
