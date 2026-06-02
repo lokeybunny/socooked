@@ -11,6 +11,7 @@ import SEOHead from '@/components/SEOHead';
 import bundlerScreenshot from '@/assets/bundler-screenshot.png.asset.json';
 import rugsInfographic from '@/assets/warren-guru-rugs-infographic.png.asset.json';
 import { markPurchasePending } from '@/components/DiscordTicketReminder';
+import { useSolUsd } from '@/hooks/useSolUsd';
 
 const bundlerFeatures = [
   { emoji: '⚡', title: 'Blazing Fast Terminal', desc: 'Major speed & UI performance improvements for rendering and interactions.' },
