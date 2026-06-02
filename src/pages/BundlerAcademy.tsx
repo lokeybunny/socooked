@@ -408,7 +408,7 @@ export default function BundlerAcademy() {
             onClick={startCheckout}
             className="group relative px-4 sm:px-5 py-2 rounded-full text-[11px] sm:text-xs tracking-[0.18em] uppercase font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 shadow-[0_0_24px_-4px_rgba(0,255,136,0.6)] hover:shadow-[0_0_36px_-2px_rgba(0,255,136,0.85)] transition-all"
           >
-            Join Academy
+            VIP Access
           </button>
         </div>
       </header>
@@ -944,7 +944,7 @@ export default function BundlerAcademy() {
           disabled={loading}
           className="w-full px-6 py-3.5 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-xs tracking-[0.2em] uppercase shadow-[0_0_30px_-3px_rgba(0,255,136,0.8)] disabled:opacity-60"
         >
-          {loading ? 'Loading…' : 'Join Academy · $999'}
+          {loading ? 'Loading…' : 'VIP Access · $999'}
         </button>
       </div>
 
