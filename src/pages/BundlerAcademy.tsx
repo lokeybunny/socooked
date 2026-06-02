@@ -473,7 +473,7 @@ export default function BundlerAcademy() {
             <div className="grid grid-cols-3 px-6 py-4 border-b border-white/5 text-[10px] tracking-[0.25em] uppercase text-white/40">
               <div>Action</div>
               <div className="text-center">Free</div>
-              <div className="text-center text-emerald-300/80">Pro · $999/mo</div>
+              <div className="text-center text-emerald-300/80">VIP · $999 Lifetime</div>
             </div>
             {feeRows.map((r, i) => (
               <div key={r.label} className={`grid grid-cols-3 px-6 py-4 text-sm ${i !== feeRows.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
