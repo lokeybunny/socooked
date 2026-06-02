@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Check, MessageCircle, Youtube, Mail, Sparkles,
   Shield, Users, BookOpen, TrendingUp, Wallet, Activity, Bell,
-  ChevronDown,
+  ChevronDown, X, Copy, Loader2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
