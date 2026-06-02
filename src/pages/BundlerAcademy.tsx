@@ -184,6 +184,13 @@ export default function BundlerAcademy() {
   const [copied, setCopied] = useState<string | null>(null);
   const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Single shared live-rate utility — VIP, Hour, checkout and receipts all use this.
   const { rate: solUsd, usdToSol } = useSolUsd();
