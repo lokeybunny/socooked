@@ -35,8 +35,8 @@ const feeRows = [
 ];
 
 const nav = [
+  { label: 'Bundler', href: '#bundler' },
   { label: 'Features', href: '#features' },
-  { label: 'Community', href: '#community' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'FAQ', href: '#faq' },
 ];
