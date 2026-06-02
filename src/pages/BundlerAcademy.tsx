@@ -841,9 +841,10 @@ export default function BundlerAcademy() {
       {/* FOOTER */}
       <footer className="border-t border-white/5">
         {/* Discord CTA */}
-        <div id="community" className="py-10 px-4 sm:px-6">
+        <div className="py-10 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto">
             <a
+              id="community"
               href="https://discord.gg/warrenguru"
               target="_blank"
               rel="noopener noreferrer"
