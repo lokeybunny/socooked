@@ -883,6 +883,11 @@ export default function BundlerAcademy() {
             </div>
             <p className="text-[10px] tracking-wider text-white/25">© {new Date().getFullYear()} Warren Guru</p>
           </div>
+          <div className="max-w-6xl mx-auto mt-6">
+            <p className="text-[10px] leading-relaxed text-white/20 text-center">
+              Crypto markets involve risk. This content is for educational purposes only. No guarantees of financial outcomes. Not investment advice. Past performance does not indicate future results. Please conduct your own research and consult a licensed financial advisor before making any investment decisions.
+            </p>
+          </div>
         </div>
       </footer>
 
