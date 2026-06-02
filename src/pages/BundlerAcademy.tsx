@@ -8,6 +8,31 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
+import bundlerScreenshot from '@/assets/bundler-screenshot.png.asset.json';
+
+const bundlerFeatures = [
+  { emoji: '⚡', title: 'Blazing Fast Terminal', desc: 'Major speed & UI performance improvements for rendering and interactions.' },
+  { emoji: '🏷️', title: 'White Labeling', desc: 'Run your own crypto business — fully white-label with your branding, logo and colors.' },
+  { emoji: '💰', title: 'Bags.fm Support', desc: 'Native integration with bags.fm alongside Pump.fun and PumpSwap.' },
+  { emoji: '🔥', title: 'Burn Tokens', desc: 'Burn unwanted tokens and reclaim rent in one step.' },
+  { emoji: '💸', title: 'Cashback Coins', desc: 'Full PumpFun cashback support on bonding curve and PumpSwap, auto-claimed.' },
+  { emoji: '📊', title: 'Split Sells on Volume', desc: 'Volume tasks automatically sell after buying for realistic trading patterns.' },
+  { emoji: '👛', title: 'Wallet Presets', desc: 'Fund, Withdraw, Redistribute, Tag and Warm wallets with saved configs.' },
+  { emoji: '🧬', title: 'Redistribution Revamp', desc: 'Easily redistribute funds to new or existing wallets and groups.' },
+  { emoji: '💎', title: 'Dust Recovery', desc: 'Automatically recover leftover SOL from intermediate wallets.' },
+  { emoji: '📈', title: 'Per-Wallet PnL', desc: 'Realized + unrealized PnL tracked per wallet, per token, with historical drill-down.' },
+  { emoji: '💝', title: 'Charity Fee Sharing', desc: 'Donate to charities directly through fee sharing at launch setup.' },
+  { emoji: '🛡️', title: 'PumpFun V2 Ready', desc: 'Adapted to PumpFun program upgrades and new PDA accounts.' },
+];
+
+const feeRows = [
+  { label: 'Buys', free: '0.5%', pro: '0%' },
+  { label: 'Sells', free: '0.5%', pro: '0%' },
+  { label: 'Mix Wallet', free: '0.001 SOL', pro: '0 SOL' },
+  { label: 'Warm Wallet', free: '0.001 SOL', pro: '0 SOL' },
+  { label: 'Tag Wallet', free: '0.001 SOL', pro: '0 SOL' },
+  { label: 'Launch Token', free: '0.01 SOL', pro: '0 SOL' },
+];
 
 const nav = [
   { label: 'Features', href: '#features' },
