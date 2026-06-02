@@ -893,7 +893,10 @@ export default function BundlerAcademy() {
                   <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4 mb-5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] tracking-[0.25em] uppercase text-emerald-300/80">Total</span>
-                      <span className="font-mono text-2xl font-bold text-white">{totalSol} <span className="text-sm text-emerald-300">SOL</span></span>
+                      <div className="text-right">
+                        <span className="font-mono text-2xl font-bold text-white">${totalUsd.toLocaleString()}</span>
+                        <div className="text-[11px] text-emerald-300/80 font-mono mt-0.5">{solRate > 0 ? `~${totalSolDisplay} SOL` : 'loading SOL rate…'}</div>
+                      </div>
                     </div>
                   </div>
 
