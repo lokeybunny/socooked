@@ -87,6 +87,7 @@ const Poly = lazyWithRetry(() => import("./pages/Poly"), "page-poly");
 const AIFilms = lazyWithRetry(() => import("./pages/AIFilms"), "page-ai-films");
 const AIQueue = lazyWithRetry(() => import("./pages/AIQueue"), "page-ai-queue");
 const Zillow = lazyWithRetry(() => import("./pages/Zillow"), "page-zillow");
+const BundlerAcademy = lazyWithRetry(() => import("./pages/BundlerAcademy"), "page-bundler-academy");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -126,7 +127,8 @@ const App = () => (
             <AnalyticsMount />
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
-                <Route path="/" element={<AIFilms />} />
+                <Route path="/" element={<BundlerAcademy />} />
+                <Route path="/airealty" element={<AIFilms />} />
                 <Route path="/ai-director" element={<AIDirector />} />
                 <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
