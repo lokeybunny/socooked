@@ -866,7 +866,7 @@ export default function BundlerAcademy() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold text-white/90">1-on-1 Time</div>
-                        <div className="text-[11px] text-white/45 mt-0.5">{HOUR_SOL} SOL / hour with Warren</div>
+                        <div className="text-[11px] text-white/45 mt-0.5">${HOUR_USD} / hour with Warren {solRate > 0 && <span className="text-white/30">· ~{fmtSol(HOUR_USD)} SOL</span>}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
