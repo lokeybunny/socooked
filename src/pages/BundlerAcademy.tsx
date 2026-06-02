@@ -140,7 +140,8 @@ export default function BundlerAcademy() {
       });
       if (error) throw error;
       if (data?.invoice_url) {
-        window.location.href = data.invoice_url;
+        const win = window.open(data.invoice_url, '_blank', 'noopener,noreferrer');
+        if (!win) window.top!.location.href = data.invoice_url;
         return;
       }
       throw new Error('No invoice URL returned');
