@@ -166,8 +166,10 @@ type Payment = {
   network?: string;
 };
 
-const VIP_SOL = 6.18102163;
-const HOUR_SOL = 2.5;
+// Prices are USD-canonical. SOL display values are derived from a live rate
+// so the user always sees the correct SOL amount for the stated USD price.
+const VIP_USD = 999;
+const HOUR_USD = 250;
 
 export default function BundlerAcademy() {
   const [loading, setLoading] = useState(false);
@@ -179,11 +181,31 @@ export default function BundlerAcademy() {
   const [status, setStatus] = useState<string>('waiting');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [solUsd, setSolUsd] = useState<number | null>(null);
   const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
 
-  const totalSol = +(((vipSelected ? VIP_SOL : 0) + hours * HOUR_SOL)).toFixed(8);
-  const canCheckout = totalSol > 0 && !loading;
+  // Live SOL/USD rate (display only — server uses USD for the actual charge)
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRate = async () => {
+      try {
+        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+        const j = await r.json();
+        const price = Number(j?.solana?.usd);
+        if (!cancelled && price > 0) setSolUsd(price);
+      } catch { /* ignore */ }
+    };
+    fetchRate();
+    const id = window.setInterval(fetchRate, 60_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
+
+  const totalUsd = (vipSelected ? VIP_USD : 0) + hours * HOUR_USD;
+  const solRate = solUsd ?? 0;
+  const fmtSol = (usd: number) => (solRate > 0 ? (usd / solRate).toFixed(4) : '—');
+  const totalSolDisplay = fmtSol(totalUsd);
+  const canCheckout = totalUsd > 0 && !loading;
 
   const openBuilder = () => {
     setVipSelected(true);
@@ -196,7 +218,7 @@ export default function BundlerAcademy() {
   };
 
   const confirmCheckout = async () => {
-    if (totalSol <= 0) return;
+    if (totalUsd <= 0) return;
     setLoading(true);
     try {
       const parts = [
@@ -206,8 +228,9 @@ export default function BundlerAcademy() {
       const { data, error } = await supabase.functions.invoke('nowpayments-create-invoice', {
         body: {
           action: 'create',
-          price_amount: totalSol,
-          price_currency: 'sol',
+          price_amount: totalUsd,
+          price_currency: 'usd',
+          pay_currency: 'sol',
           order_description: `Warren Guru Bundler Academy — ${parts}`,
         },
       });
@@ -676,7 +699,7 @@ export default function BundlerAcademy() {
 
               <div className="mt-6 pt-6 border-t border-white/5 text-center">
                 <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Add-On</div>
-                <div className="text-sm text-white/70">1-on-1 Time · <span className="text-emerald-300">{HOUR_SOL} SOL / hour</span> · Add at checkout</div>
+                <div className="text-sm text-white/70">1-on-1 Time · <span className="text-emerald-300">${HOUR_USD} / hour</span> · Add at checkout</div>
               </div>
             </div>
           </motion.div>
@@ -829,7 +852,10 @@ export default function BundlerAcademy() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold text-white/90">VIP Access</span>
-                          <span className="font-mono text-emerald-300 text-sm">$999</span>
+                          <div className="text-right">
+                            <span className="font-mono text-emerald-300 text-sm">${VIP_USD}</span>
+                            {solRate > 0 && <div className="text-[10px] text-white/40 font-mono">~{fmtSol(VIP_USD)} SOL</div>}
+                          </div>
                         </div>
                         <p className="text-[11px] text-white/45 mt-1 leading-relaxed">
                           Lifetime license · Discord, premium training, case studies, daily rug pulls, and the Warren Guru Bundler with zero fees.
@@ -843,7 +869,7 @@ export default function BundlerAcademy() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold text-white/90">1-on-1 Time</div>
-                        <div className="text-[11px] text-white/45 mt-0.5">{HOUR_SOL} SOL / hour with Warren</div>
+                        <div className="text-[11px] text-white/45 mt-0.5">${HOUR_USD} / hour with Warren {solRate > 0 && <span className="text-white/30">· ~{fmtSol(HOUR_USD)} SOL</span>}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -860,8 +886,8 @@ export default function BundlerAcademy() {
                     </div>
                     {hours > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-                        <span className="text-white/40">{hours} × {HOUR_SOL} SOL</span>
-                        <span className="font-mono text-emerald-300">{(hours * HOUR_SOL).toFixed(2)} SOL</span>
+                        <span className="text-white/40">{hours} × ${HOUR_USD}</span>
+                        <span className="font-mono text-emerald-300">${(hours * HOUR_USD).toLocaleString()}</span>
                       </div>
                     )}
                   </div>
@@ -870,7 +896,10 @@ export default function BundlerAcademy() {
                   <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4 mb-5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] tracking-[0.25em] uppercase text-emerald-300/80">Total</span>
-                      <span className="font-mono text-2xl font-bold text-white">{totalSol} <span className="text-sm text-emerald-300">SOL</span></span>
+                      <div className="text-right">
+                        <span className="font-mono text-2xl font-bold text-white">${totalUsd.toLocaleString()}</span>
+                        <div className="text-[11px] text-emerald-300/80 font-mono mt-0.5">{solRate > 0 ? `~${totalSolDisplay} SOL` : 'loading SOL rate…'}</div>
+                      </div>
                     </div>
                   </div>
 
@@ -881,7 +910,7 @@ export default function BundlerAcademy() {
                   >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Generate Invoice <ArrowRight className="h-4 w-4" /></>}
                   </button>
-                  {totalSol <= 0 && (
+                  {totalUsd <= 0 && (
                     <p className="mt-3 text-center text-[10px] text-white/40">Select VIP Access or add 1-on-1 hours to continue.</p>
                   )}
                 </>
