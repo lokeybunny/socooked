@@ -316,8 +316,7 @@ export default function BundlerAcademy() {
             </motion.div>
           ))}
         </div>
-      {/* WHAT MEMBERS GET */}
-      <section id="features" className="px-4 sm:px-6 py-24">
+      </section>
 
       {/* BUNDLER SHOWCASE */}
       <section id="bundler" className="px-4 sm:px-6 py-24 border-t border-white/5">
@@ -374,12 +373,9 @@ export default function BundlerAcademy() {
         </div>
       </section>
 
-      {/* WHAT MEMBERS GET (placeholder marker to keep structure) */}
-      <section className="hidden">
-
-
       {/* WHAT MEMBERS GET */}
-      <section id="features" className="px-4 sm:px-6 py-24">
+      <section id="membership" className="px-4 sm:px-6 py-24">
+
         <div className="max-w-6xl mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-14">
             <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Membership</p>
