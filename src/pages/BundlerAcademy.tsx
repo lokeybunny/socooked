@@ -423,12 +423,12 @@ export default function BundlerAcademy() {
                 {loading ? 'Loading…' : 'Join For $999'}
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </button>
-              <a
-                href="#community"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border border-white/10 text-white/60 text-sm tracking-[0.15em] uppercase hover:border-emerald-400/30 hover:text-emerald-300 transition-all"
+              <button
+                onClick={openTraining}
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl border border-white/10 text-white/70 text-sm tracking-[0.15em] uppercase hover:border-emerald-400/40 hover:text-emerald-300 transition-all"
               >
-                Watch Case Studies
-              </a>
+                Dev 1 on 1 Training
+              </button>
             </div>
           </motion.div>
 
