@@ -9,6 +9,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
 import bundlerScreenshot from '@/assets/bundler-screenshot.png.asset.json';
+import rugsInfographic from '@/assets/warren-guru-rugs-infographic.png.asset.json';
 import { markPurchasePending } from '@/components/DiscordTicketReminder';
 
 const bundlerFeatures = [
