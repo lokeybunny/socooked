@@ -316,7 +316,67 @@ export default function BundlerAcademy() {
             </motion.div>
           ))}
         </div>
+      {/* WHAT MEMBERS GET */}
+      <section id="features" className="px-4 sm:px-6 py-24">
+
+      {/* BUNDLER SHOWCASE */}
+      <section id="bundler" className="px-4 sm:px-6 py-24 border-t border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">The Software</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+              Warren Guru <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundler</span>
+            </h2>
+            <p className="mt-4 text-sm sm:text-base text-white/50 max-w-2xl mx-auto">
+              The professional Solana launch terminal members use every day. Tokens, wallets, vanities, presets and blueprints — all in one premium UI.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}
+            className="relative rounded-3xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-cyan-400/20 to-emerald-400/40 shadow-[0_0_80px_-15px_rgba(0,255,136,0.45)]"
+          >
+            <div className="rounded-3xl overflow-hidden bg-black/60 backdrop-blur-xl">
+              <img
+                src={bundlerScreenshot.url}
+                alt="Warren Guru Bundler — Solana launch terminal with token chart, wallets and trading controls"
+                className="w-full h-auto block"
+                loading="lazy"
+              />
+            </div>
+          </motion.div>
+
+          <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bundlerFeatures.map((f, i) => (
+              <motion.div
+                key={f.title}
+                initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fade} custom={i}
+                className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] backdrop-blur-md p-5 hover:border-emerald-400/30 hover:bg-emerald-400/[0.03] transition-all duration-500"
+              >
+                <div className="text-2xl mb-3">{f.emoji}</div>
+                <h3 className="text-sm font-semibold text-white/90 mb-1.5 tracking-wide">{f.title}</h3>
+                <p className="text-xs text-white/45 leading-relaxed">{f.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank" rel="noopener noreferrer"
+              className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.18em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_50px_-3px_rgba(0,255,136,0.95)] transition-all"
+            >
+              <MessageCircle className="h-4 w-4" /> Download The Bundler
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </a>
+            <span className="text-[11px] tracking-[0.2em] uppercase text-white/40">Free to use · Available in Discord</span>
+          </div>
+        </div>
       </section>
+
+      {/* WHAT MEMBERS GET (placeholder marker to keep structure) */}
+      <section className="hidden">
+
 
       {/* WHAT MEMBERS GET */}
       <section id="features" className="px-4 sm:px-6 py-24">
