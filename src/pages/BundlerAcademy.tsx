@@ -175,7 +175,9 @@ export default function BundlerAcademy() {
   const [hours, setHours] = useState(0);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [status, setStatus] = useState<string>('waiting');
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
 
   const totalSol = +(((vipSelected ? VIP_SOL : 0) + hours * HOUR_SOL)).toFixed(8);
@@ -186,6 +188,8 @@ export default function BundlerAcademy() {
     setHours(0);
     setPayment(null);
     setStatus('waiting');
+    setTxHash(null);
+    notifiedRef.current = false;
     setBuilderOpen(true);
   };
 
@@ -226,7 +230,28 @@ export default function BundlerAcademy() {
           body: { action: 'status', payment_id: payment.payment_id },
         });
         if (data?.payment_status && !stopped) setStatus(data.payment_status);
+        if (data?.payin_hash && !stopped) setTxHash(data.payin_hash);
         if (data?.payment_status === 'finished' || data?.payment_status === 'confirmed') {
+          if (!notifiedRef.current) {
+            notifiedRef.current = true;
+            try {
+              if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                  new Notification('Payment Confirmed — Open your Discord ticket', {
+                    body: 'Tap to join Warren Guru Discord and submit your Solscan receipt for verification.',
+                  });
+                } else if (Notification.permission !== 'denied') {
+                  Notification.requestPermission().then((p) => {
+                    if (p === 'granted') {
+                      new Notification('Payment Confirmed — Open your Discord ticket', {
+                        body: 'Tap to join Warren Guru Discord and submit your Solscan receipt for verification.',
+                      });
+                    }
+                  });
+                }
+              }
+            } catch { /* ignore */ }
+          }
           if (pollRef.current) window.clearInterval(pollRef.current);
         }
       } catch { /* ignore */ }
@@ -775,17 +800,44 @@ export default function BundlerAcademy() {
                   </div>
 
                   {status === 'finished' || status === 'confirmed' ? (
-                    <div className="text-center py-8">
+                    <div className="text-center py-6">
                       <div className="mx-auto h-16 w-16 rounded-full bg-emerald-400/15 border border-emerald-400/40 flex items-center justify-center mb-4">
                         <Check className="h-8 w-8 text-emerald-400" />
                       </div>
-                      <p className="text-white/80 text-sm mb-5">Payment received. Welcome to the Academy.</p>
+                      <p className="text-white/90 text-sm font-medium mb-1">Payment Confirmed</p>
+                      <p className="text-white/50 text-xs mb-5">Open a verification ticket in Discord and paste your Solscan receipt below.</p>
+
+                      {txHash && (
+                        <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-3 mb-4 text-left">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] tracking-[0.25em] uppercase text-emerald-300/70">Solscan Receipt</span>
+                            <button onClick={() => copy(`https://solscan.io/tx/${txHash}`, 'rcpt')} className="text-white/40 hover:text-white">
+                              {copied === 'rcpt' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
+                          </div>
+                          <a
+                            href={`https://solscan.io/tx/${txHash}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="font-mono text-[11px] text-emerald-300 hover:text-emerald-200 break-all underline-offset-2 hover:underline"
+                          >
+                            https://solscan.io/tx/{txHash}
+                          </a>
+                        </div>
+                      )}
+
+                      <div className="rounded-xl border border-white/10 bg-black/40 p-3 mb-4 text-left">
+                        <p className="text-[11px] text-white/60 leading-relaxed">
+                          <span className="text-white font-medium">Next step:</span> Join the Discord, open a
+                          <span className="text-emerald-300"> #verify </span>ticket, and paste your Solscan receipt link to get your role assigned.
+                        </p>
+                      </div>
+
                       <a
                         href="https://discord.gg/warrenguru"
                         target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs tracking-[0.2em] uppercase font-medium"
+                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs tracking-[0.2em] uppercase font-medium w-full justify-center"
                       >
-                        <MessageCircle className="h-4 w-4" /> Join Discord
+                        <MessageCircle className="h-4 w-4" /> Open Ticket in Discord
                       </a>
                     </div>
                   ) : (
