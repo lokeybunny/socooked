@@ -125,6 +125,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <AnalyticsMount />
+            <DiscordTicketReminder />
             <Suspense fallback={<AppLoadingScreen />}>
               <Routes>
                 <Route path="/" element={<BundlerAcademy />} />
