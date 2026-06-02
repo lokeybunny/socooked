@@ -1084,6 +1084,137 @@ export default function BundlerAcademy() {
         )}
       </AnimatePresence>
 
+      {/* DEV 1-ON-1 TRAINING MODAL */}
+      <AnimatePresence>
+        {trainOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => !trainLoading && setTrainOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-2xl border border-emerald-400/20 bg-gradient-to-b from-black to-emerald-950/20 p-6 shadow-[0_0_60px_-10px_rgba(0,255,136,0.3)]"
+            >
+              <button
+                onClick={() => setTrainOpen(false)}
+                className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="mb-5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/20 mb-3">
+                  <Sparkles className="h-3 w-3 text-emerald-300" />
+                  <span className="text-[10px] tracking-[0.25em] uppercase text-emerald-300">Live 1-on-1</span>
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight">Dev 1 on 1 Training</h2>
+                <p className="mt-1.5 text-sm text-white/50">Private screen-share session with Warren.</p>
+              </div>
+
+              {!trainPayment ? (
+                <>
+                  {/* Hours */}
+                  <div className="mb-4">
+                    <label className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2 block">Hours</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setTrainHours(Math.max(1, trainHours - 1))}
+                        className="h-10 w-10 rounded-lg border border-white/10 hover:border-emerald-400/40 text-white/60 hover:text-emerald-300 transition-all"
+                      >−</button>
+                      <div className="flex-1 text-center font-mono text-xl text-white">{trainHours}</div>
+                      <button
+                        onClick={() => setTrainHours(Math.min(12, trainHours + 1))}
+                        className="h-10 w-10 rounded-lg border border-white/10 hover:border-emerald-400/40 text-white/60 hover:text-emerald-300 transition-all"
+                      >+</button>
+                    </div>
+                  </div>
+
+                  {/* Coupon */}
+                  <div className="mb-5">
+                    <label className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-2 block">Lifetime Member Coupon (optional)</label>
+                    <input
+                      type="text"
+                      value={trainCoupon}
+                      onChange={(e) => setTrainCoupon(e.target.value)}
+                      placeholder="Enter coupon code"
+                      className={`w-full px-4 py-2.5 bg-white/[0.04] border rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none transition-colors font-mono ${
+                        trainLifetime ? 'border-emerald-400/50 focus:border-emerald-400/80' : 'border-white/10 focus:border-white/30'
+                      }`}
+                    />
+                    {trainLifetime && (
+                      <p className="mt-1.5 text-[11px] text-emerald-300/90">✓ Lifetime rate unlocked — 1 SOL/hour</p>
+                    )}
+                  </div>
+
+                  {/* Rate + Total */}
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 mb-5 space-y-2.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/50">Rate</span>
+                      <span className="text-white font-mono">
+                        {trainRate} SOL / hour
+                        {trainLifetime && <span className="ml-2 text-[10px] uppercase tracking-wider text-emerald-300/80">Lifetime</span>}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-white/50">{trainHours} × {trainRate} SOL</span>
+                      <span className="text-white/70 font-mono">{trainTotalSol} SOL</span>
+                    </div>
+                    <div className="h-px bg-white/[0.06]" />
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs tracking-[0.2em] uppercase text-white/40">Total</span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-emerald-300 font-mono">{trainTotalSol} SOL</div>
+                        {solRate > 0 && (
+                          <div className="text-[10px] text-white/40 font-mono">≈ ${(trainTotalSol * solRate).toFixed(2)} USD</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={startTraining}
+                    disabled={trainLoading || trainTotalSol <= 0}
+                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.15em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_45px_-3px_rgba(0,255,136,0.95)] transition-all disabled:opacity-60"
+                  >
+                    {trainLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Pay {trainTotalSol} SOL <ArrowRight className="h-4 w-4" /></>}
+                  </button>
+                  <p className="mt-3 text-center text-[10px] text-white/30 tracking-wider uppercase">Secure Solana checkout via NOWPayments</p>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
+                    <div className="text-[10px] tracking-[0.25em] uppercase text-emerald-300/80 mb-1">Send Exactly</div>
+                    <div className="text-2xl font-bold text-emerald-300 font-mono">{trainPayment.pay_amount} SOL</div>
+                    <div className="text-[10px] text-white/40 mt-1">Network: Solana</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] tracking-[0.25em] uppercase text-white/40 mb-1.5">Pay Address</div>
+                    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+                      <code className="flex-1 text-[11px] text-white/80 font-mono break-all">{trainPayment.pay_address}</code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(trainPayment.pay_address); }}
+                        className="text-white/40 hover:text-emerald-300 transition-colors"
+                      ><Copy className="h-4 w-4" /></button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-white/60">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300" />
+                    Status: <span className="font-mono text-emerald-300">{trainStatus}</span>
+                  </div>
+                  {(trainStatus === 'finished' || trainStatus === 'confirmed') && (
+                    <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
+                      ✓ Payment confirmed. Warren will reach out in Discord to schedule your session.
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
