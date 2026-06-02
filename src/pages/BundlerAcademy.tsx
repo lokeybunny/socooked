@@ -1204,8 +1204,25 @@ export default function BundlerAcademy() {
                     Status: <span className="font-mono text-emerald-300">{trainStatus}</span>
                   </div>
                   {(trainStatus === 'finished' || trainStatus === 'confirmed') && (
-                    <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm text-emerald-200">
-                      ✓ Payment confirmed. Warren will reach out in Discord to schedule your session.
+                    <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 space-y-3">
+                      <div className="text-sm font-semibold text-emerald-200">✓ Payment confirmed</div>
+                      <div className="text-xs text-white/70 leading-relaxed">
+                        Next, <span className="text-emerald-300 font-medium">book your 1-on-1 session</span> on Calendly, then <span className="text-emerald-300 font-medium">open a ticket in Discord</span> so Warren is ready for you.
+                      </div>
+                      <a
+                        href="https://calendly.com/warrensappt/xit"
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-400 text-black text-xs font-semibold tracking-[0.15em] uppercase hover:bg-emerald-300 transition-all"
+                      >
+                        Book Session on Calendly <ArrowRight className="h-3.5 w-3.5" />
+                      </a>
+                      <a
+                        href="https://discord.gg/warrenguru"
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#5865F2]/15 border border-[#5865F2]/30 text-[#a5adf7] hover:bg-[#5865F2]/25 text-xs font-medium tracking-[0.15em] uppercase transition-all"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" /> Open Ticket in Discord
+                      </a>
                     </div>
                   )}
                 </div>
