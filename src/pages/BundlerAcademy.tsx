@@ -40,7 +40,6 @@ const feeRows = [
 const nav = [
   { label: 'Bundler', href: '#bundler' },
   { label: 'Day Rugs', href: '#how-bundling-works' },
-  { label: 'Features', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'FAQ', href: '#faq' },
 ];
