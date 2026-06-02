@@ -852,7 +852,10 @@ export default function BundlerAcademy() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold text-white/90">VIP Access</span>
-                          <span className="font-mono text-emerald-300 text-sm">$999</span>
+                          <div className="text-right">
+                            <span className="font-mono text-emerald-300 text-sm">${VIP_USD}</span>
+                            {solRate > 0 && <div className="text-[10px] text-white/40 font-mono">~{fmtSol(VIP_USD)} SOL</div>}
+                          </div>
                         </div>
                         <p className="text-[11px] text-white/45 mt-1 leading-relaxed">
                           Lifetime license · Discord, premium training, case studies, daily rug pulls, and the Warren Guru Bundler with zero fees.
