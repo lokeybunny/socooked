@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Check, MessageCircle, Youtube, Mail, Sparkles,
   Shield, Users, BookOpen, TrendingUp, Wallet, Activity, Bell,
-  ChevronDown, X, Copy, Loader2,
+  ChevronDown, ChevronUp, X, Copy, Loader2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
@@ -184,15 +184,25 @@ export default function BundlerAcademy() {
   const [copied, setCopied] = useState<string | null>(null);
   const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // Single shared live-rate utility — VIP, Hour, checkout and receipts all use this.
   const { rate: solUsd, usdToSol } = useSolUsd();
   const solRate = solUsd ?? 0;
   const fmtSol = (usd: number) => usdToSol(usd, 4);
 
-  const totalUsd = (vipSelected ? VIP_USD : 0) + hours * HOUR_USD;
+  // 1-on-1 hourly rate is SOL-canonical and depends on VIP selection
+  const hourSol = vipSelected ? 1 : 2.5;
+  const hoursUsd = solRate > 0 ? hours * hourSol * solRate : 0;
+  const totalUsd = (vipSelected ? VIP_USD : 0) + hoursUsd;
   const totalSolDisplay = fmtSol(totalUsd);
-  const canCheckout = totalUsd > 0 && !loading;
+  const canCheckout = totalUsd > 0 && !loading && (hours === 0 || solRate > 0);
 
   // ----- Dev 1-on-1 Training (SOL-canonical pricing) -----
   const TRAIN_SOL_STANDARD = 2.5;
@@ -949,7 +959,10 @@ export default function BundlerAcademy() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold text-white/90">1-on-1 Time</div>
-                        <div className="text-[11px] text-white/45 mt-0.5">${HOUR_USD} / hour with Warren {solRate > 0 && <span className="text-white/30">· ~{fmtSol(HOUR_USD)} SOL</span>}</div>
+                        <div className="text-[11px] text-white/45 mt-0.5">
+                          <span className="font-mono text-emerald-300/90">{hourSol} SOL</span> / hour with Warren
+                          {!vipSelected && <span className="text-white/30"> · VIP unlocks 1 SOL/hr</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -966,8 +979,8 @@ export default function BundlerAcademy() {
                     </div>
                     {hours > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
-                        <span className="text-white/40">{hours} × ${HOUR_USD}</span>
-                        <span className="font-mono text-emerald-300">${(hours * HOUR_USD).toLocaleString()}</span>
+                        <span className="text-white/40">{hours} × {hourSol} SOL</span>
+                        <span className="font-mono text-emerald-300">{(hours * hourSol).toFixed(2)} SOL</span>
                       </div>
                     )}
                   </div>
@@ -1258,6 +1271,22 @@ export default function BundlerAcademy() {
               )}
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Scroll to top */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="Scroll to top"
+            className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full border border-emerald-400/30 bg-black/70 backdrop-blur-xl text-emerald-300 hover:text-black hover:bg-emerald-400 hover:border-emerald-400 shadow-[0_0_30px_-5px_rgba(0,255,136,0.6)] flex items-center justify-center transition-colors"
+          >
+            <ChevronUp className="h-5 w-5" />
+          </motion.button>
         )}
       </AnimatePresence>
 
