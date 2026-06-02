@@ -287,9 +287,11 @@ export default function BundlerAcademy() {
   return (
     <div className="relative min-h-screen bg-[#03060a] text-white selection:bg-emerald-400/20 overflow-hidden">
       <SEOHead
-        title="Warren Guru Bundler Academy — Solana Education"
-        description="Private crypto education community teaching Solana launch strategy, wallet mechanics, liquidity, and market behavior analysis."
-        canonical="/"
+        title="Warren Guru — Crypto Rug Pulls, Token Launches & Launch Education"
+        description="Learn crypto rug pull strategies, token launch mechanics, and Solana launch education. Join Warren Guru for private Discord access, premium training, and daily money-making opportunities."
+        canonical="https://warren.guru"
+        ogImage="https://warren.guru/images/og-crypto.png"
+        keywords="crypto rug pulls, token launch, Solana education, crypto launches, rug pull strategies, launch education, Warren Guru, crypto community, Solana bundler, token lifecycle, wallet management"
       />
 
       {/* animated grid bg */}
