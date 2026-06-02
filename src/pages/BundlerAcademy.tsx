@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight, Check, MessageCircle, Youtube, Mail, Sparkles,
   Shield, Users, BookOpen, TrendingUp, Wallet, Activity, Bell,
-  ChevronDown, X, Copy, Loader2,
+  ChevronDown, ChevronUp, X, Copy, Loader2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
