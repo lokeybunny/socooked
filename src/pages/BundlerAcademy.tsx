@@ -316,7 +316,7 @@ export default function BundlerAcademy() {
                 disabled={loading}
                 className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.15em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_45px_-3px_rgba(0,255,136,0.95)] transition-all disabled:opacity-60"
               >
-                {loading ? 'Loading…' : 'Join For $500'}
+                {loading ? 'Loading…' : 'Join For $999'}
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
@@ -617,7 +617,7 @@ export default function BundlerAcademy() {
           disabled={loading}
           className="w-full px-6 py-3.5 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-xs tracking-[0.2em] uppercase shadow-[0_0_30px_-3px_rgba(0,255,136,0.8)] disabled:opacity-60"
         >
-          {loading ? 'Loading…' : 'Join Academy · $500'}
+          {loading ? 'Loading…' : 'Join Academy · $999'}
         </button>
       </div>
 
