@@ -189,6 +189,7 @@ export default function BundlerAcademy() {
   const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [chartUrl, setChartUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -525,13 +526,12 @@ export default function BundlerAcademy() {
                 { img: profitReport2, link: 'https://axiom.trade/meme/3jfQobfG1r8e8R7CDix7444t6xGHom6iff7xPR6Xqvi5?chain=sol' },
                 { img: profitReport3, link: 'https://axiom.trade/meme/6185sJvgZ1wKgZfN8zrtpyvw3FrRGT9kCQYF1fGEvEDH?chain=sol' },
               ].map((item, i) => (
-                <motion.a
+                <motion.button
                   key={i}
-                  href={item.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  type="button"
+                  onClick={() => setChartUrl(item.link)}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ duration: 0.6, delay: i * 0.1 }}
-                  className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/30 via-cyan-400/15 to-emerald-400/30 shadow-[0_0_40px_-15px_rgba(0,255,136,0.4)] hover:shadow-[0_0_60px_-10px_rgba(0,255,136,0.6)] transition-all block"
+                  className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/30 via-cyan-400/15 to-emerald-400/30 shadow-[0_0_40px_-15px_rgba(0,255,136,0.4)] hover:shadow-[0_0_60px_-10px_rgba(0,255,136,0.6)] transition-all block text-left"
                 >
                   <div className="rounded-2xl overflow-hidden bg-black/60 backdrop-blur-xl">
                     <img
@@ -544,7 +544,7 @@ export default function BundlerAcademy() {
                       <span className="text-xs font-medium tracking-wider uppercase text-emerald-400/80 group-hover:text-emerald-300 transition-colors">View Chart</span>
                     </div>
                   </div>
-                </motion.a>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -1343,6 +1343,50 @@ export default function BundlerAcademy() {
         )}
       </AnimatePresence>
 
+      {/* Chart popup embed */}
+      <AnimatePresence>
+        {chartUrl && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
+            onClick={() => setChartUrl(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden border border-emerald-400/30 bg-black shadow-[0_0_60px_-10px_rgba(0,255,136,0.5)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-white/10 bg-black/80">
+                <a
+                  href={chartUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-emerald-300/80 hover:text-emerald-300 truncate"
+                >
+                  Open in new tab ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setChartUrl(null)}
+                  aria-label="Close"
+                  className="h-8 w-8 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <iframe
+                src={chartUrl}
+                title="Axiom chart"
+                className="w-full h-[calc(85vh-44px)] bg-black"
+                allow="clipboard-read; clipboard-write"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
+
   );
 }
