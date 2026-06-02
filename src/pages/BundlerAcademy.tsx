@@ -388,7 +388,7 @@ export default function BundlerAcademy() {
             {nav.map(n => (
               <a key={n.href} href={n.href} className="text-xs tracking-[0.15em] uppercase text-white/50 hover:text-emerald-300 transition-colors">{n.label}</a>
             ))}
-            <Link to="/auth" className="text-xs tracking-[0.15em] uppercase text-white/50 hover:text-emerald-300 transition-colors">Login</Link>
+            <a href="#how-it-works-video" className="text-xs tracking-[0.15em] uppercase text-white/50 hover:text-emerald-300 transition-colors">Video</a>
           </nav>
           <button
             onClick={startCheckout}
@@ -676,10 +676,11 @@ export default function BundlerAcademy() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-            className="mt-10"
+            id="how-it-works-video"
+            className="mt-10 scroll-mt-24"
           >
             <p className="text-[10px] tracking-[0.3em] uppercase text-emerald-400/60 mb-4 text-center">How It Works — This Video</p>
-            <div className="relative w-full max-w-5xl mx-auto aspect-video rounded-3xl overflow-hidden border border-white/[0.08] bg-black shadow-[0_0_80px_-15px_rgba(0,255,136,0.25)]">
+            <div className="relative w-full aspect-video rounded-3xl overflow-hidden border border-white/[0.08] bg-black shadow-[0_0_80px_-15px_rgba(0,255,136,0.25)]">
               <iframe
                 src="https://www.youtube.com/embed/Tf4z5yVxnzk?rel=0&modestbranding=1"
                 title="How It Works"
