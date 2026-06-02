@@ -316,7 +316,7 @@ export default function BundlerAcademy() {
                 disabled={loading}
                 className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.15em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_45px_-3px_rgba(0,255,136,0.95)] transition-all disabled:opacity-60"
               >
-                {loading ? 'Loading…' : 'Join For $500'}
+                {loading ? 'Loading…' : 'Join For $999'}
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
@@ -473,7 +473,7 @@ export default function BundlerAcademy() {
             <div className="grid grid-cols-3 px-6 py-4 border-b border-white/5 text-[10px] tracking-[0.25em] uppercase text-white/40">
               <div>Action</div>
               <div className="text-center">Free</div>
-              <div className="text-center text-emerald-300/80">Pro · $999/mo</div>
+              <div className="text-center text-emerald-300/80">VIP · $999 Lifetime</div>
             </div>
             {feeRows.map((r, i) => (
               <div key={r.label} className={`grid grid-cols-3 px-6 py-4 text-sm ${i !== feeRows.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
@@ -504,18 +504,27 @@ export default function BundlerAcademy() {
               <div className="text-center">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-400/20 bg-emerald-400/[0.05] mb-4">
                   <Sparkles className="h-3 w-3 text-emerald-300" />
-                  <span className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80">VIP Access</span>
+                  <span className="text-[10px] tracking-[0.3em] uppercase text-emerald-300/80">VIP Access · Lifetime</span>
                 </div>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">{VIP_SOL}</span>
-                  <span className="text-sm text-white/40 tracking-wider uppercase">SOL · One Time</span>
+                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">$999</span>
+                  <span className="text-sm text-white/40 tracking-wider uppercase">One Time</span>
                 </div>
+                <div className="mt-2 text-[11px] tracking-[0.2em] uppercase text-emerald-300/70">Lifetime License</div>
               </div>
 
               <div className="mt-8 space-y-3 max-w-sm mx-auto">
-                {['Discord Access', 'Premium Training', 'Community Access', 'Launch Education', 'Case Studies'].map(f => (
+                {[
+                  'Discord Access',
+                  'Premium Training',
+                  'Community Access',
+                  'Launch Education',
+                  'Case Studies',
+                  'Lifetime Warren Guru Bundler — No Fees',
+                  'Daily Rug Pull Access',
+                ].map(f => (
                   <div key={f} className="flex items-center gap-3">
-                    <div className="h-5 w-5 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center">
+                    <div className="h-5 w-5 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center shrink-0">
                       <Check className="h-3 w-3 text-emerald-300" />
                     </div>
                     <span className="text-sm text-white/70">{f}</span>
@@ -608,7 +617,7 @@ export default function BundlerAcademy() {
           disabled={loading}
           className="w-full px-6 py-3.5 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-xs tracking-[0.2em] uppercase shadow-[0_0_30px_-3px_rgba(0,255,136,0.8)] disabled:opacity-60"
         >
-          {loading ? 'Loading…' : 'Join Academy · $500'}
+          {loading ? 'Loading…' : 'Join Academy · $999'}
         </button>
       </div>
 
@@ -662,7 +671,7 @@ export default function BundlerAcademy() {
                           <span className="font-mono text-emerald-300 text-sm">{VIP_SOL} SOL</span>
                         </div>
                         <p className="text-[11px] text-white/45 mt-1 leading-relaxed">
-                          Private Discord, premium training, launch case studies, full community access.
+                          Lifetime license · Discord, premium training, case studies, daily rug pulls, and the Warren Guru Bundler with zero fees.
                         </p>
                       </div>
                     </div>
