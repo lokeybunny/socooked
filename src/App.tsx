@@ -10,6 +10,7 @@ import { AuthLayoutGate } from "./components/layout/AuthLayoutGate";
 import { AppLoadingScreen } from "@/components/app/AppLoadingScreen";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { AnalyticsMount } from "@/components/analytics/AnalyticsMount";
+import DiscordTicketReminder from "@/components/DiscordTicketReminder";
 
 const Auth = lazyWithRetry(() => import("./pages/Auth"), "page-auth");
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"), "page-dashboard");
