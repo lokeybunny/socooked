@@ -592,21 +592,49 @@ export default function BundlerAcademy() {
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t border-white/5 py-10 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col leading-none">
-            <span className="text-[9px] tracking-[0.3em] uppercase text-emerald-400/60">Warren</span>
-            <span className="text-sm tracking-[0.18em] uppercase text-white/70 -mt-0.5">GURU</span>
-          </div>
-          <div className="flex items-center gap-5">
-            <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors"><MessageCircle className="h-4 w-4" /></a>
-            <a href="https://x.com/warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      <footer className="border-t border-white/5">
+        {/* Discord CTA */}
+        <div className="py-10 px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto">
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between gap-4 rounded-2xl border border-[#5865F2]/30 bg-[#5865F2]/[0.08] px-6 py-5 hover:bg-[#5865F2]/[0.14] hover:border-[#5865F2]/50 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-xl bg-[#5865F2]/20 flex items-center justify-center shrink-0">
+                  <MessageCircle className="h-5 w-5 text-[#5865F2]" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white/90">Join the Warren Guru Discord</p>
+                  <p className="text-xs text-white/45 mt-0.5">Get support, connect with the community, and download the bundler.</p>
+                </div>
+              </div>
+              <div className="shrink-0 hidden sm:flex items-center gap-2 text-[#5865F2] text-xs font-medium group-hover:translate-x-1 transition-transform">
+                Join Now <ArrowRight className="h-4 w-4" />
+              </div>
             </a>
-            <a href="https://youtube.com/@WarrenGuru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors"><Youtube className="h-4 w-4" /></a>
-            <a href="mailto:support@warren.guru" className="text-white/40 hover:text-emerald-300 transition-colors"><Mail className="h-4 w-4" /></a>
           </div>
-          <p className="text-[10px] tracking-wider text-white/25">© {new Date().getFullYear()} Warren Guru</p>
+        </div>
+
+        {/* Footer links */}
+        <div className="border-t border-white/5 py-10 px-4 sm:px-6">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col leading-none">
+              <span className="text-[9px] tracking-[0.3em] uppercase text-emerald-400/60">Warren</span>
+              <span className="text-sm tracking-[0.18em] uppercase text-white/70 -mt-0.5">GURU</span>
+            </div>
+            <div className="flex items-center gap-5">
+              <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors"><MessageCircle className="h-4 w-4" /></a>
+              <a href="https://x.com/warrenguru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </a>
+              <a href="https://youtube.com/@WarrenGuru" target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-emerald-300 transition-colors"><Youtube className="h-4 w-4" /></a>
+              <a href="mailto:support@warren.guru" className="text-white/40 hover:text-emerald-300 transition-colors"><Mail className="h-4 w-4" /></a>
+            </div>
+            <p className="text-[10px] tracking-wider text-white/25">© {new Date().getFullYear()} Warren Guru</p>
+          </div>
         </div>
       </footer>
 
