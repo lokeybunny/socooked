@@ -182,29 +182,15 @@ export default function BundlerAcademy() {
   const [status, setStatus] = useState<string>('waiting');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [solUsd, setSolUsd] = useState<number | null>(null);
   const notifiedRef = useRef(false);
   const pollRef = useRef<number | null>(null);
 
-  // Live SOL/USD rate (display only — server uses USD for the actual charge)
-  useEffect(() => {
-    let cancelled = false;
-    const fetchRate = async () => {
-      try {
-        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-        const j = await r.json();
-        const price = Number(j?.solana?.usd);
-        if (!cancelled && price > 0) setSolUsd(price);
-      } catch { /* ignore */ }
-    };
-    fetchRate();
-    const id = window.setInterval(fetchRate, 60_000);
-    return () => { cancelled = true; window.clearInterval(id); };
-  }, []);
+  // Single shared live-rate utility — VIP, Hour, checkout and receipts all use this.
+  const { rate: solUsd, usdToSol } = useSolUsd();
+  const solRate = solUsd ?? 0;
+  const fmtSol = (usd: number) => usdToSol(usd, 4);
 
   const totalUsd = (vipSelected ? VIP_USD : 0) + hours * HOUR_USD;
-  const solRate = solUsd ?? 0;
-  const fmtSol = (usd: number) => (solRate > 0 ? (usd / solRate).toFixed(4) : '—');
   const totalSolDisplay = fmtSol(totalUsd);
   const canCheckout = totalUsd > 0 && !loading;
 
