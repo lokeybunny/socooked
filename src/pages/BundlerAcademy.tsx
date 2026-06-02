@@ -10,6 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
 import bundlerScreenshot from '@/assets/bundler-screenshot.png.asset.json';
 import rugsInfographic from '@/assets/warren-guru-rugs-infographic.png.asset.json';
+import profitReport1 from '@/assets/profit-report-1.png.asset.json';
+import profitReport2 from '@/assets/profit-report-2.png.asset.json';
+import profitReport3 from '@/assets/profit-report-3.png.asset.json';
 import { markPurchasePending } from '@/components/DiscordTicketReminder';
 import { useSolUsd } from '@/hooks/useSolUsd';
 
