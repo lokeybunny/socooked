@@ -8,10 +8,35 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import SEOHead from '@/components/SEOHead';
+import bundlerScreenshot from '@/assets/bundler-screenshot.png.asset.json';
+
+const bundlerFeatures = [
+  { emoji: '⚡', title: 'Blazing Fast Terminal', desc: 'Major speed & UI performance improvements for rendering and interactions.' },
+  { emoji: '🏷️', title: 'White Labeling', desc: 'Run your own crypto business — fully white-label with your branding, logo and colors.' },
+  { emoji: '💰', title: 'Bags.fm Support', desc: 'Native integration with bags.fm alongside Pump.fun and PumpSwap.' },
+  { emoji: '🔥', title: 'Burn Tokens', desc: 'Burn unwanted tokens and reclaim rent in one step.' },
+  { emoji: '💸', title: 'Cashback Coins', desc: 'Full PumpFun cashback support on bonding curve and PumpSwap, auto-claimed.' },
+  { emoji: '📊', title: 'Split Sells on Volume', desc: 'Volume tasks automatically sell after buying for realistic trading patterns.' },
+  { emoji: '👛', title: 'Wallet Presets', desc: 'Fund, Withdraw, Redistribute, Tag and Warm wallets with saved configs.' },
+  { emoji: '🧬', title: 'Redistribution Revamp', desc: 'Easily redistribute funds to new or existing wallets and groups.' },
+  { emoji: '💎', title: 'Dust Recovery', desc: 'Automatically recover leftover SOL from intermediate wallets.' },
+  { emoji: '📈', title: 'Per-Wallet PnL', desc: 'Realized + unrealized PnL tracked per wallet, per token, with historical drill-down.' },
+  { emoji: '💝', title: 'Charity Fee Sharing', desc: 'Donate to charities directly through fee sharing at launch setup.' },
+  { emoji: '🛡️', title: 'PumpFun V2 Ready', desc: 'Adapted to PumpFun program upgrades and new PDA accounts.' },
+];
+
+const feeRows = [
+  { label: 'Buys', free: '0.5%', pro: '0%' },
+  { label: 'Sells', free: '0.5%', pro: '0%' },
+  { label: 'Mix Wallet', free: '0.001 SOL', pro: '0 SOL' },
+  { label: 'Warm Wallet', free: '0.001 SOL', pro: '0 SOL' },
+  { label: 'Tag Wallet', free: '0.001 SOL', pro: '0 SOL' },
+  { label: 'Launch Token', free: '0.01 SOL', pro: '0 SOL' },
+];
 
 const nav = [
+  { label: 'Bundler', href: '#bundler' },
   { label: 'Features', href: '#features' },
-  { label: 'Community', href: '#community' },
   { label: 'Pricing', href: '#pricing' },
   { label: 'FAQ', href: '#faq' },
 ];
@@ -293,8 +318,64 @@ export default function BundlerAcademy() {
         </div>
       </section>
 
+      {/* BUNDLER SHOWCASE */}
+      <section id="bundler" className="px-4 sm:px-6 py-24 border-t border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">The Software</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+              Warren Guru <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundler</span>
+            </h2>
+            <p className="mt-4 text-sm sm:text-base text-white/50 max-w-2xl mx-auto">
+              The professional Solana launch terminal members use every day. Tokens, wallets, vanities, presets and blueprints — all in one premium UI.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}
+            className="relative rounded-3xl p-[1px] bg-gradient-to-br from-emerald-400/40 via-cyan-400/20 to-emerald-400/40 shadow-[0_0_80px_-15px_rgba(0,255,136,0.45)]"
+          >
+            <div className="rounded-3xl overflow-hidden bg-black/60 backdrop-blur-xl">
+              <img
+                src={bundlerScreenshot.url}
+                alt="Warren Guru Bundler — Solana launch terminal with token chart, wallets and trading controls"
+                className="w-full h-auto block"
+                loading="lazy"
+              />
+            </div>
+          </motion.div>
+
+          <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bundlerFeatures.map((f, i) => (
+              <motion.div
+                key={f.title}
+                initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-50px' }} variants={fade} custom={i}
+                className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] backdrop-blur-md p-5 hover:border-emerald-400/30 hover:bg-emerald-400/[0.03] transition-all duration-500"
+              >
+                <div className="text-2xl mb-3">{f.emoji}</div>
+                <h3 className="text-sm font-semibold text-white/90 mb-1.5 tracking-wide">{f.title}</h3>
+                <p className="text-xs text-white/45 leading-relaxed">{f.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank" rel="noopener noreferrer"
+              className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.18em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_50px_-3px_rgba(0,255,136,0.95)] transition-all"
+            >
+              <MessageCircle className="h-4 w-4" /> Download The Bundler
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </a>
+            <span className="text-[11px] tracking-[0.2em] uppercase text-white/40">Free to use · Available in Discord</span>
+          </div>
+        </div>
+      </section>
+
       {/* WHAT MEMBERS GET */}
-      <section id="features" className="px-4 sm:px-6 py-24">
+      <section id="membership" className="px-4 sm:px-6 py-24">
+
         <div className="max-w-6xl mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-14">
             <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Membership</p>
@@ -347,7 +428,38 @@ export default function BundlerAcademy() {
 
       {/* PRICING */}
       <section id="pricing" className="px-4 sm:px-6 py-24 border-t border-white/5">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-5xl mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Bundler Fees</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Transparent Fee Structure</h2>
+            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">Use the bundler free with standard fees, or go fee-free with the Pro plan.</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
+            className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl overflow-hidden mb-12"
+          >
+            <div className="grid grid-cols-3 px-6 py-4 border-b border-white/5 text-[10px] tracking-[0.25em] uppercase text-white/40">
+              <div>Action</div>
+              <div className="text-center">Free</div>
+              <div className="text-center text-emerald-300/80">Pro · $999/mo</div>
+            </div>
+            {feeRows.map((r, i) => (
+              <div key={r.label} className={`grid grid-cols-3 px-6 py-4 text-sm ${i !== feeRows.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
+                <div className="text-white/80">{r.label}</div>
+                <div className="text-center text-white/50 font-mono">{r.free}</div>
+                <div className="text-center text-emerald-300 font-mono">{r.pro}</div>
+              </div>
+            ))}
+          </motion.div>
+
+          <div className="text-center mb-12">
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Academy Membership</p>
+            <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">One Membership. Full Access.</h3>
+          </div>
+
+          <div className="max-w-3xl mx-auto">
+
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
             <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Pricing</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">One Membership. Full Access.</h2>
@@ -390,13 +502,15 @@ export default function BundlerAcademy() {
               </button>
 
               <div className="mt-6 pt-6 border-t border-white/5 text-center">
-                <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Also Available</div>
-                <div className="text-sm text-white/70">One-On-One Training · <span className="text-emerald-300">3.5 SOL / hour</span></div>
+                <div className="text-xs tracking-[0.2em] uppercase text-white/40 mb-1">Pro Plan · $999/mo</div>
+                <div className="text-sm text-white/70">Zero bundler fees · Includes <span className="text-emerald-300">3-hour 1-on-1 session</span></div>
               </div>
             </div>
           </motion.div>
+          </div>
         </div>
       </section>
+
 
       {/* FAQ */}
       <section id="faq" className="px-4 sm:px-6 py-24 border-t border-white/5">
