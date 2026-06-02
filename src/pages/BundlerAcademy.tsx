@@ -520,21 +520,31 @@ export default function BundlerAcademy() {
             </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {[profitReport1, profitReport2, profitReport3].map((img, i) => (
-                <motion.div
+              {[
+                { img: profitReport1, link: 'https://axiom.trade/meme/CKRtxRMAsnhc8zWjT16LfaHkRvPNT1tGCnDiPAEEBSG4?chain=sol' },
+                { img: profitReport2, link: 'https://axiom.trade/meme/3jfQobfG1r8e8R7CDix7444t6xGHom6iff7xPR6Xqvi5?chain=sol' },
+                { img: profitReport3, link: 'https://axiom.trade/meme/6185sJvgZ1wKgZfN8zrtpyvw3FrRGT9kCQYF1fGEvEDH?chain=sol' },
+              ].map((item, i) => (
+                <motion.a
                   key={i}
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-50px' }} transition={{ duration: 0.6, delay: i * 0.1 }}
-                  className="relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/30 via-cyan-400/15 to-emerald-400/30 shadow-[0_0_40px_-15px_rgba(0,255,136,0.4)] hover:shadow-[0_0_60px_-10px_rgba(0,255,136,0.6)] transition-all"
+                  className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-emerald-400/30 via-cyan-400/15 to-emerald-400/30 shadow-[0_0_40px_-15px_rgba(0,255,136,0.4)] hover:shadow-[0_0_60px_-10px_rgba(0,255,136,0.6)] transition-all block"
                 >
                   <div className="rounded-2xl overflow-hidden bg-black/60 backdrop-blur-xl">
                     <img
-                      src={img.url}
+                      src={item.img.url}
                       alt={`Warren Guru Bundler profit report ${i + 1}`}
                       className="w-full h-auto block"
                       loading="lazy"
                     />
+                    <div className="py-3 text-center">
+                      <span className="text-xs font-medium tracking-wider uppercase text-emerald-400/80 group-hover:text-emerald-300 transition-colors">View Chart</span>
+                    </div>
                   </div>
-                </motion.div>
+                </motion.a>
               ))}
             </div>
           </div>
