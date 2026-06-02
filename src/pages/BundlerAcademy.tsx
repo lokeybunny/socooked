@@ -188,6 +188,8 @@ export default function BundlerAcademy() {
     setHours(0);
     setPayment(null);
     setStatus('waiting');
+    setTxHash(null);
+    notifiedRef.current = false;
     setBuilderOpen(true);
   };
 
