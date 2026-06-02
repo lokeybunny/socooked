@@ -230,7 +230,28 @@ export default function BundlerAcademy() {
           body: { action: 'status', payment_id: payment.payment_id },
         });
         if (data?.payment_status && !stopped) setStatus(data.payment_status);
+        if (data?.payin_hash && !stopped) setTxHash(data.payin_hash);
         if (data?.payment_status === 'finished' || data?.payment_status === 'confirmed') {
+          if (!notifiedRef.current) {
+            notifiedRef.current = true;
+            try {
+              if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                  new Notification('Payment Confirmed — Open your Discord ticket', {
+                    body: 'Tap to join Warren Guru Discord and submit your Solscan receipt for verification.',
+                  });
+                } else if (Notification.permission !== 'denied') {
+                  Notification.requestPermission().then((p) => {
+                    if (p === 'granted') {
+                      new Notification('Payment Confirmed — Open your Discord ticket', {
+                        body: 'Tap to join Warren Guru Discord and submit your Solscan receipt for verification.',
+                      });
+                    }
+                  });
+                }
+              }
+            } catch { /* ignore */ }
+          }
           if (pollRef.current) window.clearInterval(pollRef.current);
         }
       } catch { /* ignore */ }
