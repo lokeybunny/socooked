@@ -192,6 +192,7 @@ export default function BundlerAcademy() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [chartUrl, setChartUrl] = useState<string | null>(null);
   const [rugCountdown, setRugCountdown] = useState('00:00:00');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // Rug countdown: ticks every second toward next midnight UTC
   useEffect(() => {
