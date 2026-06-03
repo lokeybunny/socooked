@@ -792,8 +792,9 @@ export default function BundlerAcademy() {
             <img
               src={lifetimeOverview.url}
               alt="Warren Guru Bundler — Everything you get with the $999 one-time lifetime license: Discord access, premium training, community, launch education, case studies, daily rug pulls, bundler included, transparent fees, monthly updates, and full feature breakdown."
-              className="w-full h-auto block"
+              className="w-full h-auto block cursor-pointer"
               loading="lazy"
+              onClick={() => setLightboxOpen(true)}
             />
           </motion.div>
 
