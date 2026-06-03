@@ -620,8 +620,9 @@ export default function BundlerAcademy() {
               <img
                 src={rugsInfographic.url}
                 alt="Warren Guru VIP Members — how rugs work, why rugs happen, how we protect VIPs, and our VIP launch execution flow"
-                className="w-full h-auto block"
+                className="w-full h-auto block cursor-pointer"
                 loading="lazy"
+                onClick={() => setLightboxUrl(rugsInfographic.url)}
               />
             </div>
           </motion.div>
