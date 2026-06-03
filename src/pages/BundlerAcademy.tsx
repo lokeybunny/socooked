@@ -13,6 +13,7 @@ import rugsInfographic from '@/assets/warren-guru-rugs-infographic.png.asset.jso
 import profitReport1 from '@/assets/profit-report-1.png.asset.json';
 import profitReport2 from '@/assets/profit-report-2.png.asset.json';
 import profitReport3 from '@/assets/profit-report-3.png.asset.json';
+import lifetimeOverview from '@/assets/wgb2-lifetime-overview.png.asset.json';
 import { markPurchasePending } from '@/components/DiscordTicketReminder';
 import { useSolUsd } from '@/hooks/useSolUsd';
 
@@ -782,6 +783,19 @@ export default function BundlerAcademy() {
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Transparent Fee Structure</h2>
             <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">One-time $999 lifetime license. Standard on-chain fees stay in place to fund ongoing maintenance, infrastructure, and updates.</p>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
+            className="mb-12 rounded-3xl overflow-hidden border border-emerald-400/20 shadow-[0_0_60px_-15px_rgba(16,185,129,0.35)] bg-black"
+          >
+            <img
+              src={lifetimeOverview.url}
+              alt="Warren Guru Bundler — Everything you get with the $999 one-time lifetime license: Discord access, premium training, community, launch education, case studies, daily rug pulls, bundler included, transparent fees, monthly updates, and full feature breakdown."
+              className="w-full h-auto block"
+              loading="lazy"
+            />
+          </motion.div>
+
 
           <motion.div
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
