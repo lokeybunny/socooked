@@ -192,6 +192,7 @@ export default function BundlerAcademy() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [chartUrl, setChartUrl] = useState<string | null>(null);
   const [rugCountdown, setRugCountdown] = useState('00:00:00');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // Rug countdown: ticks every second toward next midnight UTC
   useEffect(() => {
@@ -791,8 +792,9 @@ export default function BundlerAcademy() {
             <img
               src={lifetimeOverview.url}
               alt="Warren Guru Bundler — Everything you get with the $999 one-time lifetime license: Discord access, premium training, community, launch education, case studies, daily rug pulls, bundler included, transparent fees, monthly updates, and full feature breakdown."
-              className="w-full h-auto block"
+              className="w-full h-auto block cursor-pointer"
               loading="lazy"
+              onClick={() => setLightboxOpen(true)}
             />
           </motion.div>
 
@@ -1418,6 +1420,42 @@ export default function BundlerAcademy() {
                 title="Axiom chart"
                 className="w-full h-[calc(85vh-44px)] bg-black"
                 allow="clipboard-read; clipboard-write"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lifetime overview lightbox */}
+      <AnimatePresence>
+        {lightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 sm:p-8"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="relative w-full max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                aria-label="Close"
+                className="absolute -top-3 -right-3 z-10 h-10 w-10 rounded-full border border-white/20 bg-black/80 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <img
+                src={lifetimeOverview.url}
+                alt="Warren Guru Bundler — Full lifetime overview"
+                className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl border border-emerald-400/20 shadow-[0_0_60px_-10px_rgba(0,255,136,0.4)]"
               />
             </motion.div>
           </motion.div>
