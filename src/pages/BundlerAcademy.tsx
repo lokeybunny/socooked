@@ -493,8 +493,9 @@ export default function BundlerAcademy() {
               Warren Guru <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundler</span>
             </h2>
             <p className="mt-4 text-sm sm:text-base text-white/50 max-w-2xl mx-auto">
-              The professional Solana launch terminal members use every day. Tokens, wallets, vanities, presets and blueprints — all in one premium UI.
+              The professional Solana launch terminal. Included with your $999 Lifetime VIP Access — download it instantly after joining.
             </p>
+
           </motion.div>
 
           <motion.div
@@ -568,14 +569,19 @@ export default function BundlerAcademy() {
 
 
           <div className="mt-12 flex flex-col items-center justify-center gap-5">
-            <a
-              href="https://discord.gg/warrenguru"
-              target="_blank" rel="noopener noreferrer"
-              className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.18em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_50px_-3px_rgba(0,255,136,0.95)] transition-all"
+            <div className="text-center">
+              <p className="text-[11px] tracking-[0.2em] uppercase text-white/50 mb-3">
+                <span className="text-emerald-300 font-medium">VIP Access Required</span> — The Bundler is included with your $999 Lifetime license
+              </p>
+            </div>
+            <button
+              onClick={startCheckout}
+              disabled={loading}
+              className="group inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-medium text-black bg-gradient-to-r from-emerald-400 to-cyan-400 text-sm tracking-[0.18em] uppercase shadow-[0_0_30px_-5px_rgba(0,255,136,0.7)] hover:shadow-[0_0_50px_-3px_rgba(0,255,136,0.95)] transition-all disabled:opacity-60"
             >
-              <MessageCircle className="h-4 w-4" /> Download The Bundler
+              <MessageCircle className="h-4 w-4" /> Get VIP Access & Download
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </a>
+            </button>
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-3">
                 {/* Windows */}
@@ -583,9 +589,10 @@ export default function BundlerAcademy() {
                 {/* macOS */}
                 <svg className="h-12 w-12 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
               </div>
-              <span className="text-[11px] tracking-[0.2em] uppercase text-white/40">$999 Lifetime · Available in Discord</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-white/40">Available in Discord after VIP activation</span>
             </div>
           </div>
+
         </div>
       </section>
 
@@ -829,7 +836,7 @@ export default function BundlerAcademy() {
                   'Community Access',
                   'Launch Education',
                   'Case Studies',
-                  'Lifetime Warren Guru Bundler — No Fees',
+                  'Warren Guru Bundler — Included',
                   'Daily Rug Pull Access',
                 ].map(f => (
                   <div key={f} className="flex items-center gap-3">
@@ -840,6 +847,7 @@ export default function BundlerAcademy() {
                   </div>
                 ))}
               </div>
+
 
               <button
                 onClick={startCheckout}
