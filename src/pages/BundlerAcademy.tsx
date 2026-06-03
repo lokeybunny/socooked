@@ -32,12 +32,12 @@ const bundlerFeatures = [
 ];
 
 const feeRows = [
-  { label: 'Buys', free: '0.5%', pro: '0%' },
-  { label: 'Sells', free: '0.5%', pro: '0%' },
-  { label: 'Mix Wallet', free: '0.001 SOL', pro: '0 SOL' },
-  { label: 'Warm Wallet', free: '0.001 SOL', pro: '0 SOL' },
-  { label: 'Tag Wallet', free: '0.001 SOL', pro: '0 SOL' },
-  { label: 'Launch Token', free: '0.01 SOL', pro: '0 SOL' },
+  { label: 'Buys', fee: '0.5%' },
+  { label: 'Sells', fee: '0.5%' },
+  { label: 'Mix Wallet', fee: '0.001 SOL' },
+  { label: 'Warm Wallet', fee: '0.001 SOL' },
+  { label: 'Tag Wallet', fee: '0.001 SOL' },
+  { label: 'Launch Token', fee: '0.01 SOL' },
 ];
 
 const nav = [
@@ -583,7 +583,7 @@ export default function BundlerAcademy() {
                 {/* macOS */}
                 <svg className="h-12 w-12 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
               </div>
-              <span className="text-[11px] tracking-[0.2em] uppercase text-white/40">Free to use · Available in Discord</span>
+              <span className="text-[11px] tracking-[0.2em] uppercase text-white/40">$999 Lifetime · Available in Discord</span>
             </div>
           </div>
         </div>
@@ -773,26 +773,25 @@ export default function BundlerAcademy() {
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
             <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Bundler Fees</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Transparent Fee Structure</h2>
-            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">Use the bundler free with standard fees, or go fee-free with the Pro plan.</p>
+            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">One-time $999 lifetime license. Standard on-chain fees stay in place to fund ongoing maintenance, infrastructure, and updates.</p>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
             className="rounded-3xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-xl overflow-hidden mb-12"
           >
-            <div className="grid grid-cols-3 px-6 py-4 border-b border-white/5 text-[10px] tracking-[0.25em] uppercase text-white/40">
+            <div className="grid grid-cols-2 px-6 py-4 border-b border-white/5 text-[10px] tracking-[0.25em] uppercase text-white/40">
               <div>Action</div>
-              <div className="text-center">Free</div>
-              <div className="text-center text-emerald-300/80">VIP · $999 Lifetime</div>
+              <div className="text-center text-emerald-300/80">Fee</div>
             </div>
             {feeRows.map((r, i) => (
-              <div key={r.label} className={`grid grid-cols-3 px-6 py-4 text-sm ${i !== feeRows.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
+              <div key={r.label} className={`grid grid-cols-2 px-6 py-4 text-sm ${i !== feeRows.length - 1 ? 'border-b border-white/[0.04]' : ''}`}>
                 <div className="text-white/80">{r.label}</div>
-                <div className="text-center text-white/50 font-mono">{r.free}</div>
-                <div className="text-center text-emerald-300 font-mono">{r.pro}</div>
+                <div className="text-center text-emerald-300 font-mono">{r.fee}</div>
               </div>
             ))}
           </motion.div>
+          <p className="text-center text-[11px] tracking-[0.2em] uppercase text-white/30 -mt-6 mb-12">Fees fund maintenance · No subscription</p>
 
           <div className="text-center mb-12">
             <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Academy Membership</p>
