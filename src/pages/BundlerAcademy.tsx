@@ -794,7 +794,7 @@ export default function BundlerAcademy() {
               alt="Warren Guru Bundler — Everything you get with the $999 one-time lifetime license: Discord access, premium training, community, launch education, case studies, daily rug pulls, bundler included, transparent fees, monthly updates, and full feature breakdown."
               className="w-full h-auto block cursor-pointer"
               loading="lazy"
-              onClick={() => setLightboxOpen(true)}
+              onClick={() => setLightboxUrl(lifetimeOverview.url)}
             />
           </motion.div>
 
@@ -1426,15 +1426,15 @@ export default function BundlerAcademy() {
         )}
       </AnimatePresence>
 
-      {/* Lifetime overview lightbox */}
+      {/* Image lightbox */}
       <AnimatePresence>
-        {lightboxOpen && (
+        {lightboxUrl && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 sm:p-8"
-            onClick={() => setLightboxOpen(false)}
+            onClick={() => setLightboxUrl(null)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1446,15 +1446,15 @@ export default function BundlerAcademy() {
             >
               <button
                 type="button"
-                onClick={() => setLightboxOpen(false)}
+                onClick={() => setLightboxUrl(null)}
                 aria-label="Close"
                 className="absolute -top-3 -right-3 z-10 h-10 w-10 rounded-full border border-white/20 bg-black/80 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
               <img
-                src={lifetimeOverview.url}
-                alt="Warren Guru Bundler — Full lifetime overview"
+                src={lightboxUrl}
+                alt="Full size view"
                 className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl border border-emerald-400/20 shadow-[0_0_60px_-10px_rgba(0,255,136,0.4)]"
               />
             </motion.div>
