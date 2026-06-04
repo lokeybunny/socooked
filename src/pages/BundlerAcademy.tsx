@@ -788,7 +788,7 @@ export default function BundlerAcademy() {
 
           <motion.div
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
-            className="mb-12 rounded-3xl overflow-hidden border border-emerald-400/20 shadow-[0_0_60px_-15px_rgba(16,185,129,0.35)] bg-black"
+            className="mb-12 -mx-4 sm:-mx-6 lg:mx-[calc((100%-72rem)/2)] rounded-3xl overflow-hidden border border-emerald-400/20 shadow-[0_0_60px_-15px_rgba(16,185,129,0.35)] bg-black"
           >
             <img
               src={lifetimeOverview.url}
