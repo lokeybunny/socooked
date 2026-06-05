@@ -9661,6 +9661,24 @@ export type Database = {
         }
         Relationships: []
       }
+      xitbot_poll_state: {
+        Row: {
+          channel_id: string
+          last_message_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel_id: string
+          last_message_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string
+          last_message_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       lw_landing_pages_public: {
