@@ -76,7 +76,20 @@ Deno.serve(async (req) => {
     // Sold-out trigger still deletes the source msg but does not auto-mirror.
     const mentionEveryone: boolean = /@everyone\b/i.test(content);
 
-    if (!mentionEveryone && !isChatOpened) {
+    // Axiom link detection — extract Solana mint and post DexScreener embed
+    // Examples:
+    //   https://axiom.trade/t/<MINT>/...
+    //   https://axiom.trade/meme/<MINT>
+    //   https://axiom.trade/@user/<MINT>
+    const AXIOM_RE = /https?:\/\/(?:www\.)?axiom\.trade\/[^\s]*?([1-9A-HJ-NP-Za-km-z]{32,44})/gi;
+    const axiomMatches = [...String(content).matchAll(AXIOM_RE)];
+    const axiomMints: string[] = [];
+    for (const m of axiomMatches) {
+      if (m[1] && !axiomMints.includes(m[1])) axiomMints.push(m[1]);
+    }
+    const hasAxiom = axiomMints.length > 0;
+
+    if (!mentionEveryone && !isChatOpened && !hasAxiom) {
       return json({ skipped: true, reason: "no trigger detected" });
     }
 
