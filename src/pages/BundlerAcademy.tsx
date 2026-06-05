@@ -781,9 +781,9 @@ export default function BundlerAcademy() {
       <section id="pricing" className="px-4 sm:px-6 py-24 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
-            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Bundler Fees</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Transparent Fee Structure</h2>
-            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">One-time $999 lifetime license. Standard on-chain fees stay in place to fund ongoing maintenance, infrastructure, and updates.</p>
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Lifetime Fee Exemption</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Pay Once. Exempt For Life.</h2>
+            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">One-time $999 payment. Lifetime exempt from all platform fees — no monthly charges, no hidden costs, ever.</p>
           </motion.div>
 
           <motion.div
