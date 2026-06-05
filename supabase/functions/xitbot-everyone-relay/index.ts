@@ -68,6 +68,10 @@ Deno.serve(async (req) => {
     const SOLD_OUT_RE = /all\s+supply\s+has\s+been\s+sold/i;
     const isSoldOut = SOLD_OUT_RE.test(content);
 
+    // Trigger phrase: "chat is opened" → post VIP reminder w/ ticket + info buttons
+    const CHAT_OPENED_RE = /chat\s+is\s+opened/i;
+    const isChatOpened = CHAT_OPENED_RE.test(content);
+
     // Detect @everyone / @here — also honor explicit mention_everyone flag
     // or a `force` override for manual testing.
     const mentionEveryone: boolean =
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
       /@everyone\b/i.test(content) ||
       /@here\b/i.test(content);
 
-    if (!mentionEveryone) {
+    if (!mentionEveryone && !isChatOpened) {
       return json({ skipped: true, reason: "no trigger detected" });
     }
 
