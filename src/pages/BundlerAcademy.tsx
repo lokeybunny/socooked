@@ -495,7 +495,7 @@ export default function BundlerAcademy() {
               Warren Guru <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundler</span>
             </h2>
             <p className="mt-4 text-sm sm:text-base text-white/50 max-w-2xl mx-auto">
-              The professional Solana launch terminal. Included with your $999 Lifetime VIP Access — download it instantly after joining.
+              The professional Solana launch terminal. Included with your $999 Lifetime VIP Access — lifetime exempt from all platform fees.
             </p>
 
           </motion.div>
