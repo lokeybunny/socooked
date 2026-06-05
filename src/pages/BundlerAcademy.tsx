@@ -573,7 +573,7 @@ export default function BundlerAcademy() {
           <div className="mt-12 flex flex-col items-center justify-center gap-5">
             <div className="text-center">
               <p className="text-[11px] tracking-[0.2em] uppercase text-white/50 mb-3">
-                <span className="text-emerald-300 font-medium">VIP Access Required</span> — The Bundler is included with your $999 Lifetime license
+                <span className="text-emerald-300 font-medium">VIP Access Required</span> — The Bundler is included with your $999 Lifetime license. Lifetime exempt from all platform fees.
               </p>
             </div>
             <button
