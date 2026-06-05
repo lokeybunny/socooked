@@ -72,14 +72,9 @@ Deno.serve(async (req) => {
     const CHAT_OPENED_RE = /chat\s+is\s+opened/i;
     const isChatOpened = CHAT_OPENED_RE.test(content);
 
-    // Detect @everyone / @here — also honor explicit mention_everyone flag
-    // or a `force` override for manual testing.
-    const mentionEveryone: boolean =
-      isSoldOut ||
-      body.force === true ||
-      msg.mention_everyone === true ||
-      /@everyone\b/i.test(content) ||
-      /@here\b/i.test(content);
+    // Mirror ONLY when the message literally contains "@everyone".
+    // Sold-out trigger still deletes the source msg but does not auto-mirror.
+    const mentionEveryone: boolean = /@everyone\b/i.test(content);
 
     if (!mentionEveryone && !isChatOpened) {
       return json({ skipped: true, reason: "no trigger detected" });
