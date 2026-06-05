@@ -64,22 +64,55 @@ Deno.serve(async (req) => {
       return json({ skipped: true, reason: "not source channel", channelId });
     }
 
+    // Trigger phrase: "all supply has been sold" → delete source msg and broadcast @everyone
+    const SOLD_OUT_RE = /all\s+supply\s+has\s+been\s+sold/i;
+    const isSoldOut = SOLD_OUT_RE.test(content);
+
     // Detect @everyone / @here — also honor explicit mention_everyone flag
     // or a `force` override for manual testing.
     const mentionEveryone: boolean =
+      isSoldOut ||
       body.force === true ||
       msg.mention_everyone === true ||
       /@everyone\b/i.test(content) ||
       /@here\b/i.test(content);
 
     if (!mentionEveryone) {
-      return json({ skipped: true, reason: "no @everyone detected" });
+      return json({ skipped: true, reason: "no trigger detected" });
     }
 
-    // Mirror the original content verbatim (truncate to Discord's 2000 char limit)
-    const alert = String(content).slice(0, 2000) || "@everyone";
+    // If sold-out trigger, delete original message from source channel (best-effort)
+    const sourceMessageId: string | undefined =
+      msg.id ?? msg.message_id ?? body.message_id;
+    let deleted = false;
+    if (isSoldOut && sourceMessageId && channelId) {
+      try {
+        const delRes = await fetch(
+          `${DISCORD_API}/channels/${channelId}/messages/${sourceMessageId}`,
+          { method: "DELETE", headers: { Authorization: `Bot ${token}` } },
+        );
+        deleted = delRes.ok;
+        if (!delRes.ok) {
+          console.error(
+            "[xitbot-everyone-relay] delete failed",
+            delRes.status,
+            await delRes.text(),
+          );
+        }
+      } catch (e) {
+        console.error("[xitbot-everyone-relay] delete error", e);
+      }
+    }
 
-    // Post as XITBOT bot
+    // Mirror the original content verbatim (text-only, no attachments).
+    // Ensure @everyone is present so the broadcast actually pings.
+    let alert = String(content).slice(0, 2000);
+    if (!/@everyone\b/i.test(alert)) {
+      alert = `@everyone ${alert}`.slice(0, 2000);
+    }
+    if (!alert.trim()) alert = "@everyone";
+
+    // Post as XITBOT bot (text only — no embeds/attachments)
     const res = await fetch(
       `${DISCORD_API}/channels/${destChannelId}/messages`,
       {
