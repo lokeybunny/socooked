@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return json({ ok: true, destChannelId, author });
+    return json({ ok: true, destChannelId, author, deleted });
   } catch (err: any) {
     console.error("[xitbot-everyone-relay] error", err?.message || err);
     return json({ error: err?.message || "unknown" }, 500);
