@@ -495,7 +495,7 @@ export default function BundlerAcademy() {
               Warren Guru <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Bundler</span>
             </h2>
             <p className="mt-4 text-sm sm:text-base text-white/50 max-w-2xl mx-auto">
-              The professional Solana launch terminal. Included with your $999 Lifetime VIP Access — download it instantly after joining.
+              The professional Solana launch terminal. Included with your $999 Lifetime VIP Access — lifetime exempt from all platform fees.
             </p>
 
           </motion.div>
@@ -573,7 +573,7 @@ export default function BundlerAcademy() {
           <div className="mt-12 flex flex-col items-center justify-center gap-5">
             <div className="text-center">
               <p className="text-[11px] tracking-[0.2em] uppercase text-white/50 mb-3">
-                <span className="text-emerald-300 font-medium">VIP Access Required</span> — The Bundler is included with your $999 Lifetime license
+                <span className="text-emerald-300 font-medium">VIP Access Required</span> — The Bundler is included with your $999 Lifetime license. Lifetime exempt from all platform fees.
               </p>
             </div>
             <button
@@ -781,9 +781,9 @@ export default function BundlerAcademy() {
       <section id="pricing" className="px-4 sm:px-6 py-24 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fade} className="text-center mb-12">
-            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Bundler Fees</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Transparent Fee Structure</h2>
-            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">One-time $999 lifetime license. Standard on-chain fees stay in place to fund ongoing maintenance, infrastructure, and updates.</p>
+            <p className="text-[10px] tracking-[0.4em] uppercase text-emerald-400/60 mb-3">Lifetime Fee Exemption</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">Pay Once. Exempt For Life.</h2>
+            <p className="mt-4 text-sm text-white/45 max-w-xl mx-auto">One-time $999 payment. Lifetime exempt from all platform fees — no monthly charges, no hidden costs, ever.</p>
           </motion.div>
 
           <motion.div
@@ -792,7 +792,7 @@ export default function BundlerAcademy() {
           >
             <img
               src={lifetimeOverview.url}
-              alt="Warren Guru Bundler — Everything you get with the $999 one-time lifetime license: Discord access, premium training, community, launch education, case studies, daily rug pulls, bundler included, transparent fees, monthly updates, and full feature breakdown."
+              alt="Warren Guru Bundler — Everything you get with the $999 one-time lifetime license: Discord access, premium training, community, launch education, case studies, daily rug pulls, bundler included, lifetime exempt from all fees, monthly updates, and full feature breakdown."
               className="w-full h-auto block cursor-pointer"
               loading="lazy"
               onClick={() => setLightboxUrl(lifetimeOverview.url)}
@@ -855,6 +855,7 @@ export default function BundlerAcademy() {
                   'Case Studies',
                   'Warren Guru Bundler — Included',
                   'Daily Rug Pull Access',
+                  'Lifetime Exempt from All Platform Fees',
                 ].map(f => (
                   <div key={f} className="flex items-center gap-3">
                     <div className="h-5 w-5 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center shrink-0">
