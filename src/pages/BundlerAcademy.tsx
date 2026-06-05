@@ -855,6 +855,7 @@ export default function BundlerAcademy() {
                   'Case Studies',
                   'Warren Guru Bundler — Included',
                   'Daily Rug Pull Access',
+                  'Lifetime Exempt from All Platform Fees',
                 ].map(f => (
                   <div key={f} className="flex items-center gap-3">
                     <div className="h-5 w-5 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center shrink-0">
