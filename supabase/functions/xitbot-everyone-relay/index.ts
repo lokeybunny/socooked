@@ -76,11 +76,8 @@ Deno.serve(async (req) => {
       return json({ skipped: true, reason: "no @everyone detected" });
     }
 
-    // Build alert message
-    const preview = String(content).replace(/@everyone/gi, "everyone").replace(/@here/gi, "here").slice(0, 500);
-    const alert =
-      `@everyone 🚨 **${author}** pinged everyone in the source channel:\n` +
-      (preview ? `> ${preview}` : "_(no text)_");
+    // Mirror the original content verbatim (truncate to Discord's 2000 char limit)
+    const alert = String(content).slice(0, 2000) || "@everyone";
 
     // Post as XITBOT bot
     const res = await fetch(
