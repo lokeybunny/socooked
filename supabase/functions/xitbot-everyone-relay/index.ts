@@ -201,6 +201,132 @@ Deno.serve(async (req) => {
       results.reminderPosted = true;
     }
 
+    // Axiom link → fetch DexScreener pair data & post rich embed w/ chart links
+    if (hasAxiom) {
+      const embeds: any[] = [];
+      const componentsRows: any[] = [];
+
+      for (const mint of axiomMints.slice(0, 3)) {
+        let name = mint.slice(0, 4) + "…" + mint.slice(-4);
+        let symbol = "TOKEN";
+        let priceUsd: string | null = null;
+        let priceChange24h: number | null = null;
+        let liquidityUsd: number | null = null;
+        let fdv: number | null = null;
+        let volume24h: number | null = null;
+        let imageUrl: string | null = null;
+        let pairUrl = `https://dexscreener.com/solana/${mint}`;
+
+        try {
+          const dsRes = await fetch(
+            `https://api.dexscreener.com/latest/dex/tokens/${mint}`,
+          );
+          if (dsRes.ok) {
+            const dsData = await dsRes.json();
+            const pairs = (dsData?.pairs ?? []) as any[];
+            // Pick highest-liquidity Solana pair
+            const sol = pairs
+              .filter((p) => p.chainId === "solana")
+              .sort(
+                (a, b) =>
+                  (b?.liquidity?.usd ?? 0) - (a?.liquidity?.usd ?? 0),
+              );
+            const best = sol[0] ?? pairs[0];
+            if (best) {
+              name = best?.baseToken?.name ?? name;
+              symbol = best?.baseToken?.symbol ?? symbol;
+              priceUsd = best?.priceUsd ?? null;
+              priceChange24h = best?.priceChange?.h24 ?? null;
+              liquidityUsd = best?.liquidity?.usd ?? null;
+              fdv = best?.fdv ?? null;
+              volume24h = best?.volume?.h24 ?? null;
+              imageUrl =
+                best?.info?.imageUrl ??
+                `https://dd.dexscreener.com/ds-data/tokens/solana/${mint}.png`;
+              pairUrl = best?.url ?? pairUrl;
+            }
+          } else {
+            await dsRes.text();
+          }
+        } catch (e) {
+          console.error("[xitbot-everyone-relay] dexscreener error", e);
+        }
+
+        const fmtNum = (n: number | null) => {
+          if (n == null || isNaN(n)) return "—";
+          if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+          if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+          return `$${n.toFixed(2)}`;
+        };
+        const changeStr =
+          priceChange24h == null
+            ? "—"
+            : `${priceChange24h >= 0 ? "🟢 +" : "🔴 "}${priceChange24h.toFixed(2)}%`;
+
+        embeds.push({
+          title: `${name} ($${symbol})`,
+          url: pairUrl,
+          color: priceChange24h != null && priceChange24h < 0 ? 0xef4444 : 0x00ff88,
+          description: `📊 Axiom link detected — live chart below.\n\`${mint}\``,
+          thumbnail: imageUrl ? { url: imageUrl } : undefined,
+          fields: [
+            { name: "Price", value: priceUsd ? `$${Number(priceUsd).toPrecision(4)}` : "—", inline: true },
+            { name: "24h", value: changeStr, inline: true },
+            { name: "Liquidity", value: fmtNum(liquidityUsd), inline: true },
+            { name: "Volume 24h", value: fmtNum(volume24h), inline: true },
+            { name: "FDV", value: fmtNum(fdv), inline: true },
+            { name: "Chain", value: "Solana", inline: true },
+          ],
+          footer: { text: "DexScreener • powered by XITBOT" },
+        });
+
+        componentsRows.push({
+          type: 1,
+          components: [
+            { type: 2, style: 5, label: `📈 ${symbol} Chart`, url: pairUrl },
+            {
+              type: 2,
+              style: 5,
+              label: "Pump.fun",
+              url: `https://pump.fun/coin/${mint}`,
+            },
+            {
+              type: 2,
+              style: 5,
+              label: "Axiom",
+              url: `https://axiom.trade/t/${mint}`,
+            },
+          ],
+        });
+      }
+
+      const axiomRes = await fetch(
+        `${DISCORD_API}/channels/${destChannelId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            embeds,
+            components: componentsRows.slice(0, 5),
+            allowed_mentions: { parse: [] },
+          }),
+        },
+      );
+      const aText = await axiomRes.text();
+      if (!axiomRes.ok) {
+        console.error(
+          "[xitbot-everyone-relay] axiom embed failed",
+          axiomRes.status,
+          aText,
+        );
+      } else {
+        results.axiomPosted = axiomMints;
+      }
+    }
+
     return json({ ok: true, ...results });
   } catch (err: any) {
     console.error("[xitbot-everyone-relay] error", err?.message || err);
