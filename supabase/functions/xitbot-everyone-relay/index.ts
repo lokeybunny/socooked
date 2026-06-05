@@ -68,6 +68,10 @@ Deno.serve(async (req) => {
     const SOLD_OUT_RE = /all\s+supply\s+has\s+been\s+sold/i;
     const isSoldOut = SOLD_OUT_RE.test(content);
 
+    // Trigger phrase: "chat is opened" → post VIP reminder w/ ticket + info buttons
+    const CHAT_OPENED_RE = /chat\s+is\s+opened/i;
+    const isChatOpened = CHAT_OPENED_RE.test(content);
+
     // Detect @everyone / @here — also honor explicit mention_everyone flag
     // or a `force` override for manual testing.
     const mentionEveryone: boolean =
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
       /@everyone\b/i.test(content) ||
       /@here\b/i.test(content);
 
-    if (!mentionEveryone) {
+    if (!mentionEveryone && !isChatOpened) {
       return json({ skipped: true, reason: "no trigger detected" });
     }
 
@@ -104,40 +108,92 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Mirror the original content verbatim (text-only, no attachments).
-    // Ensure @everyone is present so the broadcast actually pings.
-    let alert = String(content).slice(0, 2000);
-    if (!/@everyone\b/i.test(alert)) {
-      alert = `@everyone ${alert}`.slice(0, 2000);
-    }
-    if (!alert.trim()) alert = "@everyone";
+    const results: Record<string, unknown> = { destChannelId, author, deleted };
 
-    // Post as XITBOT bot (text only — no embeds/attachments)
-    const res = await fetch(
-      `${DISCORD_API}/channels/${destChannelId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${token}`,
-          "Content-Type": "application/json",
+    // Mirror the original content verbatim (text-only) when @everyone-style trigger fired
+    if (mentionEveryone) {
+      let alert = String(content).slice(0, 2000);
+      if (!/@everyone\b/i.test(alert)) {
+        alert = `@everyone ${alert}`.slice(0, 2000);
+      }
+      if (!alert.trim()) alert = "@everyone";
+
+      const res = await fetch(
+        `${DISCORD_API}/channels/${destChannelId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content: alert,
+            allowed_mentions: { parse: ["everyone"] },
+          }),
         },
-        body: JSON.stringify({
-          content: alert,
-          allowed_mentions: { parse: ["everyone"] },
-        }),
-      },
-    );
-
-    const text = await res.text();
-    if (!res.ok) {
-      console.error("[xitbot-everyone-relay] discord error", res.status, text);
-      return json(
-        { error: "discord post failed", status: res.status, details: text },
-        502,
       );
+      const text = await res.text();
+      if (!res.ok) {
+        console.error("[xitbot-everyone-relay] discord error", res.status, text);
+        return json(
+          { error: "discord post failed", status: res.status, details: text },
+          502,
+        );
+      }
+      results.mirrored = true;
     }
 
-    return json({ ok: true, destChannelId, author, deleted });
+    // VIP reminder w/ Open a Ticket + More Info link buttons
+    if (isChatOpened) {
+      const reminderRes = await fetch(
+        `${DISCORD_API}/channels/${destChannelId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content:
+              "🔒 Reminder: this room is for **VIP members** only. If you're interested in launching rugs with our team, open a ticket below.",
+            components: [
+              {
+                type: 1,
+                components: [
+                  {
+                    type: 2,
+                    style: 5,
+                    label: "Open a Ticket",
+                    url: "https://discord.com/channels/1315100988478193684/1361454879138254988",
+                  },
+                  {
+                    type: 2,
+                    style: 5,
+                    label: "More Info",
+                    url: "https://discord.com/channels/1315100988478193684/1511280744012451861",
+                  },
+                ],
+              },
+            ],
+          }),
+        },
+      );
+      const rText = await reminderRes.text();
+      if (!reminderRes.ok) {
+        console.error(
+          "[xitbot-everyone-relay] reminder post failed",
+          reminderRes.status,
+          rText,
+        );
+        return json(
+          { error: "reminder post failed", status: reminderRes.status, details: rText },
+          502,
+        );
+      }
+      results.reminderPosted = true;
+    }
+
+    return json({ ok: true, ...results });
   } catch (err: any) {
     console.error("[xitbot-everyone-relay] error", err?.message || err);
     return json({ error: err?.message || "unknown" }, 500);
