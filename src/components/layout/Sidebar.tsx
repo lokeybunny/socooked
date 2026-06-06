@@ -69,6 +69,7 @@ const navEntries: NavEntry[] = [
 
 
   { to: '/ai-gen', icon: Film, label: 'Studio', divider: 'Studio', highlight: true },
+  { to: '/autor', icon: Video, label: 'AutoR', green: true },
 ];
 
 export function Sidebar() {
