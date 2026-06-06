@@ -157,12 +157,23 @@ Deno.serve(async (req) => {
 
     const session = await createBrowserbaseSession();
     const liveViewUrl = await getLiveViewUrl(session.id);
-    await navigateViaCDP(session.connectUrl, job.source_url);
+
+    // Stamp session info BEFORE navigation so the live view is watchable even while loading.
+    await admin.from('recording_jobs').update({
+      browserbase_session_id: session.id,
+      browserbase_live_view_url: liveViewUrl,
+    }).eq('job_id', jobId);
+
+    try {
+      await navigateViaCDP(session.connectUrl, job.source_url);
+    } catch (navErr) {
+      const msg = navErr instanceof Error ? navErr.message : String(navErr);
+      await logEvent(jobId, 'navigation_error', `Failed to navigate: ${msg}`, { sourceUrl: job.source_url });
+      throw navErr;
+    }
 
     await admin.from('recording_jobs').update({
       status: 'recording',
-      browserbase_session_id: session.id,
-      browserbase_live_view_url: liveViewUrl,
     }).eq('job_id', jobId);
     await logEvent(jobId, 'recording', 'Cloud browser opened source URL', {
       sessionId: session.id, sourceUrl: job.source_url,
