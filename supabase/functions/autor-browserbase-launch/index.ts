@@ -49,17 +49,48 @@ async function authorized(req: Request): Promise<boolean> {
 
 // Browserbase REST: create session, get live view URL, navigate via CDP
 async function createBrowserbaseSession() {
-  const r = await fetch('https://api.browserbase.com/v1/sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-bb-api-key': BB_API_KEY },
-    body: JSON.stringify({
-      projectId: BB_PROJECT_ID,
-      browserSettings: { recordSession: true, viewport: { width: 1280, height: 720 } },
-      keepAlive: true,
-    }),
-  });
-  if (!r.ok) throw new Error(`browserbase create failed: ${r.status} ${await r.text()}`);
-  return await r.json() as { id: string; connectUrl: string };
+  const basePayload = {
+    projectId: BB_PROJECT_ID,
+    keepAlive: true,
+    timeout: 3600,
+    userMetadata: { app: 'autor', target: 'axiom' },
+  };
+
+  const attempts = [
+    {
+      ...basePayload,
+      proxies: true,
+      browserSettings: {
+        recordSession: true,
+        solveCaptchas: true,
+        blockAds: false,
+        verified: true,
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+    {
+      ...basePayload,
+      proxies: true,
+      browserSettings: {
+        recordSession: true,
+        solveCaptchas: true,
+        blockAds: false,
+        viewport: { width: 1280, height: 720 },
+      },
+    },
+  ];
+
+  let lastError = '';
+  for (const payload of attempts) {
+    const r = await fetch('https://api.browserbase.com/v1/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-bb-api-key': BB_API_KEY },
+      body: JSON.stringify(payload),
+    });
+    if (r.ok) return await r.json() as { id: string; connectUrl: string };
+    lastError = `${r.status} ${await r.text()}`;
+  }
+  throw new Error(`browserbase create failed: ${lastError}`);
 }
 
 async function getLiveViewUrl(sessionId: string): Promise<string> {
@@ -77,10 +108,35 @@ async function navigateViaCDP(connectUrl: string, targetUrl: string) {
   try {
     const pages = await browser.pages();
     const page = pages[0] ?? (await browser.newPage());
+    let captchaSolving = false;
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (text === 'browserbase-solving-started') captchaSolving = true;
+      if (text === 'browserbase-solving-finished') captchaSolving = false;
+      if (text.includes('browserbase-solving') || text.includes('Private Access Token') || text.includes('WebSocket connection')) {
+        console.log(`[autor-browserbase] page console: ${text.slice(0, 500)}`);
+      }
+    });
     await page.setViewport({ width: 1280, height: 720 });
-    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    // Give the page a moment to render real content before recording captures frames.
-    await new Promise((res) => setTimeout(res, 2000));
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    });
+    await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+    // Axiom often triggers a browser attestation/captcha pass before the route paints.
+    for (let i = 0; i < 18; i++) {
+      const ready = await page.evaluate(() => {
+        const text = document.body?.innerText?.trim() ?? '';
+        const interactive = document.querySelectorAll('button,a,[role="button"],canvas,svg').length;
+        return text.length > 20 || interactive > 8;
+      }).catch(() => false);
+      if (ready && !captchaSolving) break;
+      await new Promise((res) => setTimeout(res, 2500));
+      if (i === 5 && !captchaSolving) await page.reload({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => null);
+    }
+    await page.bringToFront();
+    await new Promise((res) => setTimeout(res, 3000));
   } finally {
     // Disconnect (NOT close) — keep the session alive so recording continues until stop.
     await browser.disconnect();
