@@ -72,17 +72,19 @@ async function getLiveViewUrl(sessionId: string): Promise<string> {
 }
 
 async function navigateViaCDP(connectUrl: string, targetUrl: string) {
-  // Browserbase exposes a CDP websocket via connectUrl; quickest way is the puppeteer-core
-  // newPage + goto. For an Edge Function we can use the lower-level /sessions/{id}/pages REST API.
-  // The simplest, dependency-free path is the "session URL" endpoint:
-  // POST /v1/sessions/{id}/pages  body {url}
-  const sessionId = new URL(connectUrl).searchParams.get('sessionId') ?? '';
-  if (!sessionId) return;
-  await fetch(`https://api.browserbase.com/v1/sessions/${sessionId}/pages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-bb-api-key': BB_API_KEY },
-    body: JSON.stringify({ url: targetUrl }),
-  }).catch(() => null);
+  // Connect to Browserbase via CDP and drive the existing page to the target URL.
+  const browser = await puppeteer.connect({ browserWSEndpoint: connectUrl });
+  try {
+    const pages = await browser.pages();
+    const page = pages[0] ?? (await browser.newPage());
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    // Give the page a moment to render real content before recording captures frames.
+    await new Promise((res) => setTimeout(res, 2000));
+  } finally {
+    // Disconnect (NOT close) — keep the session alive so recording continues until stop.
+    await browser.disconnect();
+  }
 }
 
 async function stopBrowserbaseSession(sessionId: string) {
