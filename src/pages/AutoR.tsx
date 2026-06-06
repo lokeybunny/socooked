@@ -149,18 +149,16 @@ function ReplayPlayer({ job }: { job: Job }) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !replayUrl) return;
+    const isHlsReplay = replayUrl.includes('/autor-api/replay/') || replayUrl.includes('.m3u8');
 
-    if (job.video_url || video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = replayUrl;
-      return;
-    }
-
-    if (Hls.isSupported()) {
+    if (isHlsReplay && Hls.isSupported()) {
       const hls = new Hls({ enableWorker: true });
       hls.loadSource(replayUrl);
       hls.attachMedia(video);
       return () => hls.destroy();
     }
+
+    video.src = replayUrl;
   }, [job.video_url, replayUrl]);
 
   if (!replayUrl) {
