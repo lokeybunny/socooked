@@ -398,10 +398,10 @@ Deno.serve(async (req) => {
         const supaUrl = Deno.env.get("SUPABASE_URL");
         const botSecret = Deno.env.get("BOT_SECRET");
         if (supaUrl && botSecret) {
-          const axiomUrlRe = /https?:\/\/(?:www\.)?axiom\.trade\/[^\s<>"']+/gi;
-          const axiomUrls = [...String(content).matchAll(axiomUrlRe)].map((m) => m[0]);
           const jobs: any[] = [];
-          for (const u of axiomUrls.slice(0, 3)) {
+          // Map each detected Axiom mint -> DexScreener 1-minute chart URL
+          for (const mint of axiomMints.slice(0, 3)) {
+            const dexUrl = `https://dexscreener.com/solana/${mint}?embed=1&theme=dark&trades=0&info=0&interval=1`;
             const r = await fetch(`${supaUrl}/functions/v1/autor-api/create`, {
               method: "POST",
               headers: {
@@ -409,11 +409,11 @@ Deno.serve(async (req) => {
                 "x-bot-secret": botSecret,
               },
               body: JSON.stringify({
-                url: u,
-                sourceType: "axiom",
+                url: dexUrl,
+                sourceType: "dexscreener",
                 discordChannelId: channelId,
                 discordMessageId: sourceMessageId,
-                recordingName: `Axiom ${new Date().toISOString().slice(0, 19).replace("T", " ")}`,
+                recordingName: `DexScreener ${mint.slice(0, 4)}…${mint.slice(-4)} ${new Date().toISOString().slice(0, 19).replace("T", " ")}`,
               }),
             });
             const j = await r.json().catch(() => ({}));
