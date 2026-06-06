@@ -242,11 +242,17 @@ Deno.serve(async (req) => {
         }
       }
 
+      const replayUrl = existing.browserbase_session_id
+        ? `${SUPABASE_URL}/functions/v1/autor-api/replay/${existing.browserbase_session_id}/0`
+        : '';
+      const playableUrl = recordingUrl || replayUrl;
+
       const patch: Record<string, unknown> = {
         status: 'completed',
         end_time: nowIso,
         ...(duration !== null ? { duration_seconds: duration } : {}),
-        ...(recordingUrl ? { video_url: recordingUrl, browserbase_recording_url: recordingUrl } : {}),
+        ...(playableUrl ? { video_url: playableUrl } : {}),
+        ...(recordingUrl ? { browserbase_recording_url: recordingUrl } : {}),
       };
 
       const { error } = await admin
@@ -255,11 +261,11 @@ Deno.serve(async (req) => {
         .eq('job_id', jobId);
       if (error) return json({ error: error.message }, 500);
 
-      await logEvent(jobId, 'completed', recordingUrl ? 'Marked completed with recording URL' : 'Marked completed (no recording URL available)', { recordingUrl });
+      await logEvent(jobId, 'completed', playableUrl ? 'Marked completed with replay URL' : 'Marked completed (no recording URL available)', { recordingUrl, replayUrl });
       if (auth.userId) {
         await admin.from('recording_action_logs').insert({ user_id: auth.userId, job_id: jobId, action: 'stop', message: body.reason ?? null });
       }
-      return json({ ok: true, videoUrl: recordingUrl });
+      return json({ ok: true, videoUrl: playableUrl });
     }
 
     // POST /retry
