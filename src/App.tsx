@@ -89,6 +89,7 @@ const AIFilms = lazyWithRetry(() => import("./pages/AIFilms"), "page-ai-films");
 const AIQueue = lazyWithRetry(() => import("./pages/AIQueue"), "page-ai-queue");
 const Zillow = lazyWithRetry(() => import("./pages/Zillow"), "page-zillow");
 const BundlerAcademy = lazyWithRetry(() => import("./pages/BundlerAcademy"), "page-bundler-academy");
+const AutoR = lazyWithRetry(() => import("./pages/AutoR"), "page-autor");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -216,6 +217,7 @@ const App = () => (
                 <Route path="/analytics" element={<WarrenOnlyGate><AuthLayoutGate><Analytics /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/poly" element={<AuthLayoutGate><Poly /></AuthLayoutGate>} />
                 <Route path="/zillow" element={<WarrenOnlyGate><AuthLayoutGate><Zillow /></AuthLayoutGate></WarrenOnlyGate>} />
+                <Route path="/autor" element={<WarrenOnlyGate><AutoR /></WarrenOnlyGate>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
