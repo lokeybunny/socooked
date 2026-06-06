@@ -133,14 +133,15 @@ Deno.serve(async (req) => {
     await stopBrowserbaseSession(job.browserbase_session_id);
     await logEvent(jobId, 'browser_stopping', 'Browserbase release requested');
     const recordingUrl = await getRecordingUrl(job.browserbase_session_id);
+    const replayUrl = `${SUPABASE_URL}/functions/v1/autor-api/replay/${job.browserbase_session_id}/0`;
     await admin.from('recording_jobs').update({
       status: 'completed',
       end_time: new Date().toISOString(),
       browserbase_recording_url: recordingUrl || null,
-      video_url: recordingUrl || job.video_url,
+      video_url: recordingUrl || job.video_url || replayUrl,
     }).eq('job_id', jobId);
-    await logEvent(jobId, 'completed', 'Browser session ended', { recordingUrl });
-    return json({ ok: true, recordingUrl });
+    await logEvent(jobId, 'completed', 'Browser session ended', { recordingUrl, replayUrl });
+    return json({ ok: true, recordingUrl: recordingUrl || replayUrl });
   }
 
   // LAUNCH path
