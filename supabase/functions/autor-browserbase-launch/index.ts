@@ -59,21 +59,17 @@ async function createBrowserbaseSession() {
   const attempts = [
     {
       ...basePayload,
-      proxies: true,
       browserSettings: {
         recordSession: true,
         solveCaptchas: true,
         blockAds: false,
-        verified: true,
         viewport: { width: 1280, height: 720 },
       },
     },
     {
       ...basePayload,
-      proxies: true,
       browserSettings: {
         recordSession: true,
-        solveCaptchas: true,
         blockAds: false,
         viewport: { width: 1280, height: 720 },
       },
