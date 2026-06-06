@@ -169,13 +169,26 @@ Deno.serve(async (req) => {
       const jobId = String(body.jobId ?? '');
       if (!jobId) return json({ error: 'jobId required' }, 400);
 
+      const nowIso = new Date().toISOString();
+      const { data: existing } = await admin
+        .from('recording_jobs')
+        .select('start_time')
+        .eq('job_id', jobId)
+        .maybeSingle();
+      const startedAt = existing?.start_time ? new Date(existing.start_time).getTime() : null;
+      const duration = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+
       const { error } = await admin
         .from('recording_jobs')
-        .update({ status: 'stopping' })
+        .update({
+          status: 'completed',
+          end_time: nowIso,
+          ...(duration !== null ? { duration_seconds: duration } : {}),
+        })
         .eq('job_id', jobId)
-        .in('status', ['recording', 'waiting_for_stop_phrase', 'launching_browser', 'opening_url', 'queued', 'retrying']);
+        .not('status', 'in', '(completed,failed)');
       if (error) return json({ error: error.message }, 500);
-      await logEvent(jobId, 'stop_requested', body.reason ?? 'Manual stop');
+      await logEvent(jobId, 'stop_requested', body.reason ?? 'Manual stop — marked completed');
       if (auth.userId) {
         await admin.from('recording_action_logs').insert({ user_id: auth.userId, job_id: jobId, action: 'stop', message: body.reason ?? null });
       }
