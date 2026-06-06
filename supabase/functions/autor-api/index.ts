@@ -21,6 +21,8 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const BOT_SECRET = Deno.env.get('BOT_SECRET') ?? '';
+const BB_API_KEY = Deno.env.get('BROWSERBASE_API_KEY') ?? '';
+const BB_PROJECT_ID = Deno.env.get('BROWSERBASE_PROJECT_ID') ?? '';
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
