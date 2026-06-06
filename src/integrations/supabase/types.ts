@@ -6411,6 +6411,7 @@ export type Database = {
           created_at: string
           id: string
           job_id: string | null
+          message: string | null
           meta: Json | null
           user_id: string | null
         }
@@ -6419,6 +6420,7 @@ export type Database = {
           created_at?: string
           id?: string
           job_id?: string | null
+          message?: string | null
           meta?: Json | null
           user_id?: string | null
         }
@@ -6427,6 +6429,7 @@ export type Database = {
           created_at?: string
           id?: string
           job_id?: string | null
+          message?: string | null
           meta?: Json | null
           user_id?: string | null
         }
@@ -6446,6 +6449,8 @@ export type Database = {
           event_type: string
           id: string
           job_id: string
+          message: string | null
+          metadata_json: Json | null
           payload: Json | null
         }
         Insert: {
@@ -6453,6 +6458,8 @@ export type Database = {
           event_type: string
           id?: string
           job_id: string
+          message?: string | null
+          metadata_json?: Json | null
           payload?: Json | null
         }
         Update: {
@@ -6460,6 +6467,8 @@ export type Database = {
           event_type?: string
           id?: string
           job_id?: string
+          message?: string | null
+          metadata_json?: Json | null
           payload?: Json | null
         }
         Relationships: [
@@ -6476,71 +6485,176 @@ export type Database = {
         Row: {
           browserbase_live_view_url: string | null
           browserbase_session_id: string | null
+          contract_address: string | null
           created_at: string
           created_by: string | null
+          detected_phrase: string | null
           detected_phrases: Json | null
           discord_channel_id: string | null
+          discord_channel_name: string | null
           discord_message_id: string | null
+          discord_server_id: string | null
+          discord_server_name: string | null
           discord_user_id: string | null
           discord_username: string | null
+          duration_seconds: number | null
+          end_time: string | null
           ended_at: string | null
           error: string | null
           id: string
+          job_id: string | null
+          last_error: string | null
           meta: Json | null
+          notes: string | null
+          recording_name: string | null
           recording_url: string | null
           retry_count: number
+          source_type: string | null
           source_url: string
+          start_time: string | null
           started_at: string | null
           status: string
+          stop_phrase: string | null
           storage_path: string | null
+          storage_size: number | null
+          thumbnail_url: string | null
           token_data: Json | null
+          token_name: string | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           browserbase_live_view_url?: string | null
           browserbase_session_id?: string | null
+          contract_address?: string | null
           created_at?: string
           created_by?: string | null
+          detected_phrase?: string | null
           detected_phrases?: Json | null
           discord_channel_id?: string | null
+          discord_channel_name?: string | null
           discord_message_id?: string | null
+          discord_server_id?: string | null
+          discord_server_name?: string | null
           discord_user_id?: string | null
           discord_username?: string | null
+          duration_seconds?: number | null
+          end_time?: string | null
           ended_at?: string | null
           error?: string | null
           id?: string
+          job_id?: string | null
+          last_error?: string | null
           meta?: Json | null
+          notes?: string | null
+          recording_name?: string | null
           recording_url?: string | null
           retry_count?: number
+          source_type?: string | null
           source_url: string
+          start_time?: string | null
           started_at?: string | null
           status?: string
+          stop_phrase?: string | null
           storage_path?: string | null
+          storage_size?: number | null
+          thumbnail_url?: string | null
           token_data?: Json | null
+          token_name?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           browserbase_live_view_url?: string | null
           browserbase_session_id?: string | null
+          contract_address?: string | null
           created_at?: string
           created_by?: string | null
+          detected_phrase?: string | null
           detected_phrases?: Json | null
           discord_channel_id?: string | null
+          discord_channel_name?: string | null
           discord_message_id?: string | null
+          discord_server_id?: string | null
+          discord_server_name?: string | null
           discord_user_id?: string | null
           discord_username?: string | null
+          duration_seconds?: number | null
+          end_time?: string | null
           ended_at?: string | null
           error?: string | null
           id?: string
+          job_id?: string | null
+          last_error?: string | null
           meta?: Json | null
+          notes?: string | null
+          recording_name?: string | null
           recording_url?: string | null
           retry_count?: number
+          source_type?: string | null
           source_url?: string
+          start_time?: string | null
           started_at?: string | null
           status?: string
+          stop_phrase?: string | null
           storage_path?: string | null
+          storage_size?: number | null
+          thumbnail_url?: string | null
           token_data?: Json | null
+          token_name?: string | null
           updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      recording_settings: {
+        Row: {
+          auto_upload: boolean
+          channel_id: string
+          channel_name: string | null
+          created_at: string
+          guild_id: string
+          guild_name: string | null
+          id: string
+          max_duration_minutes: number
+          max_retries: number
+          retry_enabled: boolean
+          stop_phrase: string
+          updated_at: string
+          url_patterns: string[]
+          watch_enabled: boolean
+        }
+        Insert: {
+          auto_upload?: boolean
+          channel_id: string
+          channel_name?: string | null
+          created_at?: string
+          guild_id: string
+          guild_name?: string | null
+          id?: string
+          max_duration_minutes?: number
+          max_retries?: number
+          retry_enabled?: boolean
+          stop_phrase?: string
+          updated_at?: string
+          url_patterns?: string[]
+          watch_enabled?: boolean
+        }
+        Update: {
+          auto_upload?: boolean
+          channel_id?: string
+          channel_name?: string | null
+          created_at?: string
+          guild_id?: string
+          guild_name?: string | null
+          id?: string
+          max_duration_minutes?: number
+          max_retries?: number
+          retry_enabled?: boolean
+          stop_phrase?: string
+          updated_at?: string
+          url_patterns?: string[]
+          watch_enabled?: boolean
         }
         Relationships: []
       }
