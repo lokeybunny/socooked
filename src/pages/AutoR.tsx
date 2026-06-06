@@ -143,9 +143,14 @@ function LiveTimer({ start }: { start: string | null }) {
 
 function ReplayPlayer({ job }: { job: Job }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const replayUrl = job.video_url || (job.browserbase_session_id
+  const baseUrl = job.video_url || (job.browserbase_session_id
     ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${job.browserbase_session_id}/0`
     : '');
+  // Cache-buster forces a fresh playlist (and fresh CloudFront signed tokens)
+  // on every mount so expired segment URLs don't break playback.
+  const replayUrl = baseUrl
+    ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
+    : '';
 
   useEffect(() => {
     const video = videoRef.current;
@@ -153,14 +158,33 @@ function ReplayPlayer({ job }: { job: Job }) {
     const isHlsReplay = replayUrl.includes('/autor-api/replay/') || replayUrl.includes('.m3u8');
 
     if (isHlsReplay && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true });
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 });
       hls.loadSource(replayUrl);
       hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_evt, data) => {
+        console.warn('[AutoR HLS error]', data?.type, data?.details, data?.fatal);
+        if (!data?.fatal) return;
+        try {
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            // Refetch playlist for fresh CloudFront signed tokens
+            const fresh = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+            hls.loadSource(fresh);
+            hls.startLoad();
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            hls.recoverMediaError();
+          } else {
+            hls.destroy();
+          }
+        } catch (e) {
+          console.error('[AutoR HLS recover failed]', e);
+        }
+      });
       return () => hls.destroy();
     }
 
+    // Safari native HLS
     video.src = replayUrl;
-  }, [job.video_url, replayUrl]);
+  }, [baseUrl, replayUrl]);
 
   if (!replayUrl) {
     return <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Play className="h-12 w-12" /></div>;
