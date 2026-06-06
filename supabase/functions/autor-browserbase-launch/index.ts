@@ -8,6 +8,7 @@
 // Auth: x-bot-secret = BOT_SECRET, OR a valid Supabase user JWT.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import puppeteer from 'https://esm.sh/puppeteer-core@22.10.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,17 +72,19 @@ async function getLiveViewUrl(sessionId: string): Promise<string> {
 }
 
 async function navigateViaCDP(connectUrl: string, targetUrl: string) {
-  // Browserbase exposes a CDP websocket via connectUrl; quickest way is the puppeteer-core
-  // newPage + goto. For an Edge Function we can use the lower-level /sessions/{id}/pages REST API.
-  // The simplest, dependency-free path is the "session URL" endpoint:
-  // POST /v1/sessions/{id}/pages  body {url}
-  const sessionId = new URL(connectUrl).searchParams.get('sessionId') ?? '';
-  if (!sessionId) return;
-  await fetch(`https://api.browserbase.com/v1/sessions/${sessionId}/pages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-bb-api-key': BB_API_KEY },
-    body: JSON.stringify({ url: targetUrl }),
-  }).catch(() => null);
+  // Connect to Browserbase via CDP and drive the existing page to the target URL.
+  const browser = await puppeteer.connect({ browserWSEndpoint: connectUrl });
+  try {
+    const pages = await browser.pages();
+    const page = pages[0] ?? (await browser.newPage());
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    // Give the page a moment to render real content before recording captures frames.
+    await new Promise((res) => setTimeout(res, 2000));
+  } finally {
+    // Disconnect (NOT close) — keep the session alive so recording continues until stop.
+    await browser.disconnect();
+  }
 }
 
 async function stopBrowserbaseSession(sessionId: string) {
@@ -154,12 +157,23 @@ Deno.serve(async (req) => {
 
     const session = await createBrowserbaseSession();
     const liveViewUrl = await getLiveViewUrl(session.id);
-    await navigateViaCDP(session.connectUrl, job.source_url);
+
+    // Stamp session info BEFORE navigation so the live view is watchable even while loading.
+    await admin.from('recording_jobs').update({
+      browserbase_session_id: session.id,
+      browserbase_live_view_url: liveViewUrl,
+    }).eq('job_id', jobId);
+
+    try {
+      await navigateViaCDP(session.connectUrl, job.source_url);
+    } catch (navErr) {
+      const msg = navErr instanceof Error ? navErr.message : String(navErr);
+      await logEvent(jobId, 'navigation_error', `Failed to navigate: ${msg}`, { sourceUrl: job.source_url });
+      throw navErr;
+    }
 
     await admin.from('recording_jobs').update({
       status: 'recording',
-      browserbase_session_id: session.id,
-      browserbase_live_view_url: liveViewUrl,
     }).eq('job_id', jobId);
     await logEvent(jobId, 'recording', 'Cloud browser opened source URL', {
       sessionId: session.id, sourceUrl: job.source_url,
