@@ -351,6 +351,14 @@ Deno.serve(async (req) => {
             });
             const j = await r.json().catch(() => ({}));
             jobs.push(j);
+            // Auto-launch cloud browser session for this job
+            if (j?.jobId && !j?.duplicate) {
+              fetch(`${supaUrl}/functions/v1/autor-browserbase-launch`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-bot-secret": botSecret },
+                body: JSON.stringify({ jobId: j.jobId }),
+              }).catch((e) => console.error("[xitbot] autor launch error", e));
+            }
           }
           results.autorJobs = jobs;
         }
