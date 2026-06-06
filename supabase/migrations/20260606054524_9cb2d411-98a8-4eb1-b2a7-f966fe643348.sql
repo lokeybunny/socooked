@@ -1,0 +1,1 @@
+ALTER TABLE public.recording_jobs ADD COLUMN IF NOT EXISTS browserbase_recording_url text;
