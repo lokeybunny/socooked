@@ -6484,6 +6484,7 @@ export type Database = {
       recording_jobs: {
         Row: {
           browserbase_live_view_url: string | null
+          browserbase_recording_url: string | null
           browserbase_session_id: string | null
           contract_address: string | null
           created_at: string
@@ -6525,6 +6526,7 @@ export type Database = {
         }
         Insert: {
           browserbase_live_view_url?: string | null
+          browserbase_recording_url?: string | null
           browserbase_session_id?: string | null
           contract_address?: string | null
           created_at?: string
@@ -6566,6 +6568,7 @@ export type Database = {
         }
         Update: {
           browserbase_live_view_url?: string | null
+          browserbase_recording_url?: string | null
           browserbase_session_id?: string | null
           contract_address?: string | null
           created_at?: string
