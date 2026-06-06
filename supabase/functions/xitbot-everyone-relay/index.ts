@@ -16,10 +16,67 @@
 // nested `message: {...}`, or `embeds[0].description`.
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const DISCORD_API = "https://discord.com/api/v10";
 const SOURCE_CHANNEL_ID = "1512253930917068913";
 const DEFAULT_DEST_CHANNEL_ID = SOURCE_CHANNEL_ID; // change later if needed
+const ACTIVE_AUTOR_STATUSES = [
+  "queued",
+  "launching_browser",
+  "recording",
+  "waiting_for_stop_phrase",
+  "stop_phrase_detected",
+];
+
+async function stopActiveAutoRJobs(channelId: string, sourceMessageId: string | undefined) {
+  const supaUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const botSecret = Deno.env.get("BOT_SECRET");
+  if (!supaUrl || !serviceKey || !botSecret) {
+    return { skipped: true, reason: "AutoR env missing" };
+  }
+
+  const supabase = createClient(supaUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  let query = supabase
+    .from("recording_jobs")
+    .select("job_id,status,discord_channel_id")
+    .in("status", ACTIVE_AUTOR_STATUSES)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (channelId) query = query.eq("discord_channel_id", channelId);
+
+  const { data: jobs, error } = await query;
+  if (error) throw new Error(`AutoR lookup failed: ${error.message}`);
+  if (!jobs?.length) return { stopped: [], count: 0 };
+
+  const stopped: string[] = [];
+  for (const job of jobs) {
+    const res = await fetch(`${supaUrl}/functions/v1/autor-api/stop`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-bot-secret": botSecret,
+      },
+      body: JSON.stringify({
+        jobId: job.job_id,
+        reason: "Discord stop phrase: all supply has been sold",
+        discordMessageId: sourceMessageId ?? null,
+      }),
+    });
+    if (!res.ok) {
+      console.error("[xitbot-everyone-relay] AutoR stop failed", job.job_id, res.status, await res.text());
+      continue;
+    }
+    stopped.push(job.job_id);
+  }
+
+  return { stopped, count: stopped.length };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -89,7 +146,7 @@ Deno.serve(async (req) => {
     }
     const hasAxiom = axiomMints.length > 0;
 
-    if (!mentionEveryone && !isChatOpened && !hasAxiom) {
+    if (!mentionEveryone && !isChatOpened && !hasAxiom && !isSoldOut) {
       return json({ skipped: true, reason: "no trigger detected" });
     }
 
@@ -117,6 +174,16 @@ Deno.serve(async (req) => {
     }
 
     const results: Record<string, unknown> = { destChannelId, author, deleted };
+
+    if (isSoldOut) {
+      try {
+        results.autorStop = await stopActiveAutoRJobs(channelId, sourceMessageId);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[xitbot-everyone-relay] AutoR sold-out stop error", msg);
+        results.autorStopError = msg;
+      }
+    }
 
     // Mirror the original content verbatim (text-only) when @everyone-style trigger fired
     if (mentionEveryone) {
