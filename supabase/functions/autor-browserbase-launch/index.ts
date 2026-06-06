@@ -8,7 +8,7 @@
 // Auth: x-bot-secret = BOT_SECRET, OR a valid Supabase user JWT.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import puppeteer from 'https://esm.sh/puppeteer-core@22.10.0';
+import puppeteer from 'npm:puppeteer-core@22.10.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
