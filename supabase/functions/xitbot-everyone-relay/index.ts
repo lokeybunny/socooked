@@ -146,8 +146,38 @@ Deno.serve(async (req) => {
     }
     const hasAxiom = axiomMints.length > 0;
 
-    if (!mentionEveryone && !isChatOpened && !hasAxiom && !isSoldOut) {
+    // Auto-delete: any message containing a dexscreener.com link in the source channel
+    const DEXSCREENER_RE = /https?:\/\/(?:www\.)?dexscreener\.com\/\S+/i;
+    const hasDexscreener = DEXSCREENER_RE.test(content);
+
+    if (!mentionEveryone && !isChatOpened && !hasAxiom && !isSoldOut && !hasDexscreener) {
       return json({ skipped: true, reason: "no trigger detected" });
+    }
+
+    // Handle dexscreener auto-delete (independent of sold-out trigger)
+    if (hasDexscreener) {
+      const srcMsgId: string | undefined =
+        msg.id ?? msg.message_id ?? body.message_id;
+      if (srcMsgId && channelId) {
+        try {
+          const delRes = await fetch(
+            `${DISCORD_API}/channels/${channelId}/messages/${srcMsgId}`,
+            { method: "DELETE", headers: { Authorization: `Bot ${token}` } },
+          );
+          if (!delRes.ok) {
+            console.error(
+              "[xitbot-everyone-relay] dexscreener delete failed",
+              delRes.status,
+              await delRes.text(),
+            );
+          }
+          if (!mentionEveryone && !isChatOpened && !hasAxiom && !isSoldOut) {
+            return json({ ok: true, dexscreenerDeleted: delRes.ok });
+          }
+        } catch (e) {
+          console.error("[xitbot-everyone-relay] dexscreener delete error", e);
+        }
+      }
     }
 
     // If sold-out trigger, delete original message from source channel (best-effort)
