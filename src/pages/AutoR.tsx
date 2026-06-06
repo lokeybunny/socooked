@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
-const supabase = supabaseClient as any;
 import Hls from 'hls.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +15,8 @@ import {
   Copy, Download, Play, Video, HardDrive, Timer, TrendingUp, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const supabase = supabaseClient as any;
 
 type Job = {
   id: string;
