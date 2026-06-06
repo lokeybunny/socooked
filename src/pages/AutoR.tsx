@@ -366,10 +366,10 @@ export default function AutoR() {
                       <span className="truncate">{j.discord_channel_name}</span>
                     </div>
                     <div className="flex items-center gap-1 pt-1 border-t border-border/30">
-                      {j.video_url && (
-                        <a href={j.video_url} download className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
+                      {(j.video_url || j.storage_path) && (
+                        <button onClick={() => download(j)} className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
                           <Download className="h-3 w-3" />Download
-                        </a>
+                        </button>
                       )}
                       <button onClick={() => { navigator.clipboard.writeText(j.source_url); toast.success('URL copied'); }} className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
                         <Copy className="h-3 w-3" />URL
