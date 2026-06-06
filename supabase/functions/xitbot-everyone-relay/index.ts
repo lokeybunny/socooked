@@ -325,6 +325,38 @@ Deno.serve(async (req) => {
       } else {
         results.axiomPosted = axiomMints;
       }
+
+      // Fire AutoR recording jobs for each detected Axiom URL
+      try {
+        const supaUrl = Deno.env.get("SUPABASE_URL");
+        const botSecret = Deno.env.get("BOT_SECRET");
+        if (supaUrl && botSecret) {
+          const axiomUrlRe = /https?:\/\/(?:www\.)?axiom\.trade\/[^\s<>"']+/gi;
+          const axiomUrls = [...String(content).matchAll(axiomUrlRe)].map((m) => m[0]);
+          const jobs: any[] = [];
+          for (const u of axiomUrls.slice(0, 3)) {
+            const r = await fetch(`${supaUrl}/functions/v1/autor-api/create`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-bot-secret": botSecret,
+              },
+              body: JSON.stringify({
+                url: u,
+                sourceType: "axiom",
+                discordChannelId: channelId,
+                discordMessageId: sourceMessageId,
+                recordingName: `Axiom ${new Date().toISOString().slice(0, 19).replace("T", " ")}`,
+              }),
+            });
+            const j = await r.json().catch(() => ({}));
+            jobs.push(j);
+          }
+          results.autorJobs = jobs;
+        }
+      } catch (e) {
+        console.error("[xitbot-everyone-relay] autor create error", e);
+      }
     }
 
     return json({ ok: true, ...results });
