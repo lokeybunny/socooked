@@ -11,6 +11,7 @@ import { AppLoadingScreen } from "@/components/app/AppLoadingScreen";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { AnalyticsMount } from "@/components/analytics/AnalyticsMount";
 import DiscordTicketReminder from "@/components/DiscordTicketReminder";
+import { AutoRAccessGate } from "@/components/autor/AutoRAccessGate";
 
 const Auth = lazyWithRetry(() => import("./pages/Auth"), "page-auth");
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"), "page-dashboard");
@@ -218,8 +219,8 @@ const App = () => (
                 <Route path="/analytics" element={<WarrenOnlyGate><AuthLayoutGate><Analytics /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/poly" element={<AuthLayoutGate><Poly /></AuthLayoutGate>} />
                 <Route path="/zillow" element={<WarrenOnlyGate><AuthLayoutGate><Zillow /></AuthLayoutGate></WarrenOnlyGate>} />
-                <Route path="/autor" element={<WarrenOnlyGate><AutoR /></WarrenOnlyGate>} />
-                <Route path="/autor/live/:jobId" element={<WarrenOnlyGate><AutoRLive /></WarrenOnlyGate>} />
+                <Route path="/autor" element={<AutoRAccessGate><AutoR /></AutoRAccessGate>} />
+                <Route path="/autor/live/:jobId" element={<AutoRAccessGate><AutoRLive /></AutoRAccessGate>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
