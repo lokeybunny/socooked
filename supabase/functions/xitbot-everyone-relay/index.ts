@@ -401,7 +401,7 @@ Deno.serve(async (req) => {
           const jobs: any[] = [];
           // Map each detected Axiom mint -> DexScreener 1-minute chart URL
           for (const mint of axiomMints.slice(0, 3)) {
-            const dexUrl = `https://dexscreener.com/solana/${mint}?embed=1&theme=dark&trades=0&info=0&interval=5s`;
+            const dexUrl = `https://dexscreener.com/solana/${mint}?embed=1&theme=dark&trades=0&info=0&interval=1s`;
             const r = await fetch(`${supaUrl}/functions/v1/autor-api/create`, {
               method: "POST",
               headers: {
