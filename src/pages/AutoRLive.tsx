@@ -32,7 +32,7 @@ export default function AutoRLive() {
     if (!jobId) return;
     let active = true;
     const load = async () => {
-      const { data } = await supabase.from("recording_jobs").select("*").eq("job_id", jobId).maybeSingle();
+      const { data } = await (supabase as any).from("recording_jobs").select("*").eq("job_id", jobId).maybeSingle();
       if (active && data) setJob(data as Job);
       setLoading(false);
     };
