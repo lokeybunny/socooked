@@ -148,9 +148,9 @@ function ReplayPlayer({ job }: { job: Job }) {
     : '');
   // Cache-buster forces a fresh playlist (and fresh CloudFront signed tokens)
   // on every mount so expired segment URLs don't break playback.
-  const replayUrl = baseUrl
-    ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now()
-    : '';
+  const replayUrl = useMemo(() => (
+    baseUrl ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now() : ''
+  ), [baseUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
