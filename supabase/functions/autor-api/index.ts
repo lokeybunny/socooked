@@ -174,27 +174,67 @@ Deno.serve(async (req) => {
       const nowIso = new Date().toISOString();
       const { data: existing } = await admin
         .from('recording_jobs')
-        .select('start_time')
+        .select('start_time, status, browserbase_session_id, video_url')
         .eq('job_id', jobId)
         .maybeSingle();
-      const startedAt = existing?.start_time ? new Date(existing.start_time).getTime() : null;
+
+      if (!existing) return json({ error: 'not found' }, 404);
+      if (existing.status === 'completed' || existing.status === 'failed') {
+        return json({ ok: true, alreadyFinal: true });
+      }
+
+      const startedAt = existing.start_time ? new Date(existing.start_time).getTime() : null;
       const duration = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : null;
+
+      // Move to processing while we fetch the recording from Browserbase
+      await admin.from('recording_jobs').update({ status: 'processing' }).eq('job_id', jobId);
+      await logEvent(jobId, 'stop_requested', body.reason ?? 'Manual stop — releasing browser session');
+
+      let recordingUrl = existing.video_url ?? '';
+
+      // If there's an active Browserbase session, release it and poll for recordingUrl
+      if (existing.browserbase_session_id && BB_API_KEY && BB_PROJECT_ID) {
+        try {
+          await fetch(`https://api.browserbase.com/v1/sessions/${existing.browserbase_session_id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-bb-api-key': BB_API_KEY },
+            body: JSON.stringify({ projectId: BB_PROJECT_ID, status: 'REQUEST_RELEASE' }),
+          });
+
+          for (let i = 0; i < 20; i++) {
+            const r = await fetch(`https://api.browserbase.com/v1/sessions/${existing.browserbase_session_id}`, {
+              headers: { 'x-bb-api-key': BB_API_KEY },
+            });
+            if (r.ok) {
+              const d = await r.json() as { recordingUrl?: string; status?: string };
+              if (d.recordingUrl) { recordingUrl = d.recordingUrl; break; }
+            }
+            await new Promise((res) => setTimeout(res, 2000));
+          }
+          await logEvent(jobId, 'browser_released', recordingUrl ? 'Recording URL retrieved' : 'Released but no recording URL yet', { recordingUrl });
+        } catch (err) {
+          await logEvent(jobId, 'browser_release_error', err instanceof Error ? err.message : String(err));
+        }
+      }
+
+      const patch: Record<string, unknown> = {
+        status: 'completed',
+        end_time: nowIso,
+        ...(duration !== null ? { duration_seconds: duration } : {}),
+        ...(recordingUrl ? { video_url: recordingUrl, browserbase_recording_url: recordingUrl } : {}),
+      };
 
       const { error } = await admin
         .from('recording_jobs')
-        .update({
-          status: 'completed',
-          end_time: nowIso,
-          ...(duration !== null ? { duration_seconds: duration } : {}),
-        })
-        .eq('job_id', jobId)
-        .not('status', 'in', '(completed,failed)');
+        .update(patch)
+        .eq('job_id', jobId);
       if (error) return json({ error: error.message }, 500);
-      await logEvent(jobId, 'stop_requested', body.reason ?? 'Manual stop — marked completed');
+
+      await logEvent(jobId, 'completed', recordingUrl ? 'Marked completed with recording URL' : 'Marked completed (no recording URL available)', { recordingUrl });
       if (auth.userId) {
         await admin.from('recording_action_logs').insert({ user_id: auth.userId, job_id: jobId, action: 'stop', message: body.reason ?? null });
       }
-      return json({ ok: true });
+      return json({ ok: true, videoUrl: recordingUrl });
     }
 
     // POST /retry
