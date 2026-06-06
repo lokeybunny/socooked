@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
-const supabase = supabaseClient as any;
+import Hls from 'hls.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,8 @@ import {
   Copy, Download, Play, Video, HardDrive, Timer, TrendingUp, AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const supabase = supabaseClient as any;
 
 type Job = {
   id: string;
@@ -31,6 +33,7 @@ type Job = {
   contract_address: string | null;
   video_url: string | null;
   storage_path: string | null;
+  browserbase_session_id: string | null;
   thumbnail_url: string | null;
   storage_size: number | null;
   duration_seconds: number | null;
@@ -136,6 +139,34 @@ function LiveTimer({ start }: { start: string | null }) {
   if (!start) return <span className="text-muted-foreground">—</span>;
   const secs = Math.floor((Date.now() - new Date(start).getTime()) / 1000);
   return <span className="font-mono text-emerald-400">{fmtDuration(secs)}{tick ? '' : ''}</span>;
+}
+
+function ReplayPlayer({ job }: { job: Job }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const replayUrl = job.video_url || (job.browserbase_session_id
+    ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${job.browserbase_session_id}/0`
+    : '');
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !replayUrl) return;
+    const isHlsReplay = replayUrl.includes('/autor-api/replay/') || replayUrl.includes('.m3u8');
+
+    if (isHlsReplay && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true });
+      hls.loadSource(replayUrl);
+      hls.attachMedia(video);
+      return () => hls.destroy();
+    }
+
+    video.src = replayUrl;
+  }, [job.video_url, replayUrl]);
+
+  if (!replayUrl) {
+    return <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Play className="h-12 w-12" /></div>;
+  }
+
+  return <video ref={videoRef} controls playsInline muted poster={job.thumbnail_url ?? undefined} className="w-full h-full object-contain" />;
 }
 
 export default function AutoR() {
@@ -339,11 +370,7 @@ export default function AutoR() {
               {completed.map((j) => (
                 <div key={j.id} className="glass-card overflow-hidden group">
                   <div className="aspect-video bg-black relative">
-                    {j.video_url ? (
-                      <video src={j.video_url} controls poster={j.thumbnail_url ?? undefined} className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Play className="h-12 w-12" /></div>
-                    )}
+                    <ReplayPlayer job={j} />
                   </div>
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
