@@ -30,6 +30,7 @@ type Job = {
   token_name: string | null;
   contract_address: string | null;
   video_url: string | null;
+  storage_path: string | null;
   thumbnail_url: string | null;
   storage_size: number | null;
   duration_seconds: number | null;
@@ -198,6 +199,35 @@ export default function AutoR() {
     if (r.ok) { toast.success('Deleted'); loadAll(); }
     else toast.error('Failed to delete');
   };
+  const download = async (j: Job) => {
+    try {
+      let url = j.video_url || '';
+      const filename = `${(j.recording_name || j.job_id).replace(/[^\w.-]+/g, '_')}.mp4`;
+      if (j.storage_path) {
+        const { data, error } = await supabase.storage
+          .from('autor-recordings')
+          .createSignedUrl(j.storage_path, 60 * 60, { download: filename });
+        if (error) throw error;
+        url = data.signedUrl;
+      }
+      if (!url) { toast.error('No recording file available'); return; }
+      // Fetch as blob to force download (handles cross-origin)
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      toast.success('Download started');
+    } catch (e: any) {
+      toast.error(`Download failed: ${e.message || e}`);
+    }
+  };
 
   return (
     <AppLayout>
@@ -336,10 +366,10 @@ export default function AutoR() {
                       <span className="truncate">{j.discord_channel_name}</span>
                     </div>
                     <div className="flex items-center gap-1 pt-1 border-t border-border/30">
-                      {j.video_url && (
-                        <a href={j.video_url} download className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
+                      {(j.video_url || j.storage_path) && (
+                        <button onClick={() => download(j)} className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
                           <Download className="h-3 w-3" />Download
-                        </a>
+                        </button>
                       )}
                       <button onClick={() => { navigator.clipboard.writeText(j.source_url); toast.success('URL copied'); }} className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
                         <Copy className="h-3 w-3" />URL
