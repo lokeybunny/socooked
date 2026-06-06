@@ -46,6 +46,40 @@ function hls(body: string, status = 200) {
   });
 }
 
+function binary(body: BodyInit | null, status = 200, contentType = 'application/octet-stream', extraHeaders: HeadersInit = {}) {
+  return new Response(body, {
+    status,
+    headers: {
+      ...corsHeaders,
+      ...extraHeaders,
+      'Content-Type': contentType,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+function base64UrlEncode(value: string) {
+  return btoa(value).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlDecode(value: string) {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
+  return atob(padded);
+}
+
+function rewriteReplayPlaylist(playlist: string) {
+  const assetBase = `${SUPABASE_URL}/functions/v1/autor-api/replay-asset/`;
+  return playlist
+    .replace(/URI="(https?:\/\/[^"]+)"/g, (_match, assetUrl) => `URI="${assetBase}${base64UrlEncode(assetUrl)}"`)
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!/^https?:\/\//i.test(trimmed)) return line;
+      return `${assetBase}${base64UrlEncode(trimmed)}`;
+    })
+    .join('\n');
+}
+
 async function logEvent(jobId: string, eventType: string, message?: string, metadata: Record<string, unknown> = {}) {
   await admin.from('recording_events').insert({
     job_id: jobId,
@@ -140,6 +174,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    // GET /replay-asset/:encodedUrl
+    if (req.method === 'GET' && action === 'replay-asset' && parts[1]) {
+      const assetUrl = base64UrlDecode(parts[1]);
+      if (!/^https:\/\/d2vu4xjy0btiwu\.cloudfront\.net\//i.test(assetUrl)) {
+        return json({ error: 'invalid replay asset url' }, 400);
+      }
+
+      const headers: Record<string, string> = {};
+      const range = req.headers.get('range');
+      if (range) headers.Range = range;
+
+      const asset = await fetch(assetUrl, { headers });
+      const contentType = asset.headers.get('content-type') ?? 'application/octet-stream';
+      const extraHeaders: Record<string, string> = {};
+      for (const key of ['content-length', 'content-range', 'accept-ranges']) {
+        const value = asset.headers.get(key);
+        if (value) extraHeaders[key] = value;
+      }
+      return binary(asset.body, asset.status, contentType, extraHeaders);
+    }
+
     // GET /replay/:sessionId/:pageId
     if (req.method === 'GET' && action === 'replay' && parts[1]) {
       if (!BB_API_KEY) return json({ error: 'BROWSERBASE_API_KEY not configured' }, 500);
@@ -151,7 +206,7 @@ Deno.serve(async (req) => {
       });
       const text = await r.text();
       if (!r.ok) return json({ error: 'Browserbase replay unavailable', status: r.status, details: text }, r.status);
-      return hls(text);
+      return hls(rewriteReplayPlaylist(text));
     }
 
     // POST /update-status   (recorder service)
