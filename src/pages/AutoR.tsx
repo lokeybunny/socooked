@@ -371,11 +371,7 @@ export default function AutoR() {
               {completed.map((j) => (
                 <div key={j.id} className="glass-card overflow-hidden group">
                   <div className="aspect-video bg-black relative">
-                    {j.video_url ? (
-                      <video src={j.video_url} controls poster={j.thumbnail_url ?? undefined} className="w-full h-full object-contain" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Play className="h-12 w-12" /></div>
-                    )}
+                    <ReplayPlayer job={j} />
                   </div>
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
