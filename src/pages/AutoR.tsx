@@ -30,6 +30,7 @@ type Job = {
   token_name: string | null;
   contract_address: string | null;
   video_url: string | null;
+  storage_path: string | null;
   thumbnail_url: string | null;
   storage_size: number | null;
   duration_seconds: number | null;
