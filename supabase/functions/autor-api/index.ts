@@ -14,7 +14,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret, range',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 };
 
@@ -32,6 +32,17 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function hls(body: string, status = 200) {
+  return new Response(body, {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/vnd.apple.mpegurl',
+      'Cache-Control': 'no-store',
+    },
   });
 }
 
@@ -127,6 +138,20 @@ Deno.serve(async (req) => {
         thumbnailUrl: data.thumbnail_url ?? '',
         error: data.last_error ?? '',
       });
+    }
+
+    // GET /replay/:sessionId/:pageId
+    if (req.method === 'GET' && action === 'replay' && parts[1]) {
+      if (!BB_API_KEY) return json({ error: 'BROWSERBASE_API_KEY not configured' }, 500);
+      const sessionId = parts[1];
+      const pageId = parts[2] ?? '0';
+
+      const r = await fetch(`https://api.browserbase.com/v1/sessions/${sessionId}/replays/${pageId}`, {
+        headers: { 'x-bb-api-key': BB_API_KEY },
+      });
+      const text = await r.text();
+      if (!r.ok) return json({ error: 'Browserbase replay unavailable', status: r.status, details: text }, r.status);
+      return hls(text);
     }
 
     // POST /update-status   (recorder service)
