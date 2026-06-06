@@ -6405,6 +6405,145 @@ export type Database = {
         }
         Relationships: []
       }
+      recording_action_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          job_id: string | null
+          meta: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          meta?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          meta?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_action_logs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "recording_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recording_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          job_id: string
+          payload: Json | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          job_id: string
+          payload?: Json | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          job_id?: string
+          payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recording_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "recording_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recording_jobs: {
+        Row: {
+          browserbase_live_view_url: string | null
+          browserbase_session_id: string | null
+          created_at: string
+          created_by: string | null
+          detected_phrases: Json | null
+          discord_channel_id: string | null
+          discord_message_id: string | null
+          discord_user_id: string | null
+          discord_username: string | null
+          ended_at: string | null
+          error: string | null
+          id: string
+          meta: Json | null
+          recording_url: string | null
+          retry_count: number
+          source_url: string
+          started_at: string | null
+          status: string
+          storage_path: string | null
+          token_data: Json | null
+          updated_at: string
+        }
+        Insert: {
+          browserbase_live_view_url?: string | null
+          browserbase_session_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          detected_phrases?: Json | null
+          discord_channel_id?: string | null
+          discord_message_id?: string | null
+          discord_user_id?: string | null
+          discord_username?: string | null
+          ended_at?: string | null
+          error?: string | null
+          id?: string
+          meta?: Json | null
+          recording_url?: string | null
+          retry_count?: number
+          source_url: string
+          started_at?: string | null
+          status?: string
+          storage_path?: string | null
+          token_data?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          browserbase_live_view_url?: string | null
+          browserbase_session_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          detected_phrases?: Json | null
+          discord_channel_id?: string | null
+          discord_message_id?: string | null
+          discord_user_id?: string | null
+          discord_username?: string | null
+          ended_at?: string | null
+          error?: string | null
+          id?: string
+          meta?: Json | null
+          recording_url?: string | null
+          retry_count?: number
+          source_url?: string
+          started_at?: string | null
+          status?: string
+          storage_path?: string | null
+          token_data?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rejected_leads: {
         Row: {
           created_at: string
