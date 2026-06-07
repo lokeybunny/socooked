@@ -597,7 +597,7 @@ export default function ReelsUpload() {
                             {p.preview_url ? (
                               <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <video src={p.media_url} className="w-full h-full object-cover" muted />
+                              <video src={`${p.media_url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                             )}
                           </div>
                         ) : (
