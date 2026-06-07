@@ -34,6 +34,7 @@ const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"), "page-mee
 const CustomU = lazyWithRetry(() => import("./pages/CustomU"), "page-custom-u");
 const SMM = lazyWithRetry(() => import("./pages/SMM"), "page-smm");
 const ReelsUpload = lazyWithRetry(() => import("./pages/ReelsUpload"), "page-reels-upload");
+const InstagramProfiles = lazyWithRetry(() => import("./pages/InstagramProfiles"), "page-instagram-profiles");
 const ClientUpload = lazyWithRetry(() => import("./pages/portal/ClientUpload"), "page-client-upload");
 const Previews = lazyWithRetry(() => import("./pages/Previews"), "page-previews");
 const CalendarPage = lazyWithRetry(() => import("./pages/Calendar"), "page-calendar");
@@ -171,6 +172,8 @@ const App = () => (
                 <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
                 <Route path="/dashboard/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
                 <Route path="/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
+                <Route path="/dashboard/instagram-profiles" element={<RestrictedGate><InstagramProfiles /></RestrictedGate>} />
+                <Route path="/ig-profiles" element={<RestrictedGate><InstagramProfiles /></RestrictedGate>} />
                 <Route path="/previews" element={<RestrictedGate><Previews /></RestrictedGate>} />
                 <Route path="/u/:token" element={<ClientUpload />} />
                 <Route path="/prompt-machine" element={<RestrictedGate><PromptMachine /></RestrictedGate>} />

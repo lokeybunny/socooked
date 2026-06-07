@@ -28,12 +28,14 @@ export default function ReelsUpload() {
     let mounted = true;
     smmApi.getProfiles().then(list => {
       if (!mounted) return;
-      // Only profiles with Instagram connected
       const igProfiles = list.filter(p =>
         p.connected_platforms?.some(cp => cp.platform === 'instagram' && cp.connected),
       );
-      setProfiles(igProfiles.length ? igProfiles : list);
-      if ((igProfiles[0] || list[0])?.username) setProfile((igProfiles[0] || list[0]).username);
+      const usable = igProfiles.length ? igProfiles : list;
+      setProfiles(usable);
+      const saved = localStorage.getItem('reels.activeProfile') || '';
+      if (saved && usable.some(p => p.username === saved)) setProfile(saved);
+      else if (usable[0]?.username) setProfile(usable[0].username);
     }).catch(e => {
       console.error(e);
       toast.error('Failed to load Instagram profiles');
@@ -119,8 +121,11 @@ export default function ReelsUpload() {
 
         <Card className="p-6 space-y-5">
           <div className="space-y-2">
-            <Label>Instagram Profile</Label>
-            <Select value={profile} onValueChange={setProfile} disabled={loadingProfiles}>
+            <div className="flex items-center justify-between">
+              <Label>Instagram Profile</Label>
+              <Link to="/dashboard/instagram-profiles" className="text-xs text-primary hover:underline">Manage</Link>
+            </div>
+            <Select value={profile} onValueChange={(v) => { setProfile(v); localStorage.setItem('reels.activeProfile', v); }} disabled={loadingProfiles}>
               <SelectTrigger>
                 <SelectValue placeholder={loadingProfiles ? 'Loading…' : 'Select a profile'} />
               </SelectTrigger>
