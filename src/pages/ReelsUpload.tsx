@@ -24,6 +24,46 @@ export default function ReelsUpload() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<null | { scheduled: boolean }>(null);
+  const [allPosts, setAllPosts] = useState<ScheduledPost[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+
+  const loadPosts = useCallback(async () => {
+    setLoadingPosts(true);
+    try {
+      const posts = await smmApi.getPosts();
+      setAllPosts(posts);
+    } catch (e) {
+      console.error('[ReelsUpload] load posts failed', e);
+    } finally {
+      setLoadingPosts(false);
+    }
+  }, []);
+
+  useEffect(() => { loadPosts(); }, [loadPosts]);
+
+  const profilePosts = useMemo(() => {
+    if (!profile) return [];
+    return allPosts
+      .filter(p => p.profile_username === profile && p.platforms.includes('instagram'))
+      .filter(p => p.status === 'scheduled' || p.status === 'queued' || p.status === 'pending')
+      .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+  }, [allPosts, profile]);
+
+  async function handleCancel(post: ScheduledPost) {
+    if (!post.job_id) return;
+    if (!confirm('Cancel this scheduled post?')) return;
+    setCancelingId(post.id);
+    try {
+      await smmApi.cancelPost(post.job_id);
+      toast.success('Scheduled post cancelled');
+      setAllPosts(prev => prev.filter(p => p.id !== post.id));
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to cancel');
+    } finally {
+      setCancelingId(null);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
