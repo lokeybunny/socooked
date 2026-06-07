@@ -231,6 +231,12 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  const closeOnMobile = () => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      setCollapsed(true);
+    }
+  };
+
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.to;
     const showDot = (item.to === '/messages' && hasNewMessages) || (item.to === '/sms' && hasNewSms);
