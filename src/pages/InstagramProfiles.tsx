@@ -68,17 +68,27 @@ export default function InstagramProfiles() {
     if (!username) return;
     setCreating(true);
     try {
-      await smmApi.createProfile(username);
-      toast.success(`Profile "${username}" created`);
+      try {
+        await smmApi.createProfile(username);
+        toast.success(`Profile "${username}" created`);
+      } catch (e: any) {
+        const msg = String(e?.message || '');
+        if (/already in use|already exists|409/i.test(msg)) {
+          toast.info(`Profile "${username}" already exists — selecting it`);
+        } else {
+          throw e;
+        }
+      }
       setNewUsername('');
       setAddOpen(false);
       await load();
-      // Immediately offer OAuth connect link
+      setActive(username);
+      localStorage.setItem(ACTIVE_KEY, username);
       try {
         const { access_url } = await smmApi.generateConnectJWT(username);
         if (access_url) setConnectModal({ username, url: access_url });
-      } catch (e) {
-        console.warn('JWT generation failed:', e);
+      } catch (err) {
+        console.warn('JWT generation failed:', err);
       }
     } catch (e: any) {
       toast.error(e?.message || 'Failed to create profile');
