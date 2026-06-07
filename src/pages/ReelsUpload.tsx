@@ -121,8 +121,11 @@ export default function ReelsUpload() {
 
         <Card className="p-6 space-y-5">
           <div className="space-y-2">
-            <Label>Instagram Profile</Label>
-            <Select value={profile} onValueChange={setProfile} disabled={loadingProfiles}>
+            <div className="flex items-center justify-between">
+              <Label>Instagram Profile</Label>
+              <Link to="/dashboard/instagram-profiles" className="text-xs text-primary hover:underline">Manage</Link>
+            </div>
+            <Select value={profile} onValueChange={(v) => { setProfile(v); localStorage.setItem('reels.activeProfile', v); }} disabled={loadingProfiles}>
               <SelectTrigger>
                 <SelectValue placeholder={loadingProfiles ? 'Loading…' : 'Select a profile'} />
               </SelectTrigger>
