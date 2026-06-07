@@ -244,11 +244,8 @@ export default function ReelsUpload() {
       });
       setProgress(65);
 
-      // 2. Convert datetime-local to ISO if scheduled
-      let scheduledIso: string | null = null;
-      if (scheduleAt) {
-        scheduledIso = new Date(scheduleAt).toISOString();
-      }
+      // 2. scheduledIso comes from the memo above (PST wall-clock → ISO)
+
 
       // 3. Send to Upload-Post via smm-api
       await smmApi.createPost({
