@@ -229,7 +229,27 @@ export default function ReelsUpload() {
         description: caption,
         media_url: mediaUrl,
         scheduled_date: scheduledIso,
+        ig_post_type: 'reels',
       });
+
+      // Optionally also share to Instagram Story (separate upload required by Upload-Post)
+      if (alsoStory) {
+        try {
+          await smmApi.createPost({
+            user: profile,
+            type: 'video',
+            platforms: ['instagram'],
+            title: caption || ' ',
+            description: caption,
+            media_url: mediaUrl,
+            scheduled_date: scheduledIso,
+            ig_post_type: 'story',
+          });
+        } catch (storyErr: any) {
+          console.error('[ReelsUpload] story upload failed:', storyErr);
+          toast.error(`Reel sent, but Story failed: ${storyErr?.message || 'unknown error'}`);
+        }
+      }
 
       setProgress(100);
       setDone({ scheduled: !!scheduledIso });
