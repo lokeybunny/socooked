@@ -472,8 +472,8 @@ export default function ReelsUpload() {
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="lg">
             {uploading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading…</>
-            ) : scheduleAt ? (
-              <><Calendar className="h-4 w-4 mr-2" /> Schedule Reel</>
+            ) : scheduledIso ? (
+              <><CalendarIcon className="h-4 w-4 mr-2" /> Schedule Reel</>
             ) : (
               <><Upload className="h-4 w-4 mr-2" /> Post Reel Now</>
             )}
