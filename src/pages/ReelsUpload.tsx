@@ -286,12 +286,25 @@ export default function ReelsUpload() {
 
           <div className="space-y-2">
             <Label>Video File</Label>
-            <label className="block border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors">
+            <div
+              className={`block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'}`}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+                const dropped = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('video/'));
+                if (dropped.length) setFile(dropped[0]);
+              }}
+            >
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="video/mp4,video/quicktime,video/*"
                 className="hidden"
-                onChange={e => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
                 disabled={uploading}
               />
               {file ? (
@@ -300,15 +313,15 @@ export default function ReelsUpload() {
                     <video src={videoPreview} controls className="max-h-64 mx-auto rounded" />
                   )}
                   <p className="text-sm text-muted-foreground">{file.name} — {(file.size / 1024 / 1024).toFixed(1)} MB</p>
-                  <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); setFile(null); }}>Replace</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setFile(null); }}>Replace</Button>
                 </div>
               ) : (
                 <div className="space-y-2 text-muted-foreground">
                   <Upload className="h-8 w-8 mx-auto" />
-                  <p className="text-sm">Click to choose a video (MP4 recommended)</p>
+                  <p className="text-sm">{isDragging ? 'Drop video here' : 'Click or drag & drop a video (MP4 recommended)'}</p>
                 </div>
               )}
-            </label>
+            </div>
           </div>
 
           <div className="space-y-2">
