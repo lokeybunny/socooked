@@ -22,6 +22,7 @@ import { uploadToStorage } from '@/lib/storage';
 import { serverWallClockToIso, getServerTimeZone } from '@/lib/smm/timezone';
 import type { SMMProfile, ScheduledPost } from '@/lib/smm/types';
 import { supabase } from '@/integrations/supabase/client';
+import VideoPoster from '@/components/ui/VideoPoster';
 
 export default function ReelsUpload() {
   const [profiles, setProfiles] = useState<SMMProfile[]>([]);
@@ -528,7 +529,7 @@ export default function ReelsUpload() {
                             {p.preview_url ? (
                               <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <video src={`${p.media_url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                              <VideoPoster src={p.media_url} className="w-full h-full object-cover" />
 
                             )}
                           </div>
@@ -597,7 +598,7 @@ export default function ReelsUpload() {
                             {p.preview_url ? (
                               <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <video src={`${p.media_url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+                              <VideoPoster src={p.media_url} className="w-full h-full object-cover" />
                             )}
                           </div>
                         ) : (
