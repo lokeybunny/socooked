@@ -53,6 +53,7 @@ export default function Landing() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sceneReady, setSceneReady] = useState(true);
   const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { scrollYProgress } = useScroll({ target: containerRef });
 
   // Only track scroll progress AFTER scroll has been enabled (post-load)
