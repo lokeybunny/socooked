@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Calendar, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock } from 'lucide-react';
+import { ArrowLeft, Upload, Calendar, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { smmApi } from '@/lib/smm/store';
 import { uploadToStorage } from '@/lib/storage';
 import type { SMMProfile, ScheduledPost } from '@/lib/smm/types';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function ReelsUpload() {
   const [profiles, setProfiles] = useState<SMMProfile[]>([]);
@@ -27,6 +29,12 @@ export default function ReelsUpload() {
   const [allPosts, setAllPosts] = useState<ScheduledPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+
+  // ─── Edit dialog state ───
+  const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
+  const [editCaption, setEditCaption] = useState('');
+  const [editScheduleAt, setEditScheduleAt] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
@@ -64,6 +72,96 @@ export default function ReelsUpload() {
       setCancelingId(null);
     }
   }
+
+  // ─── Open edit dialog ───
+  function handleEditOpen(post: ScheduledPost) {
+    if (!post.job_id) {
+      toast.error('Cannot edit — this post has no job ID');
+      return;
+    }
+    setEditingPost(post);
+    setEditCaption(post.title || post.description || '');
+    if (post.scheduled_date) {
+      const d = new Date(post.scheduled_date);
+      const tz = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - tz * 60_000);
+      setEditScheduleAt(local.toISOString().slice(0, 16));
+    } else {
+      setEditScheduleAt('');
+    }
+  }
+
+  // ─── Save edits ───
+  async function handleEditSave() {
+    if (!editingPost || !editingPost.job_id) return;
+    setSavingEdit(true);
+    try {
+      const changes: { scheduled_date?: string; title?: string; caption?: string } = {};
+      if (editCaption.trim()) {
+        changes.title = editCaption.trim();
+        changes.caption = editCaption.trim();
+      }
+      if (editScheduleAt) {
+        changes.scheduled_date = new Date(editScheduleAt).toISOString();
+      }
+
+      // 1. Try API edit first
+      try {
+        await smmApi.editPost(editingPost.job_id, changes);
+      } catch (apiErr) {
+        console.warn('[ReelsUpload] API edit failed, falling back to calendar update:', apiErr);
+      }
+
+      // 2. Also update calendar_events so the UI overlay stays in sync
+      const updatePayload: Record<string, any> = {};
+      if (changes.title) {
+        updatePayload.title = changes.title;
+        updatePayload.description = changes.caption;
+      }
+      if (changes.scheduled_date) {
+        updatePayload.start_time = changes.scheduled_date;
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
+        const { error: calErr } = await supabase
+          .from('calendar_events')
+          .update(updatePayload)
+          .eq('source', 'smm')
+          .eq('source_id', editingPost.job_id);
+        if (calErr) console.warn('[ReelsUpload] calendar update failed:', calErr);
+      }
+
+      // 3. Refresh local state
+      setAllPosts(prev =>
+        prev.map(p =>
+          p.id === editingPost.id
+            ? {
+                ...p,
+                title: changes.title || p.title,
+                description: changes.caption || p.description,
+                scheduled_date: changes.scheduled_date || p.scheduled_date,
+              }
+            : p
+        )
+      );
+
+      toast.success('Post updated');
+      setEditingPost(null);
+      loadPosts();
+    } catch (e: any) {
+      console.error('[ReelsUpload] edit save failed:', e);
+      toast.error(e?.message || 'Failed to save changes');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  const editMinScheduleLocal = useMemo(() => {
+    const d = new Date(Date.now() + 5 * 60_000);
+    const tz = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - tz * 60_000);
+    return local.toISOString().slice(0, 16);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -271,6 +369,7 @@ export default function ReelsUpload() {
               </h2>
               <p className="text-xs text-muted-foreground">
                 {profile ? <>Upcoming posts for <span className="font-medium">@{profile}</span></> : 'Select a profile to view its schedule'}
+                <span className="ml-1 opacity-60">· Double-click a post to edit</span>
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={loadPosts} disabled={loadingPosts}>
@@ -289,7 +388,12 @@ export default function ReelsUpload() {
               {profilePosts.map(p => {
                 const when = p.scheduled_date ? new Date(p.scheduled_date) : null;
                 return (
-                  <li key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/50">
+                  <li
+                    key={p.id}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/50 cursor-pointer hover:border-primary/40 hover:bg-card/80 transition-colors"
+                    onDoubleClick={() => handleEditOpen(p)}
+                    title="Double-click to edit"
+                  >
                     {p.preview_url || p.media_url ? (
                       <div className="w-14 h-14 rounded overflow-hidden bg-muted flex-shrink-0">
                         {p.preview_url ? (
@@ -314,15 +418,26 @@ export default function ReelsUpload() {
                       </div>
                       <p className="text-sm mt-1 line-clamp-2">{p.title || p.description || '(no caption)'}</p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCancel(p)}
-                      disabled={cancelingId === p.id || !p.job_id}
-                      title="Cancel scheduled post"
-                    >
-                      {cancelingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); handleEditOpen(p); }}
+                        title="Edit post"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleCancel(p)}
+                        disabled={cancelingId === p.id || !p.job_id}
+                        title="Cancel scheduled post"
+                      >
+                        {cancelingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </li>
                 );
               })}
@@ -330,6 +445,60 @@ export default function ReelsUpload() {
           )}
         </Card>
       </div>
+
+      {/* ─── Edit Dialog ─── */}
+      <Dialog open={!!editingPost} onOpenChange={(open) => { if (!open) setEditingPost(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit3 className="h-5 w-5" />
+              Edit Scheduled Post
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-caption">Caption</Label>
+              <Textarea
+                id="edit-caption"
+                value={editCaption}
+                onChange={e => setEditCaption(e.target.value)}
+                placeholder="Edit caption, hashtags, mentions…"
+                rows={4}
+                disabled={savingEdit}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-schedule" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" /> Scheduled Time
+              </Label>
+              <Input
+                id="edit-schedule"
+                type="datetime-local"
+                value={editScheduleAt}
+                min={editMinScheduleLocal}
+                onChange={e => setEditScheduleAt(e.target.value)}
+                disabled={savingEdit}
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                className="flex-1"
+                onClick={handleEditSave}
+                disabled={savingEdit || (!editCaption.trim() && !editScheduleAt)}
+              >
+                {savingEdit ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => setEditingPost(null)} disabled={savingEdit}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
