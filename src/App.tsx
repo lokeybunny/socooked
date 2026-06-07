@@ -33,6 +33,7 @@ const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"), "page-mee
 
 const CustomU = lazyWithRetry(() => import("./pages/CustomU"), "page-custom-u");
 const SMM = lazyWithRetry(() => import("./pages/SMM"), "page-smm");
+const ReelsUpload = lazyWithRetry(() => import("./pages/ReelsUpload"), "page-reels-upload");
 const ClientUpload = lazyWithRetry(() => import("./pages/portal/ClientUpload"), "page-client-upload");
 const Previews = lazyWithRetry(() => import("./pages/Previews"), "page-previews");
 const CalendarPage = lazyWithRetry(() => import("./pages/Calendar"), "page-calendar");
