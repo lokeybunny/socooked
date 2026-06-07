@@ -262,6 +262,73 @@ export default function ReelsUpload() {
             )}
           </Button>
         </Card>
+
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Clock className="h-5 w-5" /> Schedule
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {profile ? <>Upcoming posts for <span className="font-medium">@{profile}</span></> : 'Select a profile to view its schedule'}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={loadPosts} disabled={loadingPosts}>
+              <RefreshCw className={`h-4 w-4 ${loadingPosts ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+
+          {loadingPosts && profilePosts.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">Loading…</div>
+          ) : profilePosts.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
+              No scheduled posts for this profile.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {profilePosts.map(p => {
+                const when = p.scheduled_date ? new Date(p.scheduled_date) : null;
+                return (
+                  <li key={p.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/50">
+                    {p.preview_url || p.media_url ? (
+                      <div className="w-14 h-14 rounded overflow-hidden bg-muted flex-shrink-0">
+                        {p.preview_url ? (
+                          <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <video src={p.media_url} className="w-full h-full object-cover" muted />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                        <Instagram className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="text-[10px] uppercase">{p.status}</Badge>
+                        {when && (
+                          <span className="text-xs text-muted-foreground">
+                            {when.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm mt-1 line-clamp-2">{p.title || p.description || '(no caption)'}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCancel(p)}
+                      disabled={cancelingId === p.id || !p.job_id}
+                      title="Cancel scheduled post"
+                    >
+                      {cancelingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
       </div>
     </div>
   );
