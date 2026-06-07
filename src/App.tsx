@@ -172,6 +172,8 @@ const App = () => (
                 <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
                 <Route path="/dashboard/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
                 <Route path="/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
+                <Route path="/dashboard/instagram-profiles" element={<RestrictedGate><InstagramProfiles /></RestrictedGate>} />
+                <Route path="/ig-profiles" element={<RestrictedGate><InstagramProfiles /></RestrictedGate>} />
                 <Route path="/previews" element={<RestrictedGate><Previews /></RestrictedGate>} />
                 <Route path="/u/:token" element={<ClientUpload />} />
                 <Route path="/prompt-machine" element={<RestrictedGate><PromptMachine /></RestrictedGate>} />
