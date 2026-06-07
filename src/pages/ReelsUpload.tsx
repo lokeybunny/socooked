@@ -387,18 +387,59 @@ export default function ReelsUpload() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="schedule" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" /> Schedule (optional)
+            <Label className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" /> Schedule (optional, Pacific Time)
             </Label>
-            <Input
-              id="schedule"
-              type="datetime-local"
-              value={scheduleAt}
-              min={minScheduleLocal}
-              onChange={e => setScheduleAt(e.target.value)}
-              disabled={uploading}
-            />
-            <p className="text-xs text-muted-foreground">Leave blank to post immediately.</p>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploading}
+                    className={cn('justify-start text-left font-normal', !scheduleDate && 'text-muted-foreground')}
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {scheduleDate ? format(scheduleDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={scheduleDate}
+                    onSelect={setScheduleDate}
+                    disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Input
+                type="time"
+                value={scheduleTime}
+                onChange={e => setScheduleTime(e.target.value)}
+                disabled={uploading}
+                className="w-32"
+              />
+            </div>
+            {scheduleDate && !scheduleTime && (
+              <p className="text-xs text-amber-500">Pick a time to schedule.</p>
+            )}
+            {scheduleSummary && (
+              <p className="text-xs text-muted-foreground">Will post at <span className="text-foreground font-medium">{scheduleSummary}</span></p>
+            )}
+            {!scheduleDate && !scheduleTime && (
+              <p className="text-xs text-muted-foreground">Leave blank to post immediately.</p>
+            )}
+            {(scheduleDate || scheduleTime) && (
+              <button
+                type="button"
+                onClick={() => { setScheduleDate(undefined); setScheduleTime(''); }}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                Clear schedule
+              </button>
+            )}
           </div>
 
           <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
