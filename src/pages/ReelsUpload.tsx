@@ -246,14 +246,13 @@ export default function ReelsUpload() {
       setProgress(65);
 
       // 2. scheduledIso comes from the memo above (PST wall-clock → ISO).
-      //    Upload-Post rejects schedules that aren't safely in the future, and
-      //    the storage upload above can take long enough to push a "soon" time
-      //    into the past. If the picked time is less than ~2 min out, post now.
+      //    If the user picked a schedule, ALWAYS honor it — never silently post
+      //    now. Require ~2 min lead so the request survives transit to Upload-Post.
       const MIN_LEAD_MS = 2 * 60 * 1000;
-      const effectiveScheduledIso =
-        scheduledIso && new Date(scheduledIso).getTime() - Date.now() > MIN_LEAD_MS
-          ? scheduledIso
-          : null;
+      if (scheduledIso && new Date(scheduledIso).getTime() - Date.now() <= MIN_LEAD_MS) {
+        throw new Error('Scheduled time is too soon. Pick a time at least 2 minutes in the future.');
+      }
+      const effectiveScheduledIso = scheduledIso;
 
       // 3. Send to Upload-Post via smm-api
       await smmApi.createPost({
@@ -288,13 +287,7 @@ export default function ReelsUpload() {
 
       setProgress(100);
       setDone({ scheduled: !!effectiveScheduledIso });
-      toast.success(
-        effectiveScheduledIso
-          ? 'Reel scheduled'
-          : scheduledIso
-            ? 'Scheduled time too soon — posting now'
-            : 'Reel uploading to Instagram'
-      );
+      toast.success(effectiveScheduledIso ? 'Reel scheduled' : 'Reel uploading to Instagram');
       // Reset
       setFile(null);
       setCaption('');
