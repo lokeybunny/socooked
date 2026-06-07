@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Calendar, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Upload, Calendar as CalendarIcon, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { format } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +13,13 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { smmApi } from '@/lib/smm/store';
 import { uploadToStorage } from '@/lib/storage';
+import { serverWallClockToIso, getServerTimeZone } from '@/lib/smm/timezone';
 import type { SMMProfile, ScheduledPost } from '@/lib/smm/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,7 +29,8 @@ export default function ReelsUpload() {
   const [profile, setProfile] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState('');
-  const [scheduleAt, setScheduleAt] = useState(''); // datetime-local
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:MM (PST wall-clock)
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<null | { scheduled: boolean }>(null);
@@ -198,14 +204,29 @@ export default function ReelsUpload() {
   const videoPreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => () => { if (videoPreview) URL.revokeObjectURL(videoPreview); }, [videoPreview]);
 
-  const minScheduleLocal = useMemo(() => {
-    const d = new Date(Date.now() + 5 * 60_000);
-    const tz = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - tz * 60_000);
-    return local.toISOString().slice(0, 16);
-  }, []);
+  const SERVER_TZ = getServerTimeZone();
+
+  // ISO of the PST-wall-clock schedule, or null if not scheduling
+  const scheduledIso = useMemo(() => {
+    if (!scheduleDate || !scheduleTime) return null;
+    const dateStr = format(scheduleDate, 'yyyy-MM-dd');
+    try {
+      return serverWallClockToIso(dateStr, scheduleTime, SERVER_TZ);
+    } catch {
+      return null;
+    }
+  }, [scheduleDate, scheduleTime, SERVER_TZ]);
+
+  const scheduleSummary = useMemo(() => {
+    if (!scheduledIso) return null;
+    const d = new Date(scheduledIso);
+    const datePart = d.toLocaleDateString('en-US', { timeZone: SERVER_TZ, weekday: 'short', month: 'short', day: 'numeric' });
+    const timePart = d.toLocaleTimeString('en-US', { timeZone: SERVER_TZ, hour: 'numeric', minute: '2-digit' });
+    return `${datePart} at ${timePart} PST`;
+  }, [scheduledIso, SERVER_TZ]);
 
   const canSubmit = !!profile && !!file && !uploading;
+
 
   async function handleSubmit() {
     if (!file || !profile) return;
@@ -223,11 +244,8 @@ export default function ReelsUpload() {
       });
       setProgress(65);
 
-      // 2. Convert datetime-local to ISO if scheduled
-      let scheduledIso: string | null = null;
-      if (scheduleAt) {
-        scheduledIso = new Date(scheduleAt).toISOString();
-      }
+      // 2. scheduledIso comes from the memo above (PST wall-clock → ISO)
+
 
       // 3. Send to Upload-Post via smm-api
       await smmApi.createPost({
@@ -266,7 +284,8 @@ export default function ReelsUpload() {
       // Reset
       setFile(null);
       setCaption('');
-      setScheduleAt('');
+      setScheduleDate(undefined);
+      setScheduleTime('');
       loadPosts();
     } catch (e: any) {
       console.error('[ReelsUpload] failed:', e);
@@ -368,18 +387,59 @@ export default function ReelsUpload() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="schedule" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" /> Schedule (optional)
+            <Label className="flex items-center gap-2">
+              <CalendarIcon className="h-4 w-4" /> Schedule (optional, Pacific Time)
             </Label>
-            <Input
-              id="schedule"
-              type="datetime-local"
-              value={scheduleAt}
-              min={minScheduleLocal}
-              onChange={e => setScheduleAt(e.target.value)}
-              disabled={uploading}
-            />
-            <p className="text-xs text-muted-foreground">Leave blank to post immediately.</p>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploading}
+                    className={cn('justify-start text-left font-normal', !scheduleDate && 'text-muted-foreground')}
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {scheduleDate ? format(scheduleDate, 'PPP') : 'Pick a date'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={scheduleDate}
+                    onSelect={setScheduleDate}
+                    disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Input
+                type="time"
+                value={scheduleTime}
+                onChange={e => setScheduleTime(e.target.value)}
+                disabled={uploading}
+                className="w-32"
+              />
+            </div>
+            {scheduleDate && !scheduleTime && (
+              <p className="text-xs text-amber-500">Pick a time to schedule.</p>
+            )}
+            {scheduleSummary && (
+              <p className="text-xs text-muted-foreground">Will post at <span className="text-foreground font-medium">{scheduleSummary}</span></p>
+            )}
+            {!scheduleDate && !scheduleTime && (
+              <p className="text-xs text-muted-foreground">Leave blank to post immediately.</p>
+            )}
+            {(scheduleDate || scheduleTime) && (
+              <button
+                type="button"
+                onClick={() => { setScheduleDate(undefined); setScheduleTime(''); }}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                Clear schedule
+              </button>
+            )}
           </div>
 
           <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
@@ -412,8 +472,8 @@ export default function ReelsUpload() {
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="lg">
             {uploading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading…</>
-            ) : scheduleAt ? (
-              <><Calendar className="h-4 w-4 mr-2" /> Schedule Reel</>
+            ) : scheduledIso ? (
+              <><CalendarIcon className="h-4 w-4 mr-2" /> Schedule Reel</>
             ) : (
               <><Upload className="h-4 w-4 mr-2" /> Post Reel Now</>
             )}
@@ -468,7 +528,8 @@ export default function ReelsUpload() {
                             {p.preview_url ? (
                               <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <video src={p.media_url} className="w-full h-full object-cover" muted />
+                              <video src={`${p.media_url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />
+
                             )}
                           </div>
                         ) : (
@@ -536,7 +597,7 @@ export default function ReelsUpload() {
                             {p.preview_url ? (
                               <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <video src={p.media_url} className="w-full h-full object-cover" muted />
+                              <video src={`${p.media_url}#t=0.1`} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                             )}
                           </div>
                         ) : (
@@ -599,7 +660,7 @@ export default function ReelsUpload() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-schedule" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Scheduled Time
+                <CalendarIcon className="h-4 w-4" /> Scheduled Time
               </Label>
               <Input
                 id="edit-schedule"

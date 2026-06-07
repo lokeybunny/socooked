@@ -231,6 +231,12 @@ export function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  const closeOnMobile = () => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      setCollapsed(true);
+    }
+  };
+
   const renderNavItem = (item: NavItem) => {
     const isActive = location.pathname === item.to;
     const showDot = (item.to === '/messages' && hasNewMessages) || (item.to === '/sms' && hasNewSms);
@@ -300,6 +306,7 @@ export function Sidebar() {
           target="_blank"
           rel="noopener noreferrer"
           className={linkClasses}
+          onClick={closeOnMobile}
         >
           {linkContent}
         </a>
@@ -311,6 +318,7 @@ export function Sidebar() {
         key={item.to}
         to={item.to}
         className={linkClasses}
+        onClick={closeOnMobile}
       >
         {linkContent}
       </NavLink>
@@ -371,6 +379,7 @@ export function Sidebar() {
                 <NavLink
                   key={child.to}
                   to={child.to}
+                  onClick={closeOnMobile}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors duration-100",
                     isActive
