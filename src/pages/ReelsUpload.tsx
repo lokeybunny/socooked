@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Calendar, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3 } from 'lucide-react';
+import { ArrowLeft, Upload, Calendar, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
