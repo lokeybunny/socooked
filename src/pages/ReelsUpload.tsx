@@ -423,12 +423,8 @@ export default function ReelsUpload() {
         <Card className="p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Clock className="h-5 w-5" /> Schedule
-              </h2>
               <p className="text-xs text-muted-foreground">
-                {profile ? <>Upcoming posts for <span className="font-medium">@{profile}</span></> : 'Select a profile to view its schedule'}
-                <span className="ml-1 opacity-60">· Double-click a post to edit</span>
+                {profile ? <>Posts for <span className="font-medium">@{profile}</span></> : 'Select a profile to view its posts'}
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={loadPosts} disabled={loadingPosts}>
@@ -436,72 +432,147 @@ export default function ReelsUpload() {
             </Button>
           </div>
 
-          {loadingPosts && profilePosts.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6">Loading…</div>
-          ) : profilePosts.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
-              No scheduled posts for this profile.
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {profilePosts.map(p => {
-                const when = p.scheduled_date ? new Date(p.scheduled_date) : null;
-                return (
-                  <li
-                    key={p.id}
-                    className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/50 cursor-pointer hover:border-primary/40 hover:bg-card/80 transition-colors"
-                    onDoubleClick={() => handleEditOpen(p)}
-                    title="Double-click to edit"
-                  >
-                    {p.preview_url || p.media_url ? (
-                      <div className="w-14 h-14 rounded overflow-hidden bg-muted flex-shrink-0">
-                        {p.preview_url ? (
-                          <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
+          <Tabs defaultValue="schedule">
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="schedule" className="gap-2">
+                <Clock className="h-4 w-4" /> Schedule
+                {profilePosts.length > 0 && <Badge variant="secondary" className="ml-1">{profilePosts.length}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="posted" className="gap-2">
+                <History className="h-4 w-4" /> Posted
+                {postedPosts.length > 0 && <Badge variant="secondary" className="ml-1">{postedPosts.length}</Badge>}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="schedule" className="space-y-2">
+              <p className="text-xs text-muted-foreground">Double-click a post to edit</p>
+              {loadingPosts && profilePosts.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">Loading…</div>
+              ) : profilePosts.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
+                  No scheduled posts for this profile.
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {profilePosts.map(p => {
+                    const when = p.scheduled_date ? new Date(p.scheduled_date) : null;
+                    return (
+                      <li
+                        key={p.id}
+                        className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/50 cursor-pointer hover:border-primary/40 hover:bg-card/80 transition-colors"
+                        onDoubleClick={() => handleEditOpen(p)}
+                        title="Double-click to edit"
+                      >
+                        {p.preview_url || p.media_url ? (
+                          <div className="w-14 h-14 rounded overflow-hidden bg-muted flex-shrink-0">
+                            {p.preview_url ? (
+                              <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={p.media_url} className="w-full h-full object-cover" muted />
+                            )}
+                          </div>
                         ) : (
-                          <video src={p.media_url} className="w-full h-full object-cover" muted />
+                          <div className="w-14 h-14 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                            <Instagram className="h-5 w-5 text-muted-foreground" />
+                          </div>
                         )}
-                      </div>
-                    ) : (
-                      <div className="w-14 h-14 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                        <Instagram className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className="text-[10px] uppercase">{p.status}</Badge>
-                        {when && (
-                          <span className="text-xs text-muted-foreground">
-                            {when.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                          </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="secondary" className="text-[10px] uppercase">{p.status}</Badge>
+                            {when && (
+                              <span className="text-xs text-muted-foreground">
+                                {when.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm mt-1 line-clamp-2">{p.title || p.description || '(no caption)'}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); handleEditOpen(p); }}
+                            title="Edit post"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCancel(p)}
+                            disabled={cancelingId === p.id || !p.job_id}
+                            title="Cancel scheduled post"
+                          >
+                            {cancelingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent value="posted" className="space-y-2">
+              {loadingPosts && postedPosts.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6">Loading…</div>
+              ) : postedPosts.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
+                  No published posts yet for this profile.
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {postedPosts.map(p => {
+                    const when = p.published_at ? new Date(p.published_at) : new Date(p.created_at);
+                    const igUrl = p.post_urls.find(u => u.platform === 'instagram')?.url;
+                    return (
+                      <li
+                        key={p.id}
+                        className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/50 hover:border-primary/40 hover:bg-card/80 transition-colors"
+                      >
+                        {p.preview_url || p.media_url ? (
+                          <div className="w-14 h-14 rounded overflow-hidden bg-muted flex-shrink-0">
+                            {p.preview_url ? (
+                              <img src={p.preview_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={p.media_url} className="w-full h-full object-cover" muted />
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-14 h-14 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                            <Instagram className="h-5 w-5 text-muted-foreground" />
+                          </div>
                         )}
-                      </div>
-                      <p className="text-sm mt-1 line-clamp-2">{p.title || p.description || '(no caption)'}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => { e.stopPropagation(); handleEditOpen(p); }}
-                        title="Edit post"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleCancel(p)}
-                        disabled={cancelingId === p.id || !p.job_id}
-                        title="Cancel scheduled post"
-                      >
-                        {cancelingId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="secondary" className="text-[10px] uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                              {p.status === 'completed' ? 'posted' : p.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {when.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-sm mt-1 line-clamp-2">{p.title || p.description || '(no caption)'}</p>
+                        </div>
+                        {igUrl && (
+                          <a
+                            href={igUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary p-1"
+                            title="View on Instagram"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </TabsContent>
+          </Tabs>
         </Card>
       </div>
 
