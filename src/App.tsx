@@ -169,6 +169,8 @@ const App = () => (
                 <Route path="/custom-u" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/landing" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
+                <Route path="/dashboard/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
+                <Route path="/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
                 <Route path="/previews" element={<RestrictedGate><Previews /></RestrictedGate>} />
                 <Route path="/u/:token" element={<ClientUpload />} />
                 <Route path="/prompt-machine" element={<RestrictedGate><PromptMachine /></RestrictedGate>} />
