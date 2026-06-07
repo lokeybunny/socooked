@@ -136,6 +136,7 @@ export default function ReelsUpload() {
       setFile(null);
       setCaption('');
       setScheduleAt('');
+      loadPosts();
     } catch (e: any) {
       console.error('[ReelsUpload] failed:', e);
       toast.error(e?.message || 'Upload failed');
