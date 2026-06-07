@@ -58,7 +58,6 @@ const navEntries: NavEntry[] = [
       { to: '/hot-replies', icon: Sparkles, label: 'Hot Replies', green: true },
     ],
   },
-  { to: '/usa-map', icon: Crosshair, label: 'USA Map', green: true },
   { to: '/phone-audit', icon: Phone, label: 'Phone Audit', green: true },
   { to: '/zillow', icon: Building2, label: 'Zillow', green: true },
   { to: '/analytics', icon: Activity, label: 'Analytics', botIcon: true },
@@ -67,9 +66,14 @@ const navEntries: NavEntry[] = [
   { to: '/previews', icon: Sparkles, label: 'Websites', green: true },
   { to: '/wholesale', icon: Warehouse, label: 'Real Estate', green: true },
 
-
-  { to: '/ai-gen', icon: Film, label: 'Studio', divider: 'Studio', highlight: true },
-  { to: '/autor', icon: Video, label: 'AutoR', green: true },
+  {
+    icon: Film, label: 'Studio', divider: 'Studio',
+    children: [
+      { to: '/ai-gen', icon: Film, label: 'Studio', highlight: true },
+      { to: '/autor', icon: Video, label: 'AutoR', green: true },
+      { to: '/dashboard/smm', icon: Share2, label: 'SM', green: true },
+    ],
+  },
 ];
 
 export function Sidebar() {
