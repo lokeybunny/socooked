@@ -659,7 +659,7 @@ export default function ReelsUpload() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-schedule" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Scheduled Time
+                <CalendarIcon className="h-4 w-4" /> Scheduled Time
               </Label>
               <Input
                 id="edit-schedule"
