@@ -170,8 +170,9 @@ const App = () => (
                 <Route path="/custom-u" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/landing" element={<RestrictedGate><CustomU /></RestrictedGate>} />
                 <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
-                <Route path="/dashboard/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
-                <Route path="/reels" element={<RestrictedGate><ReelsUpload /></RestrictedGate>} />
+                <Route path="/dashboard/reels" element={<RestrictedGate><AuthLayoutGate><ReelsUpload /></AuthLayoutGate></RestrictedGate>} />
+                <Route path="/reels" element={<RestrictedGate><AuthLayoutGate><ReelsUpload /></AuthLayoutGate></RestrictedGate>} />
+
                 <Route path="/dashboard/instagram-profiles" element={<RestrictedGate><InstagramProfiles /></RestrictedGate>} />
                 <Route path="/ig-profiles" element={<RestrictedGate><InstagramProfiles /></RestrictedGate>} />
                 <Route path="/previews" element={<RestrictedGate><Previews /></RestrictedGate>} />
