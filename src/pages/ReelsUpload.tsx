@@ -27,6 +27,7 @@ export default function ReelsUpload() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<null | { scheduled: boolean }>(null);
+  const [alsoStory, setAlsoStory] = useState(true);
   const [allPosts, setAllPosts] = useState<ScheduledPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
