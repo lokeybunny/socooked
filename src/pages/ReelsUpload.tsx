@@ -204,14 +204,29 @@ export default function ReelsUpload() {
   const videoPreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => () => { if (videoPreview) URL.revokeObjectURL(videoPreview); }, [videoPreview]);
 
-  const minScheduleLocal = useMemo(() => {
-    const d = new Date(Date.now() + 5 * 60_000);
-    const tz = d.getTimezoneOffset();
-    const local = new Date(d.getTime() - tz * 60_000);
-    return local.toISOString().slice(0, 16);
-  }, []);
+  const SERVER_TZ = getServerTimeZone();
+
+  // ISO of the PST-wall-clock schedule, or null if not scheduling
+  const scheduledIso = useMemo(() => {
+    if (!scheduleDate || !scheduleTime) return null;
+    const dateStr = format(scheduleDate, 'yyyy-MM-dd');
+    try {
+      return serverWallClockToIso(dateStr, scheduleTime, SERVER_TZ);
+    } catch {
+      return null;
+    }
+  }, [scheduleDate, scheduleTime, SERVER_TZ]);
+
+  const scheduleSummary = useMemo(() => {
+    if (!scheduledIso) return null;
+    const d = new Date(scheduledIso);
+    const datePart = d.toLocaleDateString('en-US', { timeZone: SERVER_TZ, weekday: 'short', month: 'short', day: 'numeric' });
+    const timePart = d.toLocaleTimeString('en-US', { timeZone: SERVER_TZ, hour: 'numeric', minute: '2-digit' });
+    return `${datePart} at ${timePart} PST`;
+  }, [scheduledIso, SERVER_TZ]);
 
   const canSubmit = !!profile && !!file && !uploading;
+
 
   async function handleSubmit() {
     if (!file || !profile) return;
