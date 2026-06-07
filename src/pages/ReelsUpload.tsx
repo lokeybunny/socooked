@@ -373,6 +373,19 @@ export default function ReelsUpload() {
             <p className="text-xs text-muted-foreground">Leave blank to post immediately.</p>
           </div>
 
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
+            <Checkbox
+              checked={alsoStory}
+              onCheckedChange={(v) => setAlsoStory(!!v)}
+              disabled={uploading}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Also post to Instagram Story</p>
+              <p className="text-xs text-muted-foreground">Shares the same video to your Story in a separate upload.</p>
+            </div>
+          </label>
+
           {uploading && (
             <div className="space-y-2">
               <Progress value={progress} />
