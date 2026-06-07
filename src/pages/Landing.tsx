@@ -192,6 +192,13 @@ export default function Landing() {
               Store
             </Link>
             <button
+              onClick={() => setMobileMenuOpen(v => !v)}
+              className="sm:hidden text-muted-foreground/70 hover:text-foreground transition-colors duration-300"
+              aria-label="Open menu"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+            <button
               onClick={() => navigate('/auth')}
               className="text-muted-foreground/50 hover:text-foreground transition-colors duration-300"
             >
@@ -199,6 +206,27 @@ export default function Landing() {
             </button>
           </div>
         </header>
+
+        {/* Mobile menu dropdown */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="sm:hidden fixed top-[60px] left-0 right-0 z-40 mx-4 rounded-2xl border border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl"
+            >
+              <div className="flex flex-col py-2">
+                <Link to="/video" onClick={() => setMobileMenuOpen(false)} className="px-5 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/30 text-xs tracking-[0.15em] uppercase transition-colors">Videography</Link>
+                <Link to="/webdesign" onClick={() => setMobileMenuOpen(false)} className="px-5 py-3 text-muted-foreground hover:text-foreground hover:bg-muted/30 text-xs tracking-[0.15em] uppercase transition-colors">Web Design</Link>
+                <Link to="/sell/home" onClick={() => setMobileMenuOpen(false)} className="px-5 py-3 text-emerald-500/80 hover:text-emerald-400 hover:bg-muted/30 text-xs tracking-[0.15em] uppercase transition-colors">Real Estate</Link>
+                <Link to="/store" onClick={() => setMobileMenuOpen(false)} className="px-5 py-3 text-amber-500/80 hover:text-amber-400 hover:bg-muted/30 text-xs tracking-[0.15em] uppercase transition-colors">Store</Link>
+                <button onClick={() => { setMobileMenuOpen(false); navigate('/auth'); }} className="px-5 py-3 text-left text-foreground hover:bg-muted/30 text-xs tracking-[0.15em] uppercase transition-colors border-t border-border/30">Sign In</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Stacked layers — all position absolute, controlled by scroll */}
         <div className="flex-1 relative overflow-hidden">
