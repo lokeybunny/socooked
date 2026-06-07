@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp, GraduationCap } from 'lucide-react';
+import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp, GraduationCap, Menu } from 'lucide-react';
 
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import VideoPlayer from '@/components/landing/VideoPlayer';
