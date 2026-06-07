@@ -373,6 +373,7 @@ export const smmApi = {
     scheduled_date?: string | null;
     add_to_queue?: boolean;
     timezone?: string;
+    ig_post_type?: 'reels' | 'story' | 'feed';
   }): Promise<any> {
     const action = post.type === 'video' ? 'upload-video'
       : post.type === 'photos' ? 'upload-photos'
@@ -396,6 +397,8 @@ export const smmApi = {
     if (post.scheduled_date) formBody.scheduled_date = post.scheduled_date;
     if (post.add_to_queue) formBody.add_to_queue = true;
     if (post.timezone) formBody.timezone = post.timezone;
+    if (post.ig_post_type) formBody.ig_post_type = post.ig_post_type;
+
 
     // For URL-based uploads
     if (post.media_url) {

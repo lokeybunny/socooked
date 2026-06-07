@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { smmApi } from '@/lib/smm/store';
 import { uploadToStorage } from '@/lib/storage';
@@ -26,6 +27,7 @@ export default function ReelsUpload() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<null | { scheduled: boolean }>(null);
+  const [alsoStory, setAlsoStory] = useState(true);
   const [allPosts, setAllPosts] = useState<ScheduledPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -227,7 +229,27 @@ export default function ReelsUpload() {
         description: caption,
         media_url: mediaUrl,
         scheduled_date: scheduledIso,
+        ig_post_type: 'reels',
       });
+
+      // Optionally also share to Instagram Story (separate upload required by Upload-Post)
+      if (alsoStory) {
+        try {
+          await smmApi.createPost({
+            user: profile,
+            type: 'video',
+            platforms: ['instagram'],
+            title: caption || ' ',
+            description: caption,
+            media_url: mediaUrl,
+            scheduled_date: scheduledIso,
+            ig_post_type: 'story',
+          });
+        } catch (storyErr: any) {
+          console.error('[ReelsUpload] story upload failed:', storyErr);
+          toast.error(`Reel sent, but Story failed: ${storyErr?.message || 'unknown error'}`);
+        }
+      }
 
       setProgress(100);
       setDone({ scheduled: !!scheduledIso });
@@ -350,6 +372,19 @@ export default function ReelsUpload() {
             />
             <p className="text-xs text-muted-foreground">Leave blank to post immediately.</p>
           </div>
+
+          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
+            <Checkbox
+              checked={alsoStory}
+              onCheckedChange={(v) => setAlsoStory(!!v)}
+              disabled={uploading}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Also post to Instagram Story</p>
+              <p className="text-xs text-muted-foreground">Shares the same video to your Story in a separate upload.</p>
+            </div>
+          </label>
 
           {uploading && (
             <div className="space-y-2">
