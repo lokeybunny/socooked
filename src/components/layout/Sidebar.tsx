@@ -306,6 +306,7 @@ export function Sidebar() {
           target="_blank"
           rel="noopener noreferrer"
           className={linkClasses}
+          onClick={closeOnMobile}
         >
           {linkContent}
         </a>
@@ -317,6 +318,7 @@ export function Sidebar() {
         key={item.to}
         to={item.to}
         className={linkClasses}
+        onClick={closeOnMobile}
       >
         {linkContent}
       </NavLink>
