@@ -284,7 +284,8 @@ export default function ReelsUpload() {
       // Reset
       setFile(null);
       setCaption('');
-      setScheduleAt('');
+      setScheduleDate(undefined);
+      setScheduleTime('');
       loadPosts();
     } catch (e: any) {
       console.error('[ReelsUpload] failed:', e);
