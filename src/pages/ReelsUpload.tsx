@@ -28,12 +28,14 @@ export default function ReelsUpload() {
     let mounted = true;
     smmApi.getProfiles().then(list => {
       if (!mounted) return;
-      // Only profiles with Instagram connected
       const igProfiles = list.filter(p =>
         p.connected_platforms?.some(cp => cp.platform === 'instagram' && cp.connected),
       );
-      setProfiles(igProfiles.length ? igProfiles : list);
-      if ((igProfiles[0] || list[0])?.username) setProfile((igProfiles[0] || list[0]).username);
+      const usable = igProfiles.length ? igProfiles : list;
+      setProfiles(usable);
+      const saved = localStorage.getItem('reels.activeProfile') || '';
+      if (saved && usable.some(p => p.username === saved)) setProfile(saved);
+      else if (usable[0]?.username) setProfile(usable[0].username);
     }).catch(e => {
       console.error(e);
       toast.error('Failed to load Instagram profiles');
