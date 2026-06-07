@@ -29,7 +29,8 @@ export default function ReelsUpload() {
   const [profile, setProfile] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState('');
-  const [scheduleAt, setScheduleAt] = useState(''); // datetime-local
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleTime, setScheduleTime] = useState<string>(''); // HH:MM (PST wall-clock)
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<null | { scheduled: boolean }>(null);
