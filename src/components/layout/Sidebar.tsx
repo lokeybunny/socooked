@@ -379,6 +379,7 @@ export function Sidebar() {
                 <NavLink
                   key={child.to}
                   to={child.to}
+                  onClick={closeOnMobile}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors duration-100",
                     isActive
