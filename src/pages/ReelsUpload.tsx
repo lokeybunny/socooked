@@ -63,6 +63,14 @@ export default function ReelsUpload() {
       .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   }, [allPosts, profile]);
 
+  const postedPosts = useMemo(() => {
+    if (!profile) return [];
+    return allPosts
+      .filter(p => p.profile_username === profile && p.platforms.includes('instagram'))
+      .filter(p => p.status === 'completed' || !!p.published_at || p.post_urls.length > 0)
+      .sort((a, b) => (b.published_at || b.created_at).localeCompare(a.published_at || a.created_at));
+  }, [allPosts, profile]);
+
   async function handleCancel(post: ScheduledPost) {
     if (!post.job_id) return;
     if (!confirm('Cancel this scheduled post?')) return;
