@@ -35,6 +35,8 @@ export default function ReelsUpload() {
   const [editCaption, setEditCaption] = useState('');
   const [editScheduleAt, setEditScheduleAt] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
