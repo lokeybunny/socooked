@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Calendar, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Upload, Calendar as CalendarIcon, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { format } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +13,13 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { smmApi } from '@/lib/smm/store';
 import { uploadToStorage } from '@/lib/storage';
+import { serverWallClockToIso, getServerTimeZone } from '@/lib/smm/timezone';
 import type { SMMProfile, ScheduledPost } from '@/lib/smm/types';
 import { supabase } from '@/integrations/supabase/client';
 
