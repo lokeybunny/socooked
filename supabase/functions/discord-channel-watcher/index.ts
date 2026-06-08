@@ -275,7 +275,10 @@ serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // ── Test action: scan enabled channels, forward newest axiom.trade link to Telegram Lounge ──
+  // ── Test action: scan enabled channels, find newest axiom.trade message,
+  //    and forward it into xitbot-everyone-relay so it triggers the normal
+  //    AutoR recording lifecycle (queued → recording → completed) instead of
+  //    posting to the Telegram shill lounge. ──
   const url = new URL(req.url);
   if (url.searchParams.get("action") === "test-latest-axiom") {
     try {
@@ -324,10 +327,35 @@ serve(async (req) => {
       }
       if (!best) return json({ ok: false, reason: "No axiom.trade link found", scanned: diag });
 
+      // Forward into xitbot-everyone-relay to trigger AutoR recording job
+      // (status → queued → recording → completed). No Telegram lounge post.
       const author = best.msg.author?.global_name || best.msg.author?.username || "unknown";
-      const text = `🧪 <b>Test forward — latest axiom.trade link</b>\nFrom: <b>${author}</b>\nChannel: <code>${best.channelId}</code>\nMsg ID: <code>${best.msg.id}</code>\n\n${best.link}`;
-      await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, text, undefined, "HTML");
-      return json({ ok: true, forwarded: true, author, channel_id: best.channelId, msg_id: best.msg.id, link: best.link });
+      const relayContent = `${best.msg.content || ""}\n${best.link}`.trim();
+      const supaUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const relayRes = await fetch(`${supaUrl}/functions/v1/xitbot-everyone-relay`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          content: relayContent,
+          channel_id: best.channelId,
+          message_id: best.msg.id,
+          author,
+        }),
+      });
+      const relayJson = await relayRes.json().catch(() => ({}));
+      return json({
+        ok: relayRes.ok,
+        relay_status: relayRes.status,
+        author,
+        channel_id: best.channelId,
+        msg_id: best.msg.id,
+        link: best.link,
+        relay: relayJson,
+      });
     } catch (e) {
       return json({ ok: false, error: String(e) }, 500);
     }
