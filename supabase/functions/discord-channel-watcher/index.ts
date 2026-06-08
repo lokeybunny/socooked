@@ -386,6 +386,30 @@ serve(async (req) => {
 
       let newestId = lastMessageId;
 
+      // ── Devscripter de-dup: only forward the NEWEST devscripter post per channel ──
+      // Find the newest devscripter message in this batch (messages are sorted oldest-first).
+      let latestDevscripterMsgId: string | null = null;
+      for (const m of messages) {
+        const a = (m.author?.username || m.author?.global_name || "").toLowerCase();
+        if (a === "devscripter") {
+          if (!latestDevscripterMsgId || BigInt(m.id) > BigInt(latestDevscripterMsgId)) {
+            latestDevscripterMsgId = m.id;
+          }
+        }
+      }
+      // Load persisted devscripter cursor (per listen channel) so we never re-forward an older one across runs.
+      const devscripterCursorKey = `devscripter:${listenChannelId}`;
+      let lastDevscripterForwardedId: string | null = null;
+      {
+        const { data: devCur } = await supabase
+          .from("xitbot_poll_state")
+          .select("last_message_id")
+          .eq("channel_id", devscripterCursorKey)
+          .maybeSingle();
+        lastDevscripterForwardedId = devCur?.last_message_id ?? null;
+      }
+
+
       /** Extract X/Twitter URLs from a Discord message (content + embeds + forwarded/referenced) */
       const extractXUrls = (m: any): string[] => {
         const found: string[] = [];
@@ -563,9 +587,31 @@ serve(async (req) => {
           continue;
         }
 
+        // ── Devscripter: skip anything that isn't the newest post and skip ones we've already forwarded ──
+        const _author = (msg.author?.username || msg.author?.global_name || "").toLowerCase();
+        if (_author === "devscripter") {
+          if (latestDevscripterMsgId && msg.id !== latestDevscripterMsgId) {
+            console.log(`[discord-watcher] Skipping older devscripter msg ${msg.id} (newest in batch: ${latestDevscripterMsgId})`);
+            continue;
+          }
+          if (lastDevscripterForwardedId && BigInt(msg.id) <= BigInt(lastDevscripterForwardedId)) {
+            console.log(`[discord-watcher] Skipping devscripter msg ${msg.id} — already forwarded (cursor: ${lastDevscripterForwardedId})`);
+            continue;
+          }
+        }
+
         // Extract X/Twitter URLs from content AND embeds (works for bot posts too)
         const uniqueUrls = extractXUrls(msg);
         if (!uniqueUrls.length) continue;
+
+        // Advance devscripter cursor once we know we're going to process it (prevents future re-forwards)
+        if (_author === "devscripter") {
+          await supabase
+            .from("xitbot_poll_state")
+            .upsert({ channel_id: devscripterCursorKey, last_message_id: msg.id, updated_at: new Date().toISOString() }, { onConflict: "channel_id" });
+          lastDevscripterForwardedId = msg.id;
+        }
+
 
         // ── DEDUP: check if we already processed this discord message ──
         // Use jsonb containment operator which works reliably on JSONB
