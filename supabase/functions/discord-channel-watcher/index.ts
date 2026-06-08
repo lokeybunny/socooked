@@ -1116,7 +1116,113 @@ serve(async (req) => {
       console.error("[discord-watcher] Announcements forward error:", e);
     }
 
-    return json({ ok: true, forwarded: totalForwarded, announcements_forwarded: announcementsForwarded, expired: expiredCount });
+    // ── Step 5: Welcome new members in dedicated thread ──
+    // Detects Discord "user joined the server" system messages (type 7) in the
+    // guild's system channel and posts a welcome in the configured thread.
+    const WELCOME_THREAD_ID = "1317100234437955626";
+    let welcomedCount = 0;
+    try {
+      const threadRes = await fetch(`${DISCORD_API}/channels/${WELCOME_THREAD_ID}`, {
+        headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+      });
+      if (!threadRes.ok) {
+        const t = await threadRes.text();
+        console.error(`[welcome] Failed to fetch welcome thread: ${threadRes.status} ${t}`);
+        if (threadRes.status === 401) await alertDiscordTokenExpired(supabase, WELCOME_THREAD_ID, t);
+      } else {
+        const threadInfo = await threadRes.json();
+        const guildId = threadInfo.guild_id;
+        if (!guildId) {
+          console.error("[welcome] Thread has no guild_id");
+        } else {
+          const guildRes = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+            headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+          });
+          if (!guildRes.ok) {
+            console.error(`[welcome] Failed to fetch guild ${guildId}: ${guildRes.status}`);
+          } else {
+            const guildInfo = await guildRes.json();
+            const systemChannelId = guildInfo.system_channel_id;
+            if (!systemChannelId) {
+              console.warn("[welcome] Guild has no system channel configured (Server Settings → Overview → System Messages Channel)");
+            } else {
+              const { data: stateRow } = await supabase
+                .from("xitbot_poll_state")
+                .select("last_message_id")
+                .eq("channel_id", systemChannelId)
+                .maybeSingle();
+              const lastJoinId = stateRow?.last_message_id || null;
+
+              let joinUrl = `${DISCORD_API}/channels/${systemChannelId}/messages?limit=50`;
+              if (lastJoinId) joinUrl += `&after=${lastJoinId}`;
+              let joinRes = await fetch(joinUrl, {
+                headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+              });
+              if (lastJoinId && !joinRes.ok) {
+                joinRes = await fetch(`${DISCORD_API}/channels/${systemChannelId}/messages?limit=10`, {
+                  headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+                });
+              }
+              if (!joinRes.ok) {
+                const t = await joinRes.text();
+                console.error(`[welcome] Fetch system channel failed: ${joinRes.status} ${t}`);
+                if (joinRes.status === 401) await alertDiscordTokenExpired(supabase, systemChannelId, t);
+              } else {
+                const joinMsgs: any[] = await joinRes.json();
+                joinMsgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+                let newestJoinId = lastJoinId;
+                for (const jm of joinMsgs) {
+                  if (!newestJoinId || BigInt(jm.id) > BigInt(newestJoinId)) {
+                    newestJoinId = jm.id;
+                  }
+                  // type 7 = GUILD_MEMBER_JOIN system message
+                  if (jm.type !== 7) continue;
+                  const userId = jm.author?.id;
+                  if (!userId) continue;
+
+                  const welcomeText = `👋 Welcome <@${userId}> to the server! 🎉 Glad to have you here — check the pinned posts to get started.`;
+                  try {
+                    const postRes = await fetch(
+                      `${DISCORD_API}/channels/${WELCOME_THREAD_ID}/messages`,
+                      {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                          content: welcomeText,
+                          allowed_mentions: { users: [userId] },
+                        }),
+                      }
+                    );
+                    if (postRes.ok) {
+                      welcomedCount++;
+                    } else {
+                      console.error(`[welcome] Post failed for ${userId}: ${postRes.status} ${await postRes.text()}`);
+                    }
+                  } catch (e) {
+                    console.error(`[welcome] Post error for ${userId}:`, e);
+                  }
+                }
+
+                if (newestJoinId && newestJoinId !== lastJoinId) {
+                  await supabase.from("xitbot_poll_state").upsert(
+                    { channel_id: systemChannelId, last_message_id: newestJoinId, updated_at: new Date().toISOString() },
+                    { onConflict: "channel_id" }
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[welcome] Fatal error:", e);
+    }
+
+    return json({ ok: true, forwarded: totalForwarded, announcements_forwarded: announcementsForwarded, welcomed: welcomedCount, expired: expiredCount });
   } catch (err) {
     console.error("[discord-watcher] Fatal error:", err);
     return json({ error: String(err) }, 500);
