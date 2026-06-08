@@ -386,6 +386,30 @@ serve(async (req) => {
 
       let newestId = lastMessageId;
 
+      // ── Devscripter de-dup: only forward the NEWEST devscripter post per channel ──
+      // Find the newest devscripter message in this batch (messages are sorted oldest-first).
+      let latestDevscripterMsgId: string | null = null;
+      for (const m of messages) {
+        const a = (m.author?.username || m.author?.global_name || "").toLowerCase();
+        if (a === "devscripter") {
+          if (!latestDevscripterMsgId || BigInt(m.id) > BigInt(latestDevscripterMsgId)) {
+            latestDevscripterMsgId = m.id;
+          }
+        }
+      }
+      // Load persisted devscripter cursor (per listen channel) so we never re-forward an older one across runs.
+      const devscripterCursorKey = `devscripter:${listenChannelId}`;
+      let lastDevscripterForwardedId: string | null = null;
+      {
+        const { data: devCur } = await supabase
+          .from("xitbot_poll_state")
+          .select("last_message_id")
+          .eq("channel_id", devscripterCursorKey)
+          .maybeSingle();
+        lastDevscripterForwardedId = devCur?.last_message_id ?? null;
+      }
+
+
       /** Extract X/Twitter URLs from a Discord message (content + embeds + forwarded/referenced) */
       const extractXUrls = (m: any): string[] => {
         const found: string[] = [];
