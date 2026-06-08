@@ -393,6 +393,26 @@ serve(async (req) => {
         // If the message mentions the old #channel link, reply with the correct one.
         const OLD_LINK = "https://discord.com/channels/1359038641887907952/1359135622043930844";
         const NEW_LINK = "https://discord.com/channels/1315100988478193684/1361454879138254988";
+        // If the bad link came from XITBOT (@0x623fx), delete the message instead of replying.
+        const authorName = (msg.author?.username || msg.author?.global_name || "").toLowerCase();
+        const isXitbot = authorName === "0x623fx";
+        if (isXitbot && msg.content && msg.content.includes(OLD_LINK)) {
+          try {
+            const delRes = await fetch(`${DISCORD_API}/channels/${listenChannelId}/messages/${msg.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+            });
+            if (delRes.ok || delRes.status === 204) {
+              console.log(`[discord-watcher] 🗑️ Deleted XITBOT stale-link msg ${msg.id}`);
+            } else {
+              console.error(`[discord-watcher] Delete failed ${delRes.status}: ${await delRes.text()}`);
+            }
+          } catch (e) {
+            console.error(`[discord-watcher] XITBOT delete error:`, e);
+          }
+          continue;
+        }
+
         if (msg.content && msg.content.includes(OLD_LINK)) {
           // Dedup: only reply once per message
           const { data: alreadyRewrote } = await supabase
