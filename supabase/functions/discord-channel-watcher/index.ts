@@ -329,6 +329,9 @@ serve(async (req) => {
       if (!discordRes.ok) {
         const errText = await discordRes.text();
         console.error(`[discord-watcher] Failed to fetch channel ${listenChannelId}: ${discordRes.status} ${errText}`);
+        if (discordRes.status === 401) {
+          await alertDiscordTokenExpired(supabase, listenChannelId, errText);
+        }
         continue;
       }
 
