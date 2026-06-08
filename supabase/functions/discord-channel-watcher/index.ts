@@ -293,12 +293,17 @@ serve(async (req) => {
       }
       const axiomRegex = /https?:\/\/axiom\.trade\/\S+/i;
       let best: { msg: any; channelId: string; link: string } | null = null;
+      const diag: any[] = [];
       for (const cid of channelIds) {
-        const res = await fetch(`${DISCORD_API}/channels/${cid}/messages?limit=50`, {
+        const res = await fetch(`${DISCORD_API}/channels/${cid}/messages?limit=100`, {
           headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
         });
-        if (!res.ok) continue;
+        if (!res.ok) {
+          diag.push({ channel_id: cid, status: res.status, error: (await res.text()).slice(0, 200) });
+          continue;
+        }
         const msgs: any[] = await res.json();
+        let hitsInChan = 0;
         for (const m of msgs) {
           const blobs: string[] = [m.content || ""];
           for (const e of (m.embeds || [])) {
@@ -308,12 +313,17 @@ serve(async (req) => {
           if (m.referenced_message?.content) blobs.push(m.referenced_message.content);
           for (const s of (m.message_snapshots || [])) if (s.message?.content) blobs.push(s.message.content);
           const hit = blobs.join(" ").match(axiomRegex)?.[0];
-          if (hit && (!best || BigInt(m.id) > BigInt(best.msg.id))) {
-            best = { msg: m, channelId: cid, link: hit };
+          if (hit) {
+            hitsInChan++;
+            if (!best || BigInt(m.id) > BigInt(best.msg.id)) {
+              best = { msg: m, channelId: cid, link: hit };
+            }
           }
         }
+        diag.push({ channel_id: cid, status: 200, messages: msgs.length, axiom_hits: hitsInChan });
       }
-      if (!best) return json({ ok: false, reason: "No axiom.trade link found in any enabled channel" });
+      if (!best) return json({ ok: false, reason: "No axiom.trade link found", scanned: diag });
+
       const author = best.msg.author?.global_name || best.msg.author?.username || "unknown";
       const text = `🧪 <b>Test forward — latest axiom.trade link</b>\nFrom: <b>${author}</b>\nChannel: <code>${best.channelId}</code>\nMsg ID: <code>${best.msg.id}</code>\n\n${best.link}`;
       await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, text, undefined, "HTML");
