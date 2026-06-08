@@ -52,6 +52,44 @@ async function sendToTelegramLounge(
   }
 }
 
+/** Alert when Discord returns 401 Unauthorized so the bot token can be refreshed */
+async function alertDiscordTokenExpired(
+  supabase: any,
+  channelId: string,
+  errText: string,
+) {
+  try {
+    // Dedup: only alert once per hour
+    const sinceIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: recent } = await supabase
+      .from("activity_log")
+      .select("id")
+      .eq("entity_type", "discord-watcher")
+      .eq("action", "token-401")
+      .gte("created_at", sinceIso)
+      .limit(1);
+    if (recent && recent.length > 0) return;
+
+    await supabase.from("activity_log").insert({
+      entity_type: "discord-watcher",
+      action: "token-401",
+      meta: { channel_id: channelId, error: errText?.slice(0, 500) },
+    });
+
+    const tgToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    if (tgToken) {
+      const msg =
+        `🚨 <b>Discord Bot Token 401 Unauthorized</b>\n\n` +
+        `Channel: <code>${escapeTelegramHtml(channelId)}</code>\n` +
+        `Error: <code>${escapeTelegramHtml((errText || "").slice(0, 300))}</code>\n\n` +
+        `Deletion / reply logic is PAUSED. Rotate <code>DISCORD_BOT_TOKEN</code> in Lovable Cloud secrets to resume.`;
+      await sendToTelegramLounge(tgToken, msg, undefined, "HTML");
+    }
+  } catch (e) {
+    console.error("[discord-watcher] alertDiscordTokenExpired failed:", e);
+  }
+}
+
 /** Extract tweet ID from an X/Twitter URL */
 function extractTweetId(url: string): string | null {
   const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
@@ -329,6 +367,9 @@ serve(async (req) => {
       if (!discordRes.ok) {
         const errText = await discordRes.text();
         console.error(`[discord-watcher] Failed to fetch channel ${listenChannelId}: ${discordRes.status} ${errText}`);
+        if (discordRes.status === 401) {
+          await alertDiscordTokenExpired(supabase, listenChannelId, errText);
+        }
         continue;
       }
 
