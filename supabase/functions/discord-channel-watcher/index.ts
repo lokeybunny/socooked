@@ -275,7 +275,66 @@ serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // ── Test action: scan enabled channels, forward newest axiom.trade link to Telegram Lounge ──
+  const url = new URL(req.url);
+  if (url.searchParams.get("action") === "test-latest-axiom") {
+    try {
+      const { data: cfgs } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill");
+      const channelIds = new Set<string>();
+      for (const r of (cfgs || [])) {
+        const c: any = r.content;
+        if (c?.enabled) {
+          const id = c.discord_listen_channel_id || c.discord_channel_id;
+          if (id) channelIds.add(String(id));
+        }
+      }
+      const axiomRegex = /https?:\/\/axiom\.trade\/\S+/i;
+      let best: { msg: any; channelId: string; link: string } | null = null;
+      const diag: any[] = [];
+      for (const cid of channelIds) {
+        const res = await fetch(`${DISCORD_API}/channels/${cid}/messages?limit=100`, {
+          headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+        });
+        if (!res.ok) {
+          diag.push({ channel_id: cid, status: res.status, error: (await res.text()).slice(0, 200) });
+          continue;
+        }
+        const msgs: any[] = await res.json();
+        let hitsInChan = 0;
+        for (const m of msgs) {
+          const blobs: string[] = [m.content || ""];
+          for (const e of (m.embeds || [])) {
+            for (const p of [e.url, e.title, e.description]) if (p) blobs.push(p);
+            for (const f of (e.fields || [])) if (f.value) blobs.push(f.value);
+          }
+          if (m.referenced_message?.content) blobs.push(m.referenced_message.content);
+          for (const s of (m.message_snapshots || [])) if (s.message?.content) blobs.push(s.message.content);
+          const hit = blobs.join(" ").match(axiomRegex)?.[0];
+          if (hit) {
+            hitsInChan++;
+            if (!best || BigInt(m.id) > BigInt(best.msg.id)) {
+              best = { msg: m, channelId: cid, link: hit };
+            }
+          }
+        }
+        diag.push({ channel_id: cid, status: 200, messages: msgs.length, axiom_hits: hitsInChan });
+      }
+      if (!best) return json({ ok: false, reason: "No axiom.trade link found", scanned: diag });
+
+      const author = best.msg.author?.global_name || best.msg.author?.username || "unknown";
+      const text = `🧪 <b>Test forward — latest axiom.trade link</b>\nFrom: <b>${author}</b>\nChannel: <code>${best.channelId}</code>\nMsg ID: <code>${best.msg.id}</code>\n\n${best.link}`;
+      await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, text, undefined, "HTML");
+      return json({ ok: true, forwarded: true, author, channel_id: best.channelId, msg_id: best.msg.id, link: best.link });
+    } catch (e) {
+      return json({ ok: false, error: String(e) }, 500);
+    }
+  }
+
   try {
+
     let botUserId: string | null = null;
     try {
       const selfRes = await fetch(`${DISCORD_API}/users/@me`, {
