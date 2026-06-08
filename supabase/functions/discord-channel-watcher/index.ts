@@ -454,6 +454,56 @@ serve(async (req) => {
           continue;
         }
 
+        // ── Auto-delete "Chat is closed" from devscripter, then repost with @everyone ──
+        if (
+          authorName === "devscripter" &&
+          msg.content &&
+          msg.content.trim().toLowerCase() === "chat is closed"
+        ) {
+          const originalContent = msg.content.trim();
+          try {
+            const delRes = await fetch(`${DISCORD_API}/channels/${listenChannelId}/messages/${msg.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+            });
+            if (delRes.ok || delRes.status === 204) {
+              console.log(`[discord-watcher] 🗑️ Deleted devscripter "Chat is closed" msg ${msg.id}`);
+              // Dedup repost
+              const { data: alreadyReposted } = await supabase
+                .from("activity_log")
+                .select("id")
+                .eq("entity_type", "discord-chat-closed-repost")
+                .eq("action", "reposted")
+                .contains("meta", { discord_msg_id: msg.id })
+                .limit(1);
+              if (!alreadyReposted || alreadyReposted.length === 0) {
+                await fetch(`${DISCORD_API}/channels/${listenChannelId}/messages`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    content: `@everyone ${originalContent}`,
+                    allowed_mentions: { parse: ["everyone"] },
+                  }),
+                });
+                await supabase.from("activity_log").insert({
+                  entity_type: "discord-chat-closed-repost",
+                  action: "reposted",
+                  meta: { discord_msg_id: msg.id, channel_id: listenChannelId },
+                });
+              }
+            } else {
+              console.error(`[discord-watcher] devscripter delete failed ${delRes.status}: ${await delRes.text()}`);
+            }
+          } catch (e) {
+            console.error(`[discord-watcher] devscripter delete/repost error:`, e);
+          }
+          continue;
+        }
+
+
         if (msg.content && msg.content.includes(OLD_LINK)) {
           // Dedup: only reply once per message
           const { data: alreadyRewrote } = await supabase
