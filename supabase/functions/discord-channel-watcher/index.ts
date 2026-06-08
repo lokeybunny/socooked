@@ -389,6 +389,45 @@ serve(async (req) => {
           continue;
         }
 
+        // ── Auto-rewrite stale Discord channel link ──
+        // If the message mentions the old #channel link, reply with the correct one.
+        const OLD_LINK = "https://discord.com/channels/1359038641887907952/1359135622043930844";
+        const NEW_LINK = "https://discord.com/channels/1315100988478193684/1361454879138254988";
+        if (msg.content && msg.content.includes(OLD_LINK)) {
+          // Dedup: only reply once per message
+          const { data: alreadyRewrote } = await supabase
+            .from("activity_log")
+            .select("id")
+            .eq("entity_type", "discord-link-rewrite")
+            .eq("action", "replied")
+            .contains("meta", { discord_msg_id: msg.id })
+            .limit(1);
+          if (!alreadyRewrote || alreadyRewrote.length === 0) {
+            try {
+              await fetch(`${DISCORD_API}/channels/${listenChannelId}/messages`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  content: `Heads up <@${msg.author.id}> — that channel link is outdated. Use this instead: ${NEW_LINK}`,
+                  message_reference: { message_id: msg.id, channel_id: listenChannelId, fail_if_not_exists: false },
+                  allowed_mentions: { users: [msg.author.id] },
+                }),
+              });
+              await supabase.from("activity_log").insert({
+                entity_type: "discord-link-rewrite",
+                action: "replied",
+                meta: { discord_msg_id: msg.id, channel_id: listenChannelId, user_id: msg.author.id },
+              });
+              console.log(`[discord-watcher] 🔁 Rewrote stale channel link for msg ${msg.id}`);
+            } catch (e) {
+              console.error(`[discord-watcher] Link rewrite failed:`, e);
+            }
+          }
+        }
+
         // ── Detect new member joins (Discord system message type 7) and send welcome ──
         if (msg.type === 7 && msg.author) {
           try {
