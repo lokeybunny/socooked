@@ -381,7 +381,9 @@ serve(async (req) => {
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
-      const xUrlRegex = /https?:\/\/(x\.com|twitter\.com)\/\S+/gi;
+      // X/Twitter URLs PLUS common token/chart links (axiom, dexscreener, pump.fun, birdeye, jup.ag, solscan, gmgn, photon, bullx)
+      const xUrlRegex = /https?:\/\/(?:x\.com|twitter\.com|axiom\.trade|dexscreener\.com|pump\.fun|birdeye\.so|jup\.ag|solscan\.io|gmgn\.ai|photon-sol\.tinyastro\.io|bullx\.io)\/\S+/gi;
+
       let newestId = lastMessageId;
 
       /** Extract X/Twitter URLs from a Discord message (content + embeds + forwarded/referenced) */
