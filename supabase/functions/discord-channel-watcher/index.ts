@@ -330,7 +330,11 @@ serve(async (req) => {
       // Forward into xitbot-everyone-relay to trigger AutoR recording job
       // (status → queued → recording → completed). No Telegram lounge post.
       const author = best.msg.author?.global_name || best.msg.author?.username || "unknown";
-      const relayContent = `${best.msg.content || ""}\n${best.link}`.trim();
+      // Strip @everyone/@here so the relay only fires the axiom (AutoR) branch
+      // and not the @everyone mirror branch (which would also try to post to
+      // Discord and short-circuit on token failures).
+      const rawContent = `${best.msg.content || ""}\n${best.link}`.trim();
+      const relayContent = rawContent.replace(/@everyone\b/gi, "everyone").replace(/@here\b/gi, "here");
       const supaUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const relayRes = await fetch(`${supaUrl}/functions/v1/xitbot-everyone-relay`, {
