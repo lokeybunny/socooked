@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 type NavItem = {
-  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; yellow?: boolean; purple?: boolean; disabled?: boolean; badge?: number; external?: boolean;
+  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean; red?: boolean; yellow?: boolean; purple?: boolean; disabled?: boolean; badge?: number; external?: boolean; warrenOnly?: boolean;
 };
 
 type NavGroup = {
@@ -72,7 +72,7 @@ const navEntries: NavEntry[] = [
       { to: '/ai-gen', icon: Film, label: 'Studio', highlight: true },
       { to: '/autor', icon: Video, label: 'AutoR', green: true },
       { to: '/dashboard/reels', icon: Share2, label: 'SM', green: true },
-      { to: '/xitbot-admin', icon: Key, label: 'TOKEN', green: true },
+      { to: '/xitbot-admin', icon: Key, label: 'TOKEN', green: true, warrenOnly: true },
     ],
   },
 ];
@@ -329,7 +329,8 @@ export function Sidebar() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   const renderGroup = (group: NavGroup) => {
-    const isChildActive = group.children.some(c => location.pathname === c.to);
+    const visibleChildren = group.children.filter(c => !c.warrenOnly || user?.email === "warren@stu25.com");
+    const isChildActive = visibleChildren.some(c => location.pathname === c.to);
     const isExpanded = expandedGroup === group.label;
     const isOpen = isChildActive || isExpanded;
 
@@ -374,7 +375,7 @@ export function Sidebar() {
 
         {!collapsed && isOpen && (
           <div className="ml-4 space-y-1 border-l border-border/60 pl-3">
-            {group.children.map(child => {
+            {visibleChildren.map(child => {
               const isActive = location.pathname === child.to;
               return (
                 <NavLink
