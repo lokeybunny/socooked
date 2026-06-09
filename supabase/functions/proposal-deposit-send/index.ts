@@ -177,12 +177,9 @@ Deno.serve(async (req) => {
         }
         const firstName = (resolvedName || "").trim().split(/\s+/)[0] || "there";
 
-        const smsBody = `Hi ${firstName}, this is Warren — thank you for signing the agreement for "${p.title}"! To kick off production, please send the $${amountStr} deposit:
+        const smsBody = `Hi ${firstName}, this is Warren — thanks for signing the agreement for "${p.title}"! To kick off production, please submit payment at https://warren.guru/payme
 
-• Zelle: Warren@stu25.com
-• Cash App: $ITSWARR
-
-Once received we'll have your update within 24–72 hours. Reply with any questions.`;
+If you've already paid, please ignore this message.`;
 
         let useImessage = false;
         try {
