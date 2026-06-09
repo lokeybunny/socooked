@@ -140,6 +140,7 @@ const App = () => (
                 <Route path="/ai-director" element={<AIDirector />} />
                 <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/xitbot-admin" element={<WarrenOnlyGate><XitbotAdmin /></WarrenOnlyGate>} />
                 <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/dash" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
