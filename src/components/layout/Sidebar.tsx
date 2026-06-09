@@ -375,7 +375,7 @@ export function Sidebar() {
 
         {!collapsed && isOpen && (
           <div className="ml-4 space-y-1 border-l border-border/60 pl-3">
-            {group.children.map(child => {
+            {visibleChildren.map(child => {
               const isActive = location.pathname === child.to;
               return (
                 <NavLink
