@@ -46,6 +46,7 @@ const ManageBooking = lazyWithRetry(() => import("./pages/ManageBooking"), "page
 const SharedContent = lazyWithRetry(() => import("./pages/SharedContent"), "page-shared-content");
 const ResearchRoute = lazyWithRetry(() => import("./pages/ResearchRoute"), "page-research-route");
 const ThankYou = lazyWithRetry(() => import("./pages/ThankYou"), "page-thank-you");
+const XitbotAdmin = lazyWithRetry(() => import("./pages/XitbotAdmin"), "page-xitbot-admin");
 
 const ThankYouSeller = lazyWithRetry(() => import("./pages/ThankYouSeller"), "page-thank-you-seller");
 const ThankYouWebDesign = lazyWithRetry(() => import("./pages/ThankYouWebDesign"), "page-thank-you-webdesign");
@@ -139,6 +140,7 @@ const App = () => (
                 <Route path="/ai-director" element={<AIDirector />} />
                 <Route path="/solana" element={<WarrenLanding />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/xitbot-admin" element={<WarrenOnlyGate><XitbotAdmin /></WarrenOnlyGate>} />
                 <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/dash" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
                 <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />

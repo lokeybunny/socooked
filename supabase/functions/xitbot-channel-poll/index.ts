@@ -16,12 +16,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const token = Deno.env.get("XITBOT_TOKEN");
-    if (!token) return json({ error: "XITBOT_TOKEN not configured" }, 500);
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Prefer rotated token from xitbot_admin_secrets, fall back to env
+    const { data: secretRow } = await supabase
+      .from("xitbot_admin_secrets")
+      .select("value")
+      .eq("key", "XITBOT_TOKEN")
+      .maybeSingle();
+    const token = secretRow?.value || Deno.env.get("XITBOT_TOKEN");
+    if (!token) return json({ error: "XITBOT_TOKEN not configured" }, 500);
 
     // Resolve bot identity so we skip our own messages (avoid feedback loops)
     let botUserId: string | null = null;
