@@ -220,6 +220,10 @@ Deno.serve(async (req) => {
     // Mirror the original content verbatim (text-only) when @everyone-style trigger fired
     if (mentionEveryone) {
       let alert = String(content).slice(0, 2000);
+      // Upgrade @here → @everyone
+      if (mentionHere) {
+        alert = alert.replace(/@here\b/gi, "@everyone");
+      }
       if (!/@everyone\b/i.test(alert)) {
         alert = `@everyone ${alert}`.slice(0, 2000);
       }
