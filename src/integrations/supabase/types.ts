@@ -9917,6 +9917,27 @@ export type Database = {
         }
         Relationships: []
       }
+      xitbot_admin_secrets: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       xitbot_poll_state: {
         Row: {
           channel_id: string
