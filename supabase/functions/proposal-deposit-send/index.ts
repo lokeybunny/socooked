@@ -137,7 +137,6 @@ Deno.serve(async (req) => {
         meta: {
           ...meta,
           deposit_email_sent_at: sentAt,
-          deposit_email_amount: amount,
           deposit_email_message_id: sendJson.id || null,
           deposit_email_auto: !!body?.record || !!body?.auto,
         },
