@@ -24,50 +24,30 @@ async function getCellPretty(): Promise<string> {
   return "(480) 220-0405";
 }
 
-async function buildHtml(p: any, amount: string) {
+async function buildHtml(p: any) {
   const firstName = (p.client_name || "").split(" ")[0] || "there";
   const cellPretty = await getCellPretty();
   return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-      <div style="background: #059669; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 22px;">🎬 Let's Get Started!</h1>
+    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
+      <div style="background: #059669; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 20px;">🎬 Thanks for Signing!</h1>
       </div>
-      <div style="padding: 28px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+      <div style="padding: 26px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
         <p style="font-size: 15px;">Hi ${firstName},</p>
         <p style="font-size: 15px; line-height: 1.6;">
-          Thank you for signing the agreement for <strong>${p.title}</strong>. To officially kick off
-          production on your video, we just need a <strong>$${amount} deposit</strong> to lock in your slot
-          and begin pre-production.
+          Thanks for signing the agreement for <strong>${p.title}</strong>. To kick off production,
+          please submit your payment at the link below:
         </p>
 
-        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
-          <h2 style="margin: 0 0 14px; font-size: 16px; color: #059669;">💸 Easy Payment Options</h2>
-
-          <div style="margin-bottom: 14px;">
-            <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Zelle</div>
-            <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">Warren@stu25.com</div>
-          </div>
-
-          <div style="margin-bottom: 14px;">
-            <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Cash App</div>
-            <div style="font-size: 16px; font-weight: bold; color: #1a1a1a;">$ITSWARR</div>
-          </div>
-
-          <div style="border-top: 1px solid #e5e7eb; margin-top: 14px; padding-top: 14px;">
-            <div style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Credit / Debit Card</div>
-            <div style="font-size: 14px; color: #1a1a1a; line-height: 1.6;">
-              Reply to this email and we'll send a secure Stripe-style hosted invoice link
-              you can pay by card in seconds. Your card is never entered on our site.
-            </div>
-          </div>
+        <div style="text-align: center; margin: 26px 0;">
+          <a href="https://warren.guru/payme"
+             style="display: inline-block; background: #059669; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+            Pay at warren.guru/payme
+          </a>
         </div>
 
-        <p style="font-size: 14px; line-height: 1.6;">
-          Once the $${amount} deposit comes through, we'll reach out within 24 to 72 hours with your final video.
-        </p>
-
-        <p style="font-size: 14px; line-height: 1.6; margin-top: 20px;">
-          Any questions? Just reply to this email or text us directly.
+        <p style="font-size: 13px; color: #6b7280; line-height: 1.6; background: #fff; border: 1px solid #e5e7eb; padding: 12px 14px; border-radius: 6px;">
+          <strong>Already paid?</strong> Please ignore this email — it was sent automatically right after you signed.
         </p>
 
         <p style="font-size: 14px; margin-top: 24px;">
