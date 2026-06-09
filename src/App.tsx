@@ -46,6 +46,7 @@ const ManageBooking = lazyWithRetry(() => import("./pages/ManageBooking"), "page
 const SharedContent = lazyWithRetry(() => import("./pages/SharedContent"), "page-shared-content");
 const ResearchRoute = lazyWithRetry(() => import("./pages/ResearchRoute"), "page-research-route");
 const ThankYou = lazyWithRetry(() => import("./pages/ThankYou"), "page-thank-you");
+const XitbotAdmin = lazyWithRetry(() => import("./pages/XitbotAdmin"), "page-xitbot-admin");
 
 const ThankYouSeller = lazyWithRetry(() => import("./pages/ThankYouSeller"), "page-thank-you-seller");
 const ThankYouWebDesign = lazyWithRetry(() => import("./pages/ThankYouWebDesign"), "page-thank-you-webdesign");
