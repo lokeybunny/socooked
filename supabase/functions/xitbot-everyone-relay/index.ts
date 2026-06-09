@@ -129,9 +129,11 @@ Deno.serve(async (req) => {
     const CHAT_OPENED_RE = /chat\s+is\s+opened/i;
     const isChatOpened = CHAT_OPENED_RE.test(content);
 
-    // Mirror ONLY when the message literally contains "@everyone".
+    // Mirror when the message literally contains "@everyone" OR "@here".
+    // @here is treated as @everyone (auto-upgraded).
     // Sold-out trigger still deletes the source msg but does not auto-mirror.
-    const mentionEveryone: boolean = /@everyone\b/i.test(content);
+    const mentionHere: boolean = /@here\b/i.test(content);
+    const mentionEveryone: boolean = /@everyone\b/i.test(content) || mentionHere;
 
     // Axiom link detection — extract Solana mint and post DexScreener embed
     // Examples:
