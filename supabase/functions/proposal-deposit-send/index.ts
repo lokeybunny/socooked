@@ -241,7 +241,6 @@ If you've already paid, please ignore this message.`;
         meta: {
           ...latestMeta,
           deposit_email_sent_at: latestMeta.deposit_email_sent_at || sentAt,
-          deposit_email_amount: amount,
           deposit_email_message_id: latestMeta.deposit_email_message_id || sendJson.id || null,
           deposit_email_auto: latestMeta.deposit_email_auto ?? (!!body?.record || !!body?.auto),
           thank_you_sms_sent_at: thankYouSmsSentAt,
