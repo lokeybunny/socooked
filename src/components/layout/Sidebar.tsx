@@ -329,7 +329,8 @@ export function Sidebar() {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   const renderGroup = (group: NavGroup) => {
-    const isChildActive = group.children.some(c => location.pathname === c.to);
+    const visibleChildren = group.children.filter(c => !c.warrenOnly || user?.email === "warren@stu25.com");
+    const isChildActive = visibleChildren.some(c => location.pathname === c.to);
     const isExpanded = expandedGroup === group.label;
     const isOpen = isChildActive || isExpanded;
 
