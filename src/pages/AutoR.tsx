@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Activity, CheckCircle2, XCircle, Loader2, Trash2, RotateCcw, Square,
   Copy, Download, Play, Video, HardDrive, Timer, TrendingUp, AlertTriangle,
+  ExternalLink, Link as LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
