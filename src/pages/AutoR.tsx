@@ -76,7 +76,7 @@ const ACTIVE_STATUSES = new Set([
 ]);
 
 function callApi(path: string, init: RequestInit = {}) {
-  const url = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api${path}`;
+  const url = `${AUTOR_API_BASE}${path}`;
   return supabase.auth.getSession().then(({ data }) => {
     const token = data.session?.access_token;
     return fetch(url, {
@@ -442,9 +442,7 @@ export default function AutoR() {
                         <Copy className="h-3 w-3" />URL
                       </button>
                       {(() => {
-                        const m3u8 = j.video_url || (j.browserbase_session_id
-                          ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${j.browserbase_session_id}/0/.m3u8`
-                          : '');
+                        const m3u8 = getM3u8Url(j);
                         if (!m3u8) return null;
                         return (
                           <>
