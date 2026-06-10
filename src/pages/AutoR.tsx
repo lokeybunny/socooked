@@ -428,7 +428,7 @@ export default function AutoR() {
                       </button>
                       {(() => {
                         const m3u8 = j.video_url || (j.browserbase_session_id
-                          ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${j.browserbase_session_id}/0.m3u8`
+                          ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${j.browserbase_session_id}/0/.m3u8`
                           : '');
                         if (!m3u8) return null;
                         return (
