@@ -198,8 +198,8 @@ Deno.serve(async (req) => {
     // GET /replay/:sessionId/:pageId
     if (req.method === 'GET' && action === 'replay' && parts[1]) {
       if (!BB_API_KEY) return json({ error: 'BROWSERBASE_API_KEY not configured' }, 500);
-      const sessionId = parts[1];
-      const pageId = parts[2] ?? '0';
+      const sessionId = parts[1].replace(/\.m3u8$/i, '');
+      const pageId = (parts[2] ?? '0').replace(/\.m3u8$/i, '');
 
       const r = await fetch(`https://api.browserbase.com/v1/sessions/${sessionId}/replays/${pageId}`, {
         headers: { 'x-bb-api-key': BB_API_KEY },
