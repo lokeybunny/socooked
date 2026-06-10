@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Activity, CheckCircle2, XCircle, Loader2, Trash2, RotateCcw, Square,
   Copy, Download, Play, Video, HardDrive, Timer, TrendingUp, AlertTriangle,
+  ExternalLink, Link as LinkIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -416,7 +417,7 @@ export default function AutoR() {
                       <span><HardDrive className="h-3 w-3 inline mr-1" />{fmtSize(j.storage_size)}</span>
                       <span className="truncate">{j.discord_channel_name}</span>
                     </div>
-                    <div className="flex items-center gap-1 pt-1 border-t border-border/30">
+                    <div className="flex items-center gap-1 pt-1 border-t border-border/30 flex-wrap">
                       {(j.video_url || j.storage_path) && (
                         <button onClick={() => download(j)} className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
                           <Download className="h-3 w-3" />Download
@@ -425,6 +426,33 @@ export default function AutoR() {
                       <button onClick={() => { navigator.clipboard.writeText(j.source_url); toast.success('URL copied'); }} className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1">
                         <Copy className="h-3 w-3" />URL
                       </button>
+                      {(() => {
+                        const m3u8 = j.video_url || (j.browserbase_session_id
+                          ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${j.browserbase_session_id}/0`
+                          : '');
+                        if (!m3u8) return null;
+                        return (
+                          <>
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(m3u8); toast.success('m3u8 link copied'); }}
+                              className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1"
+                              title="Copy m3u8 link"
+                            >
+                              <LinkIcon className="h-3 w-3" />m3u8
+                            </button>
+                            <a
+                              href={`https://m3u8-player.net/?url=${encodeURIComponent(m3u8)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => { navigator.clipboard.writeText(m3u8).catch(() => {}); toast.success('m3u8 link copied — paste into player if needed'); }}
+                              className="text-xs px-2 py-1 rounded hover:bg-accent flex items-center gap-1"
+                              title="Open in m3u8-player.net"
+                            >
+                              <ExternalLink className="h-3 w-3" />Player
+                            </a>
+                          </>
+                        );
+                      })()}
                       <button onClick={() => del(j.job_id)} className="text-xs px-2 py-1 rounded hover:bg-destructive/15 text-destructive ml-auto flex items-center gap-1">
                         <Trash2 className="h-3 w-3" />
                       </button>
