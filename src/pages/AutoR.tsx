@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 
 const supabase = supabaseClient as any;
+const AUTOR_API_BASE = 'https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api';
 
 type Job = {
   id: string;
@@ -75,7 +76,7 @@ const ACTIVE_STATUSES = new Set([
 ]);
 
 function callApi(path: string, init: RequestInit = {}) {
-  const url = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api${path}`;
+  const url = `${AUTOR_API_BASE}${path}`;
   return supabase.auth.getSession().then(({ data }) => {
     const token = data.session?.access_token;
     return fetch(url, {
@@ -131,6 +132,20 @@ function fmtSize(b: number | null | undefined) {
   return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+function toM3u8ReplayUrl(url: string) {
+  const [base, query] = url.split('?');
+  const cleanBase = base.replace(/\/?\.m3u8$/i, '').replace(/\/+$/, '');
+  return `${cleanBase}/.m3u8${query ? `?${query}` : ''}`;
+}
+
+function getM3u8Url(job: Job) {
+  const replayUrl = job.browserbase_session_id ? `${AUTOR_API_BASE}/replay/${job.browserbase_session_id}/0` : '';
+  const url = job.video_url?.includes('/autor-api/replay/') || job.video_url?.includes('.m3u8')
+    ? job.video_url
+    : replayUrl;
+  return url ? toM3u8ReplayUrl(url) : '';
+}
+
 function LiveTimer({ start }: { start: string | null }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -145,7 +160,7 @@ function LiveTimer({ start }: { start: string | null }) {
 function ReplayPlayer({ job }: { job: Job }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const baseUrl = job.video_url || (job.browserbase_session_id
-    ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${job.browserbase_session_id}/0`
+    ? `${AUTOR_API_BASE}/replay/${job.browserbase_session_id}/0`
     : '');
   // Cache-buster forces a fresh playlist (and fresh CloudFront signed tokens)
   // on every mount so expired segment URLs don't break playback.
@@ -427,9 +442,7 @@ export default function AutoR() {
                         <Copy className="h-3 w-3" />URL
                       </button>
                       {(() => {
-                        const m3u8 = j.video_url || (j.browserbase_session_id
-                          ? `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/autor-api/replay/${j.browserbase_session_id}/0/.m3u8`
-                          : '');
+                        const m3u8 = getM3u8Url(j);
                         if (!m3u8) return null;
                         return (
                           <>
