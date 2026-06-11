@@ -349,6 +349,15 @@ export default function IgDm() {
     } catch { return ''; }
   };
 
+  const scoreColor = (s: number) =>
+    s >= 76 ? 'bg-green-500/15 text-green-500 border-green-500/30'
+    : s >= 51 ? 'bg-yellow-500/15 text-yellow-500 border-yellow-500/30'
+    : s >= 21 ? 'bg-orange-500/15 text-orange-500 border-orange-500/30'
+    : 'bg-muted text-muted-foreground border-border';
+
+  const activeAnalysis = active ? analyses[active.conversation_id] : null;
+
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border/50 bg-background/80 backdrop-blur sticky top-0 z-10">
