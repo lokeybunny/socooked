@@ -99,6 +99,28 @@ export default function IgDm() {
   const [analyses, setAnalyses] = useState<Record<string, Analysis>>({});
   const [editing, setEditing] = useState(false);
   const handledRef = useRef<Record<string, string>>({});
+  // Conflict resolution: tracks local in-flight edits per conversation so that
+  // realtime echoes from other devices don't clobber unsaved local changes.
+  // Map<conversation_id, Map<field, expiresAtMs>>
+  const pendingRef = useRef<Record<string, Record<string, number>>>({});
+  const PENDING_TTL_MS = 6_000;
+  const OVERRIDE_TTL_MS = 30_000; // keep override edits longer in case of slow round-trip
+  const markPending = (convId: string, keys: string[], ttl = PENDING_TTL_MS) => {
+    const now = Date.now();
+    const cur = pendingRef.current[convId] || {};
+    for (const k of keys) cur[k] = now + ttl;
+    pendingRef.current[convId] = cur;
+  };
+  const getPendingKeys = (convId: string): Set<string> => {
+    const cur = pendingRef.current[convId] || {};
+    const now = Date.now();
+    const out = new Set<string>();
+    for (const [k, exp] of Object.entries(cur)) {
+      if (exp > now) out.add(k);
+      else delete cur[k];
+    }
+    return out;
+  };
 
   const getAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -144,6 +166,7 @@ export default function IgDm() {
             if (payload.eventType === 'DELETE') {
               const oldConv = payload.old?.conversation_id;
               if (!oldConv) return;
+              delete pendingRef.current[oldConv];
               setAnalyses((prev) => {
                 const next = { ...prev };
                 delete next[oldConv];
@@ -153,7 +176,34 @@ export default function IgDm() {
             }
             const row = payload.new;
             if (!row?.conversation_id) return;
-            setAnalyses((prev) => ({ ...prev, [row.conversation_id]: rowToAnalysis(row) }));
+            const convId = row.conversation_id as string;
+            const incoming = rowToAnalysis(row);
+            setAnalyses((prev) => {
+              const local = prev[convId];
+              const pending = getPendingKeys(convId);
+              // No local copy or no in-flight edits → accept incoming verbatim.
+              if (!local || pending.size === 0) {
+                return { ...prev, [convId]: incoming };
+              }
+              // Stale echo: ignore if incoming is older than what we already hold.
+              if (local.updated_at && incoming.updated_at && incoming.updated_at < local.updated_at) {
+                return prev;
+              }
+              // Merge: incoming wins by default, but preserve pending local fields.
+              const merged: Analysis = { ...incoming };
+              for (const key of pending) {
+                (merged as any)[key] = (local as any)[key];
+              }
+              // manual_override is shallow-merged so per-key overrides survive
+              // even if only some override toggles are in-flight.
+              if (local.manual_override && Object.keys(local.manual_override).length) {
+                merged.manual_override = {
+                  ...(incoming.manual_override || {}),
+                  ...local.manual_override,
+                };
+              }
+              return { ...prev, [convId]: merged };
+            });
           }
         )
         .subscribe();
@@ -202,6 +252,13 @@ export default function IgDm() {
 
   // ============ Save / patch analysis row ============
   const saveAnalysis = useCallback(async (convId: string, patch: Partial<Analysis>, conv?: Conversation) => {
+    // Mark every patched field as in-flight so realtime echoes from this or
+    // other devices don't overwrite the user's local edits mid-save.
+    const patchedKeys = Object.keys(patch);
+    if (patchedKeys.length) {
+      const hasOverride = patchedKeys.includes('manual_override');
+      markPending(convId, patchedKeys, hasOverride ? OVERRIDE_TTL_MS : PENDING_TTL_MS);
+    }
     setAnalyses((prev) => {
       const base: Analysis = prev[convId] || {
         conversation_id: convId,
