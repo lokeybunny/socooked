@@ -31,6 +31,10 @@ type Conversation = {
 
 const FN_URL = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/ig-dm-fetch`;
 
+type Profile = { username: string; instagram: string | null };
+
+const PROFILE_STORAGE_KEY = 'ig-dm:selected-profile';
+
 export default function IgDm() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,28 +43,56 @@ export default function IgDm() {
   const [query, setQuery] = useState('');
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profile, setProfile] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'unc86';
+    return localStorage.getItem(PROFILE_STORAGE_KEY) || 'unc86';
+  });
 
-  const load = useCallback(async () => {
+  const getAuth = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  }, []);
+
+  const loadProfiles = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await fetch(FN_URL, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const headers = await getAuth();
+      const res = await fetch(`${FN_URL}?action=profiles`, { headers });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Failed to load profiles');
+      const list: Profile[] = json.profiles || [];
+      setProfiles(list);
+      if (list.length && !list.find((p) => p.username === profile)) {
+        setProfile(list[0].username);
+      }
+    } catch (e: any) {
+      console.warn('[IgDm] loadProfiles failed', e);
+    }
+  }, [getAuth, profile]);
+
+  const load = useCallback(async (selected: string) => {
+    try {
+      const headers = await getAuth();
+      const res = await fetch(`${FN_URL}?user=${encodeURIComponent(selected)}`, { headers });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Failed to fetch DMs');
       const convs: Conversation[] = json.conversations || [];
       setConversations(convs);
-      setActiveId((prev) => prev || convs[0]?.conversation_id || null);
+      setActiveId(convs[0]?.conversation_id || null);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load IG DMs');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [getAuth]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadProfiles(); }, [loadProfiles]);
+  useEffect(() => {
+    setLoading(true);
+    localStorage.setItem(PROFILE_STORAGE_KEY, profile);
+    load(profile);
+  }, [profile, load]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
