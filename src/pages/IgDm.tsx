@@ -252,6 +252,13 @@ export default function IgDm() {
 
   // ============ Save / patch analysis row ============
   const saveAnalysis = useCallback(async (convId: string, patch: Partial<Analysis>, conv?: Conversation) => {
+    // Mark every patched field as in-flight so realtime echoes from this or
+    // other devices don't overwrite the user's local edits mid-save.
+    const patchedKeys = Object.keys(patch);
+    if (patchedKeys.length) {
+      const hasOverride = patchedKeys.includes('manual_override');
+      markPending(convId, patchedKeys, hasOverride ? OVERRIDE_TTL_MS : PENDING_TTL_MS);
+    }
     setAnalyses((prev) => {
       const base: Analysis = prev[convId] || {
         conversation_id: convId,
