@@ -497,6 +497,71 @@ export default function IgDm() {
                   </a>
                 </div>
               </div>
+
+              {/* Qualification panel */}
+              <div className="px-4 py-3 border-b border-border/50 bg-muted/20">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">Qualification</span>
+                    {activeAnalysis ? (
+                      <>
+                        <span className={cn(
+                          'text-xs font-semibold px-2 py-0.5 rounded border tabular-nums',
+                          scoreColor(activeAnalysis.score)
+                        )}>
+                          {activeAnalysis.score}/100
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {activeAnalysis.stage.replace(/_/g, ' ')}
+                        </span>
+                        {activeAnalysis.score >= 76 && (
+                          <span className="flex items-center gap-1 text-[10px] font-semibold text-green-500">
+                            <PhoneCall className="w-3 h-3" /> push for call
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">Not scored yet</span>
+                    )}
+                  </div>
+                  <Button
+                    onClick={handleScore}
+                    variant="ghost"
+                    size="sm"
+                    disabled={scoring || generating}
+                    className="h-7 px-2 text-xs"
+                  >
+                    {scoring ? <Loader2 className="w-3 h-3 animate-spin" /> : <Gauge className="w-3 h-3" />}
+                    <span className="ml-1.5">{activeAnalysis ? 'Re-score' : 'Score'}</span>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                  {(Object.keys(CHECKLIST_LABELS) as ChecklistItem[]).map((k) => {
+                    const ok = !!activeAnalysis?.checklist?.[k];
+                    return (
+                      <div
+                        key={k}
+                        className={cn(
+                          'flex items-center gap-1.5 text-[11px] px-2 py-1 rounded border',
+                          ok
+                            ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                            : 'bg-background border-border text-muted-foreground'
+                        )}
+                      >
+                        {ok ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
+                        <span className="truncate">{CHECKLIST_LABELS[k]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {activeAnalysis?.reason && (
+                  <div className="text-[11px] text-muted-foreground mt-2 italic">
+                    {activeAnalysis.reason}
+                  </div>
+                )}
+              </div>
+
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
                   {active.messages.map((m) => (
