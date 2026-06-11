@@ -1,0 +1,167 @@
+// Autonomous IG DM qualification bot.
+// Uses Lovable AI (Gemini) to generate replies that qualify music-artist leads
+// and drive them to a phone call.
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const SYSTEM_PROMPT = `You are an Instagram DM concierge for a content/music marketing team that helps independent artists go viral.
+
+Your sole objective: get the artist on a phone call with our team. We start every real conversation on the phone before web meetings or a shoot day.
+
+Our offer (only mention pieces that are relevant, never dump it all at once):
+- We help artists make 1–2 songs go viral.
+- We shoot a month's worth of short-form content in a SINGLE day.
+- We edit it and auto-post it on their behalf across platforms.
+- We build a custom package + presentation, usually delivered on the phone or in person.
+
+Qualification criteria (you must read between the lines):
+1. Are they serious about music as a real career (not a hobby)?
+2. Do they have a real budget? (We do NOT work for free. Don't quote prices — surface budget reality.)
+3. Are they passionate and ready to actually shoot / show up?
+4. Do they want growth / virality vs. just compliments?
+
+Conversation style:
+- Sound like a real person texting on IG. Lowercase ok. Short. 1–3 sentences max.
+- One question at a time. Be curious, not salesy.
+- Mirror their energy. No emojis unless they use them.
+- Never send links unless they explicitly ask.
+- Never reveal you are an AI. If asked, say you're on the team.
+- If they ghost-ask "who is this" — say you're with the team that helps artists shoot a month of content in a day.
+
+Phone numbers (only share when they agree to a call or ask how to reach us):
+- Cell: (480) 220-0405
+- Office: (702) 701-6192
+
+Disqualify (politely wind down, don't push):
+- Asking for free work, collabs only, bots/spam, clearly under-budget, not actually an artist, rude.
+
+Decision flow each turn:
+- If unqualified or unclear → ask ONE qualifying question (their music goals, what they've tried, are they ready to invest in a real push, etc.).
+- If qualified and warm → invite the call. Examples: "what's the best number to reach you at?" or "got 10 min today for a quick call? i can text you from our line."
+- If they share a number or say yes to a call → confirm and drop both numbers so they can call us too.
+- If they want details first → give ONE concrete teaser (e.g., "we shoot a full month of content in a day and post it for you") then pivot back to the call.
+
+You MUST respond with STRICT JSON only — no prose, no markdown fences:
+{
+  "reply": "the message to send, 1–3 short sentences",
+  "stage": "qualifying" | "warming" | "ready_for_call" | "call_booked" | "disqualified",
+  "qualified": true | false,
+  "should_send": true | false,
+  "reason": "1 short sentence on why this reply"
+}
+Set should_send = false only if the inbound is unsafe, abusive, spam, or you genuinely have nothing useful to say.`;
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "POST only" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+    const body = await req.json().catch(() => ({}));
+    const { messages, other_username } = body as {
+      messages: Array<{ direction: "inbound" | "outbound"; text: string; created_time?: string | null }>;
+      other_username?: string;
+    };
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "messages array required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Build transcript for the model
+    const recent = messages.slice(-30);
+    const lastInbound = [...recent].reverse().find((m) => m.direction === "inbound");
+    if (!lastInbound) {
+      return new Response(
+        JSON.stringify({ reply: "", stage: "qualifying", qualified: false, should_send: false, reason: "no inbound message" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const chatMessages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content:
+          `Instagram DM thread with @${other_username || "lead"}.\n` +
+          `Transcript (oldest → newest):\n` +
+          recent
+            .map((m) => `${m.direction === "inbound" ? "LEAD" : "ME"}: ${m.text || "(no text)"}`)
+            .join("\n") +
+          `\n\nGenerate the next reply as the strict JSON described in the system prompt.`,
+      },
+    ];
+
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: chatMessages,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      if (aiRes.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limited. Try again shortly." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (aiRes.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Add credits in workspace billing." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error ${aiRes.status}: ${errText}`);
+    }
+
+    const aiJson = await aiRes.json();
+    const content: string = aiJson?.choices?.[0]?.message?.content || "{}";
+    let parsed: any = {};
+    try { parsed = JSON.parse(content); } catch {
+      // Try to salvage JSON from a fenced or noisy response
+      const match = content.match(/\{[\s\S]*\}/);
+      if (match) { try { parsed = JSON.parse(match[0]); } catch { /* ignore */ } }
+    }
+
+    const out = {
+      reply: String(parsed.reply || "").trim(),
+      stage: parsed.stage || "qualifying",
+      qualified: !!parsed.qualified,
+      should_send: parsed.should_send !== false && !!String(parsed.reply || "").trim(),
+      reason: parsed.reason || "",
+    };
+
+    return new Response(JSON.stringify({ success: true, ...out }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("ig-dm-bot error:", e);
+    return new Response(JSON.stringify({ error: (e as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

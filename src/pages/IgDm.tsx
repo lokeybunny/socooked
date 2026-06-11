@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Send, Instagram, Loader2, MessageSquare } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Send, Instagram, Loader2, MessageSquare, Bot, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,10 +31,15 @@ type Conversation = {
 };
 
 const FN_URL = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/ig-dm-fetch`;
+const BOT_URL = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/ig-dm-bot`;
 
 type Profile = { username: string; instagram: string | null };
 
 const PROFILE_STORAGE_KEY = 'ig-dm:selected-profile';
+const AUTO_BOT_KEY = 'ig-dm:auto-bot';            // global enable
+const AUTO_BOT_THREADS_KEY = 'ig-dm:auto-threads'; // per-conversation opt-in
+const HANDLED_MSGS_KEY = 'ig-dm:handled-msgs';     // dedupe last inbound id per conv
+const POLL_MS = 30_000;
 
 export default function IgDm() {
   const [loading, setLoading] = useState(true);
@@ -48,6 +54,26 @@ export default function IgDm() {
     if (typeof window === 'undefined') return 'unc86';
     return localStorage.getItem(PROFILE_STORAGE_KEY) || 'unc86';
   });
+  const [autoBot, setAutoBot] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(AUTO_BOT_KEY) === '1';
+  });
+  const [autoThreads, setAutoThreads] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(AUTO_BOT_THREADS_KEY) || '{}'); } catch { return {}; }
+  });
+  const [generating, setGenerating] = useState(false);
+  const [botBusy, setBotBusy] = useState<Record<string, boolean>>({});
+  const handledRef = useRef<Record<string, string>>(
+    (() => {
+      if (typeof window === 'undefined') return {};
+      try { return JSON.parse(localStorage.getItem(HANDLED_MSGS_KEY) || '{}'); } catch { return {}; }
+    })()
+  );
+
+  const persistHandled = () => {
+    try { localStorage.setItem(HANDLED_MSGS_KEY, JSON.stringify(handledRef.current)); } catch {}
+  };
 
   const getAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -139,6 +165,113 @@ export default function IgDm() {
     }
   };
 
+  // Send arbitrary text to a conversation (used by autonomous bot).
+  const sendToConv = useCallback(async (conv: Conversation, message: string) => {
+    if (!conv.other_id || !message.trim()) return false;
+    const headers = await getAuth();
+    const res = await fetch(`${FN_URL}?user=${encodeURIComponent(profile)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ recipient_id: conv.other_id, message }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Send failed');
+    return true;
+  }, [getAuth, profile]);
+
+  // Ask the bot for a reply suggestion for a conversation.
+  const askBot = useCallback(async (conv: Conversation) => {
+    const headers = await getAuth();
+    const res = await fetch(BOT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({
+        other_username: conv.other_username,
+        messages: conv.messages.map((m) => ({
+          direction: m.direction, text: m.text, created_time: m.created_time,
+        })),
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Bot failed');
+    return json as { reply: string; stage: string; qualified: boolean; should_send: boolean; reason: string };
+  }, [getAuth]);
+
+  const handleGenerate = async () => {
+    if (!active) return;
+    setGenerating(true);
+    try {
+      const out = await askBot(active);
+      if (out.reply) {
+        setReply(out.reply);
+        toast.success(`AI suggestion (${out.stage})`);
+      } else {
+        toast.message('Bot chose not to reply', { description: out.reason || '' });
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Bot failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const toggleThreadAuto = (id: string) => {
+    setAutoThreads((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(AUTO_BOT_THREADS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  // Auto-run: for each conversation opted into auto + global auto on,
+  // if the latest message is inbound and we haven't replied to it, ask the bot and send.
+  useEffect(() => {
+    if (!autoBot || conversations.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const conv of conversations) {
+        if (cancelled) break;
+        if (!autoThreads[conv.conversation_id]) continue;
+        const last = conv.last_message;
+        if (!last || last.direction !== 'inbound') continue;
+        if (handledRef.current[conv.conversation_id] === last.id) continue;
+        if (botBusy[conv.conversation_id]) continue;
+
+        setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
+        try {
+          const out = await askBot(conv);
+          if (out.should_send && out.reply) {
+            await sendToConv(conv, out.reply);
+            toast.success(`Bot replied to @${conv.other_username}`, { description: out.reply.slice(0, 80) });
+          }
+          handledRef.current[conv.conversation_id] = last.id;
+          persistHandled();
+        } catch (e: any) {
+          console.warn('[ig-dm-bot] auto failed', conv.conversation_id, e);
+        } finally {
+          setBotBusy((b) => {
+            const { [conv.conversation_id]: _, ...rest } = b;
+            return rest;
+          });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, autoBot, autoThreads]);
+
+  // Poll for new messages while auto-bot is on.
+  useEffect(() => {
+    if (!autoBot) return;
+    const t = setInterval(() => load(profile), POLL_MS);
+    return () => clearInterval(t);
+  }, [autoBot, profile, load]);
+
+  // Persist global auto toggle.
+  useEffect(() => {
+    try { localStorage.setItem(AUTO_BOT_KEY, autoBot ? '1' : '0'); } catch {}
+  }, [autoBot]);
+
   const fmtTime = (t: string | null) => {
     if (!t) return '';
     try {
@@ -166,7 +299,12 @@ export default function IgDm() {
               <Badge variant="secondary" className="ml-1">{conversations.length}</Badge>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md border border-border bg-background">
+              <Bot className={cn('w-4 h-4', autoBot ? 'text-green-500' : 'text-muted-foreground')} />
+              <span className="text-xs text-muted-foreground hidden sm:inline">Auto-bot</span>
+              <Switch checked={autoBot} onCheckedChange={setAutoBot} />
+            </div>
             <select
               value={profile}
               onChange={(e) => setProfile(e.target.value)}
@@ -248,19 +386,29 @@ export default function IgDm() {
             </div>
           ) : (
             <>
-              <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">@{active.other_username}</div>
+              <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">@{active.other_username}</div>
                   <div className="text-xs text-muted-foreground">{active.message_count} messages</div>
                 </div>
-                <a
-                  href={`https://www.instagram.com/${active.other_username}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-pink-500 hover:underline"
-                >
-                  Open profile
-                </a>
+                <div className="flex items-center gap-3 shrink-0">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <Bot className={cn('w-4 h-4', autoThreads[active.conversation_id] ? 'text-green-500' : '')} />
+                    <span className="hidden sm:inline">Auto-reply</span>
+                    <Switch
+                      checked={!!autoThreads[active.conversation_id]}
+                      onCheckedChange={() => toggleThreadAuto(active.conversation_id)}
+                    />
+                  </label>
+                  <a
+                    href={`https://www.instagram.com/${active.other_username}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-pink-500 hover:underline"
+                  >
+                    Open profile
+                  </a>
+                </div>
               </div>
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
@@ -296,6 +444,16 @@ export default function IgDm() {
                 </div>
               </ScrollArea>
               <div className="border-t border-border/50 p-3 flex items-end gap-2">
+                <Button
+                  onClick={handleGenerate}
+                  variant="outline"
+                  size="sm"
+                  disabled={generating || sending}
+                  title="Generate AI reply"
+                >
+                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  <span className="ml-2 hidden sm:inline">AI</span>
+                </Button>
                 <Input
                   placeholder="Type a reply…"
                   value={reply}
