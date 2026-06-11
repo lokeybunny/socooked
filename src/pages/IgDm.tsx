@@ -54,8 +54,31 @@ export default function IgDm() {
     if (typeof window === 'undefined') return 'unc86';
     return localStorage.getItem(PROFILE_STORAGE_KEY) || 'unc86';
   });
+  const [autoBot, setAutoBot] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(AUTO_BOT_KEY) === '1';
+  });
+  const [autoThreads, setAutoThreads] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(AUTO_BOT_THREADS_KEY) || '{}'); } catch { return {}; }
+  });
+  const [generating, setGenerating] = useState(false);
+  const [botBusy, setBotBusy] = useState<Record<string, boolean>>({});
+  const handledRef = useRef<Record<string, string>>(
+    (() => {
+      if (typeof window === 'undefined') return {};
+      try { return JSON.parse(localStorage.getItem(HANDLED_MSGS_KEY) || '{}'); } catch { return {}; }
+    })()
+  );
+
+  const persistHandled = () => {
+    try { localStorage.setItem(HANDLED_MSGS_KEY, JSON.stringify(handledRef.current)); } catch {}
+  };
 
   const getAuth = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
+  }, []);
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
   }, []);
