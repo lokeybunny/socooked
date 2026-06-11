@@ -536,18 +536,19 @@ export default function IgDm() {
         if (!a?.auto_reply) continue;
         if (botBusy[conv.conversation_id]) continue;
         const last = conv.last_message;
-        const hasOutbound = conv.messages.some((m) => m.direction === 'outbound');
-        const shouldOpen = !hasOutbound;
         const shouldReply = last?.direction === 'inbound' && handledRef.current[conv.conversation_id] !== last.id;
+        const shouldOpen = !shouldReply && !openedRef.current[conv.conversation_id];
         if (!shouldOpen && !shouldReply) continue;
+        const mode: 'reply' | 'opener' = shouldReply ? 'reply' : 'opener';
         setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
         try {
-          const out = await askBot(conv, shouldOpen ? 'opener' : 'reply');
+          const out = await askBot(conv, mode);
           if (out.should_send && out.reply) {
             await sendToConv(conv, out.reply);
-            toast.success(`Bot ${shouldOpen ? 'opened' : 'replied to'} @${conv.other_username}`, {
+            toast.success(`Bot ${mode === 'opener' ? 'opened' : 'replied to'} @${conv.other_username}`, {
               description: out.reply.slice(0, 80),
             });
+            if (mode === 'opener') openedRef.current[conv.conversation_id] = true;
           }
           if (last) handledRef.current[conv.conversation_id] = last.id;
         } catch (e) { console.warn('[ig-dm-bot] auto failed', e); }
