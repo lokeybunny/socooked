@@ -61,9 +61,22 @@ You MUST respond with STRICT JSON only — no prose, no markdown fences:
     "ready_to_invest": true | false,
     "agreed_to_call": true | false
   },
+  "evidence": {
+    "serious_artist": [{ "message_id": "<id from transcript>", "quote": "short verbatim snippet from that LEAD message" }],
+    "has_budget": [ ... ],
+    "wants_virality": [ ... ],
+    "ready_to_invest": [ ... ],
+    "agreed_to_call": [ ... ]
+  },
   "next_action": "ask_qualifier" | "tease_offer" | "ask_for_call" | "share_numbers" | "wind_down",
   "reason": "1 short sentence on why this reply"
 }
+Evidence rules:
+- For every checklist item set to TRUE, include 1–3 evidence entries pointing to the specific LEAD message that proved it.
+- Use the exact message_id shown in the transcript (format: id=<id>). Quote ≤120 chars verbatim.
+- For checklist items set to FALSE, return an empty array for that key.
+- Only cite LEAD messages, never ME messages.
+
 Scoring guide:
 - 0-20: cold / off-topic / probably spam → next_action = "wind_down" or "ask_qualifier"
 - 21-50: curious but unqualified → "ask_qualifier"
