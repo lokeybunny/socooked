@@ -433,6 +433,33 @@ export default function IgDm() {
       auto_reply: next,
       other_username: conv.other_username,
     }, conv);
+
+    // When turning ON, immediately kick off the conversation if appropriate
+    // (no prior message from us, or last message was inbound waiting on us).
+    if (!next) return;
+    if (botBusy[conv.conversation_id]) return;
+    const last = conv.last_message;
+    const hasOutbound = conv.messages.some((m) => m.direction === 'outbound');
+    const shouldOpen = !hasOutbound;            // never messaged this lead
+    const shouldReply = last?.direction === 'inbound' && handledRef.current[conv.conversation_id] !== last.id;
+    if (!shouldOpen && !shouldReply) return;
+
+    setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
+    try {
+      const out = await askBot(conv, shouldOpen ? 'opener' : 'reply');
+      if (out.should_send && out.reply) {
+        await sendToConv(conv, out.reply);
+        toast.success(`Bot ${shouldOpen ? 'opened' : 'replied to'} @${conv.other_username}`, {
+          description: out.reply.slice(0, 80),
+        });
+        if (last) handledRef.current[conv.conversation_id] = last.id;
+        setTimeout(() => load(profile), 600);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Bot failed to start');
+    } finally {
+      setBotBusy((b) => { const { [conv.conversation_id]: _, ...rest } = b; return rest; });
+    }
   };
 
   // ============ Manual overrides ============
