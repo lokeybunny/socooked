@@ -166,6 +166,7 @@ export default function IgDm() {
             if (payload.eventType === 'DELETE') {
               const oldConv = payload.old?.conversation_id;
               if (!oldConv) return;
+              delete pendingRef.current[oldConv];
               setAnalyses((prev) => {
                 const next = { ...prev };
                 delete next[oldConv];
@@ -175,7 +176,34 @@ export default function IgDm() {
             }
             const row = payload.new;
             if (!row?.conversation_id) return;
-            setAnalyses((prev) => ({ ...prev, [row.conversation_id]: rowToAnalysis(row) }));
+            const convId = row.conversation_id as string;
+            const incoming = rowToAnalysis(row);
+            setAnalyses((prev) => {
+              const local = prev[convId];
+              const pending = getPendingKeys(convId);
+              // No local copy or no in-flight edits → accept incoming verbatim.
+              if (!local || pending.size === 0) {
+                return { ...prev, [convId]: incoming };
+              }
+              // Stale echo: ignore if incoming is older than what we already hold.
+              if (local.updated_at && incoming.updated_at && incoming.updated_at < local.updated_at) {
+                return prev;
+              }
+              // Merge: incoming wins by default, but preserve pending local fields.
+              const merged: Analysis = { ...incoming };
+              for (const key of pending) {
+                (merged as any)[key] = (local as any)[key];
+              }
+              // manual_override is shallow-merged so per-key overrides survive
+              // even if only some override toggles are in-flight.
+              if (local.manual_override && Object.keys(local.manual_override).length) {
+                merged.manual_override = {
+                  ...(incoming.manual_override || {}),
+                  ...local.manual_override,
+                };
+              }
+              return { ...prev, [convId]: merged };
+            });
           }
         )
         .subscribe();
