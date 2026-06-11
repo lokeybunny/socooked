@@ -165,6 +165,113 @@ export default function IgDm() {
     }
   };
 
+  // Send arbitrary text to a conversation (used by autonomous bot).
+  const sendToConv = useCallback(async (conv: Conversation, message: string) => {
+    if (!conv.other_id || !message.trim()) return false;
+    const headers = await getAuth();
+    const res = await fetch(`${FN_URL}?user=${encodeURIComponent(profile)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ recipient_id: conv.other_id, message }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Send failed');
+    return true;
+  }, [getAuth, profile]);
+
+  // Ask the bot for a reply suggestion for a conversation.
+  const askBot = useCallback(async (conv: Conversation) => {
+    const headers = await getAuth();
+    const res = await fetch(BOT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({
+        other_username: conv.other_username,
+        messages: conv.messages.map((m) => ({
+          direction: m.direction, text: m.text, created_time: m.created_time,
+        })),
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Bot failed');
+    return json as { reply: string; stage: string; qualified: boolean; should_send: boolean; reason: string };
+  }, [getAuth]);
+
+  const handleGenerate = async () => {
+    if (!active) return;
+    setGenerating(true);
+    try {
+      const out = await askBot(active);
+      if (out.reply) {
+        setReply(out.reply);
+        toast.success(`AI suggestion (${out.stage})`);
+      } else {
+        toast.message('Bot chose not to reply', { description: out.reason || '' });
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Bot failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const toggleThreadAuto = (id: string) => {
+    setAutoThreads((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(AUTO_BOT_THREADS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  // Auto-run: for each conversation opted into auto + global auto on,
+  // if the latest message is inbound and we haven't replied to it, ask the bot and send.
+  useEffect(() => {
+    if (!autoBot || conversations.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const conv of conversations) {
+        if (cancelled) break;
+        if (!autoThreads[conv.conversation_id]) continue;
+        const last = conv.last_message;
+        if (!last || last.direction !== 'inbound') continue;
+        if (handledRef.current[conv.conversation_id] === last.id) continue;
+        if (botBusy[conv.conversation_id]) continue;
+
+        setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
+        try {
+          const out = await askBot(conv);
+          if (out.should_send && out.reply) {
+            await sendToConv(conv, out.reply);
+            toast.success(`Bot replied to @${conv.other_username}`, { description: out.reply.slice(0, 80) });
+          }
+          handledRef.current[conv.conversation_id] = last.id;
+          persistHandled();
+        } catch (e: any) {
+          console.warn('[ig-dm-bot] auto failed', conv.conversation_id, e);
+        } finally {
+          setBotBusy((b) => {
+            const { [conv.conversation_id]: _, ...rest } = b;
+            return rest;
+          });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, autoBot, autoThreads]);
+
+  // Poll for new messages while auto-bot is on.
+  useEffect(() => {
+    if (!autoBot) return;
+    const t = setInterval(() => load(profile), POLL_MS);
+    return () => clearInterval(t);
+  }, [autoBot, profile, load]);
+
+  // Persist global auto toggle.
+  useEffect(() => {
+    try { localStorage.setItem(AUTO_BOT_KEY, autoBot ? '1' : '0'); } catch {}
+  }, [autoBot]);
+
   const fmtTime = (t: string | null) => {
     if (!t) return '';
     try {
