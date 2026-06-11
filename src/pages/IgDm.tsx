@@ -464,7 +464,15 @@ export default function IgDm() {
         });
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Bot failed to start');
+      const msg = e?.message || 'Bot failed to start';
+      toast.error(msg);
+      // If the actual send failed (Upload-Post/IG rejected it), pause auto-reply on this thread.
+      if (/upstream_status|Upload-Post|Send failed|internal server error/i.test(msg)) {
+        await saveAnalysis(conv.conversation_id, {
+          auto_reply: false,
+          other_username: conv.other_username,
+        }, conv);
+      }
     } finally {
       setBotBusy((b) => { const { [conv.conversation_id]: _, ...rest } = b; return rest; });
     }
@@ -547,11 +555,24 @@ export default function IgDm() {
         try {
           const out = await askBot(conv, mode);
           if (out.should_send && out.reply) {
-            await sendToConv(conv, out.reply);
-            toast.success(`Bot ${mode === 'opener' ? 'opened' : 'replied to'} @${conv.other_username}`, {
-              description: out.reply.slice(0, 80),
-            });
-            if (mode === 'opener') openedRef.current[conv.conversation_id] = true;
+            try {
+              await sendToConv(conv, out.reply);
+              toast.success(`Bot ${mode === 'opener' ? 'opened' : 'replied to'} @${conv.other_username}`, {
+                description: out.reply.slice(0, 80),
+              });
+              if (mode === 'opener') openedRef.current[conv.conversation_id] = true;
+            } catch (sendErr: any) {
+              // Upload-Post rejected the send (IG 24h window, blocked recipient, etc.)
+              // Auto-disable this thread so we don't keep retrying.
+              console.warn('[ig-dm-bot] send failed, disabling auto-reply for', conv.other_username, sendErr);
+              await saveAnalysis(conv.conversation_id, {
+                auto_reply: false,
+                other_username: conv.other_username,
+              }, conv);
+              toast.error(`Auto-reply paused for @${conv.other_username}`, {
+                description: sendErr?.message || 'Instagram rejected the message',
+              });
+            }
           }
           if (last) handledRef.current[conv.conversation_id] = last.id;
         } catch (e) { console.warn('[ig-dm-bot] auto failed', e); }
