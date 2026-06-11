@@ -464,7 +464,15 @@ export default function IgDm() {
         });
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Bot failed to start');
+      const msg = e?.message || 'Bot failed to start';
+      toast.error(msg);
+      // If the actual send failed (Upload-Post/IG rejected it), pause auto-reply on this thread.
+      if (/upstream_status|Upload-Post|Send failed|internal server error/i.test(msg)) {
+        await saveAnalysis(conv.conversation_id, {
+          auto_reply: false,
+          other_username: conv.other_username,
+        }, conv);
+      }
     } finally {
       setBotBusy((b) => { const { [conv.conversation_id]: _, ...rest } = b; return rest; });
     }
