@@ -20,7 +20,34 @@ serve(async (req) => {
     if (!apiKey) throw new Error("UPLOAD_POST_API_KEY not configured");
 
     const url = new URL(req.url);
+    const action = url.searchParams.get("action");
     const user = url.searchParams.get("user") || "unc86";
+
+    // List available Upload-Post profiles
+    if (req.method === "GET" && action === "profiles") {
+      const pRes = await fetch(`${API_BASE}/uploadposts/users`, {
+        headers: { Authorization: `Apikey ${apiKey}` },
+      });
+      const pText = await pRes.text();
+      if (!pRes.ok) {
+        return new Response(JSON.stringify({ error: pText }), {
+          status: pRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const parsed = JSON.parse(pText);
+      const raw = Array.isArray(parsed) ? parsed
+        : Array.isArray(parsed?.profiles) ? parsed.profiles
+        : Array.isArray(parsed?.users) ? parsed.users
+        : [];
+      const profiles = raw.map((p: any) => ({
+        username: String(p?.username || p?.user || "").trim(),
+        instagram: p?.social_accounts?.instagram?.username || p?.instagram?.username || null,
+      })).filter((p: any) => p.username);
+      return new Response(JSON.stringify({ success: true, profiles }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // POST = send reply
     if (req.method === "POST") {
@@ -65,16 +92,29 @@ serve(async (req) => {
     }
 
     const conversations: any[] = convData.conversations || convData || [];
-    const myUsername = "unc_86";
+    // Detect "me" username by finding the participant that appears in every conversation.
+    const countMap: Record<string, number> = {};
+    for (const conv of conversations) {
+      const parts = conv.participants?.data || [];
+      const seen = new Set<string>();
+      for (const p of parts) {
+        const u = String(p?.username || '').toLowerCase();
+        if (u && !seen.has(u)) { seen.add(u); countMap[u] = (countMap[u] || 0) + 1; }
+      }
+    }
+    const meParam = (url.searchParams.get("me") || "").toLowerCase();
+    const myUsername = meParam
+      || Object.entries(countMap).sort((a, b) => b[1] - a[1])[0]?.[0]
+      || "unc_86";
 
     const normalized = conversations.map((conv: any) => {
       const participants = conv.participants?.data || [];
       const messages = conv.messages?.data || [];
-      const other = participants.find((p: any) => p.username !== myUsername) || participants[0] || {};
+      const other = participants.find((p: any) => String(p.username || '').toLowerCase() !== myUsername) || participants[0] || {};
 
       const msgs = messages.map((m: any) => {
         const fromUsername = m.from?.username || "";
-        const isInbound = fromUsername !== myUsername;
+        const isInbound = fromUsername.toLowerCase() !== myUsername;
         const att = m.attachments?.data?.[0];
         const attachmentUrl =
           att?.url ||
