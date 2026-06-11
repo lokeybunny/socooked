@@ -356,14 +356,14 @@ export default function IgDm() {
     const a = analyses[conv.conversation_id];
     const botVal = !!a?.checklist?.[k];
     const overrideVal = a?.manual_override?.checklist?.[k];
-    // cycle: bot value → opposite → cleared
-    let nextOverride: boolean | undefined;
-    if (overrideVal === undefined) nextOverride = !botVal;
-    else if (overrideVal === !botVal) nextOverride = botVal === true ? false : true; // unreachable but safe
-    if (overrideVal !== undefined && overrideVal === !botVal) nextOverride = undefined; // clear
     const newChecklist = { ...(a?.manual_override?.checklist || {}) };
-    if (nextOverride === undefined) delete newChecklist[k];
-    else newChecklist[k] = nextOverride;
+    if (overrideVal === undefined) {
+      // No override yet → flip the bot value
+      newChecklist[k] = !botVal;
+    } else {
+      // Override exists → clear it (back to bot value)
+      delete newChecklist[k];
+    }
     await saveAnalysis(conv.conversation_id, {
       manual_override: { ...(a?.manual_override || {}), checklist: newChecklist },
       other_username: conv.other_username,
