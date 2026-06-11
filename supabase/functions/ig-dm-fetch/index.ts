@@ -20,7 +20,7 @@ serve(async (req) => {
     if (!apiKey) throw new Error("UPLOAD_POST_API_KEY not configured");
 
     const url = new URL(req.url);
-    const user = url.searchParams.get("user") || "STU25";
+    const user = url.searchParams.get("user") || "unc86";
 
     // POST = send reply
     if (req.method === "POST") {
@@ -65,7 +65,7 @@ serve(async (req) => {
     }
 
     const conversations: any[] = convData.conversations || convData || [];
-    const myUsername = "w4rr3nguru";
+    const myUsername = "unc_86";
 
     const normalized = conversations.map((conv: any) => {
       const participants = conv.participants?.data || [];
