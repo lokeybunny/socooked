@@ -299,7 +299,12 @@ export default function IgDm() {
               <Badge variant="secondary" className="ml-1">{conversations.length}</Badge>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md border border-border bg-background">
+              <Bot className={cn('w-4 h-4', autoBot ? 'text-green-500' : 'text-muted-foreground')} />
+              <span className="text-xs text-muted-foreground hidden sm:inline">Auto-bot</span>
+              <Switch checked={autoBot} onCheckedChange={setAutoBot} />
+            </div>
             <select
               value={profile}
               onChange={(e) => setProfile(e.target.value)}
