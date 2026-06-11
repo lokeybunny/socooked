@@ -386,19 +386,29 @@ export default function IgDm() {
             </div>
           ) : (
             <>
-              <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">@{active.other_username}</div>
+              <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold truncate">@{active.other_username}</div>
                   <div className="text-xs text-muted-foreground">{active.message_count} messages</div>
                 </div>
-                <a
-                  href={`https://www.instagram.com/${active.other_username}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-pink-500 hover:underline"
-                >
-                  Open profile
-                </a>
+                <div className="flex items-center gap-3 shrink-0">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <Bot className={cn('w-4 h-4', autoThreads[active.conversation_id] ? 'text-green-500' : '')} />
+                    <span className="hidden sm:inline">Auto-reply</span>
+                    <Switch
+                      checked={!!autoThreads[active.conversation_id]}
+                      onCheckedChange={() => toggleThreadAuto(active.conversation_id)}
+                    />
+                  </label>
+                  <a
+                    href={`https://www.instagram.com/${active.other_username}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-pink-500 hover:underline"
+                  >
+                    Open profile
+                  </a>
+                </div>
               </div>
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
@@ -434,6 +444,16 @@ export default function IgDm() {
                 </div>
               </ScrollArea>
               <div className="border-t border-border/50 p-3 flex items-end gap-2">
+                <Button
+                  onClick={handleGenerate}
+                  variant="outline"
+                  size="sm"
+                  disabled={generating || sending}
+                  title="Generate AI reply"
+                >
+                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  <span className="ml-2 hidden sm:inline">AI</span>
+                </Button>
                 <Input
                   placeholder="Type a reply…"
                   value={reply}
