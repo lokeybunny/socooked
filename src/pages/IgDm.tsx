@@ -529,18 +529,22 @@ export default function IgDm() {
         if (cancelled) break;
         const a = analyses[conv.conversation_id];
         if (!a?.auto_reply) continue;
-        const last = conv.last_message;
-        if (!last || last.direction !== 'inbound') continue;
-        if (handledRef.current[conv.conversation_id] === last.id) continue;
         if (botBusy[conv.conversation_id]) continue;
+        const last = conv.last_message;
+        const hasOutbound = conv.messages.some((m) => m.direction === 'outbound');
+        const shouldOpen = !hasOutbound;
+        const shouldReply = last?.direction === 'inbound' && handledRef.current[conv.conversation_id] !== last.id;
+        if (!shouldOpen && !shouldReply) continue;
         setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
         try {
-          const out = await askBot(conv);
+          const out = await askBot(conv, shouldOpen ? 'opener' : 'reply');
           if (out.should_send && out.reply) {
             await sendToConv(conv, out.reply);
-            toast.success(`Bot replied to @${conv.other_username}`, { description: out.reply.slice(0, 80) });
+            toast.success(`Bot ${shouldOpen ? 'opened' : 'replied to'} @${conv.other_username}`, {
+              description: out.reply.slice(0, 80),
+            });
           }
-          handledRef.current[conv.conversation_id] = last.id;
+          if (last) handledRef.current[conv.conversation_id] = last.id;
         } catch (e) { console.warn('[ig-dm-bot] auto failed', e); }
         finally {
           setBotBusy((b) => { const { [conv.conversation_id]: _, ...rest } = b; return rest; });
