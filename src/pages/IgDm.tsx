@@ -110,7 +110,7 @@ export default function IgDm() {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    load();
+    load(profile);
   };
 
   const handleSend = async () => {
@@ -121,21 +121,17 @@ export default function IgDm() {
     }
     setSending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      const res = await fetch(FN_URL, {
+      const headers = await getAuth();
+      const res = await fetch(`${FN_URL}?user=${encodeURIComponent(profile)}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({ recipient_id: active.other_id, message: reply }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Send failed');
       toast.success('Reply sent');
       setReply('');
-      setTimeout(load, 500);
+      setTimeout(() => load(profile), 500);
     } catch (e: any) {
       toast.error(e?.message || 'Send failed');
     } finally {
