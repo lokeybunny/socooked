@@ -229,8 +229,23 @@ export default function IgDm() {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Bot failed');
-    return json as { reply: string; stage: string; qualified: boolean; should_send: boolean; reason: string };
-  }, [getAuth]);
+    const out = json as Omit<BotAnalysis, 'at' | 'basis_msg_id'>;
+    const analysis: BotAnalysis = {
+      ...out,
+      checklist: {
+        serious_artist: !!out.checklist?.serious_artist,
+        has_budget: !!out.checklist?.has_budget,
+        wants_virality: !!out.checklist?.wants_virality,
+        ready_to_invest: !!out.checklist?.ready_to_invest,
+        agreed_to_call: !!out.checklist?.agreed_to_call,
+      },
+      score: Number(out.score) || 0,
+      at: Date.now(),
+      basis_msg_id: conv.last_message?.id || null,
+    };
+    saveAnalysis(conv.conversation_id, analysis);
+    return analysis;
+  }, [getAuth, saveAnalysis]);
 
   const handleGenerate = async () => {
     if (!active) return;
@@ -239,14 +254,28 @@ export default function IgDm() {
       const out = await askBot(active);
       if (out.reply) {
         setReply(out.reply);
-        toast.success(`AI suggestion (${out.stage})`);
+        toast.success(`AI suggestion · score ${out.score}/100 · ${out.stage}`);
       } else {
-        toast.message('Bot chose not to reply', { description: out.reason || '' });
+        toast.message(`Bot chose not to reply (score ${out.score})`, { description: out.reason || '' });
       }
     } catch (e: any) {
       toast.error(e?.message || 'Bot failed');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const [scoring, setScoring] = useState(false);
+  const handleScore = async () => {
+    if (!active) return;
+    setScoring(true);
+    try {
+      const out = await askBot(active);
+      toast.success(`Score: ${out.score}/100 · ${out.stage}`, { description: out.reason });
+    } catch (e: any) {
+      toast.error(e?.message || 'Score failed');
+    } finally {
+      setScoring(false);
     }
   };
 
