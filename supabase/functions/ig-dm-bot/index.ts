@@ -61,9 +61,22 @@ You MUST respond with STRICT JSON only — no prose, no markdown fences:
     "ready_to_invest": true | false,
     "agreed_to_call": true | false
   },
+  "evidence": {
+    "serious_artist": [{ "message_id": "<id from transcript>", "quote": "short verbatim snippet from that LEAD message" }],
+    "has_budget": [ ... ],
+    "wants_virality": [ ... ],
+    "ready_to_invest": [ ... ],
+    "agreed_to_call": [ ... ]
+  },
   "next_action": "ask_qualifier" | "tease_offer" | "ask_for_call" | "share_numbers" | "wind_down",
   "reason": "1 short sentence on why this reply"
 }
+Evidence rules:
+- For every checklist item set to TRUE, include 1–3 evidence entries pointing to the specific LEAD message that proved it.
+- Use the exact message_id shown in the transcript (format: id=<id>). Quote ≤120 chars verbatim.
+- For checklist items set to FALSE, return an empty array for that key.
+- Only cite LEAD messages, never ME messages.
+
 Scoring guide:
 - 0-20: cold / off-topic / probably spam → next_action = "wind_down" or "ask_qualifier"
 - 21-50: curious but unqualified → "ask_qualifier"
@@ -114,11 +127,12 @@ serve(async (req) => {
         role: "user",
         content:
           `Instagram DM thread with @${other_username || "lead"}.\n` +
-          `Transcript (oldest → newest):\n` +
+          `Transcript (oldest → newest). Each line is "ROLE [id=<id>]: text":\n` +
           recent
-            .map((m) => `${m.direction === "inbound" ? "LEAD" : "ME"}: ${m.text || "(no text)"}`)
+            .map((m: any) => `${m.direction === "inbound" ? "LEAD" : "ME"} [id=${m.id || "n/a"}]: ${m.text || "(no text)"}`)
             .join("\n") +
-          `\n\nGenerate the next reply as the strict JSON described in the system prompt.`,
+          `\n\nGenerate the next reply as the strict JSON described in the system prompt. ` +
+          `For every TRUE checklist item include evidence entries citing the exact id from the transcript.`,
       },
     ];
 
@@ -162,6 +176,17 @@ serve(async (req) => {
     }
 
     const cl = parsed.checklist || {};
+    const ev = parsed.evidence || {};
+    const cleanEvidence = (k: string) => {
+      const list = Array.isArray(ev[k]) ? ev[k] : [];
+      return list
+        .filter((e: any) => e && (e.message_id || e.quote))
+        .slice(0, 3)
+        .map((e: any) => ({
+          message_id: String(e.message_id || "").trim() || null,
+          quote: String(e.quote || "").trim().slice(0, 160),
+        }));
+    };
     const scoreNum = Number(parsed.score);
     const out = {
       reply: String(parsed.reply || "").trim(),
@@ -175,6 +200,13 @@ serve(async (req) => {
         wants_virality: !!cl.wants_virality,
         ready_to_invest: !!cl.ready_to_invest,
         agreed_to_call: !!cl.agreed_to_call,
+      },
+      evidence: {
+        serious_artist: cleanEvidence("serious_artist"),
+        has_budget: cleanEvidence("has_budget"),
+        wants_virality: cleanEvidence("wants_virality"),
+        ready_to_invest: cleanEvidence("ready_to_invest"),
+        agreed_to_call: cleanEvidence("agreed_to_call"),
       },
       next_action: parsed.next_action || "ask_qualifier",
       reason: parsed.reason || "",
