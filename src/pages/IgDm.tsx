@@ -345,13 +345,14 @@ export default function IgDm() {
   const handleRefresh = () => { setRefreshing(true); load(profile); };
 
   // ============ Bot calls ============
-  const askBot = useCallback(async (conv: Conversation) => {
+  const askBot = useCallback(async (conv: Conversation, mode: 'reply' | 'opener' = 'reply') => {
     const headers = await getAuth();
     const res = await fetch(BOT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({
         other_username: conv.other_username,
+        mode,
         messages: conv.messages.map((m) => ({
           id: m.id, direction: m.direction, text: m.text, created_time: m.created_time,
         })),
@@ -432,6 +433,33 @@ export default function IgDm() {
       auto_reply: next,
       other_username: conv.other_username,
     }, conv);
+
+    // When turning ON, immediately kick off the conversation if appropriate
+    // (no prior message from us, or last message was inbound waiting on us).
+    if (!next) return;
+    if (botBusy[conv.conversation_id]) return;
+    const last = conv.last_message;
+    const hasOutbound = conv.messages.some((m) => m.direction === 'outbound');
+    const shouldOpen = !hasOutbound;            // never messaged this lead
+    const shouldReply = last?.direction === 'inbound' && handledRef.current[conv.conversation_id] !== last.id;
+    if (!shouldOpen && !shouldReply) return;
+
+    setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
+    try {
+      const out = await askBot(conv, shouldOpen ? 'opener' : 'reply');
+      if (out.should_send && out.reply) {
+        await sendToConv(conv, out.reply);
+        toast.success(`Bot ${shouldOpen ? 'opened' : 'replied to'} @${conv.other_username}`, {
+          description: out.reply.slice(0, 80),
+        });
+        if (last) handledRef.current[conv.conversation_id] = last.id;
+        setTimeout(() => load(profile), 600);
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Bot failed to start');
+    } finally {
+      setBotBusy((b) => { const { [conv.conversation_id]: _, ...rest } = b; return rest; });
+    }
   };
 
   // ============ Manual overrides ============
@@ -501,18 +529,22 @@ export default function IgDm() {
         if (cancelled) break;
         const a = analyses[conv.conversation_id];
         if (!a?.auto_reply) continue;
-        const last = conv.last_message;
-        if (!last || last.direction !== 'inbound') continue;
-        if (handledRef.current[conv.conversation_id] === last.id) continue;
         if (botBusy[conv.conversation_id]) continue;
+        const last = conv.last_message;
+        const hasOutbound = conv.messages.some((m) => m.direction === 'outbound');
+        const shouldOpen = !hasOutbound;
+        const shouldReply = last?.direction === 'inbound' && handledRef.current[conv.conversation_id] !== last.id;
+        if (!shouldOpen && !shouldReply) continue;
         setBotBusy((b) => ({ ...b, [conv.conversation_id]: true }));
         try {
-          const out = await askBot(conv);
+          const out = await askBot(conv, shouldOpen ? 'opener' : 'reply');
           if (out.should_send && out.reply) {
             await sendToConv(conv, out.reply);
-            toast.success(`Bot replied to @${conv.other_username}`, { description: out.reply.slice(0, 80) });
+            toast.success(`Bot ${shouldOpen ? 'opened' : 'replied to'} @${conv.other_username}`, {
+              description: out.reply.slice(0, 80),
+            });
           }
-          handledRef.current[conv.conversation_id] = last.id;
+          if (last) handledRef.current[conv.conversation_id] = last.id;
         } catch (e) { console.warn('[ig-dm-bot] auto failed', e); }
         finally {
           setBotBusy((b) => { const { [conv.conversation_id]: _, ...rest } = b; return rest; });
