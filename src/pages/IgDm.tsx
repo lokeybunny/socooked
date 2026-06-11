@@ -99,6 +99,28 @@ export default function IgDm() {
   const [analyses, setAnalyses] = useState<Record<string, Analysis>>({});
   const [editing, setEditing] = useState(false);
   const handledRef = useRef<Record<string, string>>({});
+  // Conflict resolution: tracks local in-flight edits per conversation so that
+  // realtime echoes from other devices don't clobber unsaved local changes.
+  // Map<conversation_id, Map<field, expiresAtMs>>
+  const pendingRef = useRef<Record<string, Record<string, number>>>({});
+  const PENDING_TTL_MS = 6_000;
+  const OVERRIDE_TTL_MS = 30_000; // keep override edits longer in case of slow round-trip
+  const markPending = (convId: string, keys: string[], ttl = PENDING_TTL_MS) => {
+    const now = Date.now();
+    const cur = pendingRef.current[convId] || {};
+    for (const k of keys) cur[k] = now + ttl;
+    pendingRef.current[convId] = cur;
+  };
+  const getPendingKeys = (convId: string): Set<string> => {
+    const cur = pendingRef.current[convId] || {};
+    const now = Date.now();
+    const out = new Set<string>();
+    for (const [k, exp] of Object.entries(cur)) {
+      if (exp > now) out.add(k);
+      else delete cur[k];
+    }
+    return out;
+  };
 
   const getAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
