@@ -166,10 +166,24 @@ export default function IgDm() {
               <Badge variant="secondary" className="ml-1">{conversations.length}</Badge>
             </div>
           </div>
-          <Button onClick={handleRefresh} variant="outline" size="sm" disabled={refreshing}>
-            {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            <span className="ml-2">Refresh</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <select
+              value={profile}
+              onChange={(e) => setProfile(e.target.value)}
+              className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+              title="Upload-Post profile"
+            >
+              {(profiles.length ? profiles : [{ username: profile, instagram: null }]).map((p) => (
+                <option key={p.username} value={p.username}>
+                  {p.username}{p.instagram ? ` (@${p.instagram})` : ''}
+                </option>
+              ))}
+            </select>
+            <Button onClick={handleRefresh} variant="outline" size="sm" disabled={refreshing}>
+              {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <span className="ml-2">Refresh</span>
+            </Button>
+          </div>
         </div>
       </header>
 
