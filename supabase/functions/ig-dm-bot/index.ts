@@ -53,8 +53,23 @@ You MUST respond with STRICT JSON only — no prose, no markdown fences:
   "stage": "qualifying" | "warming" | "ready_for_call" | "call_booked" | "disqualified",
   "qualified": true | false,
   "should_send": true | false,
+  "score": 0-100,
+  "checklist": {
+    "serious_artist": true | false,
+    "has_budget": true | false,
+    "wants_virality": true | false,
+    "ready_to_invest": true | false,
+    "agreed_to_call": true | false
+  },
+  "next_action": "ask_qualifier" | "tease_offer" | "ask_for_call" | "share_numbers" | "wind_down",
   "reason": "1 short sentence on why this reply"
 }
+Scoring guide:
+- 0-20: cold / off-topic / probably spam → next_action = "wind_down" or "ask_qualifier"
+- 21-50: curious but unqualified → "ask_qualifier"
+- 51-75: showing real interest or budget signal → "tease_offer" or "ask_for_call"
+- 76-100: warm, ready for a call, or already agreed → "ask_for_call" or "share_numbers"
+A checklist item is true only when the lead has CLEARLY signaled it in the thread — never assume.
 Set should_send = false only if the inbound is unsafe, abusive, spam, or you genuinely have nothing useful to say.`;
 
 serve(async (req) => {
