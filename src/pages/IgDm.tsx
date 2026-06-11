@@ -99,6 +99,7 @@ export default function IgDm() {
   const [analyses, setAnalyses] = useState<Record<string, Analysis>>({});
   const [editing, setEditing] = useState(false);
   const handledRef = useRef<Record<string, string>>({});
+  const openedRef = useRef<Record<string, boolean>>({});
   // Conflict resolution: tracks local in-flight edits per conversation so that
   // realtime echoes from other devices don't clobber unsaved local changes.
   // Map<conversation_id, Map<field, expiresAtMs>>
