@@ -31,10 +31,15 @@ type Conversation = {
 };
 
 const FN_URL = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/ig-dm-fetch`;
+const BOT_URL = `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/ig-dm-bot`;
 
 type Profile = { username: string; instagram: string | null };
 
 const PROFILE_STORAGE_KEY = 'ig-dm:selected-profile';
+const AUTO_BOT_KEY = 'ig-dm:auto-bot';            // global enable
+const AUTO_BOT_THREADS_KEY = 'ig-dm:auto-threads'; // per-conversation opt-in
+const HANDLED_MSGS_KEY = 'ig-dm:handled-msgs';     // dedupe last inbound id per conv
+const POLL_MS = 30_000;
 
 export default function IgDm() {
   const [loading, setLoading] = useState(true);
