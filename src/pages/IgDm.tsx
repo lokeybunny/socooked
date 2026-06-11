@@ -79,9 +79,6 @@ export default function IgDm() {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
   }, []);
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
-  }, []);
 
   const loadProfiles = useCallback(async () => {
     try {
