@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Send, Instagram, Loader2, MessageSquare, Bot, Sparkles } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Send, Instagram, Loader2, MessageSquare, Bot, Sparkles, Gauge, CheckCircle2, Circle, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -39,7 +39,30 @@ const PROFILE_STORAGE_KEY = 'ig-dm:selected-profile';
 const AUTO_BOT_KEY = 'ig-dm:auto-bot';            // global enable
 const AUTO_BOT_THREADS_KEY = 'ig-dm:auto-threads'; // per-conversation opt-in
 const HANDLED_MSGS_KEY = 'ig-dm:handled-msgs';     // dedupe last inbound id per conv
+const ANALYSES_KEY = 'ig-dm:analyses';              // cached bot analysis per conv
 const POLL_MS = 30_000;
+
+type ChecklistItem = 'serious_artist' | 'has_budget' | 'wants_virality' | 'ready_to_invest' | 'agreed_to_call';
+const CHECKLIST_LABELS: Record<ChecklistItem, string> = {
+  serious_artist: 'Serious artist',
+  has_budget: 'Has budget',
+  wants_virality: 'Wants virality',
+  ready_to_invest: 'Ready to invest',
+  agreed_to_call: 'Agreed to call',
+};
+
+type BotAnalysis = {
+  reply: string;
+  stage: string;
+  qualified: boolean;
+  should_send: boolean;
+  score: number;
+  checklist: Record<ChecklistItem, boolean>;
+  next_action: string;
+  reason: string;
+  at: number;
+  basis_msg_id?: string | null;
+};
 
 export default function IgDm() {
   const [loading, setLoading] = useState(true);
@@ -64,6 +87,10 @@ export default function IgDm() {
   });
   const [generating, setGenerating] = useState(false);
   const [botBusy, setBotBusy] = useState<Record<string, boolean>>({});
+  const [analyses, setAnalyses] = useState<Record<string, BotAnalysis>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(ANALYSES_KEY) || '{}'); } catch { return {}; }
+  });
   const handledRef = useRef<Record<string, string>>(
     (() => {
       if (typeof window === 'undefined') return {};
@@ -74,6 +101,14 @@ export default function IgDm() {
   const persistHandled = () => {
     try { localStorage.setItem(HANDLED_MSGS_KEY, JSON.stringify(handledRef.current)); } catch {}
   };
+
+  const saveAnalysis = useCallback((convId: string, a: BotAnalysis) => {
+    setAnalyses((prev) => {
+      const next = { ...prev, [convId]: a };
+      try { localStorage.setItem(ANALYSES_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   const getAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -194,8 +229,23 @@ export default function IgDm() {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Bot failed');
-    return json as { reply: string; stage: string; qualified: boolean; should_send: boolean; reason: string };
-  }, [getAuth]);
+    const out = json as Omit<BotAnalysis, 'at' | 'basis_msg_id'>;
+    const analysis: BotAnalysis = {
+      ...out,
+      checklist: {
+        serious_artist: !!out.checklist?.serious_artist,
+        has_budget: !!out.checklist?.has_budget,
+        wants_virality: !!out.checklist?.wants_virality,
+        ready_to_invest: !!out.checklist?.ready_to_invest,
+        agreed_to_call: !!out.checklist?.agreed_to_call,
+      },
+      score: Number(out.score) || 0,
+      at: Date.now(),
+      basis_msg_id: conv.last_message?.id || null,
+    };
+    saveAnalysis(conv.conversation_id, analysis);
+    return analysis;
+  }, [getAuth, saveAnalysis]);
 
   const handleGenerate = async () => {
     if (!active) return;
@@ -204,14 +254,28 @@ export default function IgDm() {
       const out = await askBot(active);
       if (out.reply) {
         setReply(out.reply);
-        toast.success(`AI suggestion (${out.stage})`);
+        toast.success(`AI suggestion · score ${out.score}/100 · ${out.stage}`);
       } else {
-        toast.message('Bot chose not to reply', { description: out.reason || '' });
+        toast.message(`Bot chose not to reply (score ${out.score})`, { description: out.reason || '' });
       }
     } catch (e: any) {
       toast.error(e?.message || 'Bot failed');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const [scoring, setScoring] = useState(false);
+  const handleScore = async () => {
+    if (!active) return;
+    setScoring(true);
+    try {
+      const out = await askBot(active);
+      toast.success(`Score: ${out.score}/100 · ${out.stage}`, { description: out.reason });
+    } catch (e: any) {
+      toast.error(e?.message || 'Score failed');
+    } finally {
+      setScoring(false);
     }
   };
 
@@ -285,6 +349,15 @@ export default function IgDm() {
     } catch { return ''; }
   };
 
+  const scoreColor = (s: number) =>
+    s >= 76 ? 'bg-green-500/15 text-green-500 border-green-500/30'
+    : s >= 51 ? 'bg-yellow-500/15 text-yellow-500 border-yellow-500/30'
+    : s >= 21 ? 'bg-orange-500/15 text-orange-500 border-orange-500/30'
+    : 'bg-muted text-muted-foreground border-border';
+
+  const activeAnalysis = active ? analyses[active.conversation_id] : null;
+
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border/50 bg-background/80 backdrop-blur sticky top-0 z-10">
@@ -347,6 +420,7 @@ export default function IgDm() {
               <ul>
                 {filtered.map((c) => {
                   const isActive = c.conversation_id === activeId;
+                  const a = analyses[c.conversation_id];
                   return (
                     <li key={c.conversation_id}>
                       <button
@@ -358,9 +432,22 @@ export default function IgDm() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium truncate">@{c.other_username}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {fmtTime(c.updated_time)}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {a && (
+                              <span className={cn(
+                                'text-[10px] font-semibold px-1.5 py-0.5 rounded border tabular-nums',
+                                scoreColor(a.score)
+                              )}>
+                                {a.score}
+                              </span>
+                            )}
+                            {a?.checklist?.agreed_to_call && (
+                              <PhoneCall className="w-3 h-3 text-green-500" />
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              {fmtTime(c.updated_time)}
+                            </span>
+                          </div>
                         </div>
                         <div className="text-xs text-muted-foreground truncate mt-0.5">
                           {c.last_message?.direction === 'outbound' ? 'You: ' : ''}
@@ -410,6 +497,71 @@ export default function IgDm() {
                   </a>
                 </div>
               </div>
+
+              {/* Qualification panel */}
+              <div className="px-4 py-3 border-b border-border/50 bg-muted/20">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">Qualification</span>
+                    {activeAnalysis ? (
+                      <>
+                        <span className={cn(
+                          'text-xs font-semibold px-2 py-0.5 rounded border tabular-nums',
+                          scoreColor(activeAnalysis.score)
+                        )}>
+                          {activeAnalysis.score}/100
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {activeAnalysis.stage.replace(/_/g, ' ')}
+                        </span>
+                        {activeAnalysis.score >= 76 && (
+                          <span className="flex items-center gap-1 text-[10px] font-semibold text-green-500">
+                            <PhoneCall className="w-3 h-3" /> push for call
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">Not scored yet</span>
+                    )}
+                  </div>
+                  <Button
+                    onClick={handleScore}
+                    variant="ghost"
+                    size="sm"
+                    disabled={scoring || generating}
+                    className="h-7 px-2 text-xs"
+                  >
+                    {scoring ? <Loader2 className="w-3 h-3 animate-spin" /> : <Gauge className="w-3 h-3" />}
+                    <span className="ml-1.5">{activeAnalysis ? 'Re-score' : 'Score'}</span>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                  {(Object.keys(CHECKLIST_LABELS) as ChecklistItem[]).map((k) => {
+                    const ok = !!activeAnalysis?.checklist?.[k];
+                    return (
+                      <div
+                        key={k}
+                        className={cn(
+                          'flex items-center gap-1.5 text-[11px] px-2 py-1 rounded border',
+                          ok
+                            ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                            : 'bg-background border-border text-muted-foreground'
+                        )}
+                      >
+                        {ok ? <CheckCircle2 className="w-3 h-3" /> : <Circle className="w-3 h-3" />}
+                        <span className="truncate">{CHECKLIST_LABELS[k]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {activeAnalysis?.reason && (
+                  <div className="text-[11px] text-muted-foreground mt-2 italic">
+                    {activeAnalysis.reason}
+                  </div>
+                )}
+              </div>
+
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-2">
                   {active.messages.map((m) => (
