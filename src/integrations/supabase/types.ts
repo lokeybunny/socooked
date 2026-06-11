@@ -2893,6 +2893,96 @@ export type Database = {
         }
         Relationships: []
       }
+      ig_dm_analyses: {
+        Row: {
+          auto_reply: boolean
+          basis_msg_id: string | null
+          bot_at: string | null
+          checklist: Json
+          conversation_id: string
+          created_at: string
+          evidence: Json
+          id: string
+          manual_override: Json
+          next_action: string | null
+          other_username: string | null
+          profile: string | null
+          qualified: boolean
+          reason: string | null
+          reply: string | null
+          score: number
+          stage: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_reply?: boolean
+          basis_msg_id?: string | null
+          bot_at?: string | null
+          checklist?: Json
+          conversation_id: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          manual_override?: Json
+          next_action?: string | null
+          other_username?: string | null
+          profile?: string | null
+          qualified?: boolean
+          reason?: string | null
+          reply?: string | null
+          score?: number
+          stage?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          auto_reply?: boolean
+          basis_msg_id?: string | null
+          bot_at?: string | null
+          checklist?: Json
+          conversation_id?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          manual_override?: Json
+          next_action?: string | null
+          other_username?: string | null
+          profile?: string | null
+          qualified?: boolean
+          reason?: string | null
+          reply?: string | null
+          score?: number
+          stage?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ig_dm_user_settings: {
+        Row: {
+          auto_bot: boolean
+          created_at: string
+          selected_profile: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_bot?: boolean
+          created_at?: string
+          selected_profile?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          auto_bot?: boolean
+          created_at?: string
+          selected_profile?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       interactions: {
         Row: {
           created_by: string | null
