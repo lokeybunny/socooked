@@ -71,9 +71,19 @@ serve(async (req) => {
         headers: { Authorization: `Apikey ${apiKey}` },
         body: form,
       });
-      const sendData = await sendRes.json().catch(() => ({}));
-      return new Response(JSON.stringify(sendData), {
-        status: sendRes.ok ? 200 : 500,
+      const sendText = await sendRes.text();
+      let sendData: any = {};
+      try { sendData = JSON.parse(sendText); } catch { sendData = { raw: sendText }; }
+      const ok = sendRes.ok && sendData?.success !== false;
+      if (!ok) {
+        const msg = sendData?.error?.message || sendData?.error || sendData?.message || sendText || "Upload-Post send failed";
+        return new Response(
+          JSON.stringify({ success: false, error: String(msg), upstream_status: sendRes.status }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      return new Response(JSON.stringify({ success: true, ...sendData }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

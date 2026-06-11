@@ -387,8 +387,11 @@ export default function IgDm() {
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({ recipient_id: conv.other_id, message }),
     });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json?.error?.message || json?.error || 'Send failed');
+    const json = await res.json().catch(() => ({} as any));
+    if (!res.ok || json?.success === false) {
+      const msg = json?.error?.message || json?.error || json?.message || `Send failed (${res.status})`;
+      throw new Error(String(msg));
+    }
     return true;
   }, [getAuth, profile]);
 
