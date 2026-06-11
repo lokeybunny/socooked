@@ -133,6 +133,32 @@ export default function IgDm() {
         }
         setAnalyses(map);
       }
+
+      // Realtime sync across devices
+      const channel = supabase
+        .channel('ig_dm_analyses_rt')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'ig_dm_analyses', filter: `user_id=eq.${user.id}` },
+          (payload: any) => {
+            if (payload.eventType === 'DELETE') {
+              const oldConv = payload.old?.conversation_id;
+              if (!oldConv) return;
+              setAnalyses((prev) => {
+                const next = { ...prev };
+                delete next[oldConv];
+                return next;
+              });
+              return;
+            }
+            const row = payload.new;
+            if (!row?.conversation_id) return;
+            setAnalyses((prev) => ({ ...prev, [row.conversation_id]: rowToAnalysis(row) }));
+          }
+        )
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     })();
   }, []);
 
