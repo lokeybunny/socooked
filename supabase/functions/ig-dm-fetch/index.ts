@@ -92,7 +92,20 @@ serve(async (req) => {
     }
 
     const conversations: any[] = convData.conversations || convData || [];
-    const myUsername = "unc_86";
+    // Detect "me" username by finding the participant that appears in every conversation.
+    const countMap: Record<string, number> = {};
+    for (const conv of conversations) {
+      const parts = conv.participants?.data || [];
+      const seen = new Set<string>();
+      for (const p of parts) {
+        const u = String(p?.username || '').toLowerCase();
+        if (u && !seen.has(u)) { seen.add(u); countMap[u] = (countMap[u] || 0) + 1; }
+      }
+    }
+    const meParam = (url.searchParams.get("me") || "").toLowerCase();
+    const myUsername = meParam
+      || Object.entries(countMap).sort((a, b) => b[1] - a[1])[0]?.[0]
+      || "unc_86";
 
     const normalized = conversations.map((conv: any) => {
       const participants = conv.participants?.data || [];
