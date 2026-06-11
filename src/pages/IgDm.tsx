@@ -345,13 +345,14 @@ export default function IgDm() {
   const handleRefresh = () => { setRefreshing(true); load(profile); };
 
   // ============ Bot calls ============
-  const askBot = useCallback(async (conv: Conversation) => {
+  const askBot = useCallback(async (conv: Conversation, mode: 'reply' | 'opener' = 'reply') => {
     const headers = await getAuth();
     const res = await fetch(BOT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({
         other_username: conv.other_username,
+        mode,
         messages: conv.messages.map((m) => ({
           id: m.id, direction: m.direction, text: m.text, created_time: m.created_time,
         })),
