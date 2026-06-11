@@ -420,6 +420,7 @@ export default function IgDm() {
               <ul>
                 {filtered.map((c) => {
                   const isActive = c.conversation_id === activeId;
+                  const a = analyses[c.conversation_id];
                   return (
                     <li key={c.conversation_id}>
                       <button
@@ -431,9 +432,22 @@ export default function IgDm() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium truncate">@{c.other_username}</span>
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {fmtTime(c.updated_time)}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {a && (
+                              <span className={cn(
+                                'text-[10px] font-semibold px-1.5 py-0.5 rounded border tabular-nums',
+                                scoreColor(a.score)
+                              )}>
+                                {a.score}
+                              </span>
+                            )}
+                            {a?.checklist?.agreed_to_call && (
+                              <PhoneCall className="w-3 h-3 text-green-500" />
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              {fmtTime(c.updated_time)}
+                            </span>
+                          </div>
                         </div>
                         <div className="text-xs text-muted-foreground truncate mt-0.5">
                           {c.last_message?.direction === 'outbound' ? 'You: ' : ''}
