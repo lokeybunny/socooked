@@ -127,11 +127,12 @@ serve(async (req) => {
         role: "user",
         content:
           `Instagram DM thread with @${other_username || "lead"}.\n` +
-          `Transcript (oldest → newest):\n` +
+          `Transcript (oldest → newest). Each line is "ROLE [id=<id>]: text":\n` +
           recent
-            .map((m) => `${m.direction === "inbound" ? "LEAD" : "ME"}: ${m.text || "(no text)"}`)
+            .map((m: any) => `${m.direction === "inbound" ? "LEAD" : "ME"} [id=${m.id || "n/a"}]: ${m.text || "(no text)"}`)
             .join("\n") +
-          `\n\nGenerate the next reply as the strict JSON described in the system prompt.`,
+          `\n\nGenerate the next reply as the strict JSON described in the system prompt. ` +
+          `For every TRUE checklist item include evidence entries citing the exact id from the transcript.`,
       },
     ];
 
