@@ -99,41 +99,56 @@ serve(async (req) => {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const body = await req.json().catch(() => ({}));
-    const { messages, other_username } = body as {
-      messages: Array<{ direction: "inbound" | "outbound"; text: string; created_time?: string | null }>;
+    const { messages, other_username, mode } = body as {
+      messages: Array<{ id?: string; direction: "inbound" | "outbound"; text: string; created_time?: string | null }>;
       other_username?: string;
+      mode?: "reply" | "opener";
     };
 
-    if (!Array.isArray(messages) || messages.length === 0) {
+    if (!Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const isOpener = mode === "opener";
+
     // Build transcript for the model
     const recent = messages.slice(-30);
     const lastInbound = [...recent].reverse().find((m) => m.direction === "inbound");
-    if (!lastInbound) {
+    if (!isOpener && !lastInbound) {
       return new Response(
         JSON.stringify({ reply: "", stage: "qualifying", qualified: false, should_send: false, reason: "no inbound message" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const transcriptText = recent.length
+      ? recent
+          .map((m: any) => `${m.direction === "inbound" ? "LEAD" : "ME"} [id=${m.id || "n/a"}]: ${m.text || "(no text)"}`)
+          .join("\n")
+      : "(no prior messages)";
+
+    const userContent = isOpener
+      ? `Instagram DM thread with @${other_username || "lead"}.\n` +
+        `Transcript (oldest → newest). Each line is "ROLE [id=<id>]: text":\n` +
+        transcriptText +
+        `\n\nThis is a COLD OPENER. The lead has not replied yet (or we're re-engaging after silence). ` +
+        `Write a casual, low-pressure first message (1–2 short sentences, lowercase ok, no emojis, no links, no pitch) ` +
+        `that sounds like a real person checking in — e.g. "hey, just wanted to check in with you" style. ` +
+        `Do NOT mention services, prices, or the offer yet — just open the conversation. ` +
+        `Return the strict JSON described in the system prompt. Set should_send = true, stage = "qualifying", ` +
+        `next_action = "ask_qualifier", and leave checklist items false with empty evidence arrays.`
+      : `Instagram DM thread with @${other_username || "lead"}.\n` +
+        `Transcript (oldest → newest). Each line is "ROLE [id=<id>]: text":\n` +
+        transcriptText +
+        `\n\nGenerate the next reply as the strict JSON described in the system prompt. ` +
+        `For every TRUE checklist item include evidence entries citing the exact id from the transcript.`;
+
     const chatMessages = [
       { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content:
-          `Instagram DM thread with @${other_username || "lead"}.\n` +
-          `Transcript (oldest → newest). Each line is "ROLE [id=<id>]: text":\n` +
-          recent
-            .map((m: any) => `${m.direction === "inbound" ? "LEAD" : "ME"} [id=${m.id || "n/a"}]: ${m.text || "(no text)"}`)
-            .join("\n") +
-          `\n\nGenerate the next reply as the strict JSON described in the system prompt. ` +
-          `For every TRUE checklist item include evidence entries citing the exact id from the transcript.`,
-      },
+      { role: "user", content: userContent },
     ];
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
