@@ -39,7 +39,30 @@ const PROFILE_STORAGE_KEY = 'ig-dm:selected-profile';
 const AUTO_BOT_KEY = 'ig-dm:auto-bot';            // global enable
 const AUTO_BOT_THREADS_KEY = 'ig-dm:auto-threads'; // per-conversation opt-in
 const HANDLED_MSGS_KEY = 'ig-dm:handled-msgs';     // dedupe last inbound id per conv
+const ANALYSES_KEY = 'ig-dm:analyses';              // cached bot analysis per conv
 const POLL_MS = 30_000;
+
+type ChecklistItem = 'serious_artist' | 'has_budget' | 'wants_virality' | 'ready_to_invest' | 'agreed_to_call';
+const CHECKLIST_LABELS: Record<ChecklistItem, string> = {
+  serious_artist: 'Serious artist',
+  has_budget: 'Has budget',
+  wants_virality: 'Wants virality',
+  ready_to_invest: 'Ready to invest',
+  agreed_to_call: 'Agreed to call',
+};
+
+type BotAnalysis = {
+  reply: string;
+  stage: string;
+  qualified: boolean;
+  should_send: boolean;
+  score: number;
+  checklist: Record<ChecklistItem, boolean>;
+  next_action: string;
+  reason: string;
+  at: number;
+  basis_msg_id?: string | null;
+};
 
 export default function IgDm() {
   const [loading, setLoading] = useState(true);
