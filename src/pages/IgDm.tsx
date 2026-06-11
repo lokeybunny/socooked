@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Send, Instagram, Loader2, MessageSquare, Bot, Sparkles } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Send, Instagram, Loader2, MessageSquare, Bot, Sparkles, Gauge, CheckCircle2, Circle, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
