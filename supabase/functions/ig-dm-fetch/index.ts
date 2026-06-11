@@ -20,7 +20,34 @@ serve(async (req) => {
     if (!apiKey) throw new Error("UPLOAD_POST_API_KEY not configured");
 
     const url = new URL(req.url);
+    const action = url.searchParams.get("action");
     const user = url.searchParams.get("user") || "unc86";
+
+    // List available Upload-Post profiles
+    if (req.method === "GET" && action === "profiles") {
+      const pRes = await fetch(`${API_BASE}/uploadposts/users`, {
+        headers: { Authorization: `Apikey ${apiKey}` },
+      });
+      const pText = await pRes.text();
+      if (!pRes.ok) {
+        return new Response(JSON.stringify({ error: pText }), {
+          status: pRes.status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const parsed = JSON.parse(pText);
+      const raw = Array.isArray(parsed) ? parsed
+        : Array.isArray(parsed?.profiles) ? parsed.profiles
+        : Array.isArray(parsed?.users) ? parsed.users
+        : [];
+      const profiles = raw.map((p: any) => ({
+        username: String(p?.username || p?.user || "").trim(),
+        instagram: p?.social_accounts?.instagram?.username || p?.instagram?.username || null,
+      })).filter((p: any) => p.username);
+      return new Response(JSON.stringify({ success: true, profiles }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // POST = send reply
     if (req.method === "POST") {
