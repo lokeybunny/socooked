@@ -176,6 +176,17 @@ serve(async (req) => {
     }
 
     const cl = parsed.checklist || {};
+    const ev = parsed.evidence || {};
+    const cleanEvidence = (k: string) => {
+      const list = Array.isArray(ev[k]) ? ev[k] : [];
+      return list
+        .filter((e: any) => e && (e.message_id || e.quote))
+        .slice(0, 3)
+        .map((e: any) => ({
+          message_id: String(e.message_id || "").trim() || null,
+          quote: String(e.quote || "").trim().slice(0, 160),
+        }));
+    };
     const scoreNum = Number(parsed.score);
     const out = {
       reply: String(parsed.reply || "").trim(),
@@ -189,6 +200,13 @@ serve(async (req) => {
         wants_virality: !!cl.wants_virality,
         ready_to_invest: !!cl.ready_to_invest,
         agreed_to_call: !!cl.agreed_to_call,
+      },
+      evidence: {
+        serious_artist: cleanEvidence("serious_artist"),
+        has_budget: cleanEvidence("has_budget"),
+        wants_virality: cleanEvidence("wants_virality"),
+        ready_to_invest: cleanEvidence("ready_to_invest"),
+        agreed_to_call: cleanEvidence("agreed_to_call"),
       },
       next_action: parsed.next_action || "ask_qualifier",
       reason: parsed.reason || "",
