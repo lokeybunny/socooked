@@ -87,6 +87,10 @@ export default function IgDm() {
   });
   const [generating, setGenerating] = useState(false);
   const [botBusy, setBotBusy] = useState<Record<string, boolean>>({});
+  const [analyses, setAnalyses] = useState<Record<string, BotAnalysis>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem(ANALYSES_KEY) || '{}'); } catch { return {}; }
+  });
   const handledRef = useRef<Record<string, string>>(
     (() => {
       if (typeof window === 'undefined') return {};
@@ -97,6 +101,14 @@ export default function IgDm() {
   const persistHandled = () => {
     try { localStorage.setItem(HANDLED_MSGS_KEY, JSON.stringify(handledRef.current)); } catch {}
   };
+
+  const saveAnalysis = useCallback((convId: string, a: BotAnalysis) => {
+    setAnalyses((prev) => {
+      const next = { ...prev, [convId]: a };
+      try { localStorage.setItem(ANALYSES_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   const getAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
