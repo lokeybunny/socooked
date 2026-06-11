@@ -110,11 +110,11 @@ serve(async (req) => {
     const normalized = conversations.map((conv: any) => {
       const participants = conv.participants?.data || [];
       const messages = conv.messages?.data || [];
-      const other = participants.find((p: any) => p.username !== myUsername) || participants[0] || {};
+      const other = participants.find((p: any) => String(p.username || '').toLowerCase() !== myUsername) || participants[0] || {};
 
       const msgs = messages.map((m: any) => {
         const fromUsername = m.from?.username || "";
-        const isInbound = fromUsername !== myUsername;
+        const isInbound = fromUsername.toLowerCase() !== myUsername;
         const att = m.attachments?.data?.[0];
         const attachmentUrl =
           att?.url ||
