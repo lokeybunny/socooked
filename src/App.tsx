@@ -234,6 +234,7 @@ const App = () => (
                 <Route path="/zillow" element={<WarrenOnlyGate><AuthLayoutGate><Zillow /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/autor" element={<AutoRAccessGate><AutoR /></AutoRAccessGate>} />
                 <Route path="/autor/live/:jobId" element={<AutoRAccessGate><AutoRLive /></AutoRAccessGate>} />
+                <Route path="/call-me" element={<AutoCall />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
