@@ -96,6 +96,7 @@ const Zillow = lazyWithRetry(() => import("./pages/Zillow"), "page-zillow");
 const BundlerAcademy = lazyWithRetry(() => import("./pages/BundlerAcademy"), "page-bundler-academy");
 const AutoR = lazyWithRetry(() => import("./pages/AutoR"), "page-autor");
 const AutoRLive = lazyWithRetry(() => import("./pages/AutoRLive"), "page-autor-live");
+const AutoCall = lazyWithRetry(() => import("./pages/AutoCall"), "page-auto-call");
 
 const queryClient = new QueryClient({
   defaultOptions: {
