@@ -96,6 +96,7 @@ const Zillow = lazyWithRetry(() => import("./pages/Zillow"), "page-zillow");
 const BundlerAcademy = lazyWithRetry(() => import("./pages/BundlerAcademy"), "page-bundler-academy");
 const AutoR = lazyWithRetry(() => import("./pages/AutoR"), "page-autor");
 const AutoRLive = lazyWithRetry(() => import("./pages/AutoRLive"), "page-autor-live");
+const AutoCall = lazyWithRetry(() => import("./pages/AutoCall"), "page-auto-call");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -233,6 +234,7 @@ const App = () => (
                 <Route path="/zillow" element={<WarrenOnlyGate><AuthLayoutGate><Zillow /></AuthLayoutGate></WarrenOnlyGate>} />
                 <Route path="/autor" element={<AutoRAccessGate><AutoR /></AutoRAccessGate>} />
                 <Route path="/autor/live/:jobId" element={<AutoRAccessGate><AutoRLive /></AutoRAccessGate>} />
+                <Route path="/call-me" element={<AutoCall />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
