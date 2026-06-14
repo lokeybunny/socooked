@@ -318,33 +318,33 @@ export default function ReelsUpload() {
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-3">
-          <Link to="/dashboard">
+          <Link to="/dashboard/sm">
             <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Instagram className="h-6 w-6 text-pink-500" /> Reel Upload
+              <PlatformIcon className={`h-6 w-6 ${iconColorClass}`} /> {contentLabel} Upload
             </h1>
-            <p className="text-sm text-muted-foreground">Post or schedule an Instagram reel.</p>
+            <p className="text-sm text-muted-foreground">Post or schedule a {platformLabel} {contentLabel.toLowerCase()}.</p>
           </div>
         </div>
 
         <Card className="p-6 space-y-5">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Instagram Profile</Label>
+              <Label>{platformLabel} Profile</Label>
               <Link to="/dashboard/instagram-profiles" className="text-xs text-primary hover:underline">Manage</Link>
             </div>
-            <Select value={profile} onValueChange={(v) => { setProfile(v); localStorage.setItem('reels.activeProfile', v); }} disabled={loadingProfiles}>
+            <Select value={profile} onValueChange={(v) => { setProfile(v); localStorage.setItem(activeProfileKey, v); }} disabled={loadingProfiles}>
               <SelectTrigger>
                 <SelectValue placeholder={loadingProfiles ? 'Loading…' : 'Select a profile'} />
               </SelectTrigger>
               <SelectContent>
                 {profiles.map(p => {
-                  const ig = p.connected_platforms?.find(cp => cp.platform === 'instagram');
+                  const acct = p.connected_platforms?.find(cp => cp.platform === platform);
                   return (
                     <SelectItem key={p.id} value={p.username}>
-                      {p.username}{ig?.handle ? ` — @${ig.handle}` : ''}
+                      {p.username}{acct?.handle ? ` — @${acct.handle}` : ''}
                     </SelectItem>
                   );
                 })}
@@ -460,18 +460,20 @@ export default function ReelsUpload() {
             )}
           </div>
 
-          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
-            <Checkbox
-              checked={alsoStory}
-              onCheckedChange={(v) => setAlsoStory(!!v)}
-              disabled={uploading}
-              className="mt-0.5"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Also post to Instagram Story</p>
-              <p className="text-xs text-muted-foreground">Shares the same video to your Story in a separate upload.</p>
-            </div>
-          </label>
+          {!isTikTok && (
+            <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
+              <Checkbox
+                checked={alsoStory}
+                onCheckedChange={(v) => setAlsoStory(!!v)}
+                disabled={uploading}
+                className="mt-0.5"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Also post to Instagram Story</p>
+                <p className="text-xs text-muted-foreground">Shares the same video to your Story in a separate upload.</p>
+              </div>
+            </label>
+          )}
 
           {uploading && (
             <div className="space-y-2">
@@ -483,7 +485,7 @@ export default function ReelsUpload() {
           {done && (
             <div className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 border border-green-500/20 rounded-lg p-3">
               <CheckCircle2 className="h-4 w-4" />
-              {done.scheduled ? 'Reel scheduled successfully.' : 'Reel sent to Instagram. It will appear shortly.'}
+              {done.scheduled ? `${contentLabel} scheduled successfully.` : `${contentLabel} sent to ${platformLabel}. It will appear shortly.`}
             </div>
           )}
 
@@ -491,9 +493,9 @@ export default function ReelsUpload() {
             {uploading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading…</>
             ) : scheduledIso ? (
-              <><CalendarIcon className="h-4 w-4 mr-2" /> Schedule Reel</>
+              <><CalendarIcon className="h-4 w-4 mr-2" /> Schedule {contentLabel}</>
             ) : (
-              <><Upload className="h-4 w-4 mr-2" /> Post Reel Now</>
+              <><Upload className="h-4 w-4 mr-2" /> Post {contentLabel} Now</>
             )}
           </Button>
         </Card>
