@@ -48,7 +48,7 @@ export default function SMChooser() {
             </Card>
           </Link>
 
-          <Link to="/dashboard/smm?tab=composer&platform=tiktok" className="group">
+          <Link to="/dashboard/reels?platform=tiktok" className="group">
             <Card className="p-8 h-full hover:border-foreground/60 hover:bg-muted/30 transition-all cursor-pointer">
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="h-20 w-20 rounded-2xl bg-foreground text-background flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">

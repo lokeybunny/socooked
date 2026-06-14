@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Calendar as CalendarIcon, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Upload, Calendar as CalendarIcon, Loader2, CheckCircle2, Instagram, Music2, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,15 @@ import { supabase } from '@/integrations/supabase/client';
 import VideoPoster from '@/components/ui/VideoPoster';
 
 export default function ReelsUpload() {
+  const [searchParams] = useSearchParams();
+  const platform = (searchParams.get('platform') === 'tiktok' ? 'tiktok' : 'instagram') as 'instagram' | 'tiktok';
+  const isTikTok = platform === 'tiktok';
+  const platformLabel = isTikTok ? 'TikTok' : 'Instagram';
+  const contentLabel = isTikTok ? 'Video' : 'Reel';
+  const activeProfileKey = isTikTok ? 'tiktok.activeProfile' : 'reels.activeProfile';
+  const PlatformIcon = isTikTok ? Music2 : Instagram;
+  const iconColorClass = isTikTok ? 'text-foreground' : 'text-pink-500';
+
   const [profiles, setProfiles] = useState<SMMProfile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [profile, setProfile] = useState('');
@@ -65,18 +74,18 @@ export default function ReelsUpload() {
   const profilePosts = useMemo(() => {
     if (!profile) return [];
     return allPosts
-      .filter(p => p.profile_username === profile && p.platforms.includes('instagram'))
+      .filter(p => p.profile_username === profile && p.platforms.includes(platform))
       .filter(p => p.status === 'scheduled' || p.status === 'queued' || p.status === 'pending')
       .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
-  }, [allPosts, profile]);
+  }, [allPosts, profile, platform]);
 
   const postedPosts = useMemo(() => {
     if (!profile) return [];
     return allPosts
-      .filter(p => p.profile_username === profile && p.platforms.includes('instagram'))
+      .filter(p => p.profile_username === profile && p.platforms.includes(platform))
       .filter(p => p.status === 'completed' || !!p.published_at || p.post_urls.length > 0)
       .sort((a, b) => (b.published_at || b.created_at).localeCompare(a.published_at || a.created_at));
-  }, [allPosts, profile]);
+  }, [allPosts, profile, platform]);
 
   async function handleCancel(post: ScheduledPost) {
     if (!post.job_id) return;
@@ -185,22 +194,24 @@ export default function ReelsUpload() {
 
   useEffect(() => {
     let mounted = true;
+    setLoadingProfiles(true);
+    setProfile('');
     smmApi.getProfiles().then(list => {
       if (!mounted) return;
-      const igProfiles = list.filter(p =>
-        p.connected_platforms?.some(cp => cp.platform === 'instagram' && cp.connected),
+      const platformProfiles = list.filter(p =>
+        p.connected_platforms?.some(cp => cp.platform === platform && cp.connected),
       );
-      const usable = igProfiles.length ? igProfiles : list;
+      const usable = platformProfiles.length ? platformProfiles : list;
       setProfiles(usable);
-      const saved = localStorage.getItem('reels.activeProfile') || '';
+      const saved = localStorage.getItem(activeProfileKey) || '';
       if (saved && usable.some(p => p.username === saved)) setProfile(saved);
       else if (usable[0]?.username) setProfile(usable[0].username);
     }).catch(e => {
       console.error(e);
-      toast.error('Failed to load Instagram profiles');
+      toast.error(`Failed to load ${platformLabel} profiles`);
     }).finally(() => mounted && setLoadingProfiles(false));
     return () => { mounted = false; };
-  }, []);
+  }, [platform, activeProfileKey, platformLabel]);
 
   const videoPreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => () => { if (videoPreview) URL.revokeObjectURL(videoPreview); }, [videoPreview]);
@@ -258,16 +269,16 @@ export default function ReelsUpload() {
       await smmApi.createPost({
         user: profile,
         type: 'video',
-        platforms: ['instagram'],
+        platforms: [platform],
         title: caption || ' ',
         description: caption,
         media_url: mediaUrl,
         scheduled_date: effectiveScheduledIso,
-        ig_post_type: 'reels',
+        ...(isTikTok ? {} : { ig_post_type: 'reels' }),
       });
 
-      // Optionally also share to Instagram Story (separate upload required by Upload-Post)
-      if (alsoStory) {
+      // Optionally also share to Instagram Story (IG only)
+      if (!isTikTok && alsoStory) {
         try {
           await smmApi.createPost({
             user: profile,
@@ -287,7 +298,7 @@ export default function ReelsUpload() {
 
       setProgress(100);
       setDone({ scheduled: !!effectiveScheduledIso });
-      toast.success(effectiveScheduledIso ? 'Reel scheduled' : 'Reel uploading to Instagram');
+      toast.success(effectiveScheduledIso ? `${contentLabel} scheduled` : `${contentLabel} uploading to ${platformLabel}`);
       // Reset
       setFile(null);
       setCaption('');
@@ -307,33 +318,33 @@ export default function ReelsUpload() {
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-3">
-          <Link to="/dashboard">
+          <Link to="/dashboard/sm">
             <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
           </Link>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Instagram className="h-6 w-6 text-pink-500" /> Reel Upload
+              <PlatformIcon className={`h-6 w-6 ${iconColorClass}`} /> {contentLabel} Upload
             </h1>
-            <p className="text-sm text-muted-foreground">Post or schedule an Instagram reel.</p>
+            <p className="text-sm text-muted-foreground">Post or schedule a {platformLabel} {contentLabel.toLowerCase()}.</p>
           </div>
         </div>
 
         <Card className="p-6 space-y-5">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Instagram Profile</Label>
+              <Label>{platformLabel} Profile</Label>
               <Link to="/dashboard/instagram-profiles" className="text-xs text-primary hover:underline">Manage</Link>
             </div>
-            <Select value={profile} onValueChange={(v) => { setProfile(v); localStorage.setItem('reels.activeProfile', v); }} disabled={loadingProfiles}>
+            <Select value={profile} onValueChange={(v) => { setProfile(v); localStorage.setItem(activeProfileKey, v); }} disabled={loadingProfiles}>
               <SelectTrigger>
                 <SelectValue placeholder={loadingProfiles ? 'Loading…' : 'Select a profile'} />
               </SelectTrigger>
               <SelectContent>
                 {profiles.map(p => {
-                  const ig = p.connected_platforms?.find(cp => cp.platform === 'instagram');
+                  const acct = p.connected_platforms?.find(cp => cp.platform === platform);
                   return (
                     <SelectItem key={p.id} value={p.username}>
-                      {p.username}{ig?.handle ? ` — @${ig.handle}` : ''}
+                      {p.username}{acct?.handle ? ` — @${acct.handle}` : ''}
                     </SelectItem>
                   );
                 })}
@@ -449,18 +460,20 @@ export default function ReelsUpload() {
             )}
           </div>
 
-          <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
-            <Checkbox
-              checked={alsoStory}
-              onCheckedChange={(v) => setAlsoStory(!!v)}
-              disabled={uploading}
-              className="mt-0.5"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Also post to Instagram Story</p>
-              <p className="text-xs text-muted-foreground">Shares the same video to your Story in a separate upload.</p>
-            </div>
-          </label>
+          {!isTikTok && (
+            <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
+              <Checkbox
+                checked={alsoStory}
+                onCheckedChange={(v) => setAlsoStory(!!v)}
+                disabled={uploading}
+                className="mt-0.5"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Also post to Instagram Story</p>
+                <p className="text-xs text-muted-foreground">Shares the same video to your Story in a separate upload.</p>
+              </div>
+            </label>
+          )}
 
           {uploading && (
             <div className="space-y-2">
@@ -472,7 +485,7 @@ export default function ReelsUpload() {
           {done && (
             <div className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 border border-green-500/20 rounded-lg p-3">
               <CheckCircle2 className="h-4 w-4" />
-              {done.scheduled ? 'Reel scheduled successfully.' : 'Reel sent to Instagram. It will appear shortly.'}
+              {done.scheduled ? `${contentLabel} scheduled successfully.` : `${contentLabel} sent to ${platformLabel}. It will appear shortly.`}
             </div>
           )}
 
@@ -480,9 +493,9 @@ export default function ReelsUpload() {
             {uploading ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Uploading…</>
             ) : scheduledIso ? (
-              <><CalendarIcon className="h-4 w-4 mr-2" /> Schedule Reel</>
+              <><CalendarIcon className="h-4 w-4 mr-2" /> Schedule {contentLabel}</>
             ) : (
-              <><Upload className="h-4 w-4 mr-2" /> Post Reel Now</>
+              <><Upload className="h-4 w-4 mr-2" /> Post {contentLabel} Now</>
             )}
           </Button>
         </Card>
