@@ -26,7 +26,7 @@ const SMMHistory = lazy(() => import('@/components/smm/SMMHistory'));
 const SMMStatus = lazy(() => import('@/components/smm/SMMStatus'));
 const SMMQueue = lazy(() => import('@/components/smm/SMMQueue'));
 const SMMAnalytics = lazy(() => import('@/components/smm/SMMAnalytics'));
-const SMMInstagram = lazy(() => import('@/components/smm/SMMInstagram'));
+const SMMSocialInbox = lazy(() => import('@/components/smm/SMMSocialInbox'));
 const SMMTerminal = lazy(() => import('@/components/smm/SMMTerminal'));
 const SMMSchedule = lazy(() => import('@/components/smm/SMMSchedule'));
 const ArtistCampaignModal = lazy(() => import('@/components/smm/ArtistCampaignModal'));
@@ -44,6 +44,7 @@ const TABS = [
   { value: 'queue', label: 'Queue', icon: ListOrdered },
   { value: 'analytics', label: 'Analytics', icon: BarChart3 },
   { value: 'instagram', label: 'IG Inbox', icon: MessageSquare },
+  { value: 'tiktok', label: 'TikTok Inbox', icon: MessageSquare },
 ];
 
 const UNREAD_COUNTS: Record<string, number> = {};
@@ -284,7 +285,8 @@ function SMMInner() {
                 <TabsContent value="status"><SMMStatus /></TabsContent>
                 <TabsContent value="queue"><SMMQueue profiles={profiles} posts={filtered} /></TabsContent>
                 <TabsContent value="analytics"><SMMAnalytics profiles={profiles} /></TabsContent>
-                <TabsContent value="instagram"><SMMInstagram /></TabsContent>
+                <TabsContent value="instagram"><SMMSocialInbox platform="instagram" /></TabsContent>
+                <TabsContent value="tiktok"><SMMSocialInbox platform="tiktok" /></TabsContent>
               </Suspense>
             </Tabs>
           </div>
