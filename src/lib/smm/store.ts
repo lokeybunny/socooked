@@ -684,6 +684,91 @@ export const smmApi = {
     });
   },
 
+  // ─── TikTok (mirrors IG surface; gracefully empty if backend unavailable) ───
+  async getTikTokMedia(user: string): Promise<IGMedia[]> {
+    try {
+      const data = await invokeSMM('tt-media', { user }).catch(() => invokeSMM('tiktok-media', { user }));
+      const items = data?.media || data?.videos || [];
+      return items.map((m: any) => ({
+        id: m.id || m.video_id || '',
+        media_url: m.cover_image_url || m.thumbnail_url || m.media_url || '',
+        permalink: m.share_url || m.permalink || '',
+        media_type: m.media_type || 'VIDEO',
+        caption: m.caption || m.title || m.video_description || '',
+        timestamp: m.create_time || m.timestamp || '',
+        like_count: m.like_count || 0,
+        comments_count: m.comment_count || m.comments_count || 0,
+      }));
+    } catch (e) {
+      console.error('getTikTokMedia error:', e);
+      return [];
+    }
+  },
+
+  async getTikTokComments(user: string, postId: string): Promise<IGComment[]> {
+    try {
+      const data = await invokeSMM('tt-comments', { user, post_id: postId }).catch(() => invokeSMM('tiktok-comments', { user, post_id: postId }));
+      const items = data?.comments || [];
+      return items.map((c: any) => ({
+        id: c.id || c.comment_id || '',
+        media_id: postId,
+        username: c.user?.username || c.username || 'unknown',
+        text: c.text || '',
+        timestamp: c.timestamp || c.create_time || '',
+      }));
+    } catch (e) {
+      console.error('getTikTokComments error:', e);
+      return [];
+    }
+  },
+
+  async getTikTokConversations(user: string): Promise<IGConversation[]> {
+    try {
+      const data = await invokeSMM('tt-conversations', { user }).catch(() => invokeSMM('tiktok-conversations', { user }));
+      const items = data?.conversations || [];
+      return items.map((c: any, idx: number) => {
+        const messages = c.messages?.data || c.messages || [];
+        const lastMsg = messages[0];
+        return {
+          id: c.id || `tt-conv-${idx}`,
+          participant: c.participant?.username || c.username || 'Unknown',
+          participant_id: c.participant?.id || c.user_id || '',
+          last_message: lastMsg?.message || lastMsg?.text || '',
+          last_timestamp: lastMsg?.created_time || lastMsg?.timestamp || '',
+          unread: c.unread || false,
+          messages: messages.map((m: any) => ({
+            id: m.id,
+            from: m.from?.username || m.from || '',
+            text: m.message || m.text || '',
+            timestamp: m.created_time || m.timestamp || '',
+            attachment_url: m.attachment_url || '',
+          })),
+        };
+      });
+    } catch (e) {
+      console.error('getTikTokConversations error:', e);
+      return [];
+    }
+  },
+
+  async sendTikTokDM(user: string, recipientId: string, message: string): Promise<any> {
+    return invokeSMM('tt-dm-send', undefined, {
+      platform: 'tiktok',
+      user,
+      recipient_id: recipientId,
+      message,
+    });
+  },
+
+  async replyToTikTokComment(user: string, commentId: string, message: string): Promise<any> {
+    return invokeSMM('tt-comment-reply', undefined, {
+      platform: 'tiktok',
+      user,
+      comment_id: commentId,
+      message,
+    });
+  },
+
   // ─── Account Info ───
   async getMe(): Promise<any> {
     return invokeSMM('me');
