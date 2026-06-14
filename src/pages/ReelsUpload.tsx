@@ -74,18 +74,18 @@ export default function ReelsUpload() {
   const profilePosts = useMemo(() => {
     if (!profile) return [];
     return allPosts
-      .filter(p => p.profile_username === profile && p.platforms.includes('instagram'))
+      .filter(p => p.profile_username === profile && p.platforms.includes(platform))
       .filter(p => p.status === 'scheduled' || p.status === 'queued' || p.status === 'pending')
       .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
-  }, [allPosts, profile]);
+  }, [allPosts, profile, platform]);
 
   const postedPosts = useMemo(() => {
     if (!profile) return [];
     return allPosts
-      .filter(p => p.profile_username === profile && p.platforms.includes('instagram'))
+      .filter(p => p.profile_username === profile && p.platforms.includes(platform))
       .filter(p => p.status === 'completed' || !!p.published_at || p.post_urls.length > 0)
       .sort((a, b) => (b.published_at || b.created_at).localeCompare(a.published_at || a.created_at));
-  }, [allPosts, profile]);
+  }, [allPosts, profile, platform]);
 
   async function handleCancel(post: ScheduledPost) {
     if (!post.job_id) return;
@@ -194,22 +194,24 @@ export default function ReelsUpload() {
 
   useEffect(() => {
     let mounted = true;
+    setLoadingProfiles(true);
+    setProfile('');
     smmApi.getProfiles().then(list => {
       if (!mounted) return;
-      const igProfiles = list.filter(p =>
-        p.connected_platforms?.some(cp => cp.platform === 'instagram' && cp.connected),
+      const platformProfiles = list.filter(p =>
+        p.connected_platforms?.some(cp => cp.platform === platform && cp.connected),
       );
-      const usable = igProfiles.length ? igProfiles : list;
+      const usable = platformProfiles.length ? platformProfiles : list;
       setProfiles(usable);
-      const saved = localStorage.getItem('reels.activeProfile') || '';
+      const saved = localStorage.getItem(activeProfileKey) || '';
       if (saved && usable.some(p => p.username === saved)) setProfile(saved);
       else if (usable[0]?.username) setProfile(usable[0].username);
     }).catch(e => {
       console.error(e);
-      toast.error('Failed to load Instagram profiles');
+      toast.error(`Failed to load ${platformLabel} profiles`);
     }).finally(() => mounted && setLoadingProfiles(false));
     return () => { mounted = false; };
-  }, []);
+  }, [platform, activeProfileKey, platformLabel]);
 
   const videoPreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => () => { if (videoPreview) URL.revokeObjectURL(videoPreview); }, [videoPreview]);
@@ -267,16 +269,16 @@ export default function ReelsUpload() {
       await smmApi.createPost({
         user: profile,
         type: 'video',
-        platforms: ['instagram'],
+        platforms: [platform],
         title: caption || ' ',
         description: caption,
         media_url: mediaUrl,
         scheduled_date: effectiveScheduledIso,
-        ig_post_type: 'reels',
+        ...(isTikTok ? {} : { ig_post_type: 'reels' }),
       });
 
-      // Optionally also share to Instagram Story (separate upload required by Upload-Post)
-      if (alsoStory) {
+      // Optionally also share to Instagram Story (IG only)
+      if (!isTikTok && alsoStory) {
         try {
           await smmApi.createPost({
             user: profile,
@@ -296,7 +298,7 @@ export default function ReelsUpload() {
 
       setProgress(100);
       setDone({ scheduled: !!effectiveScheduledIso });
-      toast.success(effectiveScheduledIso ? 'Reel scheduled' : 'Reel uploading to Instagram');
+      toast.success(effectiveScheduledIso ? `${contentLabel} scheduled` : `${contentLabel} uploading to ${platformLabel}`);
       // Reset
       setFile(null);
       setCaption('');
