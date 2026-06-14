@@ -221,8 +221,8 @@ export default function InstagramProfiles() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     {!isActive && (
-                      <Button variant="outline" size="sm" onClick={() => selectProfile(p.username)}>
-                        Use
+                      <Button variant="outline" size="sm" className="gap-1" onClick={() => selectProfile(p.username)}>
+                        <Star className="h-3.5 w-3.5" /> Set as Default
                       </Button>
                     )}
                     <Button
