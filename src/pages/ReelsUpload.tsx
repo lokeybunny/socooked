@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Calendar as CalendarIcon, Loader2, CheckCircle2, Instagram, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Upload, Calendar as CalendarIcon, Loader2, CheckCircle2, Instagram, Music2, RefreshCw, X, Clock, Edit3, History, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,15 @@ import { supabase } from '@/integrations/supabase/client';
 import VideoPoster from '@/components/ui/VideoPoster';
 
 export default function ReelsUpload() {
+  const [searchParams] = useSearchParams();
+  const platform = (searchParams.get('platform') === 'tiktok' ? 'tiktok' : 'instagram') as 'instagram' | 'tiktok';
+  const isTikTok = platform === 'tiktok';
+  const platformLabel = isTikTok ? 'TikTok' : 'Instagram';
+  const contentLabel = isTikTok ? 'Video' : 'Reel';
+  const activeProfileKey = isTikTok ? 'tiktok.activeProfile' : 'reels.activeProfile';
+  const PlatformIcon = isTikTok ? Music2 : Instagram;
+  const iconColorClass = isTikTok ? 'text-foreground' : 'text-pink-500';
+
   const [profiles, setProfiles] = useState<SMMProfile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [profile, setProfile] = useState('');
