@@ -278,6 +278,26 @@ export default function ReelsUpload() {
         ...(isTikTok ? {} : { ig_post_type: 'reels' }),
       });
 
+      // Cross-post to the OTHER platform (IG <-> TikTok) in a separate upload
+      if (crossPost) {
+        const otherPlatform = isTikTok ? 'instagram' : 'tiktok';
+        try {
+          await smmApi.createPost({
+            user: profile,
+            type: 'video',
+            platforms: [otherPlatform],
+            title: caption || ' ',
+            description: caption,
+            media_url: mediaUrl,
+            scheduled_date: effectiveScheduledIso,
+            ...(otherPlatform === 'instagram' ? { ig_post_type: 'reels' } : {}),
+          });
+        } catch (crossErr: any) {
+          console.error('[ReelsUpload] cross-post failed:', crossErr);
+          toast.error(`${platformLabel} sent, but ${otherPlatform} failed: ${crossErr?.message || 'unknown error'}`);
+        }
+      }
+
       // Optionally also share to Instagram Story (IG only)
       if (!isTikTok && alsoStory) {
         try {
