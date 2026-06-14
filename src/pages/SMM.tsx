@@ -26,7 +26,7 @@ const SMMHistory = lazy(() => import('@/components/smm/SMMHistory'));
 const SMMStatus = lazy(() => import('@/components/smm/SMMStatus'));
 const SMMQueue = lazy(() => import('@/components/smm/SMMQueue'));
 const SMMAnalytics = lazy(() => import('@/components/smm/SMMAnalytics'));
-const SMMInstagram = lazy(() => import('@/components/smm/SMMInstagram'));
+const SMMSocialInbox = lazy(() => import('@/components/smm/SMMSocialInbox'));
 const SMMTerminal = lazy(() => import('@/components/smm/SMMTerminal'));
 const SMMSchedule = lazy(() => import('@/components/smm/SMMSchedule'));
 const ArtistCampaignModal = lazy(() => import('@/components/smm/ArtistCampaignModal'));
