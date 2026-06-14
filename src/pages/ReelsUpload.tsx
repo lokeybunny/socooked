@@ -45,6 +45,7 @@ export default function ReelsUpload() {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<null | { scheduled: boolean }>(null);
   const [alsoStory, setAlsoStory] = useState(true);
+  const [crossPost, setCrossPost] = useState(false);
   const [allPosts, setAllPosts] = useState<ScheduledPost[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -277,6 +278,26 @@ export default function ReelsUpload() {
         ...(isTikTok ? {} : { ig_post_type: 'reels' }),
       });
 
+      // Cross-post to the OTHER platform (IG <-> TikTok) in a separate upload
+      if (crossPost) {
+        const otherPlatform = isTikTok ? 'instagram' : 'tiktok';
+        try {
+          await smmApi.createPost({
+            user: profile,
+            type: 'video',
+            platforms: [otherPlatform],
+            title: caption || ' ',
+            description: caption,
+            media_url: mediaUrl,
+            scheduled_date: effectiveScheduledIso,
+            ...(otherPlatform === 'instagram' ? { ig_post_type: 'reels' } : {}),
+          });
+        } catch (crossErr: any) {
+          console.error('[ReelsUpload] cross-post failed:', crossErr);
+          toast.error(`${platformLabel} sent, but ${otherPlatform} failed: ${crossErr?.message || 'unknown error'}`);
+        }
+      }
+
       // Optionally also share to Instagram Story (IG only)
       if (!isTikTok && alsoStory) {
         try {
@@ -459,6 +480,41 @@ export default function ReelsUpload() {
               </button>
             )}
           </div>
+
+          {(() => {
+            const otherPlatform = isTikTok ? 'instagram' : 'tiktok';
+            const otherLabel = isTikTok ? 'Instagram' : 'TikTok';
+            const OtherIcon = isTikTok ? Instagram : Music2;
+            const otherColor = isTikTok ? 'text-pink-500' : 'text-foreground';
+            const activeProfileObj = profiles.find(p => p.username === profile);
+            const otherConnected = !!activeProfileObj?.connected_platforms?.some(
+              cp => cp.platform === otherPlatform && cp.connected,
+            );
+            return (
+              <label className={cn(
+                'flex items-start gap-3 p-3 rounded-lg border bg-card/40 transition-colors',
+                otherConnected ? 'border-border cursor-pointer hover:border-primary/40' : 'border-border/50 opacity-60 cursor-not-allowed',
+              )}>
+                <Checkbox
+                  checked={crossPost && otherConnected}
+                  onCheckedChange={(v) => setCrossPost(!!v)}
+                  disabled={uploading || !otherConnected}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium flex items-center gap-2">
+                    <OtherIcon className={`h-4 w-4 ${otherColor}`} />
+                    Also cross-post to {otherLabel}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {otherConnected
+                      ? `Posts the same video to ${otherLabel} for @${profile} in a separate upload.`
+                      : `Connect ${otherLabel} to @${profile || 'this profile'} to enable cross-posting.`}
+                  </p>
+                </div>
+              </label>
+            );
+          })()}
 
           {!isTikTok && (
             <label className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card/40 cursor-pointer hover:border-primary/40 transition-colors">
