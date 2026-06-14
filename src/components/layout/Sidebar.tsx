@@ -71,7 +71,7 @@ const navEntries: NavEntry[] = [
     children: [
       { to: '/ai-gen', icon: Film, label: 'Studio', highlight: true },
       { to: '/autor', icon: Video, label: 'AutoR', green: true },
-      { to: '/dashboard/reels', icon: Share2, label: 'SM', green: true },
+      { to: '/dashboard/sm', icon: Share2, label: 'SM', green: true },
       { to: '/dashboard/ig-dm', icon: MessageSquare, label: 'IG DM', green: true },
       { to: '/xitbot-admin', icon: Key, label: 'TOKEN', green: true, warrenOnly: true },
     ],
