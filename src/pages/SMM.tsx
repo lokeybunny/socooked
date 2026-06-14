@@ -44,6 +44,7 @@ const TABS = [
   { value: 'queue', label: 'Queue', icon: ListOrdered },
   { value: 'analytics', label: 'Analytics', icon: BarChart3 },
   { value: 'instagram', label: 'IG Inbox', icon: MessageSquare },
+  { value: 'tiktok', label: 'TikTok Inbox', icon: MessageSquare },
 ];
 
 const UNREAD_COUNTS: Record<string, number> = {};
@@ -284,7 +285,8 @@ function SMMInner() {
                 <TabsContent value="status"><SMMStatus /></TabsContent>
                 <TabsContent value="queue"><SMMQueue profiles={profiles} posts={filtered} /></TabsContent>
                 <TabsContent value="analytics"><SMMAnalytics profiles={profiles} /></TabsContent>
-                <TabsContent value="instagram"><SMMInstagram /></TabsContent>
+                <TabsContent value="instagram"><SMMSocialInbox platform="instagram" /></TabsContent>
+                <TabsContent value="tiktok"><SMMSocialInbox platform="tiktok" /></TabsContent>
               </Suspense>
             </Tabs>
           </div>
