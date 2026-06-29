@@ -98,6 +98,38 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
             Warren Guru Bundler
           </Link>
           <p className="text-[10px] text-muted-foreground mt-0.5">Documentation</p>
+          <a
+            href="https://froglabs.io/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-2"
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: '#0b0b0f',
+              border: '1px solid #2a2a35',
+              color: '#e7e7ea',
+              fontFamily: "'Saira', system-ui, -apple-system, sans-serif",
+              fontSize: '13px',
+              fontWeight: 600,
+              lineHeight: 1,
+              textDecoration: 'none',
+            }}
+          >
+            <span>
+              Powered by{' '}
+              <span
+                style={{
+                  background: 'linear-gradient(90deg, #8b5cf6, #10b981)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  color: 'transparent',
+                }}
+              >
+                FrogLabs
+              </span>
+            </span>
+          </a>
         </div>
 
         <nav className="p-4 space-y-5">
