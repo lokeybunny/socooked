@@ -223,7 +223,7 @@ function buildPowerDialTransferTool(humanTransferPhone: string) {
       },
     ],
     messages: [
-      { type: "request-start", content: "" },
+      { type: "request-start", content: POWERDIAL_AI_ASSIST_FIRST_MESSAGE, blocking: true },
       {
         type: "request-failed",
         content: "I couldn't reach him right now, but he'll follow up with you shortly.",
@@ -236,7 +236,7 @@ function buildPowerDialTransferTool(humanTransferPhone: string) {
 function mergePowerDialAssistantModel(existingModel: any, humanTransferPhone: string) {
   if (!existingModel || typeof existingModel !== "object") return undefined;
 
-  const systemContent = `${POWERDIAL_AI_ASSIST_SYSTEM_MARKER}\nPowerDial-only behavior: wait for the lead to say hello or speak first. Then say exactly: "${POWERDIAL_AI_ASSIST_FIRST_MESSAGE}" After that line, immediately call the transfer_to_boss tool. Do not ask for first name, last name, verification, reason for calling, or permission. Do not mention recording a name. Keep this handoff path separate from regular inbound phone calls.`;
+  const systemContent = `${POWERDIAL_AI_ASSIST_SYSTEM_MARKER}\nPowerDial-only behavior: wait for the lead to say hello or speak first. As soon as the lead speaks, call the transfer_to_boss tool right away. Do NOT say anything yourself first — the tool automatically speaks the handoff line "${POWERDIAL_AI_ASSIST_FIRST_MESSAGE}" before transferring. Do not ask for first name, last name, verification, reason for calling, or permission. Do not mention recording a name. Keep this handoff path separate from regular inbound phone calls.`;
   const messages = Array.isArray(existingModel.messages) ? existingModel.messages : [];
   // PowerDial mode takes over the assistant entirely: drop ALL prior system
   // messages (they may contain old call-screening instructions like "record
