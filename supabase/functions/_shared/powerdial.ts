@@ -238,8 +238,11 @@ function mergePowerDialAssistantModel(existingModel: any, humanTransferPhone: st
 
   const systemContent = `${POWERDIAL_AI_ASSIST_SYSTEM_MARKER}\nPowerDial-only behavior: wait for the lead to say hello or speak first. Then say exactly: "${POWERDIAL_AI_ASSIST_FIRST_MESSAGE}" After that line, immediately call the transfer_to_boss tool. Do not ask for first name, last name, verification, reason for calling, or permission. Do not mention recording a name. Keep this handoff path separate from regular inbound phone calls.`;
   const messages = Array.isArray(existingModel.messages) ? existingModel.messages : [];
+  // PowerDial mode takes over the assistant entirely: drop ALL prior system
+  // messages (they may contain old call-screening instructions like "record
+  // your name and reason for calling") and keep only the PowerDial prompt.
   const nextMessages = [
-    ...messages.filter((message: any) => !String(message?.content || "").includes(POWERDIAL_AI_ASSIST_SYSTEM_MARKER)),
+    ...messages.filter((message: any) => message?.role !== "system"),
     { role: "system", content: systemContent },
   ];
 
